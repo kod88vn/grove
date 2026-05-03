@@ -8,6 +8,18 @@
 
 Nora is the Grove family's AI-powered house steward — a Next.js 15 chatbot that streams answers from a local Ollama LLM. She can search the web, read specific pages, and call time-related tools — all orchestrated on the server so the browser only deals with a simple Server-Sent Events (SSE) stream.
 
+### System Architecture
+
+```mermaid
+flowchart LR
+    Browser -->|POST /api/chat SSE| Nora["nora\n(Next.js)"]
+    Nora -->|HTTP| Ollama["Ollama\nhttp://ai:11434"]
+    Nora -->|search| DDG["DuckDuckGo"]
+    Nora -->|fetch| Web["Web pages"]
+    Tailscale -->|MagicDNS http://grove| Watt["Platformatic Watt\n:80"]
+    Watt --> Nora
+```
+
 ---
 
 ## 2. Module Map
@@ -46,6 +58,41 @@ components/
 | `ollama.js` | HTTP transport to Ollama; rolling-window history compression |
 | `web.js` | Fetch data from the internet: search, read, fallback query generation |
 | `chatStream.js` | Orchestrate tool-planning loop + final streaming answer |
+
+### Module Dependency Graph
+
+> Auto-generated from source with `yarn arch`. Re-run after adding modules.
+
+```mermaid
+flowchart LR
+
+subgraph lib["app/api/chat/lib"]
+  chatStream.js
+  constants.js
+  logger.js
+  ollama.js
+  prompt.js
+  research.js
+  web.js
+  toolCalls.js
+  tools.js
+end
+
+chatStream.js --> constants.js
+chatStream.js --> logger.js
+chatStream.js --> ollama.js
+chatStream.js --> prompt.js
+chatStream.js --> research.js
+chatStream.js --> toolCalls.js
+chatStream.js --> tools.js
+chatStream.js --> web.js
+logger.js --> fs
+logger.js --> path
+ollama.js --> constants.js
+research.js --> logger.js
+research.js --> ollama.js
+research.js --> web.js
+```
 
 ---
 
