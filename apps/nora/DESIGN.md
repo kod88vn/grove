@@ -115,6 +115,7 @@ Browser
             ├─ planTools() loop (up to 3 passes)
             │    ├─ callOllama(stream: false, think: false, num_predict: 512, tools: [...])
             │    ├─ toolCalls.extractToolCalls()
+            │    ├─ if no tool call + factual event/figure claim: force web_search verification
             │    └─ for each call:
             │         ├─ get_current_time → Date/Time payload
             │         ├─ web_search      → web.webSearch()
@@ -126,6 +127,11 @@ Browser
             │
             ├─ emit { sources: [...] }
             │
+              ├─ verification phase
+              │    ├─ buildVerificationReport(userMessage, sourceUrls)
+              │    ├─ emit { verification: { required, status, sourceCount, guidance } }
+              │    └─ if status=weak|unverified: emit guarded refusal and stop
+              │
             └─ streamFinalAnswer()
                  ├─ callOllama(stream: true)
                  ├─ emit { thinking } tokens
@@ -148,6 +154,7 @@ All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream
 | Researching indicator | `{ "researching": true, "topic": "..." }` | When deep_research tool starts |
 | Researching done | `{ "researching": false }` | When deep_research finishes |
 | Sources | `{ "sources": ["https://...", ...] }` | Once, after all tool calls finish |
+| Verification report | `{ "verification": { "required": bool, "status": "not_required\|verified\|weak\|unverified", "sourceCount": N, "guidance": "..." } }` | After tool execution, before final answer |
 | Thinking token | `{ "thinking": "..." }` | Zero or more; during model reasoning phase |
 | Thinking done | `{ "thinkingDone": true }` | Once, when content begins |
 | Word token | `{ "word": "..." }` | One per content chunk from Ollama |
@@ -199,6 +206,8 @@ The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DE
 | Webpage blocked (e.g. 503) | `readWebpage` sets `error` field; chatStream runs `buildFallbackWebQuery` → `webSearch` |
 | Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
 | deep_research angle fails | Angle skipped silently; remaining angles still synthesized |
+| Model skips tools on event/figure factual claim | Server forces verification web_search before final answer |
+| Verification required but corroboration < 2 sources | Server emits guarded "cannot verify confidently" answer and does not stream a definitive claim |
 
 ---
 

@@ -49,10 +49,11 @@ export default function ChatPage() {
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return
 
-    const userMsg = { role: 'user', content: input }
+    const now = new Date().toISOString()
+    const userMsg = { role: 'user', content: input, timestamp: now }
     const history = [...messages, userMsg]
 
-    setMessages([...history, { role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking…' }])
+    setMessages([...history, { role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking…', sources: [], verification: null, timestamp: now }])
     setInput('')
     setIsStreaming(true)
 
@@ -109,6 +110,16 @@ export default function ChatPage() {
                 const last = prev[prev.length - 1]
                 return [...prev.slice(0, -1), { ...last, researching: parsed.researching, researchTopic: parsed.researching ? (parsed.topic ?? last.researchTopic) : last.researchTopic }]
               })
+            } else if (Array.isArray(parsed.sources)) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                return [...prev.slice(0, -1), { ...last, sources: parsed.sources }]
+              })
+            } else if (parsed.verification && typeof parsed.verification === 'object') {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                return [...prev.slice(0, -1), { ...last, verification: parsed.verification }]
+              })
             } else if (parsed.thinkingDone) {
               setMessages((prev) => {
                 const last = prev[prev.length - 1]
@@ -130,12 +141,14 @@ export default function ChatPage() {
     } catch (err) {
       setMessages((prev) => {
         const next = [...prev]
+        const existing = next[next.length - 1]
         next[next.length - 1] = {
           role: 'assistant',
           content: `Error: ${err.message}`,
           thinking: '',
           thinkingVisible: false,
           searching: false,
+          timestamp: existing?.timestamp || new Date().toISOString(),
         }
         return next
       })
@@ -200,6 +213,9 @@ export default function ChatPage() {
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
+                        sources={msg.sources}
+                        verification={msg.verification}
+                        timestamp={msg.timestamp}
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
@@ -210,6 +226,9 @@ export default function ChatPage() {
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
+                        sources={msg.sources}
+                        verification={msg.verification}
+                        timestamp={msg.timestamp}
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
@@ -219,6 +238,9 @@ export default function ChatPage() {
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
+                        sources={msg.sources}
+                        verification={msg.verification}
+                        timestamp={msg.timestamp}
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={false}

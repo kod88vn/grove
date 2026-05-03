@@ -22,11 +22,12 @@ export function useChat() {
     async (content) => {
       if (!content.trim() || isStreaming) return
 
-      const userMessage = { role: 'user', content }
+      const now = new Date().toISOString()
+      const userMessage = { role: 'user', content, timestamp: now }
       const newMessages = [...messages, userMessage]
 
       messagesRef.current = newMessages
-      setMessages([...newMessages, { role: 'assistant', content: '' }])
+      setMessages([...newMessages, { role: 'assistant', content: '', timestamp: now }])
       setIsStreaming(true)
 
       try {
@@ -85,9 +86,11 @@ export function useChat() {
       } catch (error) {
         setMessages((prev) => {
           const updated = [...prev]
+          const existing = updated[updated.length - 1]
           updated[updated.length - 1] = {
             role: 'assistant',
             content: `Error: ${error.message}`,
+            timestamp: existing?.timestamp || new Date().toISOString(),
           }
           return updated
         })

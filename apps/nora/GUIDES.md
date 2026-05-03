@@ -75,15 +75,30 @@ if (fn?.name === 'web_search') {
 
 The server runs the tool; the model only declares intent. After execution the result is appended as a `role: 'tool'` message. The loop repeats up to `MAX_TOOL_PLANNING_PASSES` times (default 3).
 
+Safety fallback in `planTools()`:
+- If the model returns no tool call for factual event/figure claims (e.g. deaths, elections, incidents, totals, percentages, rates), Nora forces a `web_search` verification pass before final answer streaming.
+- This reduces confident hallucinations for current-event and numeric-fact answers.
+- Nora expands verification with multiple corroboration queries (base query + latest news + Reuters + AP News) and targets at least 2 independent sources.
+
 ---
 
-### Step 5 — Stream final answer
+### Step 5 — Verify evidence
+
+Before final streaming, `chatStream` runs a verification phase:
+
+- `buildVerificationReport(userMessage, sourceUrls)` returns `not_required | verified | weak | unverified`
+- Emits `{ verification: {...} }` over SSE for observability
+- If status is `weak` or `unverified` for a claim that requires verification, Nora returns a guarded "cannot verify confidently" response instead of a definitive factual answer
+
+---
+
+### Step 6 — Stream final answer
 
 After all tool calls complete, `streamFinalAnswer()` runs a second `callOllama` with `stream: true` (no `tools`). Thinking tokens are emitted as `{ thinking }` events; content tokens as `{ word }` events.
 
 ---
 
-### Step 6 — Emit sources
+### Step 7 — Emit sources
 
 ```js
 if (sourceUrls.length > 0) emit({ sources: sourceUrls })
@@ -96,11 +111,14 @@ Emitted once after all tool calls, before the first word token.
 ### Full SSE sequence for a search query
 
 ```
-data: {"status":"Thinking\u2026"}
+data: {"status":"Planning\u2026"}
+data: {"status":"Executing tools\u2026"}
 data: {"searching":true,"query":"TSLA stock performance last year"}
 data: {"searching":false,"query":"TSLA stock performance last year","resultCount":4}
 data: {"status":"Reading finance.yahoo.com\u2026"}
 data: {"sources":["https://finance.yahoo.com/...", ...]}
+data: {"status":"Verifying evidence\u2026"}
+data: {"verification":{"required":true,"status":"verified","sourceCount":2,"guidance":"..."}}
 data: {"status":null}
 data: {"thinking":"Let me analyse..."}
 data: {"thinkingDone":true}
