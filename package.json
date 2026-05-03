@@ -1,0 +1,15 @@
+{
+  "name": "grove",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "yarn@1.17.3",
+  "workspaces": ["packages/*","apps/*"],
+  "scripts": {
+    "dev": "turbo run dev --filter=nora",
+    "build": "turbo run build",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^1.5.0"
+  }
+}

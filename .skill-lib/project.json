@@ -1,0 +1,18 @@
+{
+  "skills": [
+    "code-review",
+    "pr-description",
+    "web-research",
+    "context7-docs",
+    "playwright-ui-testing",
+    "repo-mcp-workflow",
+    "subagent-playwright-workflow"
+  ],
+  "mcpServers": [
+    "context7",
+    "playwright"
+  ],
+  "bundles": [
+    "coding-defaults"
+  ]
+}

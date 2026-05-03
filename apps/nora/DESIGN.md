@@ -1,0 +1,184 @@
+# Nora — Grove Ecosystem Chatbot Design Document
+
+> Living document. Update this file whenever a module boundary, event contract, or tool definition changes.
+
+---
+
+## 1. Overview
+
+Nora is the Grove family's AI-powered house steward — a Next.js 15 chatbot that streams answers from a local Ollama LLM. She can search the web, read specific pages, and call time-related tools — all orchestrated on the server so the browser only deals with a simple Server-Sent Events (SSE) stream.
+
+---
+
+## 2. Module Map
+
+```
+app/
+├── api/
+│   ├── chat/
+│   │   ├── route.js              ← HTTP POST handler (input validation only)
+│   │   └── lib/
+│   │       ├── constants.js      ← Shared config: model name, window sizes, SSE headers
+│   │       ├── tools.js          ← Tool definitions (JSON Schema sent to Ollama)
+│   │       ├── prompt.js         ← System prompt injection
+│   │       ├── toolCalls.js      ← Tool-call parsing (structured + XML fallback) & argument normalization
+│   │       ├── ollama.js         ← Ollama HTTP client + conversation history compression
+│   │       ├── web.js            ← Web search, webpage reader, HTML utilities, fallback query builder
+│   │       └── chatStream.js     ← Tool-planning loop, streaming orchestration
+│   └── models/
+│       └── route.js              ← Proxies Ollama /api/tags; returns ordered model list
+├── page.js                       ← Chat UI; fetches /api/models and /api/chat
+components/
+├── ChatMessage.js
+├── ChatInput.js
+└── TypingIndicator.js
+```
+
+### Module responsibilities (one per module)
+
+| Module | Responsibility |
+|--------|---------------|
+| `route.js` | Parse and validate HTTP request body; delegate to `chatStream` |
+| `constants.js` | All magic values and env-derived config in one place |
+| `tools.js` | Declare tool schemas; nothing else |
+| `prompt.js` | Compose the system prompt; inject it into message history |
+| `toolCalls.js` | Extract and normalize tool calls from any model output format |
+| `ollama.js` | HTTP transport to Ollama; rolling-window history compression |
+| `web.js` | Fetch data from the internet: search, read, fallback query generation |
+| `chatStream.js` | Orchestrate tool-planning loop + final streaming answer |
+
+---
+
+## 3. Request Lifecycle
+
+```
+Browser
+  │
+  ├─ POST /api/chat  { model, messages }
+  │
+  └─ route.js
+       │  validates input
+       └─ chatStream.streamResponse(model, messages)
+            │
+            ├─ ollama.compressHistory()       ← trim old turns if > 20 messages
+            ├─ prompt.withSystemMessage()     ← prepend system instructions
+            │
+            ├─ planTools() loop (up to 3 passes)
+            │    ├─ callOllama(stream: false, tools: [...])
+            │    ├─ toolCalls.extractToolCalls()
+            │    └─ for each call:
+            │         ├─ get_current_time → Date/Time payload
+            │         ├─ web_search      → web.webSearch()
+            │         └─ read_webpage   → web.readWebpage()
+            │                               └─ on error: web.webSearch(fallback query)
+            │
+            ├─ emit { sources: [...] }
+            │
+            ├─ SHORT-CIRCUIT: if planningResult has final answer → emit word + [DONE]
+            │
+            └─ streamFinalAnswer()
+                 ├─ callOllama(stream: true)
+                 ├─ emit { thinking } tokens
+                 ├─ emit { thinkingDone } on content start
+                 ├─ emit { word } tokens
+                 └─ emit [DONE]
+```
+
+---
+
+## 4. SSE Event Contract
+
+All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream.
+
+| Event | Shape | When emitted |
+|-------|-------|-------------|
+| Searching indicator | `{ "searching": true, "query": "..." }` | Before a web search or fallback fetch starts |
+| Search done | `{ "searching": false, "query": "...", "resultCount": N }` | After search completes |
+| Sources | `{ "sources": ["https://...", ...] }` | Once, after all tool calls finish |
+| Thinking token | `{ "thinking": "..." }` | Zero or more; during model reasoning phase |
+| Thinking done | `{ "thinkingDone": true }` | Once, when content begins (or on short-circuit) |
+| Word token | `{ "word": "..." }` | One per content chunk from Ollama |
+| Done | `[DONE]` (literal string) | Stream termination |
+| Error | `{ "word": "Error: ..." }` preceded by `{ "thinkingDone": true }` | On any server-side failure |
+
+---
+
+## 5. Tool Definitions
+
+Tools live in `lib/tools.js`. Each tool is a JSON Schema object Ollama reads to decide when to call it.
+
+| Tool | Trigger (examples) | Server action |
+|------|--------------------|---------------|
+| `get_current_time` | "What time is it?", "What's today's date?" | Returns ISO date/time string |
+| `web_search` | Current events, prices, software versions, who holds a role | DuckDuckGo instant → HTML fallback |
+| `read_webpage` | User gives a URL, asks to "read this page" | HTTP fetch + HTML text extraction → fallback search on error |
+
+### Adding a new tool
+
+1. Add JSON schema to `lib/tools.js` and include it in `TOOL_DEFINITIONS`.
+2. Add an `if (fn?.name === 'your_tool')` branch in `chatStream.executeToolCall`.
+3. Implement the tool logic in the appropriate module (new file if the concern is new).
+4. Update this document's tool table.
+
+---
+
+## 6. Model Configuration
+
+| Variable | Where | Default |
+|----------|-------|---------|
+| `DEFAULT_MODEL` | `lib/constants.js` via `process.env.DEFAULT_MODEL` | `qwen3.5:9b` |
+| `NEXT_PUBLIC_DEFAULT_MODEL` | `app/page.js` client-side initial state | `qwen3.5:9b` |
+| `ROLLING_WINDOW` | `lib/constants.js` | 20 messages before compression |
+| `RECENT_KEEP` | `lib/constants.js` | 10 messages kept verbatim after compression |
+| `MAX_TOOL_PLANNING_PASSES` | `lib/constants.js` | 3 |
+
+The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DEFAULT_MODEL` first in the list.
+
+---
+
+## 7. Failure Modes
+
+| Failure | Behaviour |
+|---------|-----------|
+| Ollama unreachable | SSE error event; UI shows error message |
+| Web search returns nothing | Empty results array passed to model; model falls back to training knowledge |
+| Webpage blocked (e.g. 503) | `readWebpage` sets `error` field; chatStream runs `buildFallbackWebQuery` → `webSearch` |
+| Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
+| Model returns thinking-only on second pass | Short-circuit: `plannedAnswer` from planning pass emitted directly |
+
+---
+
+## 8. Architecture Decisions
+
+See [`docs/adr/`](./docs/adr/) for individual decision records.
+
+| ID | Decision | Status |
+|----|----------|--------|
+| ADR-001 | Tool planning in non-streaming first pass | Accepted |
+| ADR-002 | Short-circuit when planning pass produces final answer | Accepted |
+| ADR-003 | XML tool-call parsing fallback for non-conforming models | Accepted |
+| ADR-004 | Webpage read failure falls back to web search | Accepted |
+| ADR-005 | Module split: one responsibility per file | Accepted |
+
+---
+
+## 9. Extension Points
+
+- **New tool**: see Section 5.
+- **New LLM backend**: replace `lib/ollama.js` `callOllama` and keep the same message protocol.
+- **New search provider**: replace `webSearch` / `duckDuckGoHtmlSearch` in `lib/web.js`.
+- **History compression strategy**: modify `compressHistory` in `lib/ollama.js`.
+- **UI event types**: add a new SSE shape to the contract table in Section 4 and handle it in `app/page.js`.
+
+---
+
+## 10. Doc Update Checklist
+
+When a code change touches any of the items below, update this document **in the same PR**:
+
+- [ ] New or removed tool → Section 5 tool table
+- [ ] New SSE event shape → Section 4 event contract
+- [ ] New or changed module → Section 2 module map and responsibilities table
+- [ ] New env variable or constant → Section 6
+- [ ] New failure mode or recovery path → Section 7
+- [ ] Architecture decision made → new ADR file + Section 8 table row

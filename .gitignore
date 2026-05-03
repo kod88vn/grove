@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+.next/
+.turbo/
+out/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/settings.json
+.idea/
+
+# scaffolded library (managed by create-turborepo, not versioned here)
+apps/ai-skill-library/

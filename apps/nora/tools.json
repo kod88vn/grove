@@ -1,0 +1,188 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "code-review",
+      "description": "Review code for correctness, security, style, and maintainability. Use when asked to review a PR, audit a file, check for bugs, or improve code quality. Covers any language.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Source code to review"
+          },
+          "language": {
+            "type": "string",
+            "description": "Programming language, e.g. typescript, python"
+          },
+          "focus": {
+            "type": "string",
+            "enum": [
+              "all",
+              "correctness",
+              "security",
+              "style",
+              "maintainability"
+            ],
+            "description": "Review focus area (default: all)"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "debugging",
+      "description": "Debug issues using BDD-style triage: reproduce the bug in a failing test first, then fix, then verify. Use when asked to fix a bug, investigate unexpected behavior, or diagnose a failing test.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the bug or unexpected behavior"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message or stack trace, if available"
+          },
+          "file": {
+            "type": "string",
+            "description": "File path(s) suspected to contain the bug"
+          }
+        },
+        "required": [
+          "description"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "pr-description",
+      "description": "Write a clear, well-structured pull request description from changed files and commits. Use when asked to write, draft, or improve a PR description, changelog entry, or commit message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "Git diff output (git diff main...HEAD)"
+          },
+          "commits": {
+            "type": "string",
+            "description": "Commit messages from the branch"
+          },
+          "title": {
+            "type": "string",
+            "description": "Draft or existing PR title"
+          },
+          "issue": {
+            "type": "string",
+            "description": "Linked issue or ticket description"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web-research",
+      "description": "Research topics on the web and summarize findings. Use when asked to look something up online, find documentation, compare libraries, check for latest versions, or gather context from external sources.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Topic or question to research"
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "quick",
+              "thorough"
+            ],
+            "description": "Research depth (default: quick)"
+          },
+          "sources": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Max number of sources to consult"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "context7-docs",
+      "description": "Use this skill when you need accurate, version-aware docs for frameworks, libraries, or tooling before changing code in this repository or in generated scaffolds.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Input for the skill"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "playwright-ui-testing",
+      "description": "Use this skill to verify browser-visible behavior in generated projects or MCP-enabled workflows with Playwright before and after a fix.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Input for the skill"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "repo-mcp-workflow",
+      "description": "Use this skill when the task benefits from the repository's MCP catalog, generated workspace MCP config, or MCP-aware scaffold/install workflow.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Input for the skill"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "subagent-playwright-workflow",
+      "description": "Use this skill when a task is large enough to benefit from subagent orchestration and Playwright-based UI verification without bloating main-context tokens.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Input for the skill"
+          }
+        }
+      }
+    }
+  }
+]
