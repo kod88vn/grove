@@ -75,6 +75,7 @@ async function duckDuckGoHtmlSearch(query) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'grove-nora/1.0' },
+      referrerPolicy: 'no-referrer',
     })
     if (!res.ok) return []
 
@@ -121,6 +122,7 @@ export async function webSearch(query) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'grove-nora/1.0' },
+      referrerPolicy: 'no-referrer',
     })
     if (!res.ok) return []
 
@@ -163,6 +165,7 @@ export async function readWebpage(url) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'grove-nora/1.0' },
+      referrerPolicy: 'no-referrer',
     })
     if (!res.ok) {
       return {

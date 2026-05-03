@@ -52,7 +52,7 @@ export default function ChatPage() {
     const userMsg = { role: 'user', content: input }
     const history = [...messages, userMsg]
 
-    setMessages([...history, { role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false }])
+    setMessages([...history, { role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking…' }])
     setInput('')
     setIsStreaming(true)
 
@@ -94,10 +94,20 @@ export default function ChatPage() {
                 const last = prev[prev.length - 1]
                 return [...prev.slice(0, -1), { ...last, thinking: last.thinking + parsed.thinking }]
               })
+            } else if ('status' in parsed) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                return [...prev.slice(0, -1), { ...last, status: parsed.status ?? '' }]
+              })
             } else if (typeof parsed.searching === 'boolean') {
               setMessages((prev) => {
                 const last = prev[prev.length - 1]
-                return [...prev.slice(0, -1), { ...last, searching: parsed.searching }]
+                return [...prev.slice(0, -1), { ...last, searching: parsed.searching, searchQuery: parsed.searching ? (parsed.query ?? last.searchQuery) : last.searchQuery }]
+              })
+            } else if (typeof parsed.researching === 'boolean') {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                return [...prev.slice(0, -1), { ...last, researching: parsed.researching, researchTopic: parsed.researching ? (parsed.topic ?? last.researchTopic) : last.researchTopic }]
               })
             } else if (parsed.thinkingDone) {
               setMessages((prev) => {
@@ -176,22 +186,42 @@ export default function ChatPage() {
                 const hasThinking = msg.thinking && msg.thinkingVisible
                 const hasContent = msg.content
                 const isAssistantLast = isLast && msg.role === 'assistant'
-                const isSearching = Boolean(msg.searching)
+                const isResearching = Boolean(msg.researching)
+                const statusLabel = msg.status || ''
 
-                const showTyping = isAssistantLast && !hasThinking && !hasContent && isStreaming
-                const showSearching = showTyping && isSearching
+                // Show status indicator whenever streaming and no content yet, or during research/search
+                const showStatusBar = isAssistantLast && isStreaming && !hasContent
+                const accent = isResearching ? 'green' : (msg.searching ? 'blue' : 'gray')
 
                 return (
                   <div key={i}>
-                    {showSearching && <TypingIndicator label="Searching web..." />}
-                    {showTyping && !showSearching && <TypingIndicator />}
-                    {!showTyping && (
+                    {showStatusBar && <TypingIndicator label={statusLabel} accent={accent} />}
+                    {!showStatusBar && hasThinking && (
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
+                        status={isStreaming && isLast ? statusLabel : ''}
+                      />
+                    )}
+                    {!showStatusBar && !hasThinking && hasContent && (
+                      <ChatMessage
+                        role={msg.role}
+                        content={msg.content}
+                        thinking={msg.thinking}
+                        thinkingVisible={msg.thinkingVisible}
+                        isStreaming={isStreaming && isLast}
+                      />
+                    )}
+                    {!showStatusBar && !hasThinking && !hasContent && !isAssistantLast && (
+                      <ChatMessage
+                        role={msg.role}
+                        content={msg.content}
+                        thinking={msg.thinking}
+                        thinkingVisible={msg.thinkingVisible}
+                        isStreaming={false}
                       />
                     )}
                   </div>

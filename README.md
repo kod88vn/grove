@@ -1,14 +1,14 @@
-# virtual-tutor
+# grove
 
-This project was scaffolded by `create-turborepo` from the [ai-skill-library](https://github.com/kod/my-recipes).
+Monorepo for the Grove family's AI tools and skill library, managed with Turborepo.
 
 ## Structure
 
 ```
-virtual-tutor/
+grove/
 ├── apps/
-│   ├── ai-skill-library/   # skill server (copied from source repo)
-│   └── virtual-tutor/         # consumer app
+│   ├── ai-skill-library/   # skill + MCP catalog with scaffold CLI
+│   └── nora/               # AI-powered house steward (Next.js 15)
 ├── .github/
 │   ├── copilot-instructions.md
 │   └── skills -> apps/ai-skill-library/skills
@@ -21,12 +21,25 @@ virtual-tutor/
 ## Getting started
 
 ```bash
-# start the skill server
-node apps/ai-skill-library/bin/skill-lib.js serve
+# install dependencies
+yarn install
 
-# in another terminal, start the consumer app
-npm --prefix apps/virtual-tutor run dev
+# start Nora (AI house steward) — requires Ollama at http://ai:11434
+yarn dev
+
+# start the skill library server
+node apps/ai-skill-library/bin/skill-lib.js serve
 ```
+
+## Apps
+
+### Nora
+
+AI-powered house steward built with Next.js 15, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+
+### AI Skill Library
+
+Skill + MCP catalog with a scaffold CLI for creating ready-to-use coding workspaces. See [apps/ai-skill-library/README.md](apps/ai-skill-library/README.md).
 
 ## MCP servers
 

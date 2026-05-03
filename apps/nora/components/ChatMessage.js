@@ -1,6 +1,6 @@
 'use client'
 
-export function ChatMessage({ role, content, thinking, thinkingVisible, isStreaming }) {
+export function ChatMessage({ role, content, thinking, thinkingVisible, isStreaming, status }) {
   const isUser = role === 'user'
   const sources = !isUser ? extractSources(content) : []
 
@@ -16,6 +16,9 @@ export function ChatMessage({ role, content, thinking, thinkingVisible, isStream
                 <span className="inline-block w-0.5 h-4 ml-1 bg-purple-600 animate-pulse align-text-bottom" />
               )}
             </p>
+            {status && (
+              <p className="text-xs mt-1 text-purple-600 opacity-80">{status}</p>
+            )}
           </div>
         </div>
       )}

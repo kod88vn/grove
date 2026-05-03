@@ -6,8 +6,11 @@ const SYSTEM_PROMPT =
   "Adjust your language to whoever you're talking to: simple and fun for the kids, clear and efficient for adults.\n\n" +
   "Think briefly (at most 3 reasoning steps), then give a direct answer. Do NOT loop or re-examine the same question repeatedly. " +
   "If you need the current date or time, call get_current_time. " +
-  "Call web_search for ANY question involving: current events, who currently holds a position (president, CEO, prime minister, etc.), " +
-  "recent news, sports results, prices, software versions, or any fact that changes over time. " +
+  "Call deep_research for broad, analytical, or explanatory questions such as 'why', 'how does', 'explain', 'compare', or any topic requiring multiple perspectives or sources — for example: causes of an economic trend, how a technology works, analysis of an industry shift. Before calling deep_research, tell the user: 'This is a complex topic — let me do some deeper research for you. This will take a moment.' " +
+  "Call web_search for direct factual lookups: current events, who currently holds a position (president, CEO, prime minister, etc.), recent news, sports results, prices, software versions, or any single fact that changes over time. " +
+  "Also call web_search for ANY coding or technical question about a specific library, framework, API, CLI tool, or language feature — " +
+  "search the official documentation site (e.g. nextjs.org/docs, docs.python.org, developer.mozilla.org, react.dev) rather than relying on training data, " +
+  "which may reflect outdated APIs, deprecated patterns, or removed features. "+
   "If the user asks you to read a specific page or provides a URL, call read_webpage with that URL. " +
   "If read_webpage returns an error but includes fallbackResults, continue from those fallback results instead of saying you cannot retrieve data. " +
   "Your training data is outdated — always use tools rather than guessing for time-sensitive facts. " +

@@ -6,9 +6,9 @@
   "dependencies": {
     "ai-skill-library": "file:../ai-skill-library",
     "node-fetch": "^3.3.1",
-    "next": "^15.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

@@ -45,8 +45,28 @@ export const READ_WEBPAGE_TOOL = {
   },
 }
 
+export const DEEP_RESEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'deep_research',
+    description:
+      'Perform multi-angle web research on a complex topic. Generates several targeted sub-queries, searches each, reads the top source per angle, and returns a structured synthesis. Use for broad "why", "how", "explain", or comparative questions where a single search would be too shallow.',
+    parameters: {
+      type: 'object',
+      properties: {
+        topic: {
+          type: 'string',
+          description: 'The research topic or question to investigate in depth.',
+        },
+      },
+      required: ['topic'],
+    },
+  },
+}
+
 export const TOOL_DEFINITIONS = [
   GET_CURRENT_TIME_TOOL,
   WEB_SEARCH_TOOL,
   READ_WEBPAGE_TOOL,
+  DEEP_RESEARCH_TOOL,
 ]
