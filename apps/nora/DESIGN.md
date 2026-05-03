@@ -42,8 +42,7 @@ app/
 ├── page.js                       ← Chat UI; fetches /api/models and /api/chat
 components/
 ├── ChatMessage.js
-├── ChatInput.js
-└── TypingIndicator.js
+└── ChatInput.js
 ```
 
 ### Module responsibilities (one per module)
@@ -53,7 +52,7 @@ components/
 | `route.js` | Parse and validate HTTP request body; delegate to `chatStream` |
 | `constants.js` | All magic values and env-derived config in one place |
 | `tools.js` | Declare tool schemas; nothing else |
-| `prompt.js` | Compose the system prompt; inject it into message history |
+| `prompt.js` | Compose the system prompt; inject it into message history, including clock context for search freshness (not as factual evidence) |
 | `toolCalls.js` | Extract and normalize tool calls from any model output format |
 | `ollama.js` | HTTP transport to Ollama; rolling-window history compression |
 | `web.js` | Fetch data from the internet: search, read, fallback query generation |
@@ -131,11 +130,13 @@ Browser
             │
               ├─ verification phase
               │    ├─ buildVerificationReport(userMessage, sourceUrls)
-              │    ├─ emit { verification: { required, status, sourceCount, reliableSourceCount, highConfidenceSourceCount, guidance } }
-              │    └─ if status=weak|unverified: emit guarded refusal and stop
+              │    ├─ if status=weak|low_confidence|unverified: run deep_research
+              │    ├─ if still weak for sensitive person-status claims: run trusted-outlet searches + read trusted page
+              │    ├─ emit { verification: { required, status, sourceCount, reliableSourceCount, highConfidenceSourceCount, trustedSourceCount, guidance } }
+              │    └─ if still weak|unverified after escalation: emit guarded refusal and stop
               │
             └─ streamFinalAnswer()
-                 ├─ callOllama(stream: true)
+                ├─ callOllama(stream: true, think: false)
                  ├─ emit { thinking } tokens
                  ├─ emit { thinkingDone } on content start
                  ├─ emit { word } tokens
@@ -156,12 +157,14 @@ All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream
 | Researching indicator | `{ "researching": true, "topic": "..." }` | When deep_research tool starts |
 | Researching done | `{ "researching": false }` | When deep_research finishes |
 | Sources | `{ "sources": ["https://...", ...] }` | Once, after all tool calls finish |
-| Verification report | `{ "verification": { "required": bool, "status": "not_required\|verified\|low_confidence\|weak\|unverified", "sourceCount": N, "reliableSourceCount": N, "highConfidenceSourceCount": N, "guidance": "..." } }` | After tool execution, before final answer |
+| Verification report | `{ "verification": { "required": bool, "status": "not_required\|verified\|low_confidence\|weak\|unverified", "sourceCount": N, "reliableSourceCount": N, "highConfidenceSourceCount": N, "trustedSourceCount": N, "guidance": "..." } }` | After tool execution, before final answer |
 | Thinking token | `{ "thinking": "..." }` | Zero or more; during model reasoning phase |
 | Thinking done | `{ "thinkingDone": true }` | Once, when content begins |
 | Word token | `{ "word": "..." }` | One per content chunk from Ollama |
 | Done | `[DONE]` (literal string) | Stream termination |
 | Error | `{ "word": "Error: ..." }` preceded by `{ "thinkingDone": true }` | On any server-side failure |
+
+UI note: the active assistant message keeps a separate thinking bubble visible while streaming and no answer content exists yet. `{ status: "..." }` updates are rendered in that bubble until `{ word: "..." }` tokens begin. The thinking text is displayed in a 3-line scrollable viewport with smooth auto-follow to the latest line unless the user scrolls up.
 
 ---
 
@@ -209,6 +212,8 @@ The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DE
 | Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
 | deep_research angle fails | Angle skipped silently; remaining angles still synthesized |
 | Model skips tools on event/figure/current-role factual claim | Server forces verification web_search before final answer |
+| Sensitive person-status claim (alive/dead/assassinated) only has untrusted outlets | Server keeps searching with trusted-outlet queries and reads a trusted page before deciding; only then may it refuse definitive claims |
+| Reasoning-capable model leaks internal chain-of-thought text in final answer | Final streaming pass explicitly sets `think: false` so chat output stays user-facing |
 | Only low-confidence source found for current-role question | Server reads the page for primary evidence, marks verification `low_confidence`, and continues verification work rather than trusting the model |
 | Verification required but evidence remains low-confidence, weak, or unverified | Server emits guarded "cannot verify confidently" answer and does not stream a definitive claim |
 

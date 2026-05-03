@@ -349,6 +349,75 @@ data: [DONE]
 })
 
 describe('Chat Integration - current title verification', () => {
+  it('disables reasoning mode for the final streaming answer to avoid leaking chain-of-thought text', async () => {
+    const ollamaRequests = []
+
+    global.fetch = jest.fn(async (url, options = {}) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        const body = options?.body ? JSON.parse(options.body) : {}
+        ollamaRequests.push(body)
+
+        // Planning pass: no tool calls, no content.
+        if (body?.stream === false) {
+          return {
+            ok: true,
+            async json() {
+              return { message: { role: 'assistant', content: '', tool_calls: [] } }
+            },
+          }
+        }
+
+        // Final streaming pass: return a plain answer payload.
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [
+            encoder.encode('{"message":{"role":"assistant","content":"React stable is 19.2.0."},"done":true}\n'),
+          ],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://react.dev/blog',
+              Heading: 'React blog',
+              AbstractText: 'Latest React releases.',
+              RelatedTopics: [],
+            }
+          },
+          async text() { return '' },
+        }
+      }
+
+      if (urlValue === 'https://react.dev/blog') {
+        return {
+          ok: true,
+          async text() {
+            return '<html><head><title>React Blog</title></head><body>Latest stable release: 19.2.0.</body></html>'
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.6:27b', [
+      { role: 'user', content: 'what is the latest version of react?' },
+    ])
+
+    const text = await response.text()
+
+    expect(text).toContain('React stable is 19.2.0.')
+    const finalRequest = ollamaRequests.findLast((payload) => payload?.stream === true)
+    expect(finalRequest).toBeDefined()
+    expect(finalRequest.options?.think).toBe(false)
+  })
+
   it('answers a basic current-president question when an official source is available through site-filtered search', async () => {
     let ollamaCallCount = 0
 
@@ -703,6 +772,106 @@ describe('Chat Integration - current title verification', () => {
     expect(text).not.toContain('I can’t confidently verify this claim yet')
   })
 
+
+  it('continues searching trusted outlets instead of stopping when initial evidence is weak', async () => {
+    let streamCallCount = 0
+    let trustedReadRequested = false
+
+    global.fetch = jest.fn(async (url, options = {}) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        const body = options?.body ? JSON.parse(options.body) : {}
+
+        // Planning/verification passes: no tool calls from model side.
+        if (body?.stream === false) {
+          return {
+            ok: true,
+            async json() {
+              return { message: { role: 'assistant', content: '', tool_calls: [] } }
+            },
+          }
+        }
+
+        // Final streaming answer after verification succeeds.
+        streamCallCount += 1
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [
+            encoder.encode('{"message":{"role":"assistant","content":"I found a trusted report confirming the latest verified details."},"done":true}\n'),
+          ],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/')) {
+        const query = decodeURIComponent(urlValue.split('?q=')[1].split('&')[0])
+
+        // Trusted-outlet escalation should include explicit site filter.
+        if (query.includes('site:reuters.com')) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                AbstractURL: 'https://www.reuters.com/world/us/example-story/',
+                Heading: 'Reuters report',
+                AbstractText: 'Trusted coverage from Reuters.',
+                RelatedTopics: [],
+              }
+            },
+          }
+        }
+
+        // Initial searches return weak/untrusted coverage only.
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://www.timesnownews.com/world/us-news/example-article',
+              Heading: 'Untrusted outlet result',
+              AbstractText: 'Weak corroboration.',
+              RelatedTopics: [
+                { FirstURL: 'https://en.wikipedia.org/wiki/Assassination_of_Charlie_Kirk', Text: 'Wikipedia page.' },
+              ],
+            }
+          },
+        }
+      }
+
+      if (urlValue.startsWith('https://html.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async text() {
+            return ''
+          },
+        }
+      }
+
+      if (urlValue === 'https://www.reuters.com/world/us/example-story/') {
+        trustedReadRequested = true
+        return {
+          ok: true,
+          async text() {
+            return '<html><head><title>Reuters story</title></head><body>Confirmed details from Reuters reporting.</body></html>'
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'what happened to charlie kirk?' },
+    ])
+
+    const text = await response.text()
+
+    expect(streamCallCount).toBeGreaterThanOrEqual(1)
+    expect(trustedReadRequested).toBe(true)
+    expect(text).toContain('Still verifying — searching trusted outlets…')
+    expect(text).toContain('https://www.reuters.com/world/us/example-story/')
+    expect(text).not.toContain('I can’t confidently verify this claim yet')
+  })
 
   it('reads the top source page for exact-version questions instead of guessing from training data', async () => {
     let ollamaCallCount = 0

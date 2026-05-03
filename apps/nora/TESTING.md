@@ -58,8 +58,8 @@ This will:
 
 ### ❌ Status events not showing in UI
 - Check: `{ status }` events are emitted from `emit()` in chatStream.js
-- Check: `useChat.js` handles `evt.status` and updates `statusMessage` state
-- Check: `TypingIndicator` component receives and renders `statusMessage`
+- Check: `app/page.js` handles `{ status }` events and updates the active assistant message state
+- Check: `ChatMessage` renders `status` in the thinking bubble while streaming
 
 ## Debugging Steps
 

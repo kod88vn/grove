@@ -44,6 +44,23 @@ const LOW_CONFIDENCE_HOSTS = [
   'youtube.com',
 ]
 
+const TRUSTED_NEWS_HOSTS = [
+  'reuters.com',
+  'apnews.com',
+  'bbc.com',
+  'npr.org',
+  'nytimes.com',
+  'washingtonpost.com',
+  'wsj.com',
+  'bloomberg.com',
+  'cnn.com',
+  'cbsnews.com',
+  'nbcnews.com',
+  'abcnews.go.com',
+  'theguardian.com',
+  'usatoday.com',
+]
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -109,12 +126,58 @@ function isHighConfidenceSource(url) {
   return host.endsWith('.gov') || host.endsWith('.edu')
 }
 
+function isTrustedNewsSource(url) {
+  const parsed = parseSourceUrl(url)
+  if (!parsed) return false
+  const host = parsed.hostname.replace(/^www\./, '')
+  return TRUSTED_NEWS_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))
+}
+
+function buildTrustedOutletQueries(userMessage) {
+  const base = normalizeQuery(userMessage)
+  if (!base) return []
+
+  const queries = [
+    `${base} site:reuters.com`,
+    `${base} site:apnews.com`,
+    `${base} Reuters`,
+    `${base} AP News`,
+  ]
+
+  if (isSensitivePersonStatusClaim(base)) {
+    queries.push(`${base} confirmed report`)
+  }
+
+  return [...new Set(queries)]
+}
+
+function safeJsonParse(value) {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+function isSensitivePersonStatusClaim(text) {
+  if (!text) return false
+  const normalized = String(text).toLowerCase()
+  return (
+    /\bwhat happened to\b/.test(normalized) ||
+    /\b(dead|died|death|killed|murdered|assassinated|alive|passed away|cause of death)\b/.test(normalized)
+  )
+}
+
 export function countReliableSources(urls) {
   return dedupeSourceUrls(Array.isArray(urls) ? urls : []).filter((url) => !isLowConfidenceSource(url)).length
 }
 
 export function countHighConfidenceSources(urls) {
   return dedupeSourceUrls(Array.isArray(urls) ? urls : []).filter((url) => isHighConfidenceSource(url)).length
+}
+
+export function countTrustedSources(urls) {
+  return dedupeSourceUrls(Array.isArray(urls) ? urls : []).filter((url) => isTrustedNewsSource(url)).length
 }
 
 async function summarizePage(model, url, title, content) {
@@ -291,7 +354,9 @@ export function buildVerificationReport(userMessage, sourceUrls) {
   const sourceCount = dedupedUrls.length
   const reliableSourceCount = countReliableSources(dedupedUrls)
   const highConfidenceSourceCount = countHighConfidenceSources(dedupedUrls)
+  const trustedSourceCount = countTrustedSources(dedupedUrls)
   const currentTitleQuestion = isCurrentTitleQuestion(userMessage)
+  const sensitivePersonStatusClaim = isSensitivePersonStatusClaim(userMessage)
 
   if (!required) {
     return {
@@ -300,6 +365,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'No strict verification required for this prompt type.',
     }
   }
@@ -311,6 +377,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'Current office/title claim is supported by a reliable source. Answer directly with citations.',
     }
   }
@@ -324,7 +391,20 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'A reliable source was found. Read the page to get the exact value and cite it.',
+    }
+  }
+
+  if (sensitivePersonStatusClaim && trustedSourceCount < 1) {
+    return {
+      required: true,
+      status: sourceCount >= 1 ? 'weak' : 'unverified',
+      sourceCount,
+      reliableSourceCount,
+      highConfidenceSourceCount,
+      trustedSourceCount,
+      guidance: 'Sensitive person-status claims require at least one trusted outlet source before answering definitively.',
     }
   }
 
@@ -335,6 +415,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'Evidence is sufficient. Answer with citations and avoid unsupported extras.',
     }
   }
@@ -346,6 +427,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'Only low-confidence sources were found. Use cited evidence carefully and avoid unsupported extra details.',
     }
   }
@@ -357,6 +439,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       sourceCount,
       reliableSourceCount,
       highConfidenceSourceCount,
+      trustedSourceCount,
       guidance: 'Evidence is weak (single source). Use cautious language and cite the source.',
     }
   }
@@ -367,6 +450,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
     sourceCount,
     reliableSourceCount,
     highConfidenceSourceCount,
+    trustedSourceCount,
     guidance: 'No supporting sources found. Do not make definitive factual claims.',
   }
 }
@@ -702,6 +786,7 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
     model,
     messages: followupMessages,
     stream: true,
+    options: { think: false },
   })
 
   if (!upstream.ok) {
@@ -819,6 +904,70 @@ export function streamResponse(model, messages) {
             tool_name: 'deep_research',
             content: JSON.stringify({ ...result, forcedVerification: true }),
           })
+
+          sourceUrls = dedupeSourceUrls(sourceUrls)
+          verification = buildVerificationReport(userMessage, sourceUrls)
+        }
+
+        if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
+          emit({ status: 'Still verifying — searching trusted outlets…' })
+
+          const trustedQueries = buildTrustedOutletQueries(userMessage)
+          for (const rawQuery of trustedQueries) {
+            const query = buildDatedQuery(rawQuery)
+            emit({ searching: true, query: rawQuery })
+            const results = await webSearch(query)
+            emit({ searching: false, query: rawQuery, resultCount: results.length })
+
+            for (const result of results) {
+              if (result?.url) sourceUrls.push(result.url)
+            }
+
+            followupMessages.push({
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                {
+                  type: 'function',
+                  function: { name: 'web_search', arguments: { query: rawQuery } },
+                },
+              ],
+            })
+            followupMessages.push({
+              role: 'tool',
+              tool_name: 'web_search',
+              content: JSON.stringify({ query, results, forcedVerification: true, escalation: 'trusted_outlet_search' }),
+            })
+          }
+
+          sourceUrls = dedupeSourceUrls(sourceUrls)
+
+          const trustedUrl = sourceUrls.find((url) => isTrustedNewsSource(url))
+          const alreadyReadTrusted = followupMessages.some((m) => {
+            const parsed = m.tool_name === 'read_webpage' ? safeJsonParse(m.content || '{}') : null
+            const hasTrustedToolResult = m.tool_name === 'read_webpage' && isTrustedNewsSource(parsed?.url)
+            const hasTrustedToolCall = m.tool_calls?.some(
+              (c) => c.function?.name === 'read_webpage' && isTrustedNewsSource(c.function?.arguments?.url),
+            )
+            return Boolean(hasTrustedToolResult || hasTrustedToolCall)
+          })
+
+          if (trustedUrl && !alreadyReadTrusted) {
+            const hostname = (() => { try { return new URL(trustedUrl).hostname } catch { return trustedUrl } })()
+            emit({ status: `Reading ${hostname} for confirmation…` })
+            const page = await readWebpage(trustedUrl)
+            followupMessages.push({
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ type: 'function', function: { name: 'read_webpage', arguments: { url: trustedUrl } } }],
+            })
+            followupMessages.push({
+              role: 'tool',
+              tool_name: 'read_webpage',
+              content: JSON.stringify({ ...page, forcedVerification: true, escalation: 'trusted_outlet_read' }),
+            })
+            if (page?.url) sourceUrls.push(page.url)
+          }
 
           sourceUrls = dedupeSourceUrls(sourceUrls)
           verification = buildVerificationReport(userMessage, sourceUrls)

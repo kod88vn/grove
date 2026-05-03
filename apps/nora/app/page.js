@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChatMessage } from '@/components/ChatMessage'
 import { ChatInput } from '@/components/ChatInput'
-import { TypingIndicator } from '@/components/TypingIndicator'
 
 const ENV_DEFAULT = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
 
@@ -208,17 +207,12 @@ export default function ChatPage() {
                 const hasThinking = msg.thinking && msg.thinkingVisible
                 const hasContent = msg.content
                 const isAssistantLast = isLast && msg.role === 'assistant'
-                const isResearching = Boolean(msg.researching)
                 const statusLabel = msg.status || ''
-
-                // Show status indicator whenever streaming and no content yet, or during research/search
-                const showStatusBar = isAssistantLast && isStreaming && !hasContent
-                const accent = isResearching ? 'green' : (msg.searching ? 'blue' : 'gray')
+                const showThinkingBubble = isAssistantLast && isStreaming && !hasContent
 
                 return (
                   <div key={i}>
-                    {showStatusBar && <TypingIndicator label={statusLabel} accent={accent} />}
-                    {!showStatusBar && hasThinking && (
+                    {(showThinkingBubble || hasThinking) && (
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
@@ -226,12 +220,12 @@ export default function ChatPage() {
                         verification={msg.verification}
                         timestamp={msg.timestamp}
                         thinking={msg.thinking}
-                        thinkingVisible={msg.thinkingVisible}
+                        thinkingVisible={showThinkingBubble ? true : msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
                         status={isStreaming && isLast ? statusLabel : ''}
                       />
                     )}
-                    {!showStatusBar && !hasThinking && hasContent && (
+                    {!showThinkingBubble && !hasThinking && hasContent && (
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
@@ -243,7 +237,7 @@ export default function ChatPage() {
                         isStreaming={isStreaming && isLast}
                       />
                     )}
-                    {!showStatusBar && !hasThinking && !hasContent && !isAssistantLast && (
+                    {!showThinkingBubble && !hasThinking && !hasContent && !isAssistantLast && (
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}

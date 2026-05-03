@@ -1,25 +1,67 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
+
 export function ChatMessage({ role, content, sources = [], verification = null, timestamp, thinking, thinkingVisible, isStreaming, status }) {
   const isUser = role === 'user'
+  const thinkingScrollRef = useRef(null)
+  const [shouldAutoFollowThinking, setShouldAutoFollowThinking] = useState(true)
+  const showThinkingBubble = Boolean(
+    thinkingVisible &&
+    (thinking || (isStreaming && role === 'assistant' && !content))
+  )
+  const thinkingText = thinking || 'Working through this…'
   const sourceList = !isUser
     ? (Array.isArray(sources) && sources.length > 0 ? dedupeSources(sources) : extractSources(content))
     : []
   const timeLabel = formatTimestamp(timestamp)
   const verificationLabel = formatVerificationLabel(verification)
 
+  useEffect(() => {
+    if (showThinkingBubble) {
+      setShouldAutoFollowThinking(true)
+    }
+  }, [showThinkingBubble])
+
+  useEffect(() => {
+    if (!showThinkingBubble || !shouldAutoFollowThinking) return
+    const el = thinkingScrollRef.current
+    if (!el) return
+    if (typeof el.scrollTo === 'function') {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [thinkingText, showThinkingBubble, shouldAutoFollowThinking])
+
+  const handleThinkingScroll = () => {
+    const el = thinkingScrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const nearBottom = distanceFromBottom < 12
+    setShouldAutoFollowThinking(nearBottom)
+  }
+
   return (
     <div className="space-y-2">
       {/* Thinking bubble - only show while thinking and before content */}
-      {thinkingVisible && thinking && (
+      {showThinkingBubble && (
         <div className="flex justify-start">
           <div className="max-w-xl px-4 py-3 rounded-3xl bg-purple-100 text-purple-900 rounded-bl-none">
-            <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
-              <span className="italic">Thinking:</span> {thinking}
-              {isStreaming && (
-                <span className="inline-block w-0.5 h-4 ml-1 bg-purple-600 animate-pulse align-text-bottom" />
-              )}
-            </p>
+            <p className="text-sm leading-relaxed opacity-70 italic">Thinking:</p>
+            <div
+              ref={thinkingScrollRef}
+              onScroll={handleThinkingScroll}
+              data-testid="thinking-scroll"
+              className="mt-1 max-h-[4.5rem] overflow-y-auto scroll-smooth pr-1"
+            >
+              <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
+                {thinkingText}
+                {isStreaming && (
+                  <span className="inline-block w-0.5 h-4 ml-1 bg-purple-600 animate-pulse align-text-bottom" />
+                )}
+              </p>
+            </div>
             {status && (
               <p className="text-xs mt-1 text-purple-600 opacity-80">{status}</p>
             )}

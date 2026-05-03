@@ -3,6 +3,26 @@ import { render, screen } from '@testing-library/react'
 import { ChatMessage } from '@/components/ChatMessage'
 
 describe('ChatMessage timestamps', () => {
+  it('shows a thinking bubble while streaming before answer words arrive', () => {
+    render(
+      <ChatMessage
+        role="assistant"
+        content=""
+        timestamp="2026-05-03T14:26:00.000Z"
+        thinking=""
+        thinkingVisible={true}
+        isStreaming={true}
+        status="Searching trusted sources…"
+      />
+    )
+
+    expect(screen.getByText(/Thinking:/i)).toBeInTheDocument()
+    expect(screen.getByText('Searching trusted sources…')).toBeInTheDocument()
+    const thinkingScroll = screen.getByTestId('thinking-scroll')
+    expect(thinkingScroll).toHaveClass('overflow-y-auto')
+    expect(thinkingScroll.className).toContain('max-h-[4.5rem]')
+  })
+
   it('renders timestamp for a user message', () => {
     const timestamp = '2026-05-03T14:25:00.000Z'
     const expected = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

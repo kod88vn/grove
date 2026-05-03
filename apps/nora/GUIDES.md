@@ -119,7 +119,7 @@ data: {"searching":false,"query":"TSLA stock performance last year","resultCount
 data: {"status":"Reading finance.yahoo.com\u2026"}
 data: {"sources":["https://finance.yahoo.com/...", ...]}
 data: {"status":"Verifying evidence\u2026"}
-data: {"verification":{"required":true,"status":"verified","sourceCount":2,"reliableSourceCount":1,"highConfidenceSourceCount":1,"guidance":"..."}}
+data: {"verification":{"required":true,"status":"verified","sourceCount":2,"reliableSourceCount":1,"highConfidenceSourceCount":1,"trustedSourceCount":1,"guidance":"..."}}
 data: {"status":null}
 data: {"thinking":"Let me analyse..."}
 data: {"thinkingDone":true}

@@ -11,7 +11,7 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App R
 - **Deep research** — multi-angle search across 4 queries synthesised into one answer
 - **Audit logging** — per-session log at `logs/chat-audit.log` for debugging
 - **Tailwind CSS** — modern, responsive design
-- **Typing indicator** — animated status bar during search/research/thinking
+- **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
 
 ## Architecture
@@ -39,8 +39,7 @@ app/
 
 components/
 ├── ChatMessage.js      # Message bubbles (thinking + content + sources)
-├── ChatInput.js        # Input textarea + send button
-└── TypingIndicator.js  # Animated typing dots
+└── ChatInput.js        # Input textarea + send button
 
 tailwind.config.js      # Tailwind configuration
 postcss.config.js       # PostCSS/Tailwind setup

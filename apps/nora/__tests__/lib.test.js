@@ -5,6 +5,7 @@ import {
   buildVerificationReport,
   countHighConfidenceSources,
   countReliableSources,
+  countTrustedSources,
   requiresFactVerification,
   requiresPreciseValue,
 } from '../app/api/chat/lib/chatStream'
@@ -208,6 +209,19 @@ describe('countHighConfidenceSources', () => {
   })
 })
 
+describe('countTrustedSources', () => {
+  it('counts trusted outlet domains and excludes unknown outlets', () => {
+    const count = countTrustedSources([
+      'https://www.reuters.com/world/us/example-story/',
+      'https://apnews.com/article/example',
+      'https://www.timesnownews.com/world/us-news/example-article',
+      'https://abcnews.com/us/example',
+    ])
+
+    expect(count).toBe(2)
+  })
+})
+
 describe('buildVerificationReport', () => {
   it('marks non-factual prompts as not required', () => {
     const report = buildVerificationReport('write a short bedtime poem', [])
@@ -220,6 +234,28 @@ describe('buildVerificationReport', () => {
     expect(report.required).toBe(true)
     expect(report.status).toBe('verified')
     expect(report.sourceCount).toBe(2)
+  })
+
+  it('does not mark sensitive person-status claims as verified without trusted outlets', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.timesnownews.com/world/us-news/charlie-kirk-assassination-article-123',
+      'https://abcnews.com/us/charlie-kirk-shooting-article?id=123456789',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.trustedSourceCount).toBe(0)
+  })
+
+  it('allows sensitive person-status claims when a trusted outlet is present', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.reuters.com/world/us/example-story/',
+      'https://www.timesnownews.com/world/us-news/example-article',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.trustedSourceCount).toBe(1)
   })
 
   it('does not mark low-confidence corroboration as verified', () => {
@@ -294,6 +330,13 @@ describe('buildVerificationQueries', () => {
 })
 
 describe('system prompt guardrails', () => {
+  it('does not treat injected current time as evidence for real-world event claims', () => {
+    const [{ content }] = withSystemMessage([{ role: 'user', content: 'test' }])
+
+    expect(content).not.toContain('Use this as the authoritative current date for all searches and answers')
+    expect(content).toContain('Never infer that an event happened "today" from this clock value alone')
+  })
+
   it('includes verification and no-guessing policy for sensitive people claims', () => {
     const [{ content }] = withSystemMessage([{ role: 'user', content: 'test' }])
 
