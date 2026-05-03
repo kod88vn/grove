@@ -134,7 +134,10 @@ export default function ChatPage() {
             } else if (parsed.word) {
               setMessages((prev) => {
                 const last = prev[prev.length - 1]
-                return [...prev.slice(0, -1), { ...last, content: last.content + parsed.word }]
+                // Stamp the reply time on the first word so the timestamp reflects
+                // when the answer arrived, not when the user sent their message.
+                const stamp = last.content === '' ? { timestamp: new Date().toISOString() } : {}
+                return [...prev.slice(0, -1), { ...last, ...stamp, content: last.content + parsed.word }]
               })
             }
           } catch {
