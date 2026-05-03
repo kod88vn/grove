@@ -1,6 +1,6 @@
 # Nora
 
-Nora is the Grove family's AI-powered house steward. Built with Next.js 15 App Router, Tailwind CSS, and streaming responses from a local Ollama LLM.
+Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App Router, Tailwind CSS, and streaming responses from a local Ollama LLM.
 
 ## Features
 

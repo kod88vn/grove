@@ -12,4 +12,5 @@ The first Ollama request always uses `stream: false` so the full response can be
 ## Consequences
 - Tool calls are detected reliably regardless of how long the model takes to generate them.
 - Latency before first token is higher when the model decides to search (one extra synchronous round-trip).
-- `num_predict: 1024` caps the planning pass to prevent runaway thinking tokens from stalling the response.
+- `think: false` disables chain-of-thought output during planning so tool calls are emitted promptly.
+- `num_predict: 512` caps the planning pass to prevent runaway token usage.

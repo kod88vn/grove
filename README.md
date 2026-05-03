@@ -8,7 +8,7 @@ Monorepo for the Grove family's AI tools and skill library, managed with Turbore
 grove/
 ├── apps/
 │   ├── ai-skill-library/   # skill + MCP catalog with scaffold CLI
-│   └── nora/               # AI-powered house steward (Next.js 15)
+│   └── nora/               # AI-powered house steward (Next.js 16)
 ├── .github/
 │   ├── copilot-instructions.md
 │   └── skills -> apps/ai-skill-library/skills
@@ -35,7 +35,7 @@ node apps/ai-skill-library/bin/skill-lib.js serve
 
 ### Nora
 
-AI-powered house steward built with Next.js 15, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+AI-powered house steward built with Next.js 16, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
 
 ### AI Skill Library
 

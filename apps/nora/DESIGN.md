@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-Nora is the Grove family's AI-powered house steward — a Next.js 15 chatbot that streams answers from a local Ollama LLM. She can search the web, read specific pages, and call time-related tools — all orchestrated on the server so the browser only deals with a simple Server-Sent Events (SSE) stream.
+Nora is the Grove family's AI-powered house steward — a Next.js 16 chatbot that streams answers from a local Ollama LLM. She can search the web, read specific pages, and call time-related tools — all orchestrated on the server so the browser only deals with a simple Server-Sent Events (SSE) stream.
 
 ### System Architecture
 
@@ -209,7 +209,7 @@ See [`docs/adr/`](./docs/adr/) for individual decision records.
 | ID | Decision | Status |
 |----|----------|--------|
 | ADR-001 | Tool planning in non-streaming first pass | Accepted |
-| ADR-002 | Short-circuit when planning pass produces final answer | Accepted |
+| ADR-002 | Short-circuit when planning pass produces final answer | Deprecated |
 | ADR-003 | XML tool-call parsing fallback for non-conforming models | Accepted |
 | ADR-004 | Webpage read failure falls back to web search | Accepted |
 | ADR-005 | Module split: one responsibility per file | Accepted |
