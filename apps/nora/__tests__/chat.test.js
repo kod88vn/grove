@@ -45,7 +45,8 @@ describe('Chat API Stream Parsing', () => {
     }
     words.push(buffer) // remaining
 
-    expect(words).toEqual(['Hello ', 'wor', 'ld'])
+    // 'wor' + 'ld' have no whitespace delimiter so they accumulate and flush together
+    expect(words).toEqual(['Hello ', 'world'])
   })
 
   it('should handle SSE message parsing', () => {

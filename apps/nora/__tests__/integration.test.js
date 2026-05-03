@@ -1,4 +1,59 @@
-import { describe, it, expect } from '@jest/globals'
+import { describe, it, expect, afterAll, afterEach, jest } from '@jest/globals'
+import { ReadableStream as NodeReadableStream } from 'node:stream/web'
+import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util'
+import { streamResponse } from '../app/api/chat/lib/chatStream'
+
+class TestResponse {
+  constructor(body, init = {}) {
+    this.body = body
+    this.headers = init.headers ?? {}
+  }
+
+  async text() {
+    if (!this.body) return ''
+
+    const reader = this.body.getReader()
+    const decoder = new TextDecoder()
+    let result = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      result += decoder.decode(value, { stream: true })
+    }
+
+    result += decoder.decode()
+    return result
+  }
+}
+
+const originalReadableStream = global.ReadableStream
+const originalResponse = global.Response
+const originalTextEncoder = global.TextEncoder
+const originalTextDecoder = global.TextDecoder
+if (!global.ReadableStream) {
+  global.ReadableStream = NodeReadableStream
+}
+if (!global.Response) {
+  global.Response = TestResponse
+}
+if (!global.TextDecoder) {
+  global.TextDecoder = NodeTextDecoder
+}
+if (!global.TextEncoder) {
+  global.TextEncoder = NodeTextEncoder
+}
+
+afterEach(() => {
+  jest.restoreAllMocks()
+})
+
+afterAll(() => {
+  global.ReadableStream = originalReadableStream
+  global.Response = originalResponse
+  global.TextEncoder = originalTextEncoder
+  global.TextDecoder = originalTextDecoder
+})
 
 /**
  * Regression: planning pass returns final content but a second streaming pass
@@ -181,8 +236,7 @@ describe('Chat Integration - Full Flow', () => {
     const thinkingDoneIdx = contentEmissions.indexOf('[THINKING_DONE]')
     expect(thinkingDoneIdx).toBeGreaterThanOrEqual(0)
     expect(contentEmissions[thinkingDoneIdx + 1]).toBe('Hello ')
-    expect(contentEmissions[thinkingDoneIdx + 2]).toBe('world')
-    expect(contentEmissions[thinkingDoneIdx + 3]).toBe('!')
+    expect(contentEmissions[thinkingDoneIdx + 2]).toBe('world!')
   })
 
   it('should reconstruct full thinking and content strings correctly', () => {
@@ -268,8 +322,8 @@ data: [DONE]
     // UI should render ChatMessage with:
     // - thinking NOT shown (because thinkingVisible is false)
     // - content shown
-    const shouldShowThinking = msg.thinking && msg.thinkingVisible
-    const shouldShowContent = msg.content
+    const shouldShowThinking = Boolean(msg.thinking && msg.thinkingVisible)
+    const shouldShowContent = Boolean(msg.content)
 
     expect(shouldShowThinking).toBe(false)
     expect(shouldShowContent).toBe(true)
@@ -283,14 +337,435 @@ data: [DONE]
       content: ''
     }
 
-    const hasThinking = msg.thinking && msg.thinkingVisible
-    const hasContent = msg.content
+    const hasThinking = Boolean(msg.thinking && msg.thinkingVisible)
+    const hasContent = Boolean(msg.content)
 
     // Should not render thinking (thinkingVisible is false)
     // Should not render content (empty)
     // UI should not render ChatMessage, only empty div
     expect(hasThinking).toBe(false)
     expect(hasContent).toBe(false)
+  })
+})
+
+describe('Chat Integration - current title verification', () => {
+  it('answers a basic current-president question when an official source is available through site-filtered search', async () => {
+    let ollamaCallCount = 0
+
+    global.fetch = jest.fn(async (url, options = {}) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+
+        if (ollamaCallCount <= 1) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                message: {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: [],
+                },
+              }
+            },
+          }
+        }
+
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [
+            encoder.encode('{"message":{"role":"assistant","content":"Donald Trump is the current president of the United States."},"done":true}\n'),
+          ],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://en.wikipedia.org/wiki/2026_United_States_elections',
+              Heading: '2026 United States elections',
+              AbstractText: 'Wikipedia result that does not satisfy the official-site query.',
+              RelatedTopics: [],
+            }
+          },
+        }
+      }
+
+      if (urlValue.startsWith('https://html.duckduckgo.com/html/')) {
+        return {
+          ok: true,
+          async text() {
+            return `
+              <div class="result results_links results_links_deep web-result">
+                <a class="result__a" href="https://www.whitehouse.gov/administration/president-donald-j-trump/">President Donald J. Trump</a>
+                <a class="result__snippet">Official White House biography.</a>
+              </div>
+            `
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'who is the current president?' },
+    ])
+
+    const text = await response.text()
+
+    expect(text).toContain('"verification":{"required":true,"status":"verified"')
+    expect(text).toContain('Donald Trump is the current president of the United States.')
+    expect(text).not.toContain('I can’t confidently verify this claim yet')
+  })
+
+  it('does not answer definitively when only Wikipedia evidence is found', async () => {
+    let ollamaCallCount = 0
+    let pageReadRequested = false
+
+    global.fetch = jest.fn(async (url) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+        if (ollamaCallCount <= 2) {
+          return { ok: true, async json() { return { message: { role: 'assistant', content: '', tool_calls: [] } } } }
+        }
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [encoder.encode('{"message":{"role":"assistant","content":"Donald Trump is the current president."},"done":true}\n')],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async json() {
+            return { AbstractURL: 'https://en.wikipedia.org/wiki/2026_United_States_elections', Heading: '2026 United States elections', AbstractText: 'Congressional midterm elections.', RelatedTopics: [] }
+          },
+          async text() { return '' },
+        }
+      }
+
+      // The page read must be triggered because Wikipedia is low-confidence
+      if (urlValue === 'https://en.wikipedia.org/wiki/2026_United_States_elections') {
+        pageReadRequested = true
+        return {
+          ok: true,
+          async text() {
+            return '<html><head><title>2026 United States elections</title></head><body>Donald Trump is serving as the 47th president of the United States in his second term since January 2025.</body></html>'
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'who is the current president?' },
+    ])
+
+    const text = await response.text()
+
+    expect(pageReadRequested).toBe(true)
+    expect(ollamaCallCount).toBeGreaterThanOrEqual(2)
+    expect(text).toContain('"verification":{"required":true,"status":"unverified"')
+    expect(text).toContain('I can’t confidently verify this claim yet')
+    expect(text).not.toContain('Donald Trump is the current president.')
+  })
+
+  it('does not trust a model-written final answer after a single Wikipedia result', async () => {
+    let ollamaCallCount = 0
+
+    global.fetch = jest.fn(async (url) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+
+        if (ollamaCallCount === 1) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                message: {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: [
+                    {
+                      type: 'function',
+                      function: {
+                        name: 'web_search',
+                        arguments: { query: 'current president of the United States' },
+                      },
+                    },
+                  ],
+                },
+              }
+            },
+          }
+        }
+
+        if (ollamaCallCount === 2) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                message: {
+                  role: 'assistant',
+                  content:
+                    'As of May 3, 2026, Joe Biden is still the president of the United States.',
+                  tool_calls: [],
+                },
+              }
+            },
+          }
+        }
+
+        throw new Error(`Unexpected Ollama call ${ollamaCallCount}`)
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://en.wikipedia.org/wiki/2026_United_States_elections',
+              Heading: '2026 United States elections',
+              AbstractText: 'Congressional midterm elections.',
+              RelatedTopics: [],
+            }
+          },
+          async text() { return '' },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3-coder:latest', [
+      { role: 'user', content: 'who is the current president?' },
+    ])
+
+    const text = await response.text()
+
+    expect(ollamaCallCount).toBeGreaterThanOrEqual(2)
+    expect(text).toContain('"verification":{"required":true,"status":"unverified"')
+    expect(text).toContain('I can’t confidently verify this claim yet')
+    expect(text).not.toContain('Joe Biden is still the president')
+  })
+
+  it('answers when only govtrack-like reliable sources are found (exact screenshot scenario)', async () => {
+    let ollamaCallCount = 0
+
+    global.fetch = jest.fn(async (url) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+
+        if (ollamaCallCount <= 1) {
+          return {
+            ok: true,
+            async json() {
+              return { message: { role: 'assistant', content: '', tool_calls: [] } }
+            },
+          }
+        }
+
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [
+            encoder.encode('{"message":{"role":"assistant","content":"Donald Trump is the current president of the United States."},"done":true}\n'),
+          ],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/html/')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://www.govtrack.us/congress/other-people/donald_trump/412733',
+              Heading: 'Donald Trump',
+              AbstractText: 'GovTrack profile.',
+              RelatedTopics: [],
+            }
+          },
+          async text() { return '' },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'who is the current president?' },
+    ])
+
+    const text = await response.text()
+
+    expect(text).toContain('"verification":{"required":true,"status":"verified"')
+    expect(text).toContain('Donald Trump is the current president of the United States.')
+    expect(text).not.toContain("I can't confidently verify this claim yet")
+  })
+
+  it('keeps searching official variants before falling back to generic title-query results like govtrack', async () => {
+    let ollamaCallCount = 0
+
+    global.fetch = jest.fn(async (url) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+
+        if (ollamaCallCount <= 1) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                message: {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: [],
+                },
+              }
+            },
+          }
+        }
+
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [
+            encoder.encode('{"message":{"role":"assistant","content":"Donald Trump is the current president of the United States."},"done":true}\n'),
+          ],
+        }
+      }
+
+      if (urlValue.startsWith('https://api.duckduckgo.com/')) {
+        const query = decodeURIComponent(urlValue.split('?q=')[1].split('&')[0])
+
+        if (query.includes('official source')) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                AbstractURL: 'https://www.whitehouse.gov/administration/president-donald-j-trump/',
+                Heading: 'President Donald J. Trump',
+                AbstractText: 'Official White House biography.',
+                RelatedTopics: [],
+              }
+            },
+          }
+        }
+
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://www.govtrack.us/congress/other-people/donald_trump/412733',
+              Heading: 'Donald Trump',
+              AbstractText: 'GovTrack profile.',
+              RelatedTopics: [],
+            }
+          },
+        }
+      }
+
+      if (urlValue.startsWith('https://html.duckduckgo.com/html/')) {
+        return {
+          ok: true,
+          async text() {
+            return ''
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'who is the current president?' },
+    ])
+
+    const text = await response.text()
+
+    expect(text).toContain('"verification":{"required":true,"status":"verified"')
+    expect(text).toContain('https://www.whitehouse.gov/administration/president-donald-j-trump/')
+    expect(text).not.toContain('I can’t confidently verify this claim yet')
+  })
+
+
+  it('reads the top source page for exact-version questions instead of guessing from training data', async () => {
+    let ollamaCallCount = 0
+    let pageReadRequested = false
+
+    global.fetch = jest.fn(async (url) => {
+      const urlValue = String(url)
+
+      if (urlValue === 'http://ai:11434/api/chat') {
+        ollamaCallCount += 1
+
+        // First pass: model returns no tool calls (skips searching)
+        if (ollamaCallCount === 1) {
+          return { ok: true, async json() { return { message: { role: 'assistant', content: '', tool_calls: [] } } } }
+        }
+
+        // Final streaming answer — should mention the version from the page
+        const encoder = new TextEncoder()
+        return {
+          ok: true,
+          body: [encoder.encode('{"message":{"role":"assistant","content":"The latest stable version of React is 19.1.0."},"done":true}\n')],
+        }
+      }
+
+      // DuckDuckGo search returns versionlog.com
+      if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              AbstractURL: 'https://versionlog.com/react/',
+              Heading: 'React versions',
+              AbstractText: 'Version history for React.',
+              RelatedTopics: [],
+            }
+          },
+          async text() { return '' },
+        }
+      }
+
+      // Page read of versionlog.com
+      if (urlValue === 'https://versionlog.com/react/') {
+        pageReadRequested = true
+        return {
+          ok: true,
+          async text() {
+            return '<html><head><title>React versions - versionlog.com</title></head><body><h1>React 19.1.0</h1><p>Released April 28, 2026. Latest stable version.</p></body></html>'
+          },
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${urlValue}`)
+    })
+
+    const response = streamResponse('qwen3.5:9b', [
+      { role: 'user', content: 'give me exact version number of React' },
+    ])
+
+    const text = await response.text()
+
+    expect(pageReadRequested).toBe(true)
+    expect(text).toContain('"status":"verified"')
+    expect(text).not.toContain('I can\'t confidently verify')
   })
 })
 
@@ -314,7 +789,7 @@ describe('Edge Cases', () => {
     }
 
     // Thinking is visible but empty - should not render
-    const shouldRender = state.thinking && state.thinkingVisible
+    const shouldRender = Boolean(state.thinking && state.thinkingVisible)
     expect(shouldRender).toBe(false)
     expect(state.content).toBe('Direct response')
   })

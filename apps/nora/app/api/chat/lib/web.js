@@ -53,6 +53,10 @@ function dedupeResults(results) {
   })
 }
 
+function prefersHtmlResults(query) {
+  return /\bofficial source\b|\bsite:/i.test(query)
+}
+
 function extractMainText(html) {
   if (!html) return ''
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
@@ -149,6 +153,12 @@ export async function webSearch(query) {
     }
 
     const deduped = dedupeResults(results).slice(0, 5)
+    if (prefersHtmlResults(query)) {
+      const htmlResults = await duckDuckGoHtmlSearch(query)
+      const merged = dedupeResults([...htmlResults, ...deduped]).slice(0, 5)
+      if (merged.length > 0) return merged
+    }
+
     if (deduped.length > 0) return deduped
 
     return duckDuckGoHtmlSearch(query)

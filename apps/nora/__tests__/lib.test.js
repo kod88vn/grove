@@ -1,6 +1,13 @@
 import { describe, it, expect, jest } from '@jest/globals'
 import { normalizeQuery, normalizeUrl, parseXmlToolCalls, extractToolCalls } from '../app/api/chat/lib/toolCalls'
-import { buildVerificationQueries, buildVerificationReport, requiresFactVerification } from '../app/api/chat/lib/chatStream'
+import {
+  buildVerificationQueries,
+  buildVerificationReport,
+  countHighConfidenceSources,
+  countReliableSources,
+  requiresFactVerification,
+  requiresPreciseValue,
+} from '../app/api/chat/lib/chatStream'
 import { withSystemMessage } from '../app/api/chat/lib/prompt'
 
 // ---------------------------------------------------------------------------
@@ -146,11 +153,58 @@ describe('requiresFactVerification', () => {
     expect(requiresFactVerification('what happened to charlie kirk?')).toBe(true)
     expect(requiresFactVerification('what is the inflation rate this year?')).toBe(true)
     expect(requiresFactVerification('how many people died in the earthquake?')).toBe(true)
+    expect(requiresFactVerification('who is the current UK prime minister?')).toBe(true)
   })
 
   it('returns false for non-sensitive prompts', () => {
     expect(requiresFactVerification('explain how photosynthesis works')).toBe(false)
     expect(requiresFactVerification('write a poem about summer')).toBe(false)
+    expect(requiresFactVerification('tell a funny pirate story for kids')).toBe(false)
+    expect(requiresFactVerification('did [public figure] pass away this year?')).toBe(false)
+  })
+})
+
+describe('requiresPreciseValue', () => {
+  it('matches exact version queries', () => {
+    expect(requiresPreciseValue('give me exact version number')).toBe(true)
+    expect(requiresPreciseValue('what is the latest version of React?')).toBe(true)
+    expect(requiresPreciseValue('what version of Node is current?')).toBe(true)
+    expect(requiresPreciseValue('current stable release of Python')).toBe(true)
+  })
+
+  it('matches exact price/count queries', () => {
+    expect(requiresPreciseValue('what is the exact price of a Big Mac?')).toBe(true)
+    expect(requiresPreciseValue('exact number of seats in the Senate')).toBe(true)
+  })
+
+  it('does not match general questions', () => {
+    expect(requiresPreciseValue('who is the current president?')).toBe(false)
+    expect(requiresPreciseValue('how does React work?')).toBe(false)
+    expect(requiresPreciseValue('explain React hooks')).toBe(false)
+  })
+})
+
+describe('countReliableSources', () => {
+  it('discounts low-confidence sources and category pages', () => {
+    const count = countReliableSources([
+      'https://www.foxnews.com/category/media/charlie-kirk',
+      'https://en.wikipedia.org/wiki/Assassination_of_Charlie_Kirk',
+      'https://www.bls.gov/cpi/latest-numbers.htm',
+    ])
+
+    expect(count).toBe(1)
+  })
+})
+
+describe('countHighConfidenceSources', () => {
+  it('counts authoritative official domains', () => {
+    const count = countHighConfidenceSources([
+      'https://www.whitehouse.gov/administration/president-donald-j-trump/',
+      'https://www.bls.gov/cpi/latest-numbers.htm',
+      'https://en.wikipedia.org/wiki/President_of_the_United_States',
+    ])
+
+    expect(count).toBe(2)
   })
 })
 
@@ -168,11 +222,53 @@ describe('buildVerificationReport', () => {
     expect(report.sourceCount).toBe(2)
   })
 
+  it('does not mark low-confidence corroboration as verified', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.foxnews.com/category/media/charlie-kirk',
+      'https://en.wikipedia.org/wiki/Assassination_of_Charlie_Kirk',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.reliableSourceCount).toBe(0)
+  })
+
   it('marks factual prompts with one source as weak', () => {
     const report = buildVerificationReport('what is the inflation rate', ['https://a.com'])
     expect(report.required).toBe(true)
     expect(report.status).toBe('weak')
     expect(report.sourceCount).toBe(1)
+  })
+
+  it('marks current title questions with one official source as verified', () => {
+    const report = buildVerificationReport('who is the current US president?', [
+      'https://www.whitehouse.gov/administration/president-donald-j-trump/',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.highConfidenceSourceCount).toBe(1)
+  })
+
+  it('marks current title questions with one reliable (non-official) source as verified', () => {
+    const report = buildVerificationReport('who is the current US president?', [
+      'https://www.govtrack.us/congress/other-people/donald_trump/412733',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.reliableSourceCount).toBe(1)
+  })
+
+  it('marks current title questions as unverified when only Wikipedia is found', async () => {
+    const report = buildVerificationReport('who is the current president?', [
+      'https://en.wikipedia.org/wiki/2026_United_States_elections',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('unverified')
+    expect(report.sourceCount).toBe(0)
+    expect(report.reliableSourceCount).toBe(0)
   })
 
   it('marks factual prompts with no sources as unverified', () => {
@@ -188,8 +284,12 @@ describe('buildVerificationQueries', () => {
     const queries = buildVerificationQueries('what happened to charlie kirk?')
     expect(queries).toContain('what happened to charlie kirk?')
     expect(queries).toContain('what happened to charlie kirk? latest news')
-    expect(queries).toContain('what happened to charlie kirk? Reuters')
-    expect(queries).toContain('what happened to charlie kirk? AP News')
+    expect(queries).toContain('what happened to charlie kirk? official source')
+  })
+
+  it('biases current office questions toward official domains', () => {
+    const queries = buildVerificationQueries('who is the current US president?')
+    expect(queries).toContain('who is the current US president? site:whitehouse.gov')
   })
 })
 

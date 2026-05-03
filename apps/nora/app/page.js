@@ -125,6 +125,12 @@ export default function ChatPage() {
                 const last = prev[prev.length - 1]
                 return [...prev.slice(0, -1), { ...last, thinkingVisible: false }]
               })
+            } else if (parsed.retract) {
+              // XML tool call was intercepted mid-stream — clear the partial content
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                return [...prev.slice(0, -1), { ...last, content: '', thinking: '', thinkingVisible: true }]
+              })
             } else if (parsed.word) {
               setMessages((prev) => {
                 const last = prev[prev.length - 1]

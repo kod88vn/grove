@@ -7,6 +7,7 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App R
 - **Next.js 16** with App Router
 - **Real-time streaming** — words appear as they're generated, with live thinking indicators
 - **Tool calling** — web search, page reader, deep research, current time
+- **Verification guardrails** — current-fact and current-role answers are forced through source verification before Nora answers definitively
 - **Deep research** — multi-angle search across 4 queries synthesised into one answer
 - **Audit logging** — per-session log at `logs/chat-audit.log` for debugging
 - **Tailwind CSS** — modern, responsive design
@@ -91,6 +92,7 @@ data: {"searching":false,"query":"...","resultCount":3}
 data: {"researching":true,"topic":"..."}
 data: {"researching":false}
 data: {"sources":["https://..."]}
+data: {"verification":{"required":true,"status":"verified","sourceCount":1,"reliableSourceCount":1,"highConfidenceSourceCount":1,"guidance":"..."}}
 data: {"thinking":"..."}
 data: {"thinkingDone":true}
 data: {"word":"Hello"}

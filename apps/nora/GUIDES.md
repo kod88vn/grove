@@ -76,9 +76,9 @@ if (fn?.name === 'web_search') {
 The server runs the tool; the model only declares intent. After execution the result is appended as a `role: 'tool'` message. The loop repeats up to `MAX_TOOL_PLANNING_PASSES` times (default 3).
 
 Safety fallback in `planTools()`:
-- If the model returns no tool call for factual event/figure claims (e.g. deaths, elections, incidents, totals, percentages, rates), Nora forces a `web_search` verification pass before final answer streaming.
-- This reduces confident hallucinations for current-event and numeric-fact answers.
-- Nora expands verification with multiple corroboration queries (base query + latest news + Reuters + AP News) and targets at least 2 independent sources.
+- If the model returns no tool call for factual event/figure/current-role claims (e.g. deaths, elections, incidents, totals, percentages, rates, or "who is the current president?"), Nora forces a `web_search` verification pass before final answer streaming.
+- Current-role queries search official-source variants first, then fall back to generic corroboration queries if needed.
+- If only a low-confidence source remains for a current-role question, Nora reads that page so the model gets primary page content instead of relying on weights.
 
 ---
 
@@ -86,9 +86,10 @@ Safety fallback in `planTools()`:
 
 Before final streaming, `chatStream` runs a verification phase:
 
-- `buildVerificationReport(userMessage, sourceUrls)` returns `not_required | verified | weak | unverified`
+- `buildVerificationReport(userMessage, sourceUrls)` returns `not_required | verified | low_confidence | weak | unverified`
 - Emits `{ verification: {...} }` over SSE for observability
-- If status is `weak` or `unverified` for a claim that requires verification, Nora returns a guarded "cannot verify confidently" response instead of a definitive factual answer
+- If status is `low_confidence`, `weak`, or `unverified` for a claim that requires verification, Nora returns a guarded "cannot verify confidently" response instead of a definitive factual answer
+- `low_confidence` still captures single-source or low-authority evidence for observability, but it is not enough to ship a definitive answer
 
 ---
 
@@ -118,7 +119,7 @@ data: {"searching":false,"query":"TSLA stock performance last year","resultCount
 data: {"status":"Reading finance.yahoo.com\u2026"}
 data: {"sources":["https://finance.yahoo.com/...", ...]}
 data: {"status":"Verifying evidence\u2026"}
-data: {"verification":{"required":true,"status":"verified","sourceCount":2,"guidance":"..."}}
+data: {"verification":{"required":true,"status":"verified","sourceCount":2,"reliableSourceCount":1,"highConfidenceSourceCount":1,"guidance":"..."}}
 data: {"status":null}
 data: {"thinking":"Let me analyse..."}
 data: {"thinkingDone":true}
@@ -179,6 +180,6 @@ Two levels with automatic fallback:
 | Level | Endpoint | Notes |
 |-------|----------|-------|
 | Primary | `api.duckduckgo.com/?format=json` | Instant Answers API, no key required |
-| Fallback | `html.duckduckgo.com/html/` | Parses HTML results, richer coverage |
+| Fallback | `html.duckduckgo.com/html/` | Parses HTML results, richer coverage, and is preferred for official-source queries |
 
 When `read_webpage` fails (blocked site), `buildFallbackWebQuery` derives a search query from the URL structure and runs a web search automatically. See [ADR-004](./docs/adr/ADR-004-webpage-read-fallback-to-search.md).

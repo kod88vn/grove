@@ -115,7 +115,9 @@ Browser
             ├─ planTools() loop (up to 3 passes)
             │    ├─ callOllama(stream: false, think: false, num_predict: 512, tools: [...])
             │    ├─ toolCalls.extractToolCalls()
-            │    ├─ if no tool call + factual event/figure claim: force web_search verification
+            │    ├─ if no tool call + factual event/figure/current-role claim: force web_search verification
+            │    │    ├─ current-role lookups search official-source variants first
+            │    │    └─ if only low-confidence result remains: read_webpage that source for primary evidence
             │    └─ for each call:
             │         ├─ get_current_time → Date/Time payload
             │         ├─ web_search      → web.webSearch()
@@ -129,7 +131,7 @@ Browser
             │
               ├─ verification phase
               │    ├─ buildVerificationReport(userMessage, sourceUrls)
-              │    ├─ emit { verification: { required, status, sourceCount, guidance } }
+              │    ├─ emit { verification: { required, status, sourceCount, reliableSourceCount, highConfidenceSourceCount, guidance } }
               │    └─ if status=weak|unverified: emit guarded refusal and stop
               │
             └─ streamFinalAnswer()
@@ -154,7 +156,7 @@ All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream
 | Researching indicator | `{ "researching": true, "topic": "..." }` | When deep_research tool starts |
 | Researching done | `{ "researching": false }` | When deep_research finishes |
 | Sources | `{ "sources": ["https://...", ...] }` | Once, after all tool calls finish |
-| Verification report | `{ "verification": { "required": bool, "status": "not_required\|verified\|weak\|unverified", "sourceCount": N, "guidance": "..." } }` | After tool execution, before final answer |
+| Verification report | `{ "verification": { "required": bool, "status": "not_required\|verified\|low_confidence\|weak\|unverified", "sourceCount": N, "reliableSourceCount": N, "highConfidenceSourceCount": N, "guidance": "..." } }` | After tool execution, before final answer |
 | Thinking token | `{ "thinking": "..." }` | Zero or more; during model reasoning phase |
 | Thinking done | `{ "thinkingDone": true }` | Once, when content begins |
 | Word token | `{ "word": "..." }` | One per content chunk from Ollama |
@@ -170,7 +172,7 @@ Tools live in `lib/tools.js`. Each tool is a JSON Schema object Ollama reads to 
 | Tool | Trigger (examples) | Server action |
 |------|--------------------|---------------|
 | `get_current_time` | "What time is it?", "What's today's date?" | Returns ISO date/time string |
-| `web_search` | Current events, prices, software versions, who holds a role | DuckDuckGo instant → HTML fallback |
+| `web_search` | Current events, prices, software versions, who holds a role | DuckDuckGo instant → HTML fallback, with HTML preferred for official-source queries |
 | `read_webpage` | User gives a URL, asks to "read this page" | HTTP fetch + HTML text extraction → fallback search on error |
 | `deep_research` | "Why/how/explain/compare" broad questions | 4-angle search: plan queries → search+read+summarize each → synthesize |
 
@@ -206,8 +208,9 @@ The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DE
 | Webpage blocked (e.g. 503) | `readWebpage` sets `error` field; chatStream runs `buildFallbackWebQuery` → `webSearch` |
 | Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
 | deep_research angle fails | Angle skipped silently; remaining angles still synthesized |
-| Model skips tools on event/figure factual claim | Server forces verification web_search before final answer |
-| Verification required but corroboration < 2 sources | Server emits guarded "cannot verify confidently" answer and does not stream a definitive claim |
+| Model skips tools on event/figure/current-role factual claim | Server forces verification web_search before final answer |
+| Only low-confidence source found for current-role question | Server reads the page for primary evidence, marks verification `low_confidence`, and continues verification work rather than trusting the model |
+| Verification required but evidence remains low-confidence, weak, or unverified | Server emits guarded "cannot verify confidently" answer and does not stream a definitive claim |
 
 ---
 
