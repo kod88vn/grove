@@ -184,15 +184,15 @@ No port forwarding, no public IP exposure. Tailscale encrypts all traffic end-to
 
 ## Future: Documentation Portal (Outline)
 
-When grove has grown to multiple apps and the Obsidian-per-developer workflow becomes insufficient, introduce **[Outline](https://www.getoutline.com/)** as a self-hosted team wiki.
+When grove has grown to multiple apps and the Markdown-in-repo workflow becomes insufficient for non-developer family members, introduce **[Outline](https://www.getoutline.com/)** as a self-hosted team wiki.
 
 - Runs as another app in the monorepo at e.g. `http://grove/docs` (behind Platformatic Watt)
-- Browser-accessible to all family members — no Obsidian install needed
+- Browser-accessible to all family members — no dev tooling needed
 - Backlinks, nested docs, full-text search, embedded diagrams
 - Requires Postgres + S3-compatible storage (e.g. MinIO locally)
 - Scaffold as `apps/docs` following the same CI/CD pattern as other apps
 
-**Trigger for this**: when the Obsidian vault becomes unwieldy or when family members need to read/contribute to docs without a dev setup.
+**Trigger for this**: when family members need to read/contribute to docs without a developer setup.
 
 ---
 

@@ -53,12 +53,13 @@ const firstPass = await callOllama({
   model,
   messages: messagesWithSystem,
   stream: false,          // must be non-streaming to inspect the full response
+  think: false,           // disable CoT — qwen3 CoT consumes ~900 tokens before tool calls
   tools: TOOL_DEFINITIONS,
-  options: { num_predict: 1024 },
+  options: { num_predict: 512 },
 })
 ```
 
-`stream: false` lets the server read the complete response and detect `tool_calls` before emitting anything to the browser. `num_predict` caps planning tokens to prevent runaway loops. See [ADR-001](./docs/adr/ADR-001-tool-planning-non-streaming-first-pass.md).
+`stream: false` lets the server read the complete response and detect `tool_calls` before emitting anything to the browser. `think: false` is critical for Qwen3-family models — CoT reasoning in the planning pass exhausts the token budget before tool calls are emitted. `num_predict: 512` caps planning tokens. See [ADR-001](./docs/adr/ADR-001-tool-planning-non-streaming-first-pass.md).
 
 ---
 
@@ -76,11 +77,9 @@ The server runs the tool; the model only declares intent. After execution the re
 
 ---
 
-### Step 5 — Short-circuit or stream final answer
+### Step 5 — Stream final answer
 
-If the planning pass already produced a complete text answer, it is emitted directly without a second streaming round-trip. See [ADR-002](./docs/adr/ADR-002-short-circuit-on-planned-answer.md).
-
-Otherwise a second `callOllama` with `stream: true` (no `tools`) produces the prose answer chunk by chunk.
+After all tool calls complete, `streamFinalAnswer()` runs a second `callOllama` with `stream: true` (no `tools`). Thinking tokens are emitted as `{ thinking }` events; content tokens as `{ word }` events.
 
 ---
 
@@ -97,12 +96,33 @@ Emitted once after all tool calls, before the first word token.
 ### Full SSE sequence for a search query
 
 ```
+data: {"status":"Thinking\u2026"}
 data: {"searching":true,"query":"TSLA stock performance last year"}
 data: {"searching":false,"query":"TSLA stock performance last year","resultCount":4}
+data: {"status":"Reading finance.yahoo.com\u2026"}
 data: {"sources":["https://finance.yahoo.com/...", ...]}
+data: {"status":null}
 data: {"thinking":"Let me analyse..."}
 data: {"thinkingDone":true}
 data: {"word":"Tesla"}
+...
+data: [DONE]
+```
+
+### Full SSE sequence for a deep research query
+
+```
+data: {"status":"Planning research angles\u2026"}
+data: {"researching":true,"topic":"why are interest rates high"}
+data: {"status":"Searching angle 1/4: central bank policy"}
+data: {"status":"Reading ft.com\u2026"}
+data: {"status":"Summarizing findings (1/4)\u2026"}
+...
+data: {"status":"Synthesizing research\u2026"}
+data: {"researching":false}
+data: {"sources":[...]}
+data: {"thinkingDone":true}
+data: {"word":"Interest"}
 ...
 data: [DONE]
 ```
@@ -117,6 +137,20 @@ See [DESIGN.md § SSE Event Contract](./DESIGN.md#4-sse-event-contract) for the 
 2. Add an `if (fn?.name === 'your_tool')` branch in `chatStream.executeToolCall`.
 3. Implement the tool logic in an appropriate module (new file if the concern is new).
 4. Update [DESIGN.md § Tool Definitions](./DESIGN.md#5-tool-definitions).
+
+---
+
+### Deep research implementation (`lib/research.js`)
+
+`deepResearch(model, topic, onProgress)` runs a 4-angle research loop:
+
+1. `planResearchAngles(model, topic)` — asks model for 4 distinct search queries covering the topic from different angles (causes, statistics, expert opinion, recent developments)
+2. For each angle: `webSearch(query)` → `readWebpage(topResult.url)` → `summarizeForTopic(model, topic, ...)`
+3. Returns `{ topic, findings: [{angle, summary, url}], sourceUrls }`
+
+Page content > 2,000 chars is summarized via a separate Ollama call (`num_predict: 200, think: false`) before being passed to the final synthesis — keeps context window manageable.
+
+`onProgress` callbacks emit `{ status }` SSE events at each stage so the UI shows live progress.
 
 ---
 

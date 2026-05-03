@@ -4,13 +4,14 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 15 App R
 
 ## Features
 
-- **Next.js 15** with App Router
-- **Real-time streaming** — words appear as they're generated
+- **Next.js 16** with App Router
+- **Real-time streaming** — words appear as they're generated, with live thinking indicators
+- **Tool calling** — web search, page reader, deep research, current time
+- **Deep research** — multi-angle search across 4 queries synthesised into one answer
+- **Audit logging** — per-session log at `logs/chat-audit.log` for debugging
 - **Tailwind CSS** — modern, responsive design
-- **Component architecture** — reusable, professional components
-- **Typing indicator** — animated dots while LLM thinks
+- **Typing indicator** — animated status bar during search/research/thinking
 - **Auto-scroll** — chat scrolls to latest message
-- **Error handling** — graceful error messages
 
 ## Architecture
 
@@ -27,6 +28,8 @@ app/
     │       ├── tools.js         # Tool JSON Schema definitions
     │       ├── prompt.js        # System prompt composition
     │       ├── toolCalls.js     # Tool-call parsing + argument normalization
+    │       ├── logger.js        # Audit log writer (logs/chat-audit.log)
+    │       ├── research.js      # Deep research engine (multi-angle search)
     │       ├── ollama.js        # Ollama HTTP client + history compression
     │       ├── web.js           # Web search, webpage reader, HTML utilities
     │       └── chatStream.js    # Tool-planning loop + SSE orchestration
@@ -52,7 +55,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, SSE event contract, tool
 ## Getting Started
 
 ```bash
-cd apps/virtual-tutor
+cd apps/nora
 npm install
 npm run dev
 ```
@@ -82,8 +85,11 @@ The `/api/chat` endpoint accepts:
 Streams Server-Sent Events. See [DESIGN.md § SSE Event Contract](./DESIGN.md#4-sse-event-contract) for the full event table.
 
 ```
+data: {"status":"Thinking…"}
 data: {"searching":true,"query":"..."}
 data: {"searching":false,"query":"...","resultCount":3}
+data: {"researching":true,"topic":"..."}
+data: {"researching":false}
 data: {"sources":["https://..."]}
 data: {"thinking":"..."}
 data: {"thinkingDone":true}

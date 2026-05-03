@@ -9,11 +9,22 @@ cd apps/nora
 yarn test:ci
 ```
 
-This validates:
-- SSE message parsing
-- State transitions (thinking → thinkingDone → content)
-- Word buffering logic
-- Edge cases (empty strings, special chars, malformed JSON)
+### What's covered
+
+**`__tests__/lib.test.js`** — pure utility unit tests (run fast, no network/Ollama required):
+- `normalizeQuery` — whitespace trimming, empty string handling
+- `normalizeUrl` — URL hygiene, security: rejects `javascript:`, `file://`, `data:` protocols
+- `parseXmlToolCalls` — XML `<tool_call>` extraction (ADR-003 fallback path)
+- `extractToolCalls` — structured + XML tool-call detection
+
+**`__tests__/chat.test.js`** and **`__tests__/integration.test.js`** — SSE stream parsing, state machine transitions, word buffering, edge cases.
+
+### Architecture validation
+
+```bash
+yarn arch:check   # fail on circular dependencies in app/api/chat/lib
+yarn arch         # print Mermaid module dependency graph
+```
 
 ## Manual E2E Test
 
@@ -32,26 +43,32 @@ This will:
 
 ## Common Issues to Check
 
-### ❌ No thinking phase
-- Check: Is Ollama model streaming thinking tokens? (qwen3.5 does)
-- Check: API is correctly extracting `message.thinking`
-- Check: `contentStarted` flag is working
+### ❌ No response generated
+- Check: Is Ollama reachable? `curl http://ai:11434/api/tags`
+- Check: Tool-planning pass returns tool calls (add `console.log` to `chatStream.planTools`)
+- Check: `streamFinalAnswer` is called after tool results are appended
 
-### ❌ thinkingDone signal missing
-- Check: API sends `{"thinkingDone":true}` when `content` field appears
-- Check: UI correctly parses this signal
+### ❌ Web search results empty
+- Check: DuckDuckGo HTML endpoint reachable from your network
+- Check: HTML parser finding `<a class="result__url">` selectors (DuckDuckGo may change markup)
 
-### ❌ Content not appearing
-- Check: Ollama is reachable at `http://ai:11434/api/chat`
-- Check: API extracts `message.content` correctly
-- Check: UI appends words with `+= word`
+### ❌ deep_research stalls
+- Check: `research.js` `planResearchAngles` returns 4 queries (log the planning response)
+- Check: Each angle's `readWebpage` result has content (some sites block headless fetches)
 
-### ❌ Both thinking and content visible
-- Check: `thinkingVisible` is set to false when thinkingDone arrives
-- Check: ChatMessage component only renders thinking if `thinkingVisible && thinking`
+### ❌ Status events not showing in UI
+- Check: `{ status }` events are emitted from `emit()` in chatStream.js
+- Check: `useChat.js` handles `evt.status` and updates `statusMessage` state
+- Check: `TypingIndicator` component receives and renders `statusMessage`
 
 ## Debugging Steps
 
-1. **Check API stream**: Add `console.log()` in `app/api/chat/route.js` line-by-line
-2. **Check UI parsing**: Add `console.log()` in `app/page.js` when receiving SSE messages
-3. **Check Ollama**: Test with `curl -X POST http://ai:11434/api/chat -H "Content-Type: application/json" -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Hi"}],"stream":true}'`
+1. **Check raw SSE stream**: `node test-manual.mjs` — prints every SSE event
+2. **Unit test a specific util**: `yarn test --testPathPattern lib.test.js`
+3. **Check Ollama directly**:
+   ```bash
+   curl -X POST http://ai:11434/api/chat \
+     -H "Content-Type: application/json" \
+     -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Hi"}],"stream":true}'
+   ```
+4. **Check architecture**: `yarn arch:check` to verify no circular deps were introduced

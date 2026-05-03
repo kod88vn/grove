@@ -35,8 +35,8 @@ app/
 │   │       ├── prompt.js         ← System prompt injection
 │   │       ├── toolCalls.js      ← Tool-call parsing (structured + XML fallback) & argument normalization
 │   │       ├── ollama.js         ← Ollama HTTP client + conversation history compression
-│   │       ├── web.js            ← Web search, webpage reader, HTML utilities, fallback query builder
-│   │       └── chatStream.js     ← Tool-planning loop, streaming orchestration
+│   │       ├── web.js            ← Web search, webpage reader, HTML utilities, fallback query builder    │       ├── research.js       ← Deep research engine: multi-angle search + synthesis
+    │       ├── logger.js         ← Append-only audit log (logs/chat-audit.log, overwrite per session)│   │       └── chatStream.js     ← Tool-planning loop, streaming orchestration
 │   └── models/
 │       └── route.js              ← Proxies Ollama /api/tags; returns ordered model list
 ├── page.js                       ← Chat UI; fetches /api/models and /api/chat
@@ -57,6 +57,8 @@ components/
 | `toolCalls.js` | Extract and normalize tool calls from any model output format |
 | `ollama.js` | HTTP transport to Ollama; rolling-window history compression |
 | `web.js` | Fetch data from the internet: search, read, fallback query generation |
+| `research.js` | Deep research: plan 4 angles, search + read + summarize each, synthesize |
+| `logger.js` | Audit log writer; overwrites on process start, appends per request |
 | `chatStream.js` | Orchestrate tool-planning loop + final streaming answer |
 
 ### Module Dependency Graph
@@ -111,17 +113,18 @@ Browser
             ├─ prompt.withSystemMessage()     ← prepend system instructions
             │
             ├─ planTools() loop (up to 3 passes)
-            │    ├─ callOllama(stream: false, tools: [...])
+            │    ├─ callOllama(stream: false, think: false, num_predict: 512, tools: [...])
             │    ├─ toolCalls.extractToolCalls()
             │    └─ for each call:
             │         ├─ get_current_time → Date/Time payload
             │         ├─ web_search      → web.webSearch()
-            │         └─ read_webpage   → web.readWebpage()
-            │                               └─ on error: web.webSearch(fallback query)
+            │         ├─ read_webpage    → web.readWebpage()
+            │         │                     ├─ if content > 2000 chars: summarizePage()
+            │         │                     └─ on error: web.webSearch(fallback query)
+            │         └─ deep_research   → research.deepResearch()
+            │                               └─ 4 angles: search → read → summarize → synthesize
             │
             ├─ emit { sources: [...] }
-            │
-            ├─ SHORT-CIRCUIT: if planningResult has final answer → emit word + [DONE]
             │
             └─ streamFinalAnswer()
                  ├─ callOllama(stream: true)
@@ -139,11 +142,14 @@ All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream
 
 | Event | Shape | When emitted |
 |-------|-------|-------------|
+| Status | `{ "status": "..." }` | Granular status string throughout pipeline; `null` clears it |
 | Searching indicator | `{ "searching": true, "query": "..." }` | Before a web search or fallback fetch starts |
 | Search done | `{ "searching": false, "query": "...", "resultCount": N }` | After search completes |
+| Researching indicator | `{ "researching": true, "topic": "..." }` | When deep_research tool starts |
+| Researching done | `{ "researching": false }` | When deep_research finishes |
 | Sources | `{ "sources": ["https://...", ...] }` | Once, after all tool calls finish |
 | Thinking token | `{ "thinking": "..." }` | Zero or more; during model reasoning phase |
-| Thinking done | `{ "thinkingDone": true }` | Once, when content begins (or on short-circuit) |
+| Thinking done | `{ "thinkingDone": true }` | Once, when content begins |
 | Word token | `{ "word": "..." }` | One per content chunk from Ollama |
 | Done | `[DONE]` (literal string) | Stream termination |
 | Error | `{ "word": "Error: ..." }` preceded by `{ "thinkingDone": true }` | On any server-side failure |
@@ -159,6 +165,7 @@ Tools live in `lib/tools.js`. Each tool is a JSON Schema object Ollama reads to 
 | `get_current_time` | "What time is it?", "What's today's date?" | Returns ISO date/time string |
 | `web_search` | Current events, prices, software versions, who holds a role | DuckDuckGo instant → HTML fallback |
 | `read_webpage` | User gives a URL, asks to "read this page" | HTTP fetch + HTML text extraction → fallback search on error |
+| `deep_research` | "Why/how/explain/compare" broad questions | 4-angle search: plan queries → search+read+summarize each → synthesize |
 
 ### Adding a new tool
 
@@ -191,7 +198,7 @@ The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DE
 | Web search returns nothing | Empty results array passed to model; model falls back to training knowledge |
 | Webpage blocked (e.g. 503) | `readWebpage` sets `error` field; chatStream runs `buildFallbackWebQuery` → `webSearch` |
 | Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
-| Model returns thinking-only on second pass | Short-circuit: `plannedAnswer` from planning pass emitted directly |
+| deep_research angle fails | Angle skipped silently; remaining angles still synthesized |
 
 ---
 
@@ -229,3 +236,5 @@ When a code change touches any of the items below, update this document **in the
 - [ ] New env variable or constant → Section 6
 - [ ] New failure mode or recovery path → Section 7
 - [ ] Architecture decision made → new ADR file + Section 8 table row
+
+
