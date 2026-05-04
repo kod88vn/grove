@@ -27,3 +27,18 @@ jobs:
           npm i -g pm2
           pm2 startOrRestart ecosystem.config.cjs --env production
           pm2 save
+          pm2 ls
+
+      - name: Verify Nora is reachable locally
+        shell: powershell
+        run: |
+          try {
+            $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 20
+            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 500) {
+              throw "Unexpected status code: $($resp.StatusCode)"
+            }
+            Write-Host "Nora health check OK: HTTP $($resp.StatusCode)"
+          } catch {
+            pm2 logs nora --lines 100 --nostream
+            throw
+          }
