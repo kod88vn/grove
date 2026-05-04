@@ -29,11 +29,13 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
-    if (!user || greetedRef.current) return
-    if (IS_DEV_MODE) return
+    if (greetedRef.current) return
+    if (!IS_DEV_MODE && !user) return
     greetedRef.current = true
 
-    const firstName = user.name ? user.name.split(' ')[0] : (user.login ? user.login.split('@')[0] : null)
+    const firstName = IS_DEV_MODE
+      ? 'Master'
+      : (user?.name ? user.name.split(' ')[0] : (user?.login ? user.login.split('@')[0] : null))
     const greetMsg = firstName
       ? `Say hi to ${firstName} and offer to help with anything today. Keep it short and friendly.`
       : 'Say hi and offer to help with anything today. Keep it short and friendly.'
