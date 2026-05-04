@@ -1,10 +1,9 @@
 {
-  "$schema": "https://schemas.platformatic.dev/@platformatic/next/2.0.0.json",
-  "server": {
-    "hostname": "0.0.0.0",
-    "port": 3000,
-    "logger": {
-      "level": "info"
+  "$schema": "https://schemas.platformatic.dev/@platformatic/next/3.52.4.json",
+  "runtime": {
+    "server": {
+      "hostname": "0.0.0.0",
+      "port": 3000
     }
   }
 }
