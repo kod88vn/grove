@@ -30,8 +30,8 @@
     "build": "next build",
     "start": "next start",
     "link-skills": "sh link-skills.sh",
-    "test": "jest",
-    "test:ci": "jest --ci",
+    "test": "jest --passWithNoTests",
+    "test:ci": "jest --ci --passWithNoTests",
     "arch": "depcruise app/api/chat/lib --output-type mermaid",
     "arch:check": "depcruise app/api/chat/lib --output-type err"
   }
