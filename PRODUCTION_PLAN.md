@@ -13,18 +13,47 @@ GitHub Actions (self-hosted runner on Windows)
     → yarn install
     → turbo test --filter=[changed]
     → turbo build --filter=[changed]
-    → watt restart
+  → pm2 startOrRestart nora
     ↓
-Platformatic Watt (port 80 — service composer + router)
-    /          → nora     (Next.js app)
-    /tools/*   → future apps
+PM2 (process manager)
+  nora (Next.js app on port 3000)
     ↓
-Tailscale MagicDNS → http://grove
+Tailscale MagicDNS → http://grove:3000
 ```
 
 ---
 
-## Process Manager & Routing: Platformatic Watt
+## Process Manager: PM2 (Current)
+
+PM2 is the current production process manager while Watt integration is deferred.
+
+- Keeps Nora alive and auto-restarts on crashes
+- Supports idempotent `startOrRestart` during CI deploys
+- Simple first step while stabilizing production delivery
+
+`ecosystem.config.cjs` at repo root defines Nora:
+
+```js
+module.exports = {
+  apps: [
+    {
+      name: 'nora',
+      cwd: './apps/nora',
+      script: './node_modules/next/dist/bin/next',
+      args: 'start -p 3000',
+      env: {
+        NODE_ENV: 'production',
+        PORT: '3000',
+      },
+      autorestart: true,
+    },
+  ],
+}
+```
+
+---
+
+## Platformatic Watt (Deferred)
 
 **[Platformatic Watt](https://docs.platformatic.dev/docs/watt/overview)** is the single process manager and HTTP router from day one.
 
@@ -34,7 +63,7 @@ Tailscale MagicDNS → http://grove
 - Works naturally with a monorepo layout — each `apps/*` entry is a Watt service
 - Single tool for both process management and HTTP routing — no reverse proxy needed
 
-Note: validate the Watt Next.js adapter (`@platformatic/next`) for production stability before go-live.
+Note: Watt remains the target architecture, but is deferred until runtime discovery issues are resolved.
 
 ---
 
@@ -49,19 +78,28 @@ npm i -g turbo
 - ✅ `turbo` available in Git Bash PATH
 - ✅ [GitHub Actions self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners) registered with label `grove`, running as a Windows service
 - ✅ Tailscale installed, machine named `grove`, MagicDNS enabled
-- Watt is a project dependency — no global install needed
+- PM2 will be installed/updated during each deploy
 
 ### Port Allocation
 
 | App | Internal port | Public |
 |---|---|---|
-| Watt (entry point) | 80 | `http://grove` |
-| nora | 3000 | via Watt `/` |
-| future app | 3001 | via Watt `/tools/*` |
+| nora | 3000 | `http://grove:3000` |
 
 ---
 
-## Platformatic Watt Config
+## PM2 Deploy Config
+
+`ecosystem.config.cjs` at repo root (committed) is used by CI:
+
+```bash
+pm2 startOrRestart ecosystem.config.cjs --env production
+pm2 save
+```
+
+---
+
+## Platformatic Watt Config (Deferred)
 
 `watt.json` at repo root (committed):
 
@@ -126,13 +164,16 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Test affected packages
-        run: yarn turbo test --filter=...[HEAD^1] --passWithNoTests
+        run: yarn turbo test --filter=...[HEAD^1]
 
       - name: Build affected packages
         run: yarn turbo build --filter=...[HEAD^1]
 
-      - name: Restart Watt
-        run: npx wattpm restart watt.json
+      - name: Restart Nora (PM2)
+        run: |
+          npm i -g pm2
+          pm2 startOrRestart ecosystem.config.cjs --env production
+          pm2 save
 ```
 
 ---
@@ -179,12 +220,10 @@ No port forwarding, no public IP exposure. Tailscale encrypts all traffic end-to
 4. ✅ `watt.json` created at repo root
 5. ✅ `.github/workflows/deploy.yml` created with `runs-on: grove`
 6. Create `apps/nora/.env.production.local` on the machine with `OLLAMA_BASE_URL`
-7. Open port 80 in Windows Firewall
-8. Validate `@platformatic/next` adapter works with nora's Next.js build
-9. Run `npx wattpm start watt.json` manually — confirm `http://grove` resolves and serves nora
-10. Register Watt as a Windows service (survives reboots)
-11. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end
-12. Foundation done — every future app slots in with a `watt.json` service block
+7. Open port 3000 in Windows Firewall
+8. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end and PM2 keeps `nora` online
+9. Foundation done — stabilize Nora on PM2
+10. Revisit Watt routing once runtime detection issue is resolved
 
 ---
 
@@ -204,7 +243,7 @@ When grove has grown to multiple apps and the Markdown-in-repo workflow becomes 
 
 ## Open Questions
 
-- [ ] Validate `@platformatic/next` adapter stability with nora's Next.js build
-- [ ] Decide on Windows service registration for Watt (`wattpm` service vs Task Scheduler)
+- [ ] Revisit Watt runtime detection and adapter stability (`@platformatic/next`)
+- [ ] Decide migration timing from PM2 to Watt + routing on port 80
 - [ ] HTTPS: Tailscale can issue certs via `tailscale cert` for `grove.tailnet-name.ts.net` if needed later
 - [ ] Outline: evaluate MinIO vs local filesystem for storage backend when the time comes

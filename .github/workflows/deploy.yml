@@ -22,5 +22,8 @@ jobs:
       - name: Build affected packages
         run: yarn turbo build --filter=...[HEAD^1]
 
-      - name: Restart Watt
-        run: npx wattpm restart watt.json
+      - name: Restart Nora (PM2)
+        run: |
+          npm i -g pm2
+          pm2 startOrRestart ecosystem.config.cjs --env production
+          pm2 save
