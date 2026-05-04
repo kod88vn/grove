@@ -46,8 +46,9 @@ Note: validate the Watt Next.js adapter (`@platformatic/next`) for production st
 npm i -g turbo
 ```
 
-- Install [GitHub Actions self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners) — register as a Windows service so it survives reboots
-- Tailscale: rename this machine to `grove` in the admin panel, enable MagicDNS
+- ✅ `turbo` available in Git Bash PATH
+- ✅ [GitHub Actions self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners) registered with label `grove`, running as a Windows service
+- ✅ Tailscale installed, machine named `grove`, MagicDNS enabled
 - Watt is a project dependency — no global install needed
 
 ### Port Allocation
@@ -172,13 +173,18 @@ No port forwarding, no public IP exposure. Tailscale encrypts all traffic end-to
 
 ## Rollout Order
 
-1. Self-hosted GitHub Actions runner registered and running as a service
-2. Tailscale: machine named `grove`, MagicDNS enabled, family invited
-3. Validate `@platformatic/next` adapter works with nora's Next.js build
-4. Run `npx wattpm start watt.json` manually — confirm `http://grove` resolves and serves nora
-5. Register Watt as a Windows service (survives reboots)
-6. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end
-7. Foundation done — every future app slots in with a `watt.json` service block
+1. ✅ Self-hosted GitHub Actions runner registered with label `grove`, running as a Windows service
+2. ✅ Tailscale: machine named `grove`, MagicDNS enabled
+3. ✅ `turbo` on PATH in Git Bash
+4. ✅ `watt.json` created at repo root
+5. ✅ `.github/workflows/deploy.yml` created with `runs-on: grove`
+6. Create `apps/nora/.env.production.local` on the machine with `OLLAMA_BASE_URL`
+7. Open port 80 in Windows Firewall
+8. Validate `@platformatic/next` adapter works with nora's Next.js build
+9. Run `npx wattpm start watt.json` manually — confirm `http://grove` resolves and serves nora
+10. Register Watt as a Windows service (survives reboots)
+11. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end
+12. Foundation done — every future app slots in with a `watt.json` service block
 
 ---
 

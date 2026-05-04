@@ -1,0 +1,26 @@
+name: Deploy grove
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: grove
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # needed for turbo --filter=[HEAD^1]
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Test affected packages
+        run: yarn turbo test --filter=...[HEAD^1] --passWithNoTests
+
+      - name: Build affected packages
+        run: yarn turbo build --filter=...[HEAD^1]
+
+      - name: Restart Watt
+        run: npx wattpm restart watt.json
