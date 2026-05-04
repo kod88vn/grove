@@ -1647,9 +1647,9 @@ agent-base@6:
   dependencies:
     debug "4"
 
-"ai-skill-library@git+ssh://git@github.com/kod88vn/my-recipes.git":
+"ai-skill-library@https://github.com/kod88vn/my-recipes.git":
   version "0.1.0"
-  resolved "git+ssh://git@github.com/kod88vn/my-recipes.git#a7085f494b1b3e1a7c076aa6059c2ce9b6815e1c"
+  resolved "https://github.com/kod88vn/my-recipes.git#a7085f494b1b3e1a7c076aa6059c2ce9b6815e1c"
   dependencies:
     commander "^13.1.0"
 
