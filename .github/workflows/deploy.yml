@@ -23,32 +23,77 @@ jobs:
         run: yarn turbo build --filter=...[HEAD^1]
 
 
-      - name: Kill any running Watt (Task Scheduler)
+      - name: Round-robin deploy to alternating workspaces
         shell: powershell
         run: |
-          Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*watt*" } | ForEach-Object { $_.Kill() }
-          Write-Host "Killed any running Watt processes (if present)"
+          $ErrorActionPreference = 'Stop'
+          $base = 'C:\deploy_workspaces\grove'
+          $slotA = Join-Path $base 'grove-A'
+          $slotB = Join-Path $base 'grove-B'
+          $marker = Join-Path $base 'active.txt'
 
-      - name: Write commit hash to .env.local
-        shell: bash
-        run: |
+          if (!(Test-Path $base)) { New-Item -ItemType Directory -Path $base | Out-Null }
+
+          $current = ''
+          if (Test-Path $marker) { $current = (Get-Content $marker -Raw).Trim() }
+
+          if ($current -eq 'A') { $old = $slotA; $new = $slotB; $newSlot = 'B' } else { $old = $slotB; $new = $slotA; $newSlot = 'A' }
+
+          Write-Host "Deploying to workspace: $new (previous: $old)"
+
+          if (Test-Path $new) { Write-Host "Removing existing target workspace $new"; Remove-Item $new -Recurse -Force }
+
+          $src = (Resolve-Path ".").Path
+          Write-Host "Copying repository from $src to $new"
+          New-Item -ItemType Directory -Force -Path $new | Out-Null
+          $excludes = @('.git','node_modules','.venv')
+          robocopy $src $new /MIR /XD $excludes | Out-Null
+
+          Push-Location $new
+          Write-Host "Writing commit hash into .env.local in new workspace"
           node ./apps/nora/scripts/write-commit-hash.cjs
+          Write-Host "Installing dependencies in new workspace"
+          yarn install --frozen-lockfile --ignore-scripts
+          Write-Host "Building Nora in new workspace"
+          yarn workspace nora build
+          Pop-Location
 
-      - name: Build Nora for runtime
-        run: yarn workspace nora build
+          if (Test-Path $old) {
+            Write-Host "Stopping Watt in old workspace: $old"
+            try { npx wattpm@3.52.4 stop (Join-Path $old 'watt.json') 2>$null } catch {}
+            Start-Sleep -Seconds 2
+          }
 
-      - name: Restart Watt
-        shell: powershell
-        run: |
-          npx wattpm@3.52.4 stop watt.json 2>$null
-          $wattRoot = (Resolve-Path ".").Path
-          Start-Process -FilePath "cmd.exe" `
-            -ArgumentList "/c npx wattpm@3.52.4 start watt.json > watt.log 2>&1" `
-            -WorkingDirectory $wattRoot `
-            -WindowStyle Hidden
-          Write-Host "Watt started in background"
-          Start-Sleep -Seconds 10
-          exit 0
+          $wattLog = Join-Path $new 'watt.log'
+          Write-Host "Starting Watt from $new (logs -> $wattLog)"
+          Start-Process -FilePath "cmd.exe" -ArgumentList "/c npx wattpm@3.52.4 start watt.json > `"$wattLog`" 2>&1" -WorkingDirectory $new -WindowStyle Hidden
+
+          Start-Sleep -Seconds 6
+          $healthy = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 10
+              if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) { $healthy = $true; break }
+            } catch {
+              Start-Sleep -Seconds 2
+            }
+          }
+
+          if (-not $healthy) {
+            Write-Host "New deployment did not become healthy. Dumping watt log:"
+            if (Test-Path $wattLog) { Get-Content $wattLog -Tail 200 }
+            throw "Deployment failed: new instance not healthy"
+          }
+
+          Write-Host "New instance healthy. Cleaning up old workspace: $old"
+          if (Test-Path $old) {
+            try { npx wattpm@3.52.4 stop (Join-Path $old 'watt.json') 2>$null } catch {}
+            Start-Sleep -Seconds 1
+            Remove-Item $old -Recurse -Force
+          }
+
+          Set-Content -Path $marker -Value $newSlot -Force
+          Write-Host "Deployment to $new complete. Active slot: $newSlot"
 
 
       - name: Verify Nora is reachable locally
