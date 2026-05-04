@@ -16,9 +16,9 @@ GitHub Actions (self-hosted runner on Windows)
   → pm2 startOrRestart nora
     ↓
 PM2 (process manager)
-  nora (Next.js app on port 3000)
+  nora (Next.js app on port 80)
     ↓
-Tailscale MagicDNS → http://grove:3000
+Tailscale MagicDNS → http://grove
 ```
 
 ---
@@ -40,10 +40,10 @@ module.exports = {
       name: 'nora',
       cwd: './apps/nora',
       script: './node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      args: 'start -p 80',
       env: {
         NODE_ENV: 'production',
-        PORT: '3000',
+        PORT: '80',
       },
       autorestart: true,
     },
@@ -84,7 +84,7 @@ npm i -g turbo
 
 | App | Internal port | Public |
 |---|---|---|
-| nora | 3000 | `http://grove:3000` |
+| nora | 80 | `http://grove` |
 
 ---
 
@@ -220,7 +220,7 @@ No port forwarding, no public IP exposure. Tailscale encrypts all traffic end-to
 4. ✅ `watt.json` created at repo root
 5. ✅ `.github/workflows/deploy.yml` created with `runs-on: grove`
 6. Create `apps/nora/.env.production.local` on the machine with `OLLAMA_BASE_URL`
-7. Open port 3000 in Windows Firewall
+7. Open port 80 in Windows Firewall
 8. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end and PM2 keeps `nora` online
 9. Foundation done — stabilize Nora on PM2
 10. Revisit Watt routing once runtime detection issue is resolved
