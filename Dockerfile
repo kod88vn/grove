@@ -5,7 +5,6 @@ WORKDIR /app
 # Copy only manifests first so this layer is cached until deps change
 COPY package.json yarn.lock ./
 COPY apps/nora/package.json ./apps/nora/
-COPY apps/ai-skill-library/package.json ./apps/ai-skill-library/
 
 RUN yarn install --frozen-lockfile --ignore-scripts
 
