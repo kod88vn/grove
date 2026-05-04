@@ -7,6 +7,7 @@ import {
   countReliableSources,
   countTrustedSources,
   requiresFactVerification,
+  requiresLiveData,
   requiresPreciseValue,
 } from '../app/api/chat/lib/chatStream'
 import { withSystemMessage } from '../app/api/chat/lib/prompt'
@@ -162,6 +163,45 @@ describe('requiresFactVerification', () => {
     expect(requiresFactVerification('write a poem about summer')).toBe(false)
     expect(requiresFactVerification('tell a funny pirate story for kids')).toBe(false)
     expect(requiresFactVerification('did [public figure] pass away this year?')).toBe(false)
+  })
+})
+
+describe('requiresLiveData', () => {
+  it('returns true for weather and forecast queries', () => {
+    expect(requiresLiveData("how's the weather tomorrow?")).toBe(true)
+    expect(requiresLiveData('what is the weather today?')).toBe(true)
+    expect(requiresLiveData('will it rain tonight?')).toBe(true)
+    expect(requiresLiveData('forecast for this week')).toBe(true)
+    expect(requiresLiveData('is it sunny tomorrow')).toBe(true)
+  })
+
+  it('returns true for live/real-time queries', () => {
+    expect(requiresLiveData('stock price of Apple right now')).toBe(true)
+    expect(requiresLiveData('what is the score currently')).toBe(true)
+    expect(requiresLiveData('breaking news as of today')).toBe(true)
+  })
+
+  it('returns false for general queries', () => {
+    expect(requiresLiveData('explain how photosynthesis works')).toBe(false)
+    expect(requiresLiveData('write a poem about summer')).toBe(false)
+    expect(requiresLiveData('who was the first US president')).toBe(false)
+  })
+})
+
+describe('narration detection pattern', () => {
+  const narrationRe = /\b(i should|i will|i'll|i need to|let me)\b.{0,60}\b(search|look up|find|check|use the \w+_\w+ tool)\b/i
+
+  it('matches planning narration phrases', () => {
+    expect(narrationRe.test("I should use the web_search tool to get the weather forecast.")).toBe(true)
+    expect(narrationRe.test("I'll search for weather information for tomorrow.")).toBe(true)
+    expect(narrationRe.test("Let me search for the latest news.")).toBe(true)
+    expect(narrationRe.test("I need to look up the current stock price.")).toBe(true)
+  })
+
+  it('does not match normal answer content', () => {
+    expect(narrationRe.test("The weather tomorrow will be sunny with a high of 22°C.")).toBe(false)
+    expect(narrationRe.test("Here is what I found about the topic.")).toBe(false)
+    expect(narrationRe.test("You should check the official website for updates.")).toBe(false)
   })
 })
 

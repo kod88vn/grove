@@ -44,7 +44,7 @@ This will:
 ## Common Issues to Check
 
 ### ❌ No response generated
-- Check: Is Ollama reachable? `curl http://ai:11434/api/tags`
+- Check: Is Ollama reachable? `curl http://grove:11434/api/tags`
 - Check: Tool-planning pass returns tool calls (add `console.log` to `chatStream.planTools`)
 - Check: `streamFinalAnswer` is called after tool results are appended
 
@@ -67,7 +67,7 @@ This will:
 2. **Unit test a specific util**: `yarn test --testPathPattern lib.test.js`
 3. **Check Ollama directly**:
    ```bash
-   curl -X POST http://ai:11434/api/chat \
+   curl -X POST http://grove:11434/api/chat \
      -H "Content-Type: application/json" \
      -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Hi"}],"stream":true}'
    ```

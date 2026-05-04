@@ -13,7 +13,7 @@ Nora is the Grove family's AI-powered house steward — a Next.js 16 chatbot tha
 ```mermaid
 flowchart LR
     Browser -->|POST /api/chat SSE| Nora["nora\n(Next.js)"]
-    Nora -->|HTTP| Ollama["Ollama\nhttp://ai:11434"]
+    Nora -->|HTTP| Ollama["Ollama\nhttp://grove:11434"]
     Nora -->|search| DDG["DuckDuckGo"]
     Nora -->|fetch| Web["Web pages"]
     Tailscale -->|MagicDNS http://grove| Watt["Platformatic Watt\n:80"]
@@ -198,7 +198,7 @@ Tools live in `lib/tools.js`. Each tool is a JSON Schema object Ollama reads to 
 | `RECENT_KEEP` | `lib/constants.js` | 10 messages kept verbatim after compression |
 | `MAX_TOOL_PLANNING_PASSES` | `lib/constants.js` | 3 |
 
-The `/api/models` route proxies `http://ai:11434/api/tags` and always places `DEFAULT_MODEL` first in the list.
+The `/api/models` route proxies `http://grove:11434/api/tags` and always places `DEFAULT_MODEL` first in the list.
 
 ---
 

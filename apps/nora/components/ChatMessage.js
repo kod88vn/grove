@@ -48,12 +48,11 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
       {showThinkingBubble && (
         <div className="flex justify-start">
           <div className="max-w-xl px-4 py-3 rounded-3xl bg-purple-100 text-purple-900 rounded-bl-none">
-            <p className="text-sm leading-relaxed opacity-70 italic">Thinking:</p>
             <div
               ref={thinkingScrollRef}
               onScroll={handleThinkingScroll}
               data-testid="thinking-scroll"
-              className="mt-1 max-h-[4.5rem] overflow-y-auto scroll-smooth pr-1"
+              className="max-h-[4.5rem] overflow-y-auto scroll-smooth pr-1"
             >
               <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
                 {thinkingText}

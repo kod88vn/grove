@@ -24,7 +24,7 @@ grove/
 # install dependencies
 yarn install
 
-# start Nora (AI house steward) — requires Ollama at http://ai:11434
+# start Nora (AI house steward) — requires Ollama at http://grove:11434
 yarn dev
 
 # start the skill library server

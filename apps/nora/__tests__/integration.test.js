@@ -355,7 +355,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url, options = {}) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         const body = options?.body ? JSON.parse(options.body) : {}
         ollamaRequests.push(body)
 
@@ -424,7 +424,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url, options = {}) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
         if (ollamaCallCount <= 1) {
@@ -500,7 +500,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
         if (ollamaCallCount <= 2) {
           return { ok: true, async json() { return { message: { role: 'assistant', content: '', tool_calls: [] } } } }
@@ -555,7 +555,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
         if (ollamaCallCount === 1) {
@@ -636,7 +636,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
         if (ollamaCallCount <= 1) {
@@ -692,7 +692,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
         if (ollamaCallCount <= 1) {
@@ -780,7 +780,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url, options = {}) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         const body = options?.body ? JSON.parse(options.body) : {}
 
         // Planning/verification passes: no tool calls from model side.
@@ -880,7 +880,7 @@ describe('Chat Integration - current title verification', () => {
     global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
-      if (urlValue === 'http://ai:11434/api/chat') {
+      if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
         // First pass: model returns no tool calls (skips searching)

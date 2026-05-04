@@ -49,7 +49,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, SSE event contract, tool
 
 ## Prerequisites
 
-- Local LLM running at `http://ai:11434/api/chat` (e.g., Ollama)
+- Local LLM running at `http://grove:11434/api/chat` (e.g., Ollama)
 - Node.js 18+
 
 ## Getting Started

@@ -282,6 +282,12 @@ const VERIFICATION_KEYWORDS = [
   'sentenced',
 ]
 
+export function requiresLiveData(text) {
+  if (!text) return false
+  const normalized = String(text).toLowerCase()
+  return /\b(weather|forecast|temperature|rain|snow|humidity|wind|storm|sunny|cloudy|hot|cold|today|tomorrow|tonight|this week|stock price|stock market|share price|sports score|game score|live score|breaking news|right now|currently|as of today)\b/.test(normalized)
+}
+
 export function requiresFactVerification(text) {
   if (!text) return false
   const normalized = String(text).toLowerCase()
@@ -620,9 +626,33 @@ async function planTools(model, messagesWithSystem, emit) {
     }
   }
 
-  const shouldForceVerification =
-    (!Array.isArray(toolCalls) || toolCalls.length === 0) &&
-    requiresFactVerification(userMessage)
+  const noToolCalls = !Array.isArray(toolCalls) || toolCalls.length === 0
+
+  const shouldForceLiveSearch = noToolCalls && requiresLiveData(userMessage)
+
+  if (shouldForceLiveSearch) {
+    const rawQuery = normalizeQuery(userMessage) || userMessage
+    emit({ status: `Searching for "${rawQuery}"…` })
+    emit({ searching: true, query: rawQuery })
+    const results = await webSearch(rawQuery)
+    emit({ searching: false, query: rawQuery, resultCount: results.length })
+    for (const result of results) {
+      if (result?.url) sourceUrls.push(result.url)
+    }
+    followupMessages.push({
+      role: 'assistant',
+      content: '',
+      tool_calls: [{ type: 'function', function: { name: 'web_search', arguments: { query: rawQuery } } }],
+    })
+    followupMessages.push({
+      role: 'tool',
+      tool_name: 'web_search',
+      content: JSON.stringify({ query: rawQuery, results }),
+    })
+    return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
+  }
+
+  const shouldForceVerification = noToolCalls && requiresFactVerification(userMessage)
 
   if (shouldForceVerification) {
     emit({ status: 'Verifying facts with current sources…' })
@@ -846,6 +876,31 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
               await executeToolCall(call, followupMessages, sourceUrls, emit, model)
             }
 
+            const freshSourceUrls = dedupeSourceUrls(sourceUrls)
+            if (freshSourceUrls.length > 0) emit({ sources: freshSourceUrls })
+            emit({ status: null })
+            await streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc, _pass + 1)
+            return
+          }
+
+          // Detect planning narration: model expressed intent to search instead of answering.
+          // Retract, run the search it described, then re-stream a real answer.
+          const isNarration = _pass === 0 && /\b(i should|i will|i'll|i need to|let me)\b.{0,60}\b(search|look up|find|check|use the \w+_\w+ tool)\b/i.test(fullContent)
+          if (isNarration) {
+            emit({ retract: true })
+            const userMessage = followupMessages.findLast((m) => m.role === 'user')?.content ?? ''
+            const rawQuery = buildFallbackWebQuery(userMessage) || userMessage
+            emit({ status: `Searching for "${rawQuery}"\u2026` })
+            emit({ searching: true, query: rawQuery })
+            const results = await webSearch(rawQuery)
+            emit({ searching: false, query: rawQuery, resultCount: results.length })
+            for (const r of results) { if (r?.url) sourceUrls.push(r.url) }
+            followupMessages.push({ role: 'assistant', content: fullContent, tool_calls: [] })
+            followupMessages.push({
+              role: 'tool',
+              tool_name: 'web_search',
+              content: JSON.stringify({ query: rawQuery, results }),
+            })
             const freshSourceUrls = dedupeSourceUrls(sourceUrls)
             if (freshSourceUrls.length > 0) emit({ sources: freshSourceUrls })
             emit({ status: null })

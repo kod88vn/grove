@@ -32,7 +32,7 @@ Tailscale MagicDNS → http://grove
 - Composes multiple apps/services under one runtime on port 80
 - Built-in routing: nora is the root, future apps get path prefixes
 - Works naturally with a monorepo layout — each `apps/*` entry is a Watt service
-- Replaces both PM2 (process management) and a reverse proxy in one tool
+- Single tool for both process management and HTTP routing — no reverse proxy needed
 
 Note: validate the Watt Next.js adapter (`@platformatic/next`) for production stability before go-live.
 
@@ -142,7 +142,7 @@ Each app keeps a `.env.production.local` in its own folder on the machine — ne
 
 **`apps/nora/.env.production.local`:**
 ```
-OLLAMA_BASE_URL=http://ai:11434
+OLLAMA_BASE_URL=http://grove:11434
 ```
 
 Add per-app env files as new apps are introduced.

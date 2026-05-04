@@ -1,7 +1,7 @@
 import { RECENT_KEEP, ROLLING_WINDOW } from './constants'
 
 export async function callOllama(payload) {
-  return fetch('http://ai:11434/api/chat', {
+  return fetch('http://grove:11434/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
