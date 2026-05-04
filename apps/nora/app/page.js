@@ -174,18 +174,21 @@ export default function ChatPage() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
         <div className="w-full max-w-2xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Nora</h1>
-          {IS_DEV_MODE && (
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={isStreaming}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-            >
-              {modelList.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          )}
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-400 select-all" title="Deployed commit hash">{process.env.NEXT_PUBLIC_COMMIT_HASH}</span>
+            {IS_DEV_MODE && (
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isStreaming}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+              >
+                {modelList.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </header>
 
