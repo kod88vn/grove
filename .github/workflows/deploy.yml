@@ -31,8 +31,14 @@ jobs:
           npx wattpm@3.52.4 restart watt.json
           if ($LASTEXITCODE -ne 0) {
             Write-Host "wattpm restart failed, trying clean start"
-            npx wattpm@3.52.4 stop watt.json
-            npx wattpm@3.52.4 start watt.json
+            npx wattpm@3.52.4 stop watt.json 2>$null; $true
+            $wattRoot = (Resolve-Path ".").Path
+            Start-Process -FilePath "cmd.exe" `
+              -ArgumentList "/c npx wattpm@3.52.4 start watt.json > watt.log 2>&1" `
+              -WorkingDirectory $wattRoot `
+              -WindowStyle Hidden
+            Write-Host "Watt started in background"
+            Start-Sleep -Seconds 8
           }
 
       - name: Verify Nora is reachable locally

@@ -27,3 +27,5 @@ Thumbs.db
 
 # scaffolded library (managed by create-turborepo, not versioned here)
 apps/ai-skill-library/
+tmp
+watt.log
