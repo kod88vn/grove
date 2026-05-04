@@ -56,9 +56,6 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
             >
               <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
                 {thinkingText}
-                {isStreaming && (
-                  <span className="inline-block w-0.5 h-4 ml-1 bg-purple-600 animate-pulse align-text-bottom" />
-                )}
               </p>
             </div>
             {status && (

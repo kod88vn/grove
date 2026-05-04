@@ -5,6 +5,7 @@ import { ChatMessage } from '@/components/ChatMessage'
 import { ChatInput } from '@/components/ChatInput'
 
 const ENV_DEFAULT = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
+const IS_DEV_MODE = process.env.NODE_ENV !== 'production'
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([])
@@ -19,6 +20,8 @@ export default function ChatPage() {
   }, [messages])
 
   useEffect(() => {
+    if (!IS_DEV_MODE) return
+
     let cancelled = false
 
     const loadModels = async () => {
@@ -171,16 +174,18 @@ export default function ChatPage() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
         <div className="w-full max-w-2xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Nora</h1>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            disabled={isStreaming}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-          >
-            {modelList.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          {IS_DEV_MODE && (
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={isStreaming}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+            >
+              {modelList.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
         </div>
       </header>
 

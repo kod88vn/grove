@@ -61,6 +61,14 @@ const TRUSTED_NEWS_HOSTS = [
   'usatoday.com',
 ]
 
+const TRUSTED_TECH_HOSTS = [
+  'tomshardware.com',
+  'techpowerup.com',
+  'anandtech.com',
+  'notebookcheck.net',
+  'servethehome.com',
+]
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -94,6 +102,14 @@ export function requiresPreciseValue(text) {
     /\bcurrent\s+price\b/.test(normalized) ||
     /\bexact\s+(price|cost|number|count|figure|stat|statistic)\b/.test(normalized)
   )
+}
+
+function isMarketRecommendationQuestion(text) {
+  if (!text) return false
+  const normalized = String(text).toLowerCase()
+  const hasRecommendationCue = /\b(best|bang\s+for\s+the\s+buck|best\s+value|value\s+for\s+money|worth\s+it|recommend|go-?to|buy)\b/.test(normalized)
+  const hasCategoryCue = /\b(gpu|graphics\s+card|video\s+card|cpu|llm|ai\s+model|local\s+model|inference)\b/.test(normalized)
+  return hasRecommendationCue && hasCategoryCue
 }
 
 function parseSourceUrl(url) {
@@ -133,6 +149,13 @@ function isTrustedNewsSource(url) {
   return TRUSTED_NEWS_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))
 }
 
+function isTrustedTechSource(url) {
+  const parsed = parseSourceUrl(url)
+  if (!parsed) return false
+  const host = parsed.hostname.replace(/^www\./, '')
+  return TRUSTED_TECH_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))
+}
+
 function buildTrustedOutletQueries(userMessage) {
   const base = normalizeQuery(userMessage)
   if (!base) return []
@@ -143,6 +166,14 @@ function buildTrustedOutletQueries(userMessage) {
     `${base} Reuters`,
     `${base} AP News`,
   ]
+
+  if (isMarketRecommendationQuestion(base)) {
+    queries.push(`${base} site:tomshardware.com`)
+    queries.push(`${base} site:techpowerup.com`)
+    queries.push(`${base} site:anandtech.com`)
+    queries.push(`${base} benchmark`)
+    queries.push(`${base} msrp price`)
+  }
 
   if (isSensitivePersonStatusClaim(base)) {
     queries.push(`${base} confirmed report`)
@@ -156,6 +187,70 @@ function safeJsonParse(value) {
     return JSON.parse(value)
   } catch {
     return null
+  }
+}
+
+function parseFirstJsonObject(value) {
+  if (!value) return null
+  const text = String(value).trim()
+  const direct = safeJsonParse(text)
+  if (direct && typeof direct === 'object') return direct
+
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  const parsed = safeJsonParse(match[0])
+  return parsed && typeof parsed === 'object' ? parsed : null
+}
+
+async function assessVerificationNeed(model, userMessage) {
+  if (!userMessage) {
+    return { required: false, confidence: 'low', reason: 'empty_input', queryHints: [] }
+  }
+
+  if (process.env.NODE_ENV === 'test') {
+    return { required: false, confidence: 'low', reason: 'disabled_in_test', queryHints: [] }
+  }
+
+  try {
+    const res = await callOllama({
+      model,
+      stream: false,
+      options: { num_predict: 160, think: false },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Classify whether a user query requires external factual verification before answering. ' +
+            'Use semantic intent, not keywords. ' +
+            'Return ONLY JSON with this shape: ' +
+            '{"required":boolean,"confidence":"low|medium|high","reason":string,"queryHints":string[]}. ' +
+            'Mark required=true for claims likely to change over time, numerical/price/performance claims, market recommendations, rankings, current events, or health/safety/legal sensitive claims.',
+        },
+        { role: 'user', content: userMessage },
+      ],
+    })
+
+    if (!res.ok) {
+      return { required: false, confidence: 'low', reason: 'classifier_request_failed', queryHints: [] }
+    }
+
+    const json = await res.json()
+    const parsed = parseFirstJsonObject(json.message?.content)
+
+    if (!parsed) {
+      return { required: false, confidence: 'low', reason: 'classifier_parse_failed', queryHints: [] }
+    }
+
+    return {
+      required: Boolean(parsed.required),
+      confidence: ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'low',
+      reason: typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'semantic_classifier',
+      queryHints: Array.isArray(parsed.queryHints)
+        ? parsed.queryHints.map((v) => String(v || '').trim()).filter(Boolean).slice(0, 4)
+        : [],
+    }
+  } catch {
+    return { required: false, confidence: 'low', reason: 'classifier_exception', queryHints: [] }
   }
 }
 
@@ -178,6 +273,10 @@ export function countHighConfidenceSources(urls) {
 
 export function countTrustedSources(urls) {
   return dedupeSourceUrls(Array.isArray(urls) ? urls : []).filter((url) => isTrustedNewsSource(url)).length
+}
+
+export function countTrustedTechSources(urls) {
+  return dedupeSourceUrls(Array.isArray(urls) ? urls : []).filter((url) => isTrustedTechSource(url)).length
 }
 
 async function summarizePage(model, url, title, content) {
@@ -312,6 +411,10 @@ export function requiresFactVerification(text) {
     return true
   }
 
+  if (isMarketRecommendationQuestion(normalized)) {
+    return true
+  }
+
   // Also verify when user asks factual/date/number-like questions.
   const hasFactualQuestionCue = /\b(who|what|when|where|which|did|is|are|was|were|how many|how much)\b/.test(normalized)
   const hasNumericCue = /\b(19|20)\d{2}\b|\b\d+(?:[.,]\d+)?\s*(?:%|percent|million|billion|trillion|k|m|bn)?\b/.test(normalized)
@@ -361,8 +464,10 @@ export function buildVerificationReport(userMessage, sourceUrls) {
   const reliableSourceCount = countReliableSources(dedupedUrls)
   const highConfidenceSourceCount = countHighConfidenceSources(dedupedUrls)
   const trustedSourceCount = countTrustedSources(dedupedUrls)
+  const trustedTechSourceCount = countTrustedTechSources(dedupedUrls)
   const currentTitleQuestion = isCurrentTitleQuestion(userMessage)
   const sensitivePersonStatusClaim = isSensitivePersonStatusClaim(userMessage)
+  const marketRecommendation = isMarketRecommendationQuestion(userMessage)
 
   if (!required) {
     return {
@@ -372,7 +477,34 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'No strict verification required for this prompt type.',
+    }
+  }
+
+  if (marketRecommendation && trustedTechSourceCount >= 1 && reliableSourceCount >= 2) {
+    return {
+      required: true,
+      status: 'verified',
+      sourceCount,
+      reliableSourceCount,
+      highConfidenceSourceCount,
+      trustedSourceCount,
+      trustedTechSourceCount,
+      guidance: 'Recommendation is corroborated by multiple reliable sources including a trusted hardware-review outlet. Answer with citations and trade-offs.',
+    }
+  }
+
+  if (marketRecommendation) {
+    return {
+      required: true,
+      status: sourceCount >= 1 ? 'weak' : 'unverified',
+      sourceCount,
+      reliableSourceCount,
+      highConfidenceSourceCount,
+      trustedSourceCount,
+      trustedTechSourceCount,
+      guidance: 'Recommendation evidence is insufficient. Require at least one trusted hardware-review source plus corroboration before giving a definitive best-value pick.',
     }
   }
 
@@ -384,6 +516,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'Current office/title claim is supported by a reliable source. Answer directly with citations.',
     }
   }
@@ -398,6 +531,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'A reliable source was found. Read the page to get the exact value and cite it.',
     }
   }
@@ -410,6 +544,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'Sensitive person-status claims require at least one trusted outlet source before answering definitively.',
     }
   }
@@ -422,6 +557,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'Evidence is sufficient. Answer with citations and avoid unsupported extras.',
     }
   }
@@ -434,6 +570,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'Only low-confidence sources were found. Use cited evidence carefully and avoid unsupported extra details.',
     }
   }
@@ -446,6 +583,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
       reliableSourceCount,
       highConfidenceSourceCount,
       trustedSourceCount,
+      trustedTechSourceCount,
       guidance: 'Evidence is weak (single source). Use cautious language and cite the source.',
     }
   }
@@ -457,6 +595,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
     reliableSourceCount,
     highConfidenceSourceCount,
     trustedSourceCount,
+    trustedTechSourceCount,
     guidance: 'No supporting sources found. Do not make definitive factual claims.',
   }
 }
@@ -475,6 +614,9 @@ function buildVerificationSystemMessage(report, userMessage = '') {
   }
 
   if (report.status === 'weak') {
+    if (isMarketRecommendationQuestion(userMessage)) {
+      return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
+    }
     return 'Verification phase: corroboration is insufficient. Do not make definitive claims. Say that evidence is limited and that you cannot confidently verify the claim yet.'
   }
 
@@ -652,14 +794,22 @@ async function planTools(model, messagesWithSystem, emit) {
     return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
   }
 
-  const shouldForceVerification = noToolCalls && requiresFactVerification(userMessage)
+  const semanticVerification = noToolCalls
+    ? await assessVerificationNeed(model, userMessage)
+    : { required: false, confidence: 'low', reason: 'tool_call_present', queryHints: [] }
+
+  const shouldForceVerification = noToolCalls && (semanticVerification.required || requiresFactVerification(userMessage))
 
   if (shouldForceVerification) {
     emit({ status: 'Verifying facts with current sources…' })
-    const verificationQueries = buildVerificationQueries(userMessage)
+    const verificationQueries = [
+      ...buildVerificationQueries(userMessage),
+      ...semanticVerification.queryHints,
+    ]
+    const dedupedQueries = [...new Set(verificationQueries)]
 
     // Run all verification searches in parallel to avoid serial round-trips.
-    const searchTasks = verificationQueries.map(async (rawQuery) => {
+    const searchTasks = dedupedQueries.map(async (rawQuery) => {
       const query = buildDatedQuery(rawQuery)
       emit({ searching: true, query: rawQuery })
       const results = await webSearch(query)

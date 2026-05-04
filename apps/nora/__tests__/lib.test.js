@@ -5,6 +5,7 @@ import {
   buildVerificationReport,
   countHighConfidenceSources,
   countReliableSources,
+  countTrustedTechSources,
   countTrustedSources,
   requiresFactVerification,
   requiresLiveData,
@@ -156,6 +157,7 @@ describe('requiresFactVerification', () => {
     expect(requiresFactVerification('what is the inflation rate this year?')).toBe(true)
     expect(requiresFactVerification('how many people died in the earthquake?')).toBe(true)
     expect(requiresFactVerification('who is the current UK prime minister?')).toBe(true)
+    expect(requiresFactVerification("what's the best bang for the buck for a gpu to run llm at home?")).toBe(true)
   })
 
   it('returns false for non-sensitive prompts', () => {
@@ -262,6 +264,18 @@ describe('countTrustedSources', () => {
   })
 })
 
+describe('countTrustedTechSources', () => {
+  it('counts trusted hardware-review domains', () => {
+    const count = countTrustedTechSources([
+      'https://www.tomshardware.com/reviews/example-gpu',
+      'https://www.techpowerup.com/review/example-gpu/',
+      'https://www.compute-market.com/blog/best-gpu-for-ai-2026',
+    ])
+
+    expect(count).toBe(2)
+  })
+})
+
 describe('buildVerificationReport', () => {
   it('marks non-factual prompts as not required', () => {
     const report = buildVerificationReport('write a short bedtime poem', [])
@@ -352,6 +366,28 @@ describe('buildVerificationReport', () => {
     expect(report.required).toBe(true)
     expect(report.status).toBe('unverified')
     expect(report.sourceCount).toBe(0)
+  })
+
+  it('marks market recommendation prompts with a single unknown source as weak', () => {
+    const report = buildVerificationReport("what's the best bang for the buck gpu for llm at home?", [
+      'https://www.compute-market.com/blog/best-gpu-for-ai-2026',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.trustedTechSourceCount).toBe(0)
+  })
+
+  it('marks market recommendation prompts as verified only with trusted tech corroboration', () => {
+    const report = buildVerificationReport("what's the best bang for the buck gpu for llm at home?", [
+      'https://www.tomshardware.com/reviews/example-gpu',
+      'https://www.techpowerup.com/review/example-gpu/',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.trustedTechSourceCount).toBeGreaterThanOrEqual(1)
+    expect(report.reliableSourceCount).toBeGreaterThanOrEqual(2)
   })
 })
 

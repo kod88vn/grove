@@ -114,7 +114,8 @@ Browser
             ├─ planTools() loop (up to 3 passes)
             │    ├─ callOllama(stream: false, think: false, num_predict: 512, tools: [...])
             │    ├─ toolCalls.extractToolCalls()
-            │    ├─ if no tool call + factual event/figure/current-role claim: force web_search verification
+            │    ├─ if no tool call: run semantic verification-risk classifier (LLM JSON)
+            │    ├─ classifier result + fallback heuristics decide whether to force web_search verification
             │    │    ├─ current-role lookups search official-source variants first
             │    │    └─ if only low-confidence result remains: read_webpage that source for primary evidence
             │    └─ for each call:
@@ -211,7 +212,7 @@ The `/api/models` route proxies `http://grove:11434/api/tags` and always places 
 | Webpage blocked (e.g. 503) | `readWebpage` sets `error` field; chatStream runs `buildFallbackWebQuery` → `webSearch` |
 | Model loops on tool calls | `MAX_TOOL_PLANNING_PASSES` cap breaks the loop |
 | deep_research angle fails | Angle skipped silently; remaining angles still synthesized |
-| Model skips tools on event/figure/current-role factual claim | Server forces verification web_search before final answer |
+| Model skips tools on semantically high-risk factual/recommendation claim | Server runs semantic verification-risk classifier and forces verification web_search before final answer |
 | Sensitive person-status claim (alive/dead/assassinated) only has untrusted outlets | Server keeps searching with trusted-outlet queries and reads a trusted page before deciding; only then may it refuse definitive claims |
 | Reasoning-capable model leaks internal chain-of-thought text in final answer | Final streaming pass explicitly sets `think: false` so chat output stays user-facing |
 | Only low-confidence source found for current-role question | Server reads the page for primary evidence, marks verification `low_confidence`, and continues verification work rather than trusting the model |
