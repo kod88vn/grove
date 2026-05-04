@@ -2,6 +2,8 @@
 
 > Status: Draft — refining in progress
 
+> Current trial mode: Active CI workflow is back on Watt retry path. PM2 fallback workflow is saved at `ops/deploy/deploy.pm2.backup.yml`.
+
 ## Overview
 
 Grove is a self-hosted monorepo deployed on a local Windows machine, accessible to family members via Tailscale MagicDNS at `http://grove`. Nora is the primary interface — more apps will be added over time.

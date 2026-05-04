@@ -1,0 +1,51 @@
+name: Deploy grove
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: grove
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # needed for turbo --filter=[HEAD^1]
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Test affected packages
+        run: yarn turbo test --filter=...[HEAD^1]
+
+      - name: Build affected packages
+        run: yarn turbo build --filter=...[HEAD^1]
+
+      - name: Build Nora for runtime
+        run: yarn workspace nora build
+
+      - name: Restart Nora (PM2)
+        env:
+          PM2_HOME: C:\pm2
+        run: |
+          if (!(Test-Path "C:\pm2")) { New-Item -ItemType Directory -Path "C:\pm2" | Out-Null }
+          npx pm2 startOrRestart ecosystem.config.cjs --env production
+          npx pm2 save
+          npx pm2 ls
+
+      - name: Verify Nora is reachable locally
+        shell: powershell
+        env:
+          PM2_HOME: C:\pm2
+        run: |
+          try {
+            $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 20
+            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 500) {
+              throw "Unexpected status code: $($resp.StatusCode)"
+            }
+            Write-Host "Nora health check OK: HTTP $($resp.StatusCode)"
+          } catch {
+            npx pm2 logs nora --lines 100 --nostream
+            throw
+          }

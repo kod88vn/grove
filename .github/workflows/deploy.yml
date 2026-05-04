@@ -25,19 +25,18 @@ jobs:
       - name: Build Nora for runtime
         run: yarn workspace nora build
 
-      - name: Restart Nora (PM2)
-        env:
-          PM2_HOME: C:\pm2
+      - name: Restart Watt
+        shell: powershell
         run: |
-          if (!(Test-Path "C:\pm2")) { New-Item -ItemType Directory -Path "C:\pm2" | Out-Null }
-          npx pm2 startOrRestart ecosystem.config.cjs --env production
-          npx pm2 save
-          npx pm2 ls
+          npx wattpm restart watt.json
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "wattpm restart failed, trying clean start"
+            npx wattpm stop watt.json
+            npx wattpm start watt.json
+          }
 
       - name: Verify Nora is reachable locally
         shell: powershell
-        env:
-          PM2_HOME: C:\pm2
         run: |
           try {
             $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 20
@@ -46,6 +45,6 @@ jobs:
             }
             Write-Host "Nora health check OK: HTTP $($resp.StatusCode)"
           } catch {
-            npx pm2 logs nora --lines 100 --nostream
+            Write-Host "Local health check failed after Watt restart"
             throw
           }
