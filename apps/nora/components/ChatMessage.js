@@ -10,7 +10,7 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
     thinkingVisible &&
     (thinking || (isStreaming && role === 'assistant' && !content))
   )
-  const thinkingText = thinking || '...'
+  const thinkingText = thinking || ''
   const sourceList = !isUser
     ? (Array.isArray(sources) && sources.length > 0 ? dedupeSources(sources) : extractSources(content))
     : []
@@ -54,9 +54,11 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
               data-testid="thinking-scroll"
               className="max-h-[4.5rem] overflow-y-auto scroll-smooth pr-1"
             >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
-                {thinkingText}
-              </p>
+              {thinkingText && (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-70">
+                  {thinkingText}
+                </p>
+              )}
             </div>
             {status && (
               <p className="text-xs mt-1 text-purple-600 opacity-80">{status}</p>
