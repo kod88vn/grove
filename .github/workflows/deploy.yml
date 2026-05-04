@@ -25,6 +25,12 @@ jobs:
       - name: Build Nora for runtime
         run: yarn workspace nora build
 
+      - name: Kill any running Watt (Task Scheduler)
+        shell: powershell
+        run: |
+          Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*watt*" } | ForEach-Object { $_.Kill() }
+          Write-Host "Killed any running Watt processes (if present)"
+
       - name: Restart Nora (PM2)
         shell: powershell
         env:
