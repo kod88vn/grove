@@ -26,14 +26,18 @@ jobs:
         run: yarn workspace nora build
 
       - name: Restart Nora (PM2)
+        env:
+          PM2_HOME: C:\pm2
         run: |
-          npm i -g pm2
-          pm2 startOrRestart ecosystem.config.cjs --env production
-          pm2 save
-          pm2 ls
+          if (!(Test-Path "C:\pm2")) { New-Item -ItemType Directory -Path "C:\pm2" | Out-Null }
+          npx pm2 startOrRestart ecosystem.config.cjs --env production
+          npx pm2 save
+          npx pm2 ls
 
       - name: Verify Nora is reachable locally
         shell: powershell
+        env:
+          PM2_HOME: C:\pm2
         run: |
           try {
             $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 20
@@ -42,6 +46,6 @@ jobs:
             }
             Write-Host "Nora health check OK: HTTP $($resp.StatusCode)"
           } catch {
-            pm2 logs nora --lines 100 --nostream
+            npx pm2 logs nora --lines 100 --nostream
             throw
           }
