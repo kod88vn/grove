@@ -10,7 +10,7 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
     thinkingVisible &&
     (thinking || (isStreaming && role === 'assistant' && !content))
   )
-  const thinkingText = thinking || ''
+  const thinkingText = thinking || '...'
   const sourceList = !isUser
     ? (Array.isArray(sources) && sources.length > 0 ? dedupeSources(sources) : extractSources(content))
     : []
