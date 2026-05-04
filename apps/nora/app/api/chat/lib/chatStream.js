@@ -1178,6 +1178,67 @@ export function streamResponse(model, messages) {
           verification = buildVerificationReport(userMessage, sourceUrls)
         }
 
+                // Round 3: read top unread sources + additional search variants
+        if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
+          emit({ status: 'Running third research pass…' })
+
+          const alreadyReadUrls = new Set(
+            followupMessages
+              .filter((m) => m.tool_name === 'read_webpage')
+              .map((m) => { try { return JSON.parse(m.content || '{}').url } catch { return null } })
+              .filter(Boolean),
+          )
+
+          const unreadUrls = sourceUrls.filter((u) => !alreadyReadUrls.has(u))
+          for (const url of unreadUrls.slice(0, 2)) {
+            try {
+              const hostname = (() => { try { return new URL(url).hostname } catch { return url } })()
+              emit({ status: `Reading ${hostname}…` })
+              const page = await readWebpage(url)
+              followupMessages.push({
+                role: 'assistant',
+                content: '',
+                tool_calls: [{ type: 'function', function: { name: 'read_webpage', arguments: { url } } }],
+              })
+              followupMessages.push({
+                role: 'tool',
+                tool_name: 'read_webpage',
+                content: JSON.stringify({ ...page, forcedVerification: true, escalation: 'round3_read' }),
+              })
+              if (page?.url) sourceUrls.push(page.url)
+            } catch {
+              // skip unreadable pages
+            }
+          }
+
+          const base = normalizeQuery(userMessage)
+          const round3Queries = [
+            buildDatedQuery(`${base} recommendation review`),
+            buildDatedQuery(`${base} comparison benchmark`),
+          ]
+          for (const query of round3Queries) {
+            emit({ searching: true, query })
+            const results = await webSearch(query)
+            emit({ searching: false, query, resultCount: results.length })
+            for (const result of results) {
+              if (result?.url) sourceUrls.push(result.url)
+            }
+            followupMessages.push({
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ type: 'function', function: { name: 'web_search', arguments: { query } } }],
+            })
+            followupMessages.push({
+              role: 'tool',
+              tool_name: 'web_search',
+              content: JSON.stringify({ query, results, forcedVerification: true, escalation: 'round3_search' }),
+            })
+          }
+
+          sourceUrls = dedupeSourceUrls(sourceUrls)
+          verification = buildVerificationReport(userMessage, sourceUrls)
+        }
+
         if (sourceUrls.length > 0) {
           emit({ sources: sourceUrls })
         }
@@ -1185,12 +1246,13 @@ export function streamResponse(model, messages) {
         emit({ status: 'Verifying evidence…' })
         emit({ verification })
 
-        if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
+        // After 3 rounds, only refuse if we found zero sources.
+        // With some sources, proceed and let the model answer with caveats.
+        if (verification.required && verification.status === 'unverified') {
           emit({ status: null })
           emit({ thinkingDone: true })
           emit({
-            word:
-              `I can’t confidently verify this claim yet (${verification.sourceCount} source${verification.sourceCount === 1 ? '' : 's'} found), so I don’t want to guess. I can keep researching if you want.`,
+            word: `I ran three rounds of research and couldn't find any sources to answer this. I don't want to guess.`,
           })
           controller.enqueue(enc.encode('data: [DONE]\n\n'))
           controller.close()

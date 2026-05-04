@@ -545,7 +545,7 @@ describe('Chat Integration - current title verification', () => {
     expect(pageReadRequested).toBe(true)
     expect(ollamaCallCount).toBeGreaterThanOrEqual(2)
     expect(text).toContain('"verification":{"required":true,"status":"unverified"')
-    expect(text).toContain('I can’t confidently verify this claim yet')
+    expect(text).toContain('I ran three rounds of research')
     expect(text).not.toContain('Donald Trump is the current president.')
   })
 
@@ -626,7 +626,7 @@ describe('Chat Integration - current title verification', () => {
 
     expect(ollamaCallCount).toBeGreaterThanOrEqual(2)
     expect(text).toContain('"verification":{"required":true,"status":"unverified"')
-    expect(text).toContain('I can’t confidently verify this claim yet')
+    expect(text).toContain('I ran three rounds of research')
     expect(text).not.toContain('Joe Biden is still the president')
   })
 
