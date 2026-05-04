@@ -49,7 +49,7 @@ jobs:
           Write-Host "Starting grove:$tag"
           docker run -d `
             --name grove-live `
-            --restart unless-stopped `
+            --restart always `
             -p 80:80 `
             grove:$tag
 
