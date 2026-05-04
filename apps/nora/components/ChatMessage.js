@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-export function ChatMessage({ role, content, sources = [], verification = null, timestamp, thinking, thinkingVisible, isStreaming, status }) {
+export function ChatMessage({ role, content, sources = [], verification = null, timestamp, thinking, thinkingVisible, isStreaming, status, isGreeting }) {
   const isUser = role === 'user'
   const thinkingScrollRef = useRef(null)
   const [shouldAutoFollowThinking, setShouldAutoFollowThinking] = useState(true)
+  const showGreetingDots = Boolean(isGreeting && isStreaming && !content)
   const showThinkingBubble = Boolean(
+    !showGreetingDots &&
     thinkingVisible &&
     (thinking || (isStreaming && role === 'assistant' && !content))
   )
@@ -44,6 +46,15 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
 
   return (
     <div className="space-y-2">
+      {/* Greeting dots - show ... instead of thinking bubble for the first greeting */}
+      {showGreetingDots && (
+        <div className="flex justify-start">
+          <div className="px-4 py-3 rounded-3xl bg-gray-100 text-gray-500 rounded-bl-none text-sm">
+            ...
+          </div>
+        </div>
+      )}
+
       {/* Thinking bubble - only show while thinking and before content */}
       {showThinkingBubble && (
         <div className="flex justify-start">

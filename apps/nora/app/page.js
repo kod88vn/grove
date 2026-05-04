@@ -42,7 +42,7 @@ export default function ChatPage() {
 
     const history = [{ role: 'user', content: greetMsg }]
     const now = new Date().toISOString()
-    setMessages([{ role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking\u2026', sources: [], verification: null, timestamp: now }])
+    setMessages([{ role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking…', sources: [], verification: null, timestamp: now, isGreeting: true }])
     setIsStreaming(true)
 
     fetch('/api/chat', {
@@ -299,6 +299,7 @@ export default function ChatPage() {
                         thinkingVisible={showThinkingBubble ? true : msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
                         status={isStreaming && isLast ? statusLabel : ''}
+                        isGreeting={msg.isGreeting}
                       />
                     )}
                     {!showThinkingBubble && !hasThinking && hasContent && (
@@ -311,6 +312,7 @@ export default function ChatPage() {
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={isStreaming && isLast}
+                        isGreeting={msg.isGreeting}
                       />
                     )}
                     {!showThinkingBubble && !hasThinking && !hasContent && !isAssistantLast && (
@@ -323,6 +325,7 @@ export default function ChatPage() {
                         thinking={msg.thinking}
                         thinkingVisible={msg.thinkingVisible}
                         isStreaming={false}
+                        isGreeting={msg.isGreeting}
                       />
                     )}
                   </div>
