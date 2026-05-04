@@ -13,11 +13,72 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [modelList, setModelList] = useState([ENV_DEFAULT])
   const [selectedModel, setSelectedModel] = useState(ENV_DEFAULT)
+  const [user, setUser] = useState(null)
   const bottomRef = useRef(null)
+  const greetedRef = useRef(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then((data) => setUser(data))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!user || greetedRef.current) return
+    if (IS_DEV_MODE) return
+    greetedRef.current = true
+
+    const firstName = user.name ? user.name.split(' ')[0] : (user.login ? user.login.split('@')[0] : null)
+    const greetMsg = firstName
+      ? `Say hi to ${firstName} and offer to help with anything today. Keep it short and friendly.`
+      : 'Say hi and offer to help with anything today. Keep it short and friendly.'
+
+    const history = [{ role: 'user', content: greetMsg }]
+    const now = new Date().toISOString()
+    setMessages([{ role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking\u2026', sources: [], verification: null, timestamp: now }])
+    setIsStreaming(true)
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: selectedModel, messages: history }),
+    }).then(async (res) => {
+      if (!res.ok) return
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (value) buffer += decoder.decode(value, { stream: !done })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          const data = line.replace(/^data: /, '').trim()
+          if (!data || data === '[DONE]') continue
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.word) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                const stamp = last.content === '' ? { timestamp: new Date().toISOString() } : {}
+                return [...prev.slice(0, -1), { ...last, ...stamp, content: last.content + parsed.word }]
+              })
+            } else if ('status' in parsed) {
+              setMessages((prev) => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, status: parsed.status ?? '' }] })
+            } else if (parsed.thinkingDone) {
+              setMessages((prev) => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, thinkingVisible: false }] })
+            }
+          } catch { /* skip */ }
+        }
+        if (done) break
+      }
+    }).catch(() => {}).finally(() => setIsStreaming(false))
+  }, [user])
 
   useEffect(() => {
     if (!IS_DEV_MODE) return
@@ -175,6 +236,11 @@ export default function ChatPage() {
         <div className="w-full max-w-2xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Nora</h1>
           <div className="flex items-center gap-4">
+            {user && (
+              <span className="text-sm text-gray-600 font-medium">
+                {user.name || user.login || 'Unknown'}
+              </span>
+            )}
             <span className="text-xs text-gray-400 select-all" title="Deployed commit hash">{process.env.NEXT_PUBLIC_COMMIT_HASH}</span>
             {IS_DEV_MODE && (
               <select
