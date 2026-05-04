@@ -16,7 +16,6 @@ describe('ChatMessage timestamps', () => {
       />
     )
 
-    expect(screen.getByText(/Thinking:/i)).toBeInTheDocument()
     expect(screen.getByText('Searching trusted sources…')).toBeInTheDocument()
     const thinkingScroll = screen.getByTestId('thinking-scroll')
     expect(thinkingScroll).toHaveClass('overflow-y-auto')

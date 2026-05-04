@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
-    "ai-skill-library": "file:../ai-skill-library",
     "next": "^16.2.4",
     "node-fetch": "^3.3.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
+    "ai-skill-library": "file:../ai-skill-library",
     "@babel/core": "^7.25.9",
     "@babel/preset-env": "^7.25.9",
     "@babel/preset-react": "^7.25.9",
