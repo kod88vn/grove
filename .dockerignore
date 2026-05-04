@@ -1,0 +1,14 @@
+node_modules
+.venv
+.git
+**/.next
+**/dist
+**/build
+logs
+*.log
+.env*
+apps/ai-skill-library/bin
+apps/ai-skill-library/ui
+apps/nora/__tests__
+apps/nora/evals
+apps/nora/docs
