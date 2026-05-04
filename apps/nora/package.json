@@ -10,7 +10,7 @@
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "ai-skill-library": "file:../ai-skill-library",
+    "ai-skill-library": "git+ssh://git@github.com/kod88vn/my-recipes.git",
     "@babel/core": "^7.25.9",
     "@babel/preset-env": "^7.25.9",
     "@babel/preset-react": "^7.25.9",
