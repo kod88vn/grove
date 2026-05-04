@@ -238,9 +238,9 @@ export default function ChatPage() {
         <div className="w-full max-w-2xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Nora</h1>
           <div className="flex items-center gap-4">
-            {user && (
+            {(user?.name || user?.login) && (
               <span className="text-sm text-gray-600 font-medium">
-                {user.name || user.login || 'Unknown'}
+                {user.name || user.login}
               </span>
             )}
             <span className="text-xs text-gray-400 select-all" title="Deployed commit hash">{process.env.NEXT_PUBLIC_COMMIT_HASH}</span>
