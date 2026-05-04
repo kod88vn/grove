@@ -22,8 +22,6 @@ jobs:
       - name: Build affected packages
         run: yarn turbo build --filter=...[HEAD^1]
 
-      - name: Build Nora for runtime
-        run: yarn workspace nora build
 
       - name: Kill any running Watt (Task Scheduler)
         shell: powershell
@@ -31,20 +29,30 @@ jobs:
           Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*watt*" } | ForEach-Object { $_.Kill() }
           Write-Host "Killed any running Watt processes (if present)"
 
-      - name: Restart Nora (PM2)
-        shell: powershell
-        env:
-          PM2_HOME: C:\pm2
+      - name: Write commit hash to .env.local
+        shell: bash
         run: |
-          if (!(Test-Path "C:\pm2")) { New-Item -ItemType Directory -Path "C:\pm2" | Out-Null }
-          npx pm2 startOrRestart ecosystem.config.cjs --env production
-          npx pm2 save
-          npx pm2 ls
+          node ./apps/nora/scripts/write-commit-hash.cjs
+
+      - name: Build Nora for runtime
+        run: yarn workspace nora build
+
+      - name: Restart Watt
+        shell: powershell
+        run: |
+          npx wattpm@3.52.4 stop watt.json 2>$null
+          $wattRoot = (Resolve-Path ".").Path
+          Start-Process -FilePath "cmd.exe" `
+            -ArgumentList "/c npx wattpm@3.52.4 start watt.json > watt.log 2>&1" `
+            -WorkingDirectory $wattRoot `
+            -WindowStyle Hidden
+          Write-Host "Watt started in background"
+          Start-Sleep -Seconds 10
+          exit 0
+
 
       - name: Verify Nora is reachable locally
         shell: powershell
-        env:
-          PM2_HOME: C:\pm2
         run: |
           try {
             $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 20
@@ -53,6 +61,6 @@ jobs:
             }
             Write-Host "Nora health check OK: HTTP $($resp.StatusCode)"
           } catch {
-            npx pm2 logs nora --lines 100 --nostream
+            Get-Content watt.log -Tail 100
             throw
           }
