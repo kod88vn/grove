@@ -28,11 +28,11 @@ jobs:
       - name: Restart Watt
         shell: powershell
         run: |
-          npx wattpm restart watt.json
+          npx wattpm@3.52.4 restart watt.json
           if ($LASTEXITCODE -ne 0) {
             Write-Host "wattpm restart failed, trying clean start"
-            npx wattpm stop watt.json
-            npx wattpm start watt.json
+            npx wattpm@3.52.4 stop watt.json
+            npx wattpm@3.52.4 start watt.json
           }
 
       - name: Verify Nora is reachable locally
