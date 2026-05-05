@@ -2,13 +2,13 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git python3 make g++
 
 # Copy only manifests first so this layer is cached until deps change
 COPY package.json yarn.lock ./
 COPY apps/nora/package.json ./apps/nora/
 
-RUN yarn install --frozen-lockfile --ignore-scripts
+RUN yarn install --frozen-lockfile
 
 # ─── Stage 2: build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
