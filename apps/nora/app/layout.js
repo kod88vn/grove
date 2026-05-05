@@ -1,4 +1,6 @@
 import './globals.css'
+import { NoraNav } from '@/components/NoraNav'
+import { FloatingChat } from '@/components/FloatingChat'
 
 export const metadata = {
   title: 'Nora',
@@ -8,7 +10,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="flex min-h-screen flex-col bg-slate-50">
+        <NoraNav />
+        <div className="flex-1">{children}</div>
+        <FloatingChat />
+      </body>
     </html>
   )
 }

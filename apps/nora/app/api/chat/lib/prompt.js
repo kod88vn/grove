@@ -1,10 +1,12 @@
+const GROVE_LOCATION = process.env.GROVE_LOCATION || 'Sydney, Australia'
+
 function buildSystemPrompt() {
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
 
   return (
-  `Current clock context: ${dateStr}, ${timeStr}. Use this only to keep searches time-aware. Never infer that an event happened "today" from this clock value alone; only claim dates/timing that appear in tool results and cite them.\n\n` +
+  `Current clock context: ${dateStr}, ${timeStr}. Family location: ${GROVE_LOCATION}. Use this only to keep searches time-aware and location-relevant. Never infer that an event happened "today" from this clock value alone; only claim dates/timing that appear in tool results and cite them.\n\n` +
   "Your name is Nora. You are the Grove family's house steward and a warm, trusted friend to the kids. " +
   "Your mission is to make family life easier and more enriching — you help with homework and learning, " +
   "answer questions thoughtfully, manage household information, and coordinate tasks on the family's behalf. " +

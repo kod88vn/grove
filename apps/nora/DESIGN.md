@@ -26,6 +26,13 @@ flowchart LR
 
 ```
 app/
+├── page.js                       ← Family dashboard landing page
+├── chat/
+│   └── page.js                   ← Chat route wrapper; renders `components/ChatWorkspace`
+├── modules/
+│   ├── page.js                   ← Nora module catalog (educational + household utility)
+│   └── [slug]/
+│       └── page.js               ← Under-construction placeholder for Nora-native modules
 ├── api/
 │   ├── chat/
 │   │   ├── route.js              ← HTTP POST handler (input validation only)
@@ -39,11 +46,16 @@ app/
     │       ├── logger.js         ← Append-only audit log (logs/chat-audit.log, overwrite per session)│   │       └── chatStream.js     ← Tool-planning loop, streaming orchestration
 │   └── models/
 │       └── route.js              ← Proxies Ollama /api/tags; returns ordered model list
-├── page.js                       ← Chat UI; fetches /api/models and /api/chat, controls mobile history overlay state
 components/
+  ├── HomeDashboard.js              ← Landing dashboard with empty-state cards for any source not yet backed by real data
+  ├── ChatWorkspace.js              ← Chat UI; fetches /api/models and /api/chat, controls mobile history overlay state
 ├── ChatSidebar.js                ← Chat history list; desktop left rail + mobile full-screen overlay
 ├── ChatMessage.js
 └── ChatInput.js
+lib/home/
+└── dashboard.js                  ← Server-side dashboard data builder (identity + chat-derived profile, no fabricated household data)
+lib/modules/
+└── registry.js                   ← Nora module registry (`/modules/*`)
 ```
 
 ### Module responsibilities (one per module)
@@ -248,7 +260,7 @@ See [`docs/adr/`](./docs/adr/) for individual decision records.
 - **New LLM backend**: replace `lib/ollama.js` `callOllama` and keep the same message protocol.
 - **New search provider**: replace `webSearch` / `duckDuckGoHtmlSearch` in `lib/web.js`.
 - **History compression strategy**: modify `compressHistory` in `lib/ollama.js`.
-- **UI event types**: add a new SSE shape to the contract table in Section 4 and handle it in `app/page.js`.
+- **UI event types**: add a new SSE shape to the contract table in Section 4 and handle it in `components/ChatWorkspace.js`.
 
 ---
 

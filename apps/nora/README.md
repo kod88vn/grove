@@ -15,13 +15,21 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App R
 - **Mobile-friendly composer** — input guidance is shown below the textarea to prevent placeholder clipping on narrow screens
 - **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
+- **Family dashboard home** — only shows real household data; chat history can personalize the brief, while unsupported cards stay empty until real sources exist
+- **Pluggable module routing** — `/modules/[slug]` gives Nora-native tools stable routes with under-construction placeholders
 
 ## Architecture
 
 ```
 app/
 ├── layout.js                    # Root layout with metadata
-├── page.js                      # Main chat interface + model selector
+├── page.js                      # Family dashboard landing page
+├── chat/
+│   └── page.js                  # Main chat interface route
+├── modules/
+│   ├── page.js                  # Nora module catalog grouped by domain
+│   └── [slug]/
+│       └── page.js              # Under-construction placeholder per Nora module
 ├── globals.css                  # Tailwind directives
 └── api/
     ├── chat/
@@ -40,9 +48,17 @@ app/
         └── route.js             # Proxies Ollama /api/tags for model list
 
 components/
+├── HomeDashboard.js    # Family dashboard cards and quick actions
+├── ChatWorkspace.js    # Chat experience extracted for route reuse
 ├── ChatMessage.js      # Message bubbles (thinking + content + sources)
 ├── ChatInput.js        # Input textarea + send button
 └── ChatSidebar.js      # Chat history list + mobile full-screen overlay
+
+lib/modules/
+└── registry.js         # Nora module registry (internal features)
+
+lib/home/
+└── dashboard.js        # Home dashboard data builder using identity + real chat history only
 
 tailwind.config.js      # Tailwind configuration
 postcss.config.js       # PostCSS/Tailwind setup

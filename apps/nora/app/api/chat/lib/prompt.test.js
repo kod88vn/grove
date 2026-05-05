@@ -21,4 +21,9 @@ describe('withSystemMessage', () => {
     expect(content).toContain('do not present definitive conclusions')
     expect(content).toContain('If verification is inconclusive, explicitly say you cannot verify')
   })
+
+  it('includes the family location in the system prompt', () => {
+    const [{ content }] = withSystemMessage([{ role: 'user', content: 'test' }])
+    expect(content).toContain('Family location:')
+  })
 })
