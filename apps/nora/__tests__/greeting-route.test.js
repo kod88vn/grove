@@ -153,4 +153,29 @@ describe('Chat Route Greeting Mode', () => {
     const payload = await response.json()
     expect(payload.error).toBe('Invalid messages')
   })
+
+  it('emits fallback greeting when upstream finishes without content', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      body: makeNdjsonStream([
+        JSON.stringify({ message: { content: '' }, done: false }),
+        JSON.stringify({ done: true }),
+      ]),
+    })
+    global.fetch = fetchMock
+
+    const request = {
+      json: async () => ({
+        model: 'qwen3.5:9b',
+        mode: 'greeting',
+        greetingName: 'Master',
+      }),
+    }
+
+    const response = await POST(request)
+    const body = await readStreamText(response)
+
+    expect(body).toContain('data: {"word":"Hi Master, how can I help today?"}')
+    expect(body).toContain('data: [DONE]')
+  })
 })

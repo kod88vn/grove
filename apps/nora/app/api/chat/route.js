@@ -39,6 +39,7 @@ function streamGreetingResponse(model, greetingName) {
 
         const decoder = new TextDecoder()
         let rawBuffer = ''
+        let hasEmittedWord = false
 
         for await (const chunk of upstream.body) {
           rawBuffer += decoder.decode(chunk, { stream: true })
@@ -50,8 +51,14 @@ function streamGreetingResponse(model, greetingName) {
             try {
               const json = JSON.parse(line)
               const content = json.message?.content ?? ''
-              if (content) emit({ word: content })
+              if (content) {
+                emit({ word: content })
+                hasEmittedWord = true
+              }
               if (json.done) {
+                if (!hasEmittedWord) {
+                  emit({ word: `Hi ${safeName}, how can I help today?` })
+                }
                 controller.enqueue(enc.encode('data: [DONE]\n\n'))
                 controller.close()
                 return
@@ -62,6 +69,9 @@ function streamGreetingResponse(model, greetingName) {
           }
         }
 
+        if (!hasEmittedWord) {
+          emit({ word: `Hi ${safeName}, how can I help today?` })
+        }
         controller.enqueue(enc.encode('data: [DONE]\n\n'))
         controller.close()
       } catch {
