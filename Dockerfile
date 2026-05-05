@@ -8,7 +8,8 @@ RUN apk add --no-cache git python3 make g++
 COPY package.json yarn.lock ./
 COPY apps/nora/package.json ./apps/nora/
 
-RUN yarn install --frozen-lockfile --production
+RUN yarn install --frozen-lockfile --ignore-scripts && \
+	npm rebuild better-sqlite3
 
 # ─── Stage 2: build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
