@@ -26,9 +26,19 @@ function formatDate(unixSec) {
  * Sidebar listing past chats.
  *
  * @param {{ chats: object[], selectedId: string|null, onSelect: function,
- *           onNew: function, onPin: function, onRemove: function }} props
+ *           onNew: function, onPin: function, onRemove: function,
+ *           isMobileOpen?: boolean, onClose?: function }} props
  */
-export function ChatSidebar({ chats, selectedId, onSelect, onNew, onPin, onRemove }) {
+export function ChatSidebar({
+  chats,
+  selectedId,
+  onSelect,
+  onNew,
+  onPin,
+  onRemove,
+  isMobileOpen = false,
+  onClose = () => {},
+}) {
   const handlePin = useCallback((e, chat) => {
     e.stopPropagation()
     onPin(chat.id, !chat.pinned)
@@ -39,15 +49,24 @@ export function ChatSidebar({ chats, selectedId, onSelect, onNew, onPin, onRemov
     onRemove(id)
   }, [onRemove])
 
-  return (
-    <aside className="flex flex-col w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 h-screen overflow-hidden">
+  const content = (
+    <>
       <div className="flex-shrink-0 px-4 py-4 border-b border-gray-200">
-        <button
-          onClick={onNew}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-        >
-          <span>+</span> New Chat
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onNew}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <span>+</span> New Chat
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close history"
+            className="md:hidden px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2">
@@ -97,6 +116,35 @@ export function ChatSidebar({ chats, selectedId, onSelect, onNew, onPin, onRemov
           </div>
         ))}
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      <div
+        data-testid="mobile-sidebar-overlay"
+        className={[
+          'md:hidden',
+          isMobileOpen ? 'fixed inset-0 z-40' : 'hidden',
+        ].join(' ')}
+      >
+        <button
+          aria-label="Close history"
+          onClick={onClose}
+          className="absolute inset-0 bg-black/30"
+        />
+
+        <aside className="relative h-full w-full bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
+          {content}
+        </aside>
+      </div>
+
+      <aside
+        data-testid="desktop-sidebar"
+        className="hidden md:flex md:flex-col w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 h-screen overflow-hidden"
+      >
+        {content}
+      </aside>
+    </>
   )
 }

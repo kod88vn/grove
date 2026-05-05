@@ -39,8 +39,9 @@ app/
     │       ├── logger.js         ← Append-only audit log (logs/chat-audit.log, overwrite per session)│   │       └── chatStream.js     ← Tool-planning loop, streaming orchestration
 │   └── models/
 │       └── route.js              ← Proxies Ollama /api/tags; returns ordered model list
-├── page.js                       ← Chat UI; fetches /api/models and /api/chat
+├── page.js                       ← Chat UI; fetches /api/models and /api/chat, controls mobile history overlay state
 components/
+├── ChatSidebar.js                ← Chat history list; desktop left rail + mobile full-screen overlay
 ├── ChatMessage.js
 └── ChatInput.js
 ```
@@ -166,6 +167,10 @@ All events are newline-delimited `data: <JSON>` frames on the `/api/chat` stream
 | Error | `{ "word": "Error: ..." }` preceded by `{ "thinkingDone": true }` | On any server-side failure |
 
 UI note: the active assistant message keeps a separate thinking bubble visible while streaming and no answer content exists yet. `{ status: "..." }` updates are rendered in that bubble until `{ word: "..." }` tokens begin. The thinking text is displayed in a 3-line scrollable viewport with smooth auto-follow to the latest line unless the user scrolls up.
+
+Mobile note: on small screens, Nora enforces a single-pane layout. The history sidebar is collapsed by default and opens as a full-screen overlay only when explicitly activated.
+
+Composer note: input instructions are rendered below the textarea instead of inside placeholder text so guidance remains readable on narrow screens.
 
 ---
 

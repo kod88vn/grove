@@ -29,6 +29,7 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('')
   const [greetKey, setGreetKey] = useState(0)
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const bottomRef = useRef(null)
   const lastSyncedChatIdRef = useRef(activeChatId)
   const wasStreamingRef = useRef(false)
@@ -60,6 +61,7 @@ export default function ChatPage() {
     lastSyncedChatIdRef.current = chat.id
     setInitialMessages(detail.messages || [])
     setInput('')
+    setMobileSidebarOpen(false)
   }, [isStreaming])
 
   const handleNewChat = useCallback(() => {
@@ -68,6 +70,7 @@ export default function ChatPage() {
     lastSyncedChatIdRef.current = null
     setInitialMessages([])
     setInput('')
+    setMobileSidebarOpen(false)
     setGreetKey((k) => k + 1) // remount GreetingTrigger so greeting fires again
   }, [isStreaming])
 
@@ -91,13 +94,23 @@ export default function ChatPage() {
         onNew={handleNewChat}
         onPin={pin}
         onRemove={handleRemove}
+        isMobileOpen={isMobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
       />
 
       <div className="flex flex-col flex-1 min-w-0">
         <GreetingTrigger key={greetKey} onGreet={triggerGreeting} />
 
-        <header className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-          <div className="w-full max-w-2xl mx-auto flex items-center justify-end">
+        <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 md:px-6 py-4">
+          <div className="w-full max-w-2xl mx-auto flex items-center justify-between md:justify-end">
+            <button
+              type="button"
+              aria-label="Open history"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="md:hidden inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              History
+            </button>
             <div className="flex items-center gap-4">
               <UserBadge />
               <span className="text-xs text-gray-400 select-all" title="Deployed commit hash">
