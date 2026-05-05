@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { formatTimestamp, extractSources, dedupeSources, formatVerificationLabel } from '@/lib/utils/message'
 
 export function ChatMessage({ role, content, sources = [], verification = null, timestamp, thinking, thinkingVisible, isStreaming, status, isGreeting }) {
   const isUser = role === 'user'
@@ -126,52 +127,4 @@ export function ChatMessage({ role, content, sources = [], verification = null, 
       )}
     </div>
   )
-}
-
-function formatTimestamp(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function extractSources(text) {
-  if (!text) return []
-
-  const matches = text.match(/https?:\/\/[^\s)\]]+/g) || []
-  const seen = new Set()
-  const unique = []
-
-  for (const match of matches) {
-    const cleaned = match.replace(/[.,;!?]+$/, '')
-    if (!seen.has(cleaned)) {
-      seen.add(cleaned)
-      unique.push(cleaned)
-    }
-  }
-
-  return unique
-}
-
-function dedupeSources(urls) {
-  const seen = new Set()
-  const out = []
-  for (const url of urls) {
-    const value = String(url || '').trim()
-    if (!value || seen.has(value)) continue
-    seen.add(value)
-    out.push(value)
-  }
-  return out
-}
-
-function formatVerificationLabel(verification) {
-  if (!verification || typeof verification !== 'object') return ''
-  const status = verification.status
-  const count = verification.sourceCount
-
-  if (status === 'verified') return `Verification: verified (${count} source${count === 1 ? '' : 's'})`
-  if (status === 'weak') return `Verification: limited (${count} source)`
-  if (status === 'unverified') return 'Verification: unverified'
-  return ''
 }

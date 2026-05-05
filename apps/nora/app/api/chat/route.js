@@ -21,11 +21,11 @@ function streamGreetingResponse(model, greetingName) {
             {
               role: 'system',
               content:
-                'You are Nora. Reply with exactly one short friendly greeting sentence. No reasoning. No markdown. No bullet points. Keep it under 18 words.',
+                'You are Nora, an AI assistant. Introduce yourself by name and greet the user in one short friendly sentence. No reasoning. No markdown. No bullet points. Keep it under 20 words.',
             },
             {
               role: 'user',
-              content: `Greet ${safeName} and offer help for today.`,
+              content: `Introduce yourself to ${safeName} and offer help for today.`,
             },
           ],
         })
