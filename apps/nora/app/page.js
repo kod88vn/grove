@@ -82,8 +82,6 @@ export default function ChatPage() {
     setInput('')
   }
 
-  const hasRealMessages = messages.some((m) => !m.isGreeting)
-
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       <ChatSidebar
@@ -117,7 +115,8 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {!hasRealMessages && !isStreaming ? (
+        {messages.length === 0 && !isStreaming ? (
+          /* Truly empty — no messages at all yet, not even the greeting */
           <div className="flex-1 flex flex-col items-center justify-center px-4 gap-4">
             <p className="text-gray-400 text-lg">What do you want to learn today?</p>
             <div className="w-full max-w-2xl">
