@@ -791,6 +791,28 @@ async function planTools(model, messagesWithSystem, emit) {
       tool_name: 'web_search',
       content: JSON.stringify({ query: rawQuery, results }),
     })
+
+    // For live data (weather, scores, etc.) the search results only have URL
+    // snippets — the model needs actual page content to answer. Read the top
+    // non-low-confidence URL so the final answer pass has real data.
+    const liveUrls = dedupeSourceUrls(sourceUrls)
+    const topLiveUrl = liveUrls.find((u) => !isLowConfidenceSource(u)) ?? liveUrls[0]
+    if (topLiveUrl) {
+      const hostname = (() => { try { return new URL(topLiveUrl).hostname } catch { return topLiveUrl } })()
+      emit({ status: `Reading ${hostname}…` })
+      const page = await readWebpage(topLiveUrl)
+      followupMessages.push({
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ type: 'function', function: { name: 'read_webpage', arguments: { url: topLiveUrl } } }],
+      })
+      followupMessages.push({
+        role: 'tool',
+        tool_name: 'read_webpage',
+        content: JSON.stringify(page),
+      })
+    }
+
     return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
   }
 
@@ -1035,11 +1057,24 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
 
           // Detect planning narration: model expressed intent to search instead of answering.
           // Retract, run the search it described, then re-stream a real answer.
-          const isNarration = _pass === 0 && /\b(i should|i will|i'll|i need to|let me)\b.{0,60}\b(search|look up|find|check|use the \w+_\w+ tool)\b/i.test(fullContent)
+          const MAX_NARRATION_PASSES = 2
+          const isNarration = _pass < MAX_NARRATION_PASSES &&
+            /\b(i should|i will|i'll|i need to|let me)\b.{0,80}\b(search|look up|find|check|try|use the \w+_\w+ tool)\b/i.test(fullContent)
           if (isNarration) {
             emit({ retract: true })
             const userMessage = followupMessages.findLast((m) => m.role === 'user')?.content ?? ''
-            const rawQuery = buildFallbackWebQuery(userMessage) || userMessage
+            // Extract the search intent from the model's own narration text — it often
+            // describes a more specific query than the original user message.
+            const intentPatterns = [
+              /\b(?:search|look\s+up|find|check)\s+(?:for\s+)?(?:the\s+)?(.{10,150}?)(?:\.|,|\n|$)/i,
+              /\btry\s+(?:a\s+)?(?:different|another|new|more\s+specific)?\s*(?:search|query)\s+(?:for\s+|to\s+find\s+)?(.{10,150}?)(?:\.|,|\n|$)/i,
+            ]
+            let queryFromNarration = ''
+            for (const re of intentPatterns) {
+              const m = fullContent.match(re)
+              if (m?.[1]) { queryFromNarration = m[1].trim().slice(0, 200); break }
+            }
+            const rawQuery = queryFromNarration || buildFallbackWebQuery(userMessage) || userMessage
             emit({ status: `Searching for "${rawQuery}"\u2026` })
             emit({ searching: true, query: rawQuery })
             const results = await webSearch(rawQuery)
