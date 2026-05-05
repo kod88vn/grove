@@ -146,6 +146,7 @@ describe('Chat Route Greeting Mode', () => {
   it('still validates regular chat payloads', async () => {
     const request = {
       json: async () => ({ model: 'qwen3.5:9b' }),
+      headers: { get: () => null },
     }
 
     const response = await POST(request)

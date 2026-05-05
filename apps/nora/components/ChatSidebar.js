@@ -2,18 +2,24 @@
 
 import { useCallback } from 'react'
 
-/** Format a Unix timestamp (seconds) as a human-readable relative string. */
-function relativeTime(unixSec) {
+/** Format a Unix timestamp (seconds) as a concise, human-readable date string. */
+function formatDate(unixSec) {
   if (!unixSec) return ''
-  const diffMs = Date.now() - unixSec * 1000
-  const mins = Math.floor(diffMs / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days < 30) return `${days}d ago`
-  return `${Math.floor(days / 30)}mo ago`
+  const date = new Date(unixSec * 1000)
+  const now = new Date()
+  const diffMs = now - date
+  const diffDays = Math.floor(diffMs / 86_400_000)
+
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+  if (diffMs < 60_000) return 'just now'
+  if (diffDays === 0) return timeStr
+  if (diffDays === 1) return `Yesterday ${timeStr}`
+
+  const month = date.toLocaleString('default', { month: 'short' })
+  const day = date.getDate()
+  if (date.getFullYear() === now.getFullYear()) return `${month} ${day}`
+  return `${month} ${day}, ${date.getFullYear()}`
 }
 
 /**
@@ -68,7 +74,7 @@ export function ChatSidebar({ chats, selectedId, onSelect, onNew, onPin, onRemov
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{chat.title}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{relativeTime(chat.updated_at)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{formatDate(chat.updated_at)}</p>
             </div>
 
             {/* Actions — only visible on hover */}

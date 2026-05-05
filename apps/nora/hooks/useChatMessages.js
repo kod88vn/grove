@@ -20,10 +20,12 @@ export function useChatMessages({ model, initialMessages = [], initialChatId = n
   const greetedRef = useRef(false)
   const chatIdRef = useRef(initialChatId)
 
-  // Reset state when switching to a different chat
+  // Reset state when switching chats.
+  // Only reset the greeting guard when going to a fresh new chat (null id),
+  // not when loading an existing one — that would re-fire the greeting.
   useEffect(() => {
     chatIdRef.current = initialChatId
-    greetedRef.current = false
+    if (initialChatId === null) greetedRef.current = false
     setMessages(initialMessages)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChatId])
@@ -63,13 +65,28 @@ export function useChatMessages({ model, initialMessages = [], initialChatId = n
       try {
         const chat = await createChat(content.trim().slice(0, 60))
         if (chat?.id) chatIdRef.current = chat.id
-      } catch { /* non-fatal — stream will fall back to in-memory */ }
+      } catch {
+        // Handled below with a user-visible error message.
+      }
+    }
+
+    if (!chatIdRef.current) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        return [...prev.slice(0, -1), {
+          role: 'assistant',
+          content: 'Error: failed to create a chat session. Please try again.',
+          thinking: '',
+          thinkingVisible: false,
+          searching: false,
+          timestamp: last?.timestamp || new Date().toISOString(),
+        }]
+      })
+      return
     }
 
     await runStream(
-      chatIdRef.current
-        ? streamChat(model, chatIdRef.current, content)
-        : streamChat(model, null, content),
+      streamChat(model, chatIdRef.current, content),
       {
         onError: (err) => {
           setMessages((prev) => {

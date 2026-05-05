@@ -8,7 +8,7 @@ import {
   getOldestFreshMessages,
   replaceFreshWithSummary,
 } from '@/lib/db/messages'
-import { touchChat } from '@/lib/db/chats'
+import { touchChat, updateTitle } from '@/lib/db/chats'
 
 /**
  * Server-side greeting cache.
@@ -118,10 +118,46 @@ function streamGreetingResponse(model, greetingName) {
 }
 
 /**
+ * Generate a short 5-8 word title from the first few messages and persist it.
+ * Runs fire-and-forget — best-effort, non-blocking.
+ */
+async function maybeUpdateTitle(model, chatId, userId) {
+  const context = getFreshMessagesForContext(chatId).slice(0, 6)
+  if (context.length < 2) return
+
+  const transcript = context
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 300)}`)
+    .join('\n')
+
+  if (!transcript.trim()) return
+
+  try {
+    const res = await callOllama({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Generate a short 5-8 word title for this conversation. Output only the title text — no quotes, no punctuation at the end, no explanations.',
+        },
+        { role: 'user', content: transcript },
+      ],
+      stream: false,
+      options: { think: false, num_predict: 20 },
+    })
+    if (!res.ok) return
+    const json = await res.json()
+    const title = json.message?.content?.trim()
+    if (title) updateTitle(chatId, userId, title)
+  } catch { /* best-effort */ }
+}
+
+/**
  * Summarize the oldest 5 fresh messages once the fresh count reaches 10.
  * Runs fire-and-forget after the stream closes — best-effort, non-blocking.
  */
-async function maybeSummarize(model, chatId) {
+async function maybeSummarize(model, chatId, userId) {
   const fresh = countFreshMessages(chatId)
   if (fresh < 10) return
 
@@ -154,6 +190,8 @@ async function maybeSummarize(model, chatId) {
     const summary = json.message?.content?.trim()
     if (!summary) return
     replaceFreshWithSummary(chatId, oldest.map((m) => m.id), summary)
+    // Title update after summarisation — reflects the full conversation topic.
+    maybeUpdateTitle(model, chatId, userId).catch(() => {})
   } catch {
     // summarization is best-effort; failures are silent
   }
@@ -164,7 +202,7 @@ async function maybeSummarize(model, chatId) {
  * Loads non-summary context from DB, wraps the SSE stream to persist
  * the assistant response and fire summarization when fresh count hits 10.
  */
-function streamResponseWithPersistence(model, chatId, newMessageContent) {
+function streamResponseWithPersistence(model, chatId, newMessageContent, userId) {
   const now = new Date().toISOString()
 
   // Build Ollama context from DB non-summary messages + the new user message
@@ -216,9 +254,14 @@ function streamResponseWithPersistence(model, chatId, newMessageContent) {
         })
         touchChat(chatId)
       }
+      // Title update every 4 messages so the sidebar title reflects current topics.
+      const freshCount = countFreshMessages(chatId)
+      if (accumulated.content && freshCount % 4 === 0) {
+        maybeUpdateTitle(model, chatId, userId).catch(() => {})
+      }
       // Summarization is async (Ollama call) — fire-and-forget, does not block the response
       if (accumulated.content) {
-        maybeSummarize(model, chatId).catch(() => {})
+        maybeSummarize(model, chatId, userId).catch(() => {})
       }
     },
   })
@@ -235,9 +278,14 @@ export async function POST(request) {
     return streamGreetingResponse(model, greetingName)
   }
 
+  const userId =
+    request.headers.get('tailscale-user-login') ||
+    request.headers.get('x-forwarded-for') ||
+    'anonymous'
+
   // DB-backed path: server manages history
   if (chatId && message) {
-    return streamResponseWithPersistence(model, chatId, message)
+    return streamResponseWithPersistence(model, chatId, message, userId)
   }
 
   // Backward-compat: client sends full messages array (used by tests + old clients)
