@@ -198,6 +198,7 @@ Tools live in `lib/tools.js`. Each tool is a JSON Schema object Ollama reads to 
 | `ROLLING_WINDOW` | `lib/constants.js` | 20 messages before compression |
 | `RECENT_KEEP` | `lib/constants.js` | 10 messages kept verbatim after compression |
 | `MAX_TOOL_PLANNING_PASSES` | `lib/constants.js` | 3 |
+| `NORA_DB_PATH` | `lib/db/db.js` via `process.env.NORA_DB_PATH` | `<cwd>/data/nora.db` (container: `/data/nora.db` on Docker volume `nora-data`) |
 
 The `/api/models` route proxies `http://grove:11434/api/tags` and always places `DEFAULT_MODEL` first in the list.
 
@@ -215,6 +216,7 @@ The `/api/models` route proxies `http://grove:11434/api/tags` and always places 
 | Model skips tools on semantically high-risk factual/recommendation claim | Server runs semantic verification-risk classifier and forces verification web_search before final answer |
 | Sensitive person-status claim (alive/dead/assassinated) only has untrusted outlets | Server keeps searching with trusted-outlet queries and reads a trusted page before deciding; only then may it refuse definitive claims |
 | Reasoning-capable model leaks internal chain-of-thought text in final answer | Final streaming pass explicitly sets `think: false` so chat output stays user-facing |
+| SQLite DB file missing or directory unwritable at startup | `createDatabase` calls `mkdirSync` with `recursive: true`; if that fails Node throws and Next.js will not start — check `NORA_DB_PATH` and volume mount |
 | Only low-confidence source found for current-role question | Server reads the page for primary evidence, marks verification `low_confidence`, and continues verification work rather than trusting the model |
 | Verification required but evidence remains low-confidence, weak, or unverified | Server emits guarded "cannot verify confidently" answer and does not stream a definitive claim |
 
@@ -231,6 +233,7 @@ See [`docs/adr/`](./docs/adr/) for individual decision records.
 | ADR-003 | XML tool-call parsing fallback for non-conforming models | Accepted |
 | ADR-004 | Webpage read failure falls back to web search | Accepted |
 | ADR-005 | Module split: one responsibility per file | Accepted |
+| ADR-006 | Persist SQLite chat history via Docker named volume | Accepted |
 
 ---
 
