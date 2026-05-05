@@ -1,18 +1,19 @@
 import { parseSseStream } from '@/lib/utils/sseStream'
 
 /**
- * Async generator that streams a chat response.
- * Yields parsed SSE event objects from /api/chat.
+ * Async generator that streams a DB-backed chat response.
+ * The server loads conversation history from the database using chatId.
  *
  * @param {string} model
- * @param {object[]} messages  - full conversation history including the new user message
+ * @param {string} chatId  - persisted chat id
+ * @param {string} content - the new user message text
  * @yields {object}
  */
-export async function* streamChat(model, messages) {
+export async function* streamChat(model, chatId, content) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({ model, chatId, message: content }),
   })
 
   if (!res.ok) {

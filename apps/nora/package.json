@@ -5,19 +5,20 @@
   "type": "module",
   "dependencies": {
     "@platformatic/next": "^3.52.4",
+    "better-sqlite3": "^12.9.0",
     "next": "^16.2.4",
     "node-fetch": "^3.3.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "ai-skill-library": "https://github.com/kod88vn/my-recipes.git",
     "@babel/core": "^7.25.9",
     "@babel/preset-env": "^7.25.9",
     "@babel/preset-react": "^7.25.9",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
+    "ai-skill-library": "https://github.com/kod88vn/my-recipes.git",
     "autoprefixer": "^10.4.20",
     "babel-jest": "^29.7.0",
     "dependency-cruiser": "^17.4.0",

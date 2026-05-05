@@ -1,6 +1,14 @@
 import { DEFAULT_MODEL, SSE_HEADERS } from './lib/constants'
 import { streamResponse } from './lib/chatStream'
 import { callOllama } from './lib/ollama'
+import {
+  saveMessage,
+  getFreshMessagesForContext,
+  countFreshMessages,
+  getOldestFreshMessages,
+  replaceFreshWithSummary,
+} from '@/lib/db/messages'
+import { touchChat } from '@/lib/db/chats'
 
 /**
  * Server-side greeting cache.
@@ -109,13 +117,130 @@ function streamGreetingResponse(model, greetingName) {
   return new Response(stream, { headers: SSE_HEADERS })
 }
 
+/**
+ * Summarize the oldest 5 fresh messages once the fresh count reaches 10.
+ * Runs fire-and-forget after the stream closes — best-effort, non-blocking.
+ */
+async function maybeSummarize(model, chatId) {
+  const fresh = countFreshMessages(chatId)
+  if (fresh < 10) return
+
+  const oldest = getOldestFreshMessages(chatId, 5)
+  if (oldest.length < 5) return
+
+  const transcript = oldest
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n')
+
+  if (!transcript.trim()) return
+
+  try {
+    const res = await callOllama({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Summarize this conversation segment in 3-5 concise sentences. Preserve all key facts, topics, decisions, and answers so the conversation can continue seamlessly. Output only the summary text, no preamble.',
+        },
+        { role: 'user', content: transcript },
+      ],
+      stream: false,
+      options: { think: false },
+    })
+    if (!res.ok) return
+    const json = await res.json()
+    const summary = json.message?.content?.trim()
+    if (!summary) return
+    replaceFreshWithSummary(chatId, oldest.map((m) => m.id), summary)
+  } catch {
+    // summarization is best-effort; failures are silent
+  }
+}
+
+/**
+ * Stream a response for a DB-backed chat (chatId provided).
+ * Loads non-summary context from DB, wraps the SSE stream to persist
+ * the assistant response and fire summarization when fresh count hits 10.
+ */
+function streamResponseWithPersistence(model, chatId, newMessageContent) {
+  const now = new Date().toISOString()
+
+  // Build Ollama context from DB non-summary messages + the new user message
+  const contextMessages = getFreshMessagesForContext(chatId)
+  const messagesForOllama = [
+    ...contextMessages.map((m) => ({ role: m.role, content: m.content })),
+    { role: 'user', content: newMessageContent },
+  ]
+
+  // Save user message to DB immediately (before streaming)
+  saveMessage(chatId, { role: 'user', content: newMessageContent, timestamp: now })
+  touchChat(chatId)
+
+  const innerResponse = streamResponse(model, messagesForOllama)
+
+  // Wrap with a TransformStream that accumulates the assistant response for persistence
+  const accumulated = { content: '', thinking: '', sources: [], verification: null }
+  let parseBuffer = ''
+  const dec = new TextDecoder()
+
+  const transform = new TransformStream({
+    transform(chunk, controller) {
+      parseBuffer += dec.decode(chunk, { stream: true })
+      const blocks = parseBuffer.split('\n\n')
+      parseBuffer = blocks.pop() ?? ''
+      for (const block of blocks) {
+        const data = block.replace(/^data: /, '').trim()
+        if (!data || data === '[DONE]') continue
+        try {
+          const event = JSON.parse(data)
+          if (event.word) accumulated.content += event.word
+          if (event.thinking) accumulated.thinking += event.thinking
+          if (Array.isArray(event.sources)) accumulated.sources = event.sources
+          if (event.verification) accumulated.verification = event.verification
+        } catch { /* ignore */ }
+      }
+      controller.enqueue(chunk)
+    },
+    flush() {
+      // Save assistant response synchronously (better-sqlite3 is sync)
+      if (accumulated.content) {
+        saveMessage(chatId, {
+          role: 'assistant',
+          content: accumulated.content,
+          thinking: accumulated.thinking,
+          sources: accumulated.sources,
+          verification: accumulated.verification,
+          timestamp: new Date().toISOString(),
+        })
+        touchChat(chatId)
+      }
+      // Summarization is async (Ollama call) — fire-and-forget, does not block the response
+      if (accumulated.content) {
+        maybeSummarize(model, chatId).catch(() => {})
+      }
+    },
+  })
+
+  innerResponse.body.pipeTo(transform.writable).catch(() => {})
+  return new Response(transform.readable, { headers: SSE_HEADERS })
+}
+
 export async function POST(request) {
-  const { model = DEFAULT_MODEL, messages, mode, greetingName } = await request.json()
+  const { model = DEFAULT_MODEL, messages, mode, greetingName, chatId, message } =
+    await request.json()
 
   if (mode === 'greeting') {
     return streamGreetingResponse(model, greetingName)
   }
 
+  // DB-backed path: server manages history
+  if (chatId && message) {
+    return streamResponseWithPersistence(model, chatId, message)
+  }
+
+  // Backward-compat: client sends full messages array (used by tests + old clients)
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: 'Invalid messages' }, { status: 400 })
   }

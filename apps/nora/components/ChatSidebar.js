@@ -1,0 +1,96 @@
+'use client'
+
+import { useCallback } from 'react'
+
+/** Format a Unix timestamp (seconds) as a human-readable relative string. */
+function relativeTime(unixSec) {
+  if (!unixSec) return ''
+  const diffMs = Date.now() - unixSec * 1000
+  const mins = Math.floor(diffMs / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  return `${Math.floor(days / 30)}mo ago`
+}
+
+/**
+ * Sidebar listing past chats.
+ *
+ * @param {{ chats: object[], selectedId: string|null, onSelect: function,
+ *           onNew: function, onPin: function, onRemove: function }} props
+ */
+export function ChatSidebar({ chats, selectedId, onSelect, onNew, onPin, onRemove }) {
+  const handlePin = useCallback((e, chat) => {
+    e.stopPropagation()
+    onPin(chat.id, !chat.pinned)
+  }, [onPin])
+
+  const handleRemove = useCallback((e, id) => {
+    e.stopPropagation()
+    onRemove(id)
+  }, [onRemove])
+
+  return (
+    <aside className="flex flex-col w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 h-screen overflow-hidden">
+      <div className="flex-shrink-0 px-4 py-4 border-b border-gray-200">
+        <button
+          onClick={onNew}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+        >
+          <span>+</span> New Chat
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-2">
+        {chats.length === 0 && (
+          <p className="text-xs text-gray-400 text-center mt-8 px-4">No chats yet</p>
+        )}
+        {chats.map((chat) => (
+          <div
+            key={chat.id}
+            onClick={() => onSelect(chat)}
+            className={[
+              'group flex items-start gap-2 px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors',
+              selectedId === chat.id
+                ? 'bg-blue-50 text-blue-800'
+                : 'hover:bg-gray-100 text-gray-700',
+            ].join(' ')}
+          >
+            {/* Pin indicator */}
+            {chat.pinned ? (
+              <span className="text-blue-400 mt-0.5 flex-shrink-0 text-xs">📌</span>
+            ) : (
+              <span className="w-3 flex-shrink-0" />
+            )}
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{chat.title}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{relativeTime(chat.updated_at)}</p>
+            </div>
+
+            {/* Actions — only visible on hover */}
+            <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => handlePin(e, chat)}
+                title={chat.pinned ? 'Unpin' : 'Pin'}
+                className="p-1 text-gray-400 hover:text-blue-500 rounded"
+              >
+                {chat.pinned ? '📌' : '🔖'}
+              </button>
+              <button
+                onClick={(e) => handleRemove(e, chat.id)}
+                title="Delete chat"
+                className="p-1 text-gray-400 hover:text-red-500 rounded"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  )
+}

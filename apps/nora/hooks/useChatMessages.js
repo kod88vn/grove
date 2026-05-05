@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useRef, useCallback } from 'react'
+import { useState, useTransition, useRef, useCallback, useEffect } from 'react'
 import { streamChat, streamGreeting } from '@/lib/api/chat'
+import { createChat } from '@/lib/api/chats'
 import { applyStreamEvent, createAssistantPlaceholder } from '@/lib/utils/message'
 
 /**
@@ -10,13 +11,22 @@ import { applyStreamEvent, createAssistantPlaceholder } from '@/lib/utils/messag
  * Uses React 19 `useTransition` so SSE stream updates are low-priority —
  * the UI stays responsive to user input while tokens are arriving.
  *
- * @param {{ model: string }} options
+ * @param {{ model: string, initialMessages?: object[], initialChatId?: string|null }} options
  */
-export function useChatMessages({ model }) {
-  const [messages, setMessages] = useState([])
+export function useChatMessages({ model, initialMessages = [], initialChatId = null }) {
+  const [messages, setMessages] = useState(initialMessages)
   const [isStreaming, setIsStreaming] = useState(false)
   const [, startTransition] = useTransition()
   const greetedRef = useRef(false)
+  const chatIdRef = useRef(initialChatId)
+
+  // Reset state when switching to a different chat
+  useEffect(() => {
+    chatIdRef.current = initialChatId
+    greetedRef.current = false
+    setMessages(initialMessages)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialChatId])
 
   const applyEvent = useCallback((event) => {
     startTransition(() => {
@@ -37,18 +47,29 @@ export function useChatMessages({ model }) {
     }
   }, [applyEvent])
 
-  const sendMessage = useCallback(async (content, currentMessages) => {
+  const sendMessage = useCallback(async (content) => {
     if (!content.trim() || isStreaming) return
 
     const now = new Date().toISOString()
     const userMsg = { role: 'user', content, timestamp: now }
-    // Capture history snapshot before any state updates
-    const history = [...currentMessages, userMsg]
+    setMessages((prev) => {
+      // Strip the greeting (if present) when user sends their first real message
+      const filtered = prev.filter((m) => !m.isGreeting)
+      return [...filtered, userMsg, createAssistantPlaceholder(now)]
+    })
 
-    setMessages([...history, createAssistantPlaceholder(now)])
+    // Create a new chat in DB on first real message
+    if (!chatIdRef.current) {
+      try {
+        const chat = await createChat(content.trim().slice(0, 60))
+        if (chat?.id) chatIdRef.current = chat.id
+      } catch { /* non-fatal — stream will fall back to in-memory */ }
+    }
 
     await runStream(
-      streamChat(model, history),
+      chatIdRef.current
+        ? streamChat(model, chatIdRef.current, content)
+        : streamChat(model, null, content),
       {
         onError: (err) => {
           setMessages((prev) => {
@@ -99,5 +120,5 @@ export function useChatMessages({ model }) {
     }
   }, [model, applyEvent, runStream])
 
-  return { messages, isStreaming, sendMessage, triggerGreeting }
+  return { messages, isStreaming, sendMessage, triggerGreeting, chatIdRef }
 }

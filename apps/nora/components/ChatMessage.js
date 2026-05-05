@@ -4,6 +4,23 @@ import { useEffect, useRef, useState } from 'react'
 import { formatTimestamp, extractSources, dedupeSources, formatVerificationLabel } from '@/lib/utils/message'
 
 export function ChatMessage({ role, content, sources = [], verification = null, timestamp, thinking, thinkingVisible, isStreaming, status, isGreeting }) {
+  // Summary messages are display-only; they are never sent to the AI
+  if (role === 'summary') {
+    return (
+      <details className="my-3 group">
+        <summary className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none list-none">
+          <span className="flex-1 border-t border-gray-100" />
+          <span className="group-open:hidden">▶ Earlier conversation condensed</span>
+          <span className="hidden group-open:inline">▼ Earlier conversation condensed</span>
+          <span className="flex-1 border-t border-gray-100" />
+        </summary>
+        <p className="mt-2 text-xs text-gray-500 italic px-4 py-2 bg-gray-50 rounded-lg border border-gray-100 leading-relaxed">
+          {content}
+        </p>
+      </details>
+    )
+  }
+
   const isUser = role === 'user'
   const thinkingScrollRef = useRef(null)
   const [shouldAutoFollowThinking, setShouldAutoFollowThinking] = useState(true)
