@@ -2,7 +2,7 @@ import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals'
 import { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util'
 
-import { POST } from '../app/api/chat/route'
+import { POST, greetingCache } from '../app/api/chat/route'
 
 class TestResponse {
   constructor(body, init = {}) {
@@ -98,6 +98,7 @@ async function readStreamText(response) {
 afterEach(() => {
   jest.restoreAllMocks()
   global.fetch = originalFetch
+  greetingCache.clear()
 })
 
 afterAll(() => {
@@ -177,5 +178,27 @@ describe('Chat Route Greeting Mode', () => {
 
     expect(body).toContain('data: {"word":"Hi Master, how can I help today?"}')
     expect(body).toContain('data: [DONE]')
+  })
+
+  it('serves cached greeting without calling Ollama on second request', async () => {
+    greetingCache.set('Alice', "Hi Alice, I'm Nora! How can I help today?")
+
+    const fetchMock = jest.fn()
+    global.fetch = fetchMock
+
+    const request = {
+      json: async () => ({
+        model: 'qwen3.5:9b',
+        mode: 'greeting',
+        greetingName: 'Alice',
+      }),
+    }
+
+    const response = await POST(request)
+    const body = await readStreamText(response)
+
+    expect(body).toContain("Hi Alice, I'm Nora! How can I help today?")
+    expect(body).toContain('data: [DONE]')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

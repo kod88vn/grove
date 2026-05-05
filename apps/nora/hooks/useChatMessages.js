@@ -74,8 +74,30 @@ export function useChatMessages({ model }) {
     const now = new Date().toISOString()
     setMessages([createAssistantPlaceholder(now, { isGreeting: true })])
 
-    await runStream(streamGreeting(model, firstName))
-  }, [model, runStream])
+    // Check sessionStorage cache — avoids an LLM call on every page load
+    const cacheKey = `greeting:${firstName ?? ''}`
+    const cached = (() => { try { return sessionStorage.getItem(cacheKey) } catch { return null } })()
+
+    if (cached) {
+      applyEvent({ word: cached })
+      return
+    }
+
+    // Stream from API and collect the full text to cache for next time
+    let accumulated = ''
+    const collectingStream = (async function* () {
+      for await (const event of streamGreeting(model, firstName)) {
+        if (event.word) accumulated += event.word
+        yield event
+      }
+    })()
+
+    await runStream(collectingStream)
+
+    if (accumulated) {
+      try { sessionStorage.setItem(cacheKey, accumulated) } catch { /* storage full / SSR */ }
+    }
+  }, [model, applyEvent, runStream])
 
   return { messages, isStreaming, sendMessage, triggerGreeting }
 }

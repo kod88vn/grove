@@ -2,6 +2,13 @@ import { DEFAULT_MODEL, SSE_HEADERS } from './lib/constants'
 import { streamResponse } from './lib/chatStream'
 import { callOllama } from './lib/ollama'
 
+/**
+ * Server-side greeting cache.
+ * Keyed by normalised first name; populated once per unique name per process lifetime.
+ * With only a handful of family members this stays tiny and avoids repeated LLM calls.
+ */
+export const greetingCache = new Map()
+
 function streamGreetingResponse(model, greetingName) {
   const stream = new ReadableStream({
     async start(controller) {
@@ -12,6 +19,15 @@ function streamGreetingResponse(model, greetingName) {
         const safeName = typeof greetingName === 'string' && greetingName.trim()
           ? greetingName.trim()
           : 'there'
+
+        // Cache hit — replay the stored greeting immediately without calling Ollama
+        const cached = greetingCache.get(safeName)
+        if (cached) {
+          emit({ word: cached })
+          controller.enqueue(enc.encode('data: [DONE]\n\n'))
+          controller.close()
+          return
+        }
 
         const upstream = await callOllama({
           model,
@@ -40,6 +56,7 @@ function streamGreetingResponse(model, greetingName) {
         const decoder = new TextDecoder()
         let rawBuffer = ''
         let hasEmittedWord = false
+        let accumulated = ''
 
         for await (const chunk of upstream.body) {
           rawBuffer += decoder.decode(chunk, { stream: true })
@@ -53,12 +70,16 @@ function streamGreetingResponse(model, greetingName) {
               const content = json.message?.content ?? ''
               if (content) {
                 emit({ word: content })
+                accumulated += content
                 hasEmittedWord = true
               }
               if (json.done) {
                 if (!hasEmittedWord) {
-                  emit({ word: `Hi ${safeName}, how can I help today?` })
+                  const fallback = `Hi ${safeName}, how can I help today?`
+                  emit({ word: fallback })
+                  accumulated = fallback
                 }
+                if (accumulated) greetingCache.set(safeName, accumulated)
                 controller.enqueue(enc.encode('data: [DONE]\n\n'))
                 controller.close()
                 return
@@ -70,8 +91,11 @@ function streamGreetingResponse(model, greetingName) {
         }
 
         if (!hasEmittedWord) {
-          emit({ word: `Hi ${safeName}, how can I help today?` })
+          const fallback = `Hi ${safeName}, how can I help today?`
+          emit({ word: fallback })
+          accumulated = fallback
         }
+        if (accumulated) greetingCache.set(safeName, accumulated)
         controller.enqueue(enc.encode('data: [DONE]\n\n'))
         controller.close()
       } catch {
