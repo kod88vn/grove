@@ -36,11 +36,6 @@ export default function ChatPage() {
     const firstName = IS_DEV_MODE
       ? 'Master'
       : (user?.name ? user.name.split(' ')[0] : (user?.login ? user.login.split('@')[0] : null))
-    const greetMsg = firstName
-      ? `Say hi to ${firstName} and offer to help with anything today. Keep it short and friendly.`
-      : 'Say hi and offer to help with anything today. Keep it short and friendly.'
-
-    const history = [{ role: 'user', content: greetMsg }]
     const now = new Date().toISOString()
     setMessages([{ role: 'assistant', content: '', thinking: '', thinkingVisible: true, searching: false, searchQuery: '', researching: false, researchTopic: '', status: 'Thinking…', sources: [], verification: null, timestamp: now, isGreeting: true }])
     setIsStreaming(true)
@@ -48,7 +43,7 @@ export default function ChatPage() {
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: selectedModel, messages: history }),
+      body: JSON.stringify({ model: selectedModel, mode: 'greeting', greetingName: firstName || null }),
     }).then(async (res) => {
       if (!res.ok) return
       const reader = res.body.getReader()
