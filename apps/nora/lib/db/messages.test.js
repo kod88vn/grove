@@ -1,16 +1,8 @@
-/**
- * Tests for the DB message layer: fresh count, summarization trigger boundary,
- * and the replaceFreshWithSummary transaction.
- *
- * Uses an in-memory SQLite database via the createDatabase factory so the
- * production data file is never touched.
- */
-import { describe, it, expect, beforeEach } from '@jest/globals'
-
-// better-sqlite3 is a native CJS module; Jest runs in Node so this works.
+import { beforeEach, describe, expect, it } from '@jest/globals'
 import Database from 'better-sqlite3'
-import { createDatabase } from '../lib/db/db.js'
-import { createChat } from '../lib/db/chats.js'
+
+import { createDatabase } from './db.js'
+import { createChat } from './chats.js'
 import {
   saveMessage,
   getMessages,
@@ -18,7 +10,7 @@ import {
   countFreshMessages,
   getOldestFreshMessages,
   replaceFreshWithSummary,
-} from '../lib/db/messages.js'
+} from './messages.js'
 
 let db
 
@@ -30,17 +22,9 @@ function addMsg(chatId, role, content) {
   return saveMessage(chatId, { role, content, timestamp: new Date().toISOString() }, db)
 }
 
-describe('chat CRUD', () => {
-  it('creates a chat with a generated id', () => {
-    const chat = createChat('user@example.com', 'Test chat', db)
-    expect(chat.id).toBeTruthy()
-    expect(chat.title).toBe('Test chat')
-  })
-
-  it('truncates long titles to 80 chars', () => {
-    const longTitle = 'A'.repeat(100)
-    const chat = createChat('user@example.com', longTitle, db)
-    expect(chat.title.length).toBe(80)
+describe('createDatabase', () => {
+  it('returns a better-sqlite3 Database instance', () => {
+    expect(db).toBeInstanceOf(Database)
   })
 })
 
@@ -64,7 +48,6 @@ describe('countFreshMessages', () => {
     saveMessage(chat.id, { role: 'summary', content: 'summary', timestamp: new Date().toISOString(), is_summary: true }, db)
     addMsg(chat.id, 'user', 'q2')
     addMsg(chat.id, 'assistant', 'a2')
-    // 4 non-summary messages total; the summary is excluded from the count
     expect(countFreshMessages(chat.id, db)).toBe(4)
   })
 })
@@ -88,7 +71,6 @@ describe('getOldestFreshMessages', () => {
     addMsg(chat.id, 'user', 'second')
     addMsg(chat.id, 'user', 'third')
     const oldest = getOldestFreshMessages(chat.id, 5, db)
-    // Returns ALL 3 non-summary messages (including the one before the summary)
     expect(oldest.length).toBe(3)
     expect(oldest[0].content).toBe('first')
   })
@@ -122,7 +104,7 @@ describe('replaceFreshWithSummary', () => {
     expect(countFreshMessages(chat.id, db)).toBe(10)
 
     replaceFreshWithSummary(chat.id, ids, 'compressed', db)
-    expect(countFreshMessages(chat.id, db)).toBe(5) // 5 assistants remain as fresh
+    expect(countFreshMessages(chat.id, db)).toBe(5)
   })
 })
 

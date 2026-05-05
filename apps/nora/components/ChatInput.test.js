@@ -1,8 +1,8 @@
 import { describe, it, expect, jest } from '@jest/globals'
 import { render, screen } from '@testing-library/react'
-import { ChatInput } from '@/components/ChatInput'
+import { ChatInput } from './ChatInput'
 
-describe('ChatInput mobile-friendly hint', () => {
+describe('ChatInput', () => {
   it('uses a short placeholder and shows usage guidance below the input', () => {
     render(
       <ChatInput

@@ -1,12 +1,4 @@
-/**
- * Greeting cache: unit-tests the sessionStorage cache path in triggerGreeting.
- *
- * We test the cache logic directly (get/set) because useChatMessages is a hook
- * that requires a React render environment. The cache key format and read/write
- * behaviour is the contract we want to lock down.
- */
-
-describe('greeting sessionStorage cache', () => {
+describe('useChatMessages', () => {
   const cacheKey = (name) => `greeting:${name ?? ''}`
 
   beforeEach(() => {

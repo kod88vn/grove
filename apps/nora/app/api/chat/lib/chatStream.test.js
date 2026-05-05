@@ -1,7 +1,19 @@
-import { describe, it, expect, afterAll, afterEach, jest } from '@jest/globals'
+import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals'
 import { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util'
-import { streamResponse } from '../app/api/chat/lib/chatStream'
+
+import {
+  buildVerificationQueries,
+  buildVerificationReport,
+  countHighConfidenceSources,
+  countReliableSources,
+  countTrustedSources,
+  countTrustedTechSources,
+  requiresFactVerification,
+  requiresLiveData,
+  requiresPreciseValue,
+  streamResponse,
+} from './chatStream'
 
 class TestResponse {
   constructor(body, init = {}) {
@@ -31,6 +43,7 @@ const originalReadableStream = global.ReadableStream
 const originalResponse = global.Response
 const originalTextEncoder = global.TextEncoder
 const originalTextDecoder = global.TextDecoder
+
 if (!global.ReadableStream) {
   global.ReadableStream = NodeReadableStream
 }
@@ -55,19 +68,13 @@ afterAll(() => {
   global.TextDecoder = originalTextDecoder
 })
 
-/**
- * Regression: planning pass returns final content but a second streaming pass
- * was launched, which emitted only thinking tokens with no content.
- * The route must short-circuit and emit the planning answer directly.
- */
-describe('Route: planning pass short-circuit', () => {
+describe('streamResponse planning short-circuit', () => {
   it('emits thinkingDone + word when planning result has content and no remaining tool calls', () => {
-    // Simulate the events the route would emit when short-circuiting
     const events = []
     const emit = (obj) => events.push(obj)
 
     const planningAnswer = 'The current React version is 19.2.5.'
-    const toolCalls = [] // no remaining tool calls
+    const toolCalls = []
 
     const hasRemainingToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0
     if (!hasRemainingToolCalls && planningAnswer) {
@@ -81,7 +88,7 @@ describe('Route: planning pass short-circuit', () => {
     expect(events[2]).toBe('[DONE]')
   })
 
-  it('does NOT short-circuit when planning result has remaining tool calls', () => {
+  it('does not short-circuit when planning result has remaining tool calls', () => {
     const events = []
     const emit = (obj) => events.push(obj)
 
@@ -94,77 +101,284 @@ describe('Route: planning pass short-circuit', () => {
       emit({ word: planningAnswer })
     }
 
-    // No early emissions — should proceed to tool execution path
     expect(events).toHaveLength(0)
   })
 })
 
-/**
- * Regression: parseXmlToolCalls returned objects without `type` field,
- * causing Ollama to reject the tool_calls array on the follow-up request.
- */
-describe('Route: XML tool-call type normalization', () => {
-  // Inline the functions under test (pure, no imports needed)
-  function parseXmlToolCalls(content) {
-    if (!content) return []
-    const calls = []
-    const fnRegex = /<function=(\w+)>(.*?)<\/function>/gs
-    let fnMatch
-    while ((fnMatch = fnRegex.exec(content)) !== null) {
-      const name = fnMatch[1]
-      const body = fnMatch[2]
-      const args = {}
-      const paramRegex = /<parameter=(\w+)>([\s\S]*?)<\/parameter>/g
-      let pMatch
-      while ((pMatch = paramRegex.exec(body)) !== null) {
-        args[pMatch[1]] = pMatch[2].trim()
+describe('chat stream token handling', () => {
+  it('handles thinking chunks before content starts', () => {
+    const mockThinking = '{"model":"qwen3.5:9b","message":{"thinking":"Let","content":""},"done":false}'
+    const json = JSON.parse(mockThinking)
+
+    expect(json.message.thinking).toBe('Let')
+    expect(json.message.content).toBe('')
+  })
+
+  it('marks the content transition when thinking stops', () => {
+    const thinkingChunk = '{"model":"qwen3.5:9b","message":{"thinking":" me","content":""},"done":false}'
+    const contentChunk = '{"model":"qwen3.5:9b","message":{"thinking":"","content":"Hello"},"done":false}'
+
+    const think = JSON.parse(thinkingChunk)
+    const content = JSON.parse(contentChunk)
+
+    expect(think.message.thinking).toBeTruthy()
+    expect(think.message.content).toBe('')
+    expect(content.message.thinking).toBe('')
+    expect(content.message.content).toBe('Hello')
+  })
+
+  it('buffers words until whitespace boundaries', () => {
+    const tokens = ['H', 'ello ', 'wor', 'ld']
+    let buffer = ''
+    const words = []
+
+    for (const token of tokens) {
+      buffer += token
+      while (true) {
+        const match = buffer.match(/^(.*?)\s/)
+        if (!match) break
+        const word = match[1] + ' '
+        words.push(word)
+        buffer = buffer.slice(word.length)
       }
-      calls.push({ type: 'function', function: { name, arguments: args } })
     }
-    return calls
-  }
+    words.push(buffer)
 
-  function extractToolCalls(message) {
-    const structured = message?.tool_calls
-    if (Array.isArray(structured) && structured.length > 0) {
-      return structured.map((call) => ({ ...call, type: call?.type || 'function' }))
-    }
-    return parseXmlToolCalls(message?.content ?? '')
-  }
-
-  it('XML tool call includes type=function', () => {
-    const content = '<function=web_search>\n<parameter=query>\nReact version\n</parameter>\n</function>'
-    const calls = parseXmlToolCalls(content)
-    expect(calls).toHaveLength(1)
-    expect(calls[0].type).toBe('function')
-    expect(calls[0].function.name).toBe('web_search')
-    expect(calls[0].function.arguments.query).toBe('React version')
+    expect(words).toEqual(['Hello ', 'world'])
   })
 
-  it('structured tool call without type gets type=function added', () => {
-    const message = {
-      tool_calls: [{ function: { name: 'web_search', arguments: { query: 'test' } } }],
-    }
-    const calls = extractToolCalls(message)
-    expect(calls[0].type).toBe('function')
-  })
+  it('flushes the remaining buffer on done', () => {
+    let buffer = 'hello'
+    const words = []
 
-  it('structured tool call that already has type preserves it', () => {
-    const message = {
-      tool_calls: [{ type: 'function', function: { name: 'web_search', arguments: { query: 'test' } } }],
+    while (true) {
+      const match = buffer.match(/^(.*?)\s/)
+      if (!match) break
+      const word = match[1] + ' '
+      words.push(word)
+      buffer = buffer.slice(word.length)
     }
-    const calls = extractToolCalls(message)
-    expect(calls[0].type).toBe('function')
+
+    if (buffer) words.push(buffer)
+    expect(words).toEqual(['hello'])
   })
 })
 
-/**
- * Integration test: Simulates a full chat flow with thinking and content
- * This mimics what the actual Ollama API returns and how the UI should process it
- */
-describe('Chat Integration - Full Flow', () => {
-  it('should handle complete thinking -> content -> done flow', () => {
-    // Simulate Ollama API responses (NDJSON format)
+describe('verification heuristics', () => {
+  it('returns true for sensitive status claims', () => {
+    expect(requiresFactVerification('was he killed last year?')).toBe(true)
+    expect(requiresFactVerification('is she still alive')).toBe(true)
+    expect(requiresFactVerification('was he arrested or convicted')).toBe(true)
+  })
+
+  it('returns true for event and figure queries', () => {
+    expect(requiresFactVerification('what happened in the 2020 election?')).toBe(true)
+    expect(requiresFactVerification('what happened to charlie kirk?')).toBe(true)
+    expect(requiresFactVerification('what is the inflation rate this year?')).toBe(true)
+    expect(requiresFactVerification('how many people died in the earthquake?')).toBe(true)
+    expect(requiresFactVerification('who is the current UK prime minister?')).toBe(true)
+    expect(requiresFactVerification("what's the best bang for the buck for a gpu to run llm at home?")).toBe(true)
+  })
+
+  it('returns false for non-sensitive prompts', () => {
+    expect(requiresFactVerification('explain how photosynthesis works')).toBe(false)
+    expect(requiresFactVerification('write a poem about summer')).toBe(false)
+    expect(requiresFactVerification('tell a funny pirate story for kids')).toBe(false)
+    expect(requiresFactVerification('did [public figure] pass away this year?')).toBe(false)
+  })
+
+  it('returns true for weather and forecast queries', () => {
+    expect(requiresLiveData("how's the weather tomorrow?")).toBe(true)
+    expect(requiresLiveData('what is the weather today?')).toBe(true)
+    expect(requiresLiveData('will it rain tonight?')).toBe(true)
+    expect(requiresLiveData('forecast for this week')).toBe(true)
+    expect(requiresLiveData('is it sunny tomorrow')).toBe(true)
+  })
+
+  it('returns true for live queries', () => {
+    expect(requiresLiveData('stock price of Apple right now')).toBe(true)
+    expect(requiresLiveData('what is the score currently')).toBe(true)
+    expect(requiresLiveData('breaking news as of today')).toBe(true)
+  })
+
+  it('returns false for general evergreen questions', () => {
+    expect(requiresLiveData('explain how photosynthesis works')).toBe(false)
+    expect(requiresLiveData('write a poem about summer')).toBe(false)
+    expect(requiresLiveData('who was the first US president')).toBe(false)
+  })
+
+  it('matches exact version and price/count queries', () => {
+    expect(requiresPreciseValue('give me exact version number')).toBe(true)
+    expect(requiresPreciseValue('what is the latest version of React?')).toBe(true)
+    expect(requiresPreciseValue('current stable release of Python')).toBe(true)
+    expect(requiresPreciseValue('what is the exact price of a Big Mac?')).toBe(true)
+    expect(requiresPreciseValue('exact number of seats in the Senate')).toBe(true)
+  })
+
+  it('does not flag general explanatory questions as precise-value lookups', () => {
+    expect(requiresPreciseValue('who is the current president?')).toBe(false)
+    expect(requiresPreciseValue('how does React work?')).toBe(false)
+    expect(requiresPreciseValue('explain React hooks')).toBe(false)
+  })
+})
+
+describe('verification report helpers', () => {
+  it('counts reliable sources while discounting low-confidence pages', () => {
+    const count = countReliableSources([
+      'https://www.foxnews.com/category/media/charlie-kirk',
+      'https://en.wikipedia.org/wiki/Assassination_of_Charlie_Kirk',
+      'https://www.bls.gov/cpi/latest-numbers.htm',
+    ])
+
+    expect(count).toBe(1)
+  })
+
+  it('counts high-confidence official domains', () => {
+    const count = countHighConfidenceSources([
+      'https://www.whitehouse.gov/administration/president-donald-j-trump/',
+      'https://www.bls.gov/cpi/latest-numbers.htm',
+      'https://en.wikipedia.org/wiki/President_of_the_United_States',
+    ])
+
+    expect(count).toBe(2)
+  })
+
+  it('counts trusted outlet domains and excludes unknown ones', () => {
+    const count = countTrustedSources([
+      'https://www.reuters.com/world/us/example-story/',
+      'https://apnews.com/article/example',
+      'https://www.timesnownews.com/world/us-news/example-article',
+      'https://abcnews.com/us/example',
+    ])
+
+    expect(count).toBe(2)
+  })
+
+  it('counts trusted hardware-review domains', () => {
+    const count = countTrustedTechSources([
+      'https://www.tomshardware.com/reviews/example-gpu',
+      'https://www.techpowerup.com/review/example-gpu/',
+      'https://www.compute-market.com/blog/best-gpu-for-ai-2026',
+    ])
+
+    expect(count).toBe(2)
+  })
+
+  it('marks non-factual prompts as not required', () => {
+    const report = buildVerificationReport('write a short bedtime poem', [])
+    expect(report.required).toBe(false)
+    expect(report.status).toBe('not_required')
+  })
+
+  it('marks factual prompts with two sources as verified', () => {
+    const report = buildVerificationReport('what happened in the 2020 election', ['https://a.com', 'https://b.com'])
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.sourceCount).toBe(2)
+  })
+
+  it('does not mark sensitive person-status claims as verified without trusted outlets', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.timesnownews.com/world/us-news/charlie-kirk-assassination-article-123',
+      'https://abcnews.com/us/charlie-kirk-shooting-article?id=123456789',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.trustedSourceCount).toBe(0)
+  })
+
+  it('allows sensitive person-status claims when a trusted outlet is present', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.reuters.com/world/us/example-story/',
+      'https://www.timesnownews.com/world/us-news/example-article',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.trustedSourceCount).toBe(1)
+  })
+
+  it('does not mark low-confidence corroboration as verified', () => {
+    const report = buildVerificationReport('what happened to charlie kirk?', [
+      'https://www.foxnews.com/category/media/charlie-kirk',
+      'https://en.wikipedia.org/wiki/Assassination_of_Charlie_Kirk',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.reliableSourceCount).toBe(0)
+  })
+
+  it('marks factual prompts with one source as weak', () => {
+    const report = buildVerificationReport('what is the inflation rate', ['https://a.com'])
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('weak')
+    expect(report.sourceCount).toBe(1)
+  })
+
+  it('marks current title questions with one official or reliable source as verified', () => {
+    const official = buildVerificationReport('who is the current US president?', [
+      'https://www.whitehouse.gov/administration/president-donald-j-trump/',
+    ])
+    const reliable = buildVerificationReport('who is the current US president?', [
+      'https://www.govtrack.us/congress/other-people/donald_trump/412733',
+    ])
+
+    expect(official.status).toBe('verified')
+    expect(official.highConfidenceSourceCount).toBe(1)
+    expect(reliable.status).toBe('verified')
+    expect(reliable.reliableSourceCount).toBe(1)
+  })
+
+  it('marks current title questions as unverified when only Wikipedia is found', () => {
+    const report = buildVerificationReport('who is the current president?', [
+      'https://en.wikipedia.org/wiki/2026_United_States_elections',
+    ])
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('unverified')
+    expect(report.sourceCount).toBe(0)
+    expect(report.reliableSourceCount).toBe(0)
+  })
+
+  it('marks factual prompts with no sources as unverified', () => {
+    const report = buildVerificationReport('how many people died in the earthquake', [])
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('unverified')
+    expect(report.sourceCount).toBe(0)
+  })
+
+  it('marks market recommendation prompts with trusted tech corroboration only', () => {
+    const weak = buildVerificationReport("what's the best bang for the buck gpu for llm at home?", [
+      'https://www.compute-market.com/blog/best-gpu-for-ai-2026',
+    ])
+    const verified = buildVerificationReport("what's the best bang for the buck gpu for llm at home?", [
+      'https://www.tomshardware.com/reviews/example-gpu',
+      'https://www.techpowerup.com/review/example-gpu/',
+    ])
+
+    expect(weak.status).toBe('weak')
+    expect(weak.trustedTechSourceCount).toBe(0)
+    expect(verified.status).toBe('verified')
+    expect(verified.trustedTechSourceCount).toBeGreaterThanOrEqual(1)
+  })
+
+  it('builds corroboration-focused query variants', () => {
+    const queries = buildVerificationQueries('what happened to charlie kirk?')
+    expect(queries).toContain('what happened to charlie kirk?')
+    expect(queries).toContain('what happened to charlie kirk? latest news')
+    expect(queries).toContain('what happened to charlie kirk? official source')
+  })
+
+  it('biases current office questions toward official domains', () => {
+    const queries = buildVerificationQueries('who is the current US president?')
+    expect(queries).toContain('who is the current US president? site:whitehouse.gov')
+  })
+})
+
+describe('streamResponse integration', () => {
+  it('handles complete thinking -> content -> done flow', () => {
     const ollamaResponses = [
       '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"","thinking":"Let"},"done":false}',
       '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"","thinking":" me"},"done":false}',
@@ -174,11 +388,9 @@ describe('Chat Integration - Full Flow', () => {
       '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"!","thinking":""},"done":true}',
     ]
 
-    // Simulate API processing
     const thinkingEmissions = []
     const contentEmissions = []
     let contentStarted = false
-
     let thinkBuffer = ''
     let contentBuffer = ''
 
@@ -187,7 +399,6 @@ describe('Chat Integration - Full Flow', () => {
       const thinking = json.message?.thinking || ''
       const content = json.message?.content || ''
 
-      // Process thinking
       if (thinking && !contentStarted) {
         thinkBuffer += thinking
         while (true) {
@@ -199,7 +410,6 @@ describe('Chat Integration - Full Flow', () => {
         }
       }
 
-      // Process content start
       if (content && !contentStarted) {
         contentStarted = true
         if (thinkBuffer) {
@@ -209,7 +419,6 @@ describe('Chat Integration - Full Flow', () => {
         contentEmissions.push('[THINKING_DONE]')
       }
 
-      // Process content
       if (content && contentStarted) {
         contentBuffer += content
         while (true) {
@@ -221,42 +430,24 @@ describe('Chat Integration - Full Flow', () => {
         }
       }
 
-      // Handle done
       if (json.done && contentBuffer) {
         contentEmissions.push(contentBuffer)
       }
     }
 
-    // Verify thinking was emitted
     expect(thinkingEmissions).toContain('Let ')
     expect(thinkingEmissions).toContain('me ')
     expect(thinkingEmissions).toContain('think')
 
-    // Verify content was emitted after thinking done signal
     const thinkingDoneIdx = contentEmissions.indexOf('[THINKING_DONE]')
     expect(thinkingDoneIdx).toBeGreaterThanOrEqual(0)
     expect(contentEmissions[thinkingDoneIdx + 1]).toBe('Hello ')
     expect(contentEmissions[thinkingDoneIdx + 2]).toBe('world!')
   })
 
-  it('should reconstruct full thinking and content strings correctly', () => {
-    const stream = `data: {"thinking":"Let"}
-
-data: {"thinking":" me"}
-
-data: {"thinking":" think"}
-
-data: {"thinkingDone":true}
-
-data: {"word":"Hello"}
-
-data: {"word":" world"}
-
-data: [DONE]
-
-`
-
-    const lines = stream.split('\n\n').filter(l => l.trim())
+  it('reconstructs thinking and content from SSE frames correctly', () => {
+    const stream = `data: {"thinking":"Let"}\n\ndata: {"thinking":" me"}\n\ndata: {"thinking":" think"}\n\ndata: {"thinkingDone":true}\n\ndata: {"word":"Hello"}\n\ndata: {"word":" world"}\n\ndata: [DONE]\n\n`
+    const lines = stream.split('\n\n').filter((l) => l.trim())
     let thinking = ''
     let content = ''
     let thinkingDone = false
@@ -276,79 +467,24 @@ data: [DONE]
     expect(content).toBe('Hello world')
   })
 
-  it('should handle SSE message parsing with proper state transitions', () => {
-    // Simulate React state updates
-    let msgState = {
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      thinkingVisible: true
-    }
-
-    const updates = [
-      { thinking: 'Let' },
-      { thinking: ' me' },
-      { thinking: ' think' },
-      { thinkingDone: true },
-      { word: 'Hello' },
-      { word: ' world' },
-    ]
-
-    for (const update of updates) {
-      if (update.thinking) {
-        msgState.thinking += update.thinking
-      }
-      if (update.thinkingDone) {
-        msgState.thinkingVisible = false
-      }
-      if (update.word) {
-        msgState.content += update.word
-      }
-    }
-
-    // Verify final state
-    expect(msgState.thinking).toBe('Let me think')
-    expect(msgState.thinkingVisible).toBe(false)
-    expect(msgState.content).toBe('Hello world')
-  })
-
-  it('should not show thinking bubble after thinkingDone', () => {
-    const msg = {
+  it('keeps content visible after thinkingDone and handles empty-content edge cases', () => {
+    const visible = {
       thinking: 'processing...',
-      thinkingVisible: false, // Set to false by thinkingDone signal
-      content: 'Hello'
+      thinkingVisible: false,
+      content: 'Hello',
     }
-
-    // UI should render ChatMessage with:
-    // - thinking NOT shown (because thinkingVisible is false)
-    // - content shown
-    const shouldShowThinking = Boolean(msg.thinking && msg.thinkingVisible)
-    const shouldShowContent = Boolean(msg.content)
-
-    expect(shouldShowThinking).toBe(false)
-    expect(shouldShowContent).toBe(true)
-  })
-
-  it('should handle empty content after thinking completes', () => {
-    // Edge case: what if thinking completes but no content yet?
-    const msg = {
+    const hiddenEmpty = {
       thinking: 'thinking...',
       thinkingVisible: false,
-      content: ''
+      content: '',
     }
 
-    const hasThinking = Boolean(msg.thinking && msg.thinkingVisible)
-    const hasContent = Boolean(msg.content)
-
-    // Should not render thinking (thinkingVisible is false)
-    // Should not render content (empty)
-    // UI should not render ChatMessage, only empty div
-    expect(hasThinking).toBe(false)
-    expect(hasContent).toBe(false)
+    expect(Boolean(visible.thinking && visible.thinkingVisible)).toBe(false)
+    expect(Boolean(visible.content)).toBe(true)
+    expect(Boolean(hiddenEmpty.thinking && hiddenEmpty.thinkingVisible)).toBe(false)
+    expect(Boolean(hiddenEmpty.content)).toBe(false)
   })
-})
 
-describe('Chat Integration - current title verification', () => {
   it('disables reasoning mode for the final streaming answer to avoid leaking chain-of-thought text', async () => {
     const ollamaRequests = []
 
@@ -359,7 +495,6 @@ describe('Chat Integration - current title verification', () => {
         const body = options?.body ? JSON.parse(options.body) : {}
         ollamaRequests.push(body)
 
-        // Planning pass: no tool calls, no content.
         if (body?.stream === false) {
           return {
             ok: true,
@@ -369,7 +504,6 @@ describe('Chat Integration - current title verification', () => {
           }
         }
 
-        // Final streaming pass: return a plain answer payload.
         const encoder = new TextEncoder()
         return {
           ok: true,
@@ -418,10 +552,10 @@ describe('Chat Integration - current title verification', () => {
     expect(finalRequest.options?.think).toBe(false)
   })
 
-  it('answers a basic current-president question when an official source is available through site-filtered search', async () => {
+  it('answers a current-president question when an official source is available', async () => {
     let ollamaCallCount = 0
 
-    global.fetch = jest.fn(async (url, options = {}) => {
+    global.fetch = jest.fn(async (url) => {
       const urlValue = String(url)
 
       if (urlValue === 'http://grove:11434/api/chat') {
@@ -431,13 +565,7 @@ describe('Chat Integration - current title verification', () => {
           return {
             ok: true,
             async json() {
-              return {
-                message: {
-                  role: 'assistant',
-                  content: '',
-                  tool_calls: [],
-                },
-              }
+              return { message: { role: 'assistant', content: '', tool_calls: [] } }
             },
           }
         }
@@ -522,7 +650,6 @@ describe('Chat Integration - current title verification', () => {
         }
       }
 
-      // The page read must be triggered because Wikipedia is low-confidence
       if (urlValue === 'https://en.wikipedia.org/wiki/2026_United_States_elections') {
         pageReadRequested = true
         return {
@@ -588,8 +715,7 @@ describe('Chat Integration - current title verification', () => {
               return {
                 message: {
                   role: 'assistant',
-                  content:
-                    'As of May 3, 2026, Joe Biden is still the president of the United States.',
+                  content: 'As of May 3, 2026, Joe Biden is still the president of the United States.',
                   tool_calls: [],
                 },
               }
@@ -630,7 +756,7 @@ describe('Chat Integration - current title verification', () => {
     expect(text).not.toContain('Joe Biden is still the president')
   })
 
-  it('answers when only govtrack-like reliable sources are found (exact screenshot scenario)', async () => {
+  it('answers when reliable non-official sources are found', async () => {
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {
@@ -686,7 +812,7 @@ describe('Chat Integration - current title verification', () => {
     expect(text).not.toContain("I can't confidently verify this claim yet")
   })
 
-  it('keeps searching official variants before falling back to generic title-query results like govtrack', async () => {
+  it('keeps searching official variants before falling back to generic title-query results', async () => {
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {
@@ -772,7 +898,6 @@ describe('Chat Integration - current title verification', () => {
     expect(text).not.toContain('I can’t confidently verify this claim yet')
   })
 
-
   it('continues searching trusted outlets instead of stopping when initial evidence is weak', async () => {
     let streamCallCount = 0
     let trustedReadRequested = false
@@ -783,7 +908,6 @@ describe('Chat Integration - current title verification', () => {
       if (urlValue === 'http://grove:11434/api/chat') {
         const body = options?.body ? JSON.parse(options.body) : {}
 
-        // Planning/verification passes: no tool calls from model side.
         if (body?.stream === false) {
           return {
             ok: true,
@@ -793,7 +917,6 @@ describe('Chat Integration - current title verification', () => {
           }
         }
 
-        // Final streaming answer after verification succeeds.
         streamCallCount += 1
         const encoder = new TextEncoder()
         return {
@@ -807,7 +930,6 @@ describe('Chat Integration - current title verification', () => {
       if (urlValue.startsWith('https://api.duckduckgo.com/')) {
         const query = decodeURIComponent(urlValue.split('?q=')[1].split('&')[0])
 
-        // Trusted-outlet escalation should include explicit site filter.
         if (query.includes('site:reuters.com')) {
           return {
             ok: true,
@@ -822,7 +944,6 @@ describe('Chat Integration - current title verification', () => {
           }
         }
 
-        // Initial searches return weak/untrusted coverage only.
         return {
           ok: true,
           async json() {
@@ -883,12 +1004,10 @@ describe('Chat Integration - current title verification', () => {
       if (urlValue === 'http://grove:11434/api/chat') {
         ollamaCallCount += 1
 
-        // First pass: model returns no tool calls (skips searching)
         if (ollamaCallCount === 1) {
           return { ok: true, async json() { return { message: { role: 'assistant', content: '', tool_calls: [] } } } }
         }
 
-        // Final streaming answer — should mention the version from the page
         const encoder = new TextEncoder()
         return {
           ok: true,
@@ -896,7 +1015,6 @@ describe('Chat Integration - current title verification', () => {
         }
       }
 
-      // DuckDuckGo search returns versionlog.com
       if (urlValue.startsWith('https://api.duckduckgo.com/') || urlValue.startsWith('https://html.duckduckgo.com/')) {
         return {
           ok: true,
@@ -912,7 +1030,6 @@ describe('Chat Integration - current title verification', () => {
         }
       }
 
-      // Page read of versionlog.com
       if (urlValue === 'https://versionlog.com/react/') {
         pageReadRequested = true
         return {
@@ -938,43 +1055,22 @@ describe('Chat Integration - current title verification', () => {
   })
 })
 
-/**
- * Edge cases and error handling
- */
-describe('Edge Cases', () => {
-  it('should handle stream with no thinking phase', () => {
-    const updates = [
-      { word: 'Direct' },
-      { word: ' response' },
-    ]
-
+describe('chat stream edge cases', () => {
+  it('handles direct content with no thinking phase', () => {
+    const updates = [{ word: 'Direct' }, { word: ' response' }]
     let state = { content: '', thinking: '', thinkingVisible: true }
 
     for (const update of updates) {
       if (update.word) {
         state.content += update.word
       }
-      // No thinkingDone signal, so thinking stays visible but empty
     }
 
-    // Thinking is visible but empty - should not render
-    const shouldRender = Boolean(state.thinking && state.thinkingVisible)
-    expect(shouldRender).toBe(false)
+    expect(Boolean(state.thinking && state.thinkingVisible)).toBe(false)
     expect(state.content).toBe('Direct response')
   })
 
-  it('should handle malformed SSE gracefully', () => {
-    const malformed = 'data: {incomplete json'
-    try {
-      const data = malformed.replace(/^data: /, '')
-      JSON.parse(data)
-      expect(true).toBe(false) // Should throw
-    } catch (e) {
-      expect(e).toBeDefined()
-    }
-  })
-
-  it('should handle very long thinking', () => {
+  it('handles very long thinking content', () => {
     const thinking = 'I need to think very carefully about this problem. '.repeat(10)
     let buffer = ''
     const words = []
@@ -989,12 +1085,11 @@ describe('Edge Cases', () => {
     }
     if (buffer) words.push(buffer)
 
-    // Should split into multiple words
     expect(words.length).toBeGreaterThan(20)
     expect(words.join('')).toContain('think')
   })
 
-  it('should handle special characters in response', () => {
+  it('handles special characters in responses', () => {
     const content = 'Hello! 你好 🌟 "quoted" (parentheses) [brackets]'
     let buffer = ''
     const words = []

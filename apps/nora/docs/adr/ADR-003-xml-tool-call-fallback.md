@@ -20,4 +20,4 @@ Without handling this, tool calls from those models are silently ignored.
 ## Consequences
 - Broader model compatibility without changing any other part of the pipeline.
 - XML parsing is a best-effort heuristic; models that use a different undocumented format may still not work.
-- Regression tests cover both paths in `__tests__/integration.test.js` ("Route: XML tool-call type normalization").
+- Regression tests cover both paths in `app/api/chat/lib/toolCalls.test.js` and `app/api/chat/lib/chatStream.test.js`.

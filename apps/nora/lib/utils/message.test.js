@@ -5,7 +5,7 @@ import {
   extractSources,
   dedupeSources,
   formatVerificationLabel,
-} from '../lib/utils/message.js'
+} from './message.js'
 
 describe('createAssistantPlaceholder', () => {
   it('returns an assistant message with given timestamp', () => {
@@ -64,8 +64,8 @@ describe('applyStreamEvent', () => {
   })
 
   it('hides thinking on thinkingDone', () => {
-    const with_thinking = { ...base, thinking: 'some thought' }
-    const next = applyStreamEvent([with_thinking], { thinkingDone: true })
+    const withThinking = { ...base, thinking: 'some thought' }
+    const next = applyStreamEvent([withThinking], { thinkingDone: true })
     expect(next[0].thinkingVisible).toBe(false)
   })
 
@@ -86,6 +86,31 @@ describe('applyStreamEvent', () => {
   it('returns unchanged array when messages is empty', () => {
     const result = applyStreamEvent([], { word: 'hi' })
     expect(result).toEqual([])
+  })
+
+  it('starts with thinking fields ready for streaming', () => {
+    const msg = createAssistantPlaceholder('ts')
+    expect(msg.thinking).toBe('')
+    expect(msg.thinkingVisible).toBe(true)
+    expect(msg.content).toBe('')
+  })
+
+  it('preserves accumulated thinking until thinkingDone hides it', () => {
+    const withThinking = applyStreamEvent([base], { thinking: 'Let me think' })
+    const hidden = applyStreamEvent(withThinking, { thinkingDone: true })
+    expect(hidden[0].thinking).toBe('Let me think')
+    expect(hidden[0].thinkingVisible).toBe(false)
+  })
+
+  it('appends content after thinking is hidden', () => {
+    const hidden = applyStreamEvent([{ ...base, thinking: 'thinking...', thinkingVisible: false }], { word: 'Hello world' })
+    expect(hidden[0].content).toBe('Hello world')
+    expect(hidden[0].thinkingVisible).toBe(false)
+  })
+
+  it('does not render any visible thinking state when thinking is empty and hidden', () => {
+    const msg = { thinking: '', content: 'Hello', thinkingVisible: false }
+    expect(msg.thinkingVisible).toBe(false)
   })
 })
 

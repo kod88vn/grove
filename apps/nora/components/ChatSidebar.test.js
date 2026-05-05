@@ -1,12 +1,12 @@
 import { describe, it, expect, jest } from '@jest/globals'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { ChatSidebar } from '@/components/ChatSidebar'
+import { ChatSidebar } from './ChatSidebar'
 
 const chats = [
   { id: 'c1', title: 'First chat', updated_at: Math.floor(Date.now() / 1000), pinned: false },
 ]
 
-describe('ChatSidebar mobile behavior', () => {
+describe('ChatSidebar', () => {
   it('keeps the mobile overlay hidden by default', () => {
     render(
       <ChatSidebar

@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@jest/globals'
 import { render, screen } from '@testing-library/react'
-import { ChatMessage } from '@/components/ChatMessage'
+import { ChatMessage } from './ChatMessage'
 
-describe('ChatMessage timestamps', () => {
+describe('ChatMessage', () => {
   it('shows a thinking bubble while streaming before answer words arrive', () => {
     render(
       <ChatMessage

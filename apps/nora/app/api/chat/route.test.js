@@ -2,7 +2,7 @@ import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals'
 import { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util'
 
-import { POST, greetingCache } from '../app/api/chat/route'
+import { POST, greetingCache } from './route'
 
 class TestResponse {
   constructor(body, init = {}) {
@@ -108,7 +108,7 @@ afterAll(() => {
   global.TextDecoder = originalTextDecoder
 })
 
-describe('Chat Route Greeting Mode', () => {
+describe('POST', () => {
   it('uses fast greeting stream without planning statuses', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

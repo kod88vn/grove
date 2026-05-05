@@ -9,15 +9,51 @@ cd apps/nora
 yarn test:ci
 ```
 
-### What's covered
+### Coverage matrix
 
-**`__tests__/lib.test.js`** — pure utility unit tests (run fast, no network/Ollama required):
-- `normalizeQuery` — whitespace trimming, empty string handling
-- `normalizeUrl` — URL hygiene, security: rejects `javascript:`, `file://`, `data:` protocols
-- `parseXmlToolCalls` — XML `<tool_call>` extraction (ADR-003 fallback path)
-- `extractToolCalls` — structured + XML tool-call detection
+Every test file lives next to the production file it covers (1:1 mapping).  
+`–` = no test yet (gap).
 
-**`__tests__/chat.test.js`** and **`__tests__/integration.test.js`** — SSE stream parsing, state machine transitions, word buffering, edge cases.
+| Production file | Test file | Exported symbols tested |
+|---|---|---|
+| `app/globals.css` | `app/globals.test.js` | CSS regression (no `display:flex` on body) |
+| `app/api/chat/route.js` | `app/api/chat/route.test.js` | `POST` |
+| `app/api/chat/lib/chatStream.js` | `app/api/chat/lib/chatStream.test.js` | `streamResponse`, `requiresPreciseValue`, `requiresLiveData`, `requiresFactVerification`, `countReliableSources`, `countHighConfidenceSources`, `countTrustedSources`, `countTrustedTechSources`, `buildVerificationQueries`, `buildVerificationReport` |
+| `app/api/chat/lib/prompt.js` | `app/api/chat/lib/prompt.test.js` | `withSystemMessage` |
+| `app/api/chat/lib/toolCalls.js` | `app/api/chat/lib/toolCalls.test.js` | `normalizeQuery`, `normalizeUrl`, `parseXmlToolCalls`, `extractToolCalls` |
+| `app/api/chat/lib/constants.js` | – | constants (no logic) |
+| `app/api/chat/lib/logger.js` | – | `createLogger` |
+| `app/api/chat/lib/ollama.js` | – | `chatOnce`, `streamChat` |
+| `app/api/chat/lib/research.js` | – | `deepResearch` |
+| `app/api/chat/lib/tools.js` | – | tool definitions (no logic) |
+| `app/api/chat/lib/web.js` | – | `webSearch`, `readWebpage` |
+| `app/api/chats/route.js` | – | `GET`, `POST` |
+| `app/api/chats/[id]/route.js` | – | `GET`, `DELETE` |
+| `app/api/me/route.js` | – | `GET` |
+| `app/api/models/route.js` | – | `GET` |
+| `app/layout.js` | – | layout (no logic) |
+| `app/page.js` | – | `Home` |
+| `components/ChatInput.js` | `components/ChatInput.test.js` | `ChatInput` |
+| `components/ChatMessage.js` | `components/ChatMessage.test.js` | `ChatMessage` |
+| `components/ChatSidebar.js` | `components/ChatSidebar.test.js` | `ChatSidebar` |
+| `components/GreetingTrigger.js` | – | `GreetingTrigger` |
+| `components/ModelSelector.js` | – | `ModelSelector` |
+| `components/UserBadge.js` | – | `UserBadge` |
+| `hooks/useChatMessages.js` | `hooks/useChatMessages.test.js` | greeting cache contract |
+| `hooks/useChatHistory.js` | – | `useChatHistory` |
+| `hooks/useModels.js` | – | `useModels` |
+| `lib/useChat.js` | – | `useChat` |
+| `lib/api/chat.js` | – | `sendMessage` |
+| `lib/api/chats.js` | – | `getChats`, `createChat`, `deleteChat` |
+| `lib/api/me.js` | – | `getMe` |
+| `lib/api/models.js` | – | `getModels` |
+| `lib/db/chats.js` | `lib/db/chats.test.js` | `createChat`, `getChats`, `deleteChat` |
+| `lib/db/db.js` | `lib/db/messages.test.js` | `createDatabase` (via integration) |
+| `lib/db/messages.js` | `lib/db/messages.test.js` | `saveMessage`, `getMessages`, `countFreshMessages`, `getOldestFreshMessages`, `replaceFreshWithSummary`, `getFreshMessagesForContext` |
+| `lib/utils/message.js` | `lib/utils/message.test.js` | `createAssistantPlaceholder`, `applyStreamEvent`, `formatTimestamp`, `extractSources`, `dedupeSources`, `formatVerificationLabel` |
+| `lib/utils/sseStream.js` | `lib/utils/sseStream.test.js` | `parseSseStream` |
+
+Jest discovers co-located test files with `**/*.test.js` and ignores `.next/` and `node_modules/`.
 
 ### Architecture validation
 
@@ -64,7 +100,7 @@ This will:
 ## Debugging Steps
 
 1. **Check raw SSE stream**: `node test-manual.mjs` — prints every SSE event
-2. **Unit test a specific util**: `yarn test --testPathPattern lib.test.js`
+2. **Unit test a specific module**: `yarn test --testPathPattern toolCalls.test.js`
 3. **Check Ollama directly**:
    ```bash
    curl -X POST http://grove:11434/api/chat \
