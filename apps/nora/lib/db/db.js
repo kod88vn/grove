@@ -36,7 +36,9 @@ export function createDatabase(dbPath) {
   }
 
   const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
+  if (dbPath !== ':memory:') {
+    db.pragma('journal_mode = WAL')
+  }
   // Incremental auto-vacuum reclaims pages from deleted rows over time
   db.pragma('auto_vacuum = INCREMENTAL')
   db.pragma('foreign_keys = ON')
@@ -55,6 +57,8 @@ export function createDatabase(dbPath) {
 
 const DB_PATH =
   process.env.NORA_DB_PATH ||
-  path.join(process.cwd(), 'data', 'nora.db')
+  (process.env.NODE_ENV === 'test'
+    ? ':memory:'
+    : path.join(process.cwd(), 'data', 'nora.db'))
 
 export default createDatabase(DB_PATH)
