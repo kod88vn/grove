@@ -19,6 +19,7 @@ const customJestConfig = {
     'components/NoraNav.js',
     'components/WeatherWidget.js',
     'app/api/chat/lib/prompt.js',
+    'lib/modules/games.js',
     'lib/utils/sseStream.js',
     'lib/utils/message.js',
     'lib/modules/registry.js',

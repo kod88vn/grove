@@ -16,7 +16,9 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App R
 - **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
 - **Family dashboard home** — only shows real household data; chat history can personalize the brief, while unsupported cards stay empty until real sources exist
-- **Pluggable module routing** — `/modules/[slug]` gives Nora-native tools stable routes with under-construction placeholders
+- **Kids game arcade** — eight playable educational games (`crossword`, `hangman`, `sudoku`, `gomoku`, `math-lightning`, `word-scramble`, `memory-match`, `logic-code`) live under `/modules/[slug]`
+- **Arcade sound + celebration FX** — game actions trigger lightweight Web Audio tones and burst animations for correct answers, wins, and milestones
+- **Smarter Gomoku AI** — time-bounded Monte Carlo search runs in a Web Worker so deeper thinking does not block UI
 
 ## Architecture
 
@@ -29,7 +31,7 @@ app/
 ├── modules/
 │   ├── page.js                  # Nora module catalog grouped by domain
 │   └── [slug]/
-│       └── page.js              # Under-construction placeholder per Nora module
+│       └── page.js              # Game renderer for educational slugs + placeholders for other modules
 ├── globals.css                  # Tailwind directives
 └── api/
     ├── chat/
@@ -49,13 +51,15 @@ app/
 
 components/
 ├── HomeDashboard.js    # Family dashboard cards and quick actions
+├── ModuleGameArcade.js # Kid-friendly game UIs (Crossword, Hangman, Sudoku, Gomoku, Math Lightning, Word Scramble, Memory Match, Logic Code)
 ├── ChatWorkspace.js    # Chat experience extracted for route reuse
 ├── ChatMessage.js      # Message bubbles (thinking + content + sources)
 ├── ChatInput.js        # Input textarea + send button
 └── ChatSidebar.js      # Chat history list + mobile full-screen overlay
 
 lib/modules/
-└── registry.js         # Nora module registry (internal features)
+├── registry.js         # Nora module registry (internal features)
+└── games.js            # Shared game logic (gomoku rules/AI, crossword, sudoku, hangman helpers)
 
 lib/home/
 └── dashboard.js        # Home dashboard data builder using identity + real chat history only

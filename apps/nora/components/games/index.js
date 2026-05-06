@@ -1,0 +1,8 @@
+export { default as GomokuGame } from './GomokuGame'
+export { default as SudokuGame } from './SudokuGame'
+export { default as HangmanGame } from './HangmanGame'
+export { default as CrosswordGame } from './CrosswordGame'
+export { default as MathQuizGame } from './MathQuizGame'
+export { default as WordScrambleGame } from './WordScrambleGame'
+export { default as MemoryGame } from './MemoryGame'
+export { default as LogicCodeGame } from './LogicCodeGame'

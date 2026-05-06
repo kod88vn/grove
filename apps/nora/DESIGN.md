@@ -32,7 +32,7 @@ app/
 ├── modules/
 │   ├── page.js                   ← Nora module catalog (educational + household utility)
 │   └── [slug]/
-│       └── page.js               ← Under-construction placeholder for Nora-native modules
+│       └── page.js               ← Renders live educational game UIs; non-game modules keep placeholder shell
 ├── api/
 │   ├── chat/
 │   │   ├── route.js              ← HTTP POST handler (input validation only)
@@ -48,6 +48,7 @@ app/
 │       └── route.js              ← Proxies Ollama /api/tags; returns ordered model list
 components/
   ├── HomeDashboard.js              ← Landing dashboard with empty-state cards for any source not yet backed by real data
+  ├── ModuleGameArcade.js           ← Kids game arcade UI (crossword, hangman, mini sudoku, gomoku, math lightning, word scramble, memory match, logic code)
   ├── ChatWorkspace.js              ← Chat UI; fetches /api/models and /api/chat, controls mobile history overlay state
 ├── ChatSidebar.js                ← Chat history list; desktop left rail + mobile full-screen overlay
 ├── ChatMessage.js
@@ -55,7 +56,12 @@ components/
 lib/home/
 └── dashboard.js                  ← Server-side dashboard data builder (identity + chat-derived profile, no fabricated household data)
 lib/modules/
-└── registry.js                   ← Nora module registry (`/modules/*`)
+├── registry.js                   ← Nora module registry (`/modules/*`)
+└── games.js                      ← Shared game engine helpers (gomoku win/legality/AI + puzzle scoring)
+components/games/
+└── arcadeFx.js                   ← Shared arcade sound effects + burst particle generator for game celebration feedback
+public/
+└── gomoku-ai-worker.js           ← Background Gomoku AI Monte Carlo worker (time-bounded search)
 ```
 
 ### Module responsibilities (one per module)
@@ -72,6 +78,8 @@ lib/modules/
 | `research.js` | Deep research: plan 4 angles, search + read + summarize each, synthesize |
 | `logger.js` | Audit log writer; overwrites on process start, appends per request |
 | `chatStream.js` | Orchestrate tool-planning loop + final streaming answer |
+| `gomoku-ai-worker.js` | Run heavier Gomoku simulations off the main UI thread with a strict time budget |
+| `components/games/arcadeFx.js` | Shared client-side game feedback effects (Web Audio tones + burst particle metadata) |
 
 ### Module Dependency Graph
 

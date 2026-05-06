@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ModuleGameArcade } from '@/components/ModuleGameArcade'
+import { GAME_SLUGS } from '@/lib/modules/games'
 import { MODULE_DOMAINS, getModuleBySlug } from '@/lib/modules/registry'
 
 export default async function ModuleDetailPage({ params }) {
@@ -8,6 +10,10 @@ export default async function ModuleDetailPage({ params }) {
 
   if (!module || module.slug === 'chat') {
     notFound()
+  }
+
+  if (GAME_SLUGS.includes(module.slug)) {
+    return <ModuleGameArcade module={module} />
   }
 
   const domain = MODULE_DOMAINS[module.domain]
