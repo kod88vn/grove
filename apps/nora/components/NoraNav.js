@@ -1,17 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 const NAV_LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/chat', label: 'Chat' },
-  { href: '/modules', label: 'Modules' },
+  { href: '/modules?domain=household', label: 'Utilities' },
+  { href: '/modules?domain=learning', label: 'Games' },
+  { href: '/chat', label: 'Nora' },
 ]
 
 export function NoraNav() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState(null)
 
   useEffect(() => {
@@ -23,22 +24,40 @@ export function NoraNav() {
 
   const isActive = (href) => {
     const p = pathname ?? ''
-    return href === '/' ? p === '/' : p.startsWith(href)
+    
+    // Parse target href
+    const targetUrl = new URL(href, 'http://localhost')
+    const targetPath = targetUrl.pathname
+    const targetDomain = targetUrl.searchParams.get('domain')
+
+    // If target has a domain filter, we must be on the same path AND have that same domain in query
+    if (targetDomain) {
+      if (p !== targetPath) return false
+      return searchParams.get('domain') === targetDomain
+    }
+
+    // Special case for chat to prevent partial matches if we ever have sub-routes
+    if (targetPath === '/chat') return p.startsWith('/chat')
+
+    // Exact match for root, otherwise prefix match
+    return targetPath === '/' ? p === '/' : p.startsWith(targetPath)
   }
 
   return (
     <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:px-6">
       <div className="flex items-center gap-1">
-        <span className="mr-3 text-base font-semibold text-slate-800">Grove</span>
+        <Link href="/" className="mr-3 text-base font-semibold text-slate-800 hover:text-cyan-600 transition">
+          Grove
+        </Link>
         {NAV_LINKS.map(({ href, label }) => (
           <Link
             key={href}
             href={href}
             className={[
-              'rounded-lg px-3 py-1.5 text-sm font-medium transition',
+              'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200 shadow-sm border-b-2',
               isActive(href)
-                ? 'bg-slate-100 text-slate-900'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-600 shadow-indigo-100/50'
+                : 'text-slate-500 border-transparent hover:bg-slate-50 hover:text-slate-800 hover:border-slate-200',
             ].join(' ')}
           >
             {label}
