@@ -1,23 +1,29 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { render, screen, waitFor } from '@testing-library/react'
-import { ReadableStream as NodeReadableStream } from 'node:stream/web'
-import { TextEncoder as NodeTextEncoder, TextDecoder as NodeTextDecoder } from 'node:util'
 import { WeatherWidget } from './WeatherWidget'
 
-if (!global.TextDecoder) global.TextDecoder = NodeTextDecoder
-if (!global.ReadableStream) global.ReadableStream = NodeReadableStream
-
-/** Build a fake SSE fetch response with the given word tokens */
-function makeSseResponse(...words) {
-  const encoder = new NodeTextEncoder()
-  const chunks = words.map((w) => `data: ${JSON.stringify({ word: w })}\n\n`)
-  const body = new NodeReadableStream({
-    start(controller) {
-      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
-      controller.close()
-    },
-  })
-  return { ok: true, body }
+function makeWeatherResponse(overrides = {}) {
+  return {
+    ok: true,
+    json: async () => ({
+      location: { label: 'Duluth, GA', timezone: 'America/New_York' },
+      observedAt: '2026-05-06T12:00:00-04:00',
+      current: {
+        temperatureF: 73,
+        condition: 'Partly cloudy',
+        windMph: 10,
+      },
+      today: {
+        highF: 74,
+        lowF: 61,
+        precipChancePct: 40,
+      },
+      source: {
+        provider: 'open-meteo',
+      },
+      ...overrides,
+    }),
+  }
 }
 
 describe('WeatherWidget', () => {
@@ -32,31 +38,30 @@ describe('WeatherWidget', () => {
     expect(screen.getByText(/Checking the forecast/i)).toBeInTheDocument()
   })
 
-  it('calls /api/chat with a weather question on mount', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse())
+  it('calls /api/weather on mount', async () => {
+    global.fetch.mockResolvedValue(makeWeatherResponse())
 
     render(<WeatherWidget />)
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/chat',
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('weather'),
-        })
+        '/api/weather',
+        expect.objectContaining({ method: 'GET' })
       )
     )
   })
 
-  it('streams and displays forecast text then exits loading', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse('Sunny ', '25°C.'))
+  it('renders structured weather fields from JSON response', async () => {
+    global.fetch.mockResolvedValue(makeWeatherResponse())
 
     render(<WeatherWidget />)
 
-    // Loading message disappears when stream completes (status → done)
-    await waitFor(() =>
-      expect(screen.queryByText(/Checking the forecast/i)).not.toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText(/73°F/i)).toBeInTheDocument())
+    expect(screen.getByText(/Partly cloudy/i)).toBeInTheDocument()
+    expect(screen.getByText(/H 74°F/i)).toBeInTheDocument()
+    expect(screen.getByText(/L 61°F/i)).toBeInTheDocument()
+    expect(screen.getByText(/Rain 40%/i)).toBeInTheDocument()
+    expect(screen.getByText(/Source: open-meteo/i)).toBeInTheDocument()
   })
 
   it('shows error state when fetch rejects', async () => {
@@ -80,7 +85,7 @@ describe('WeatherWidget', () => {
   })
 
   it('does not fetch again if re-rendered', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse())
+    global.fetch.mockResolvedValue(makeWeatherResponse())
 
     const { rerender } = render(<WeatherWidget />)
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dashboard_profile",
+  "purpose": "Return structured dashboard profile data for widget rendering without prose payloads.",
+  "instructions": "Return dashboard profile data as strict JSON only. Do not output conversational prose.",
+  "triggerPatterns": ["dashboard", "profile", "summary"],
+  "allowedTools": ["dashboard_provider"],
+  "modelProfile": "strict_json",
+  "responseMode": "structured_data",
+  "schemaName": "dashboard_v1",
+  "verificationPolicy": "required",
+  "allowProse": false
+}

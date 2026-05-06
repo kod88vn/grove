@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "general_family_chat",
+  "purpose": "Handle general family chat responses where prose is acceptable.",
+  "instructions": "Provide concise, friendly responses for household conversations. Avoid fabricating factual claims when uncertain.",
+  "triggerPatterns": ["chat", "hello", "rewrite", "story"],
+  "allowedTools": [],
+  "modelProfile": "fast",
+  "responseMode": "chat",
+  "schemaName": null,
+  "verificationPolicy": "none",
+  "allowProse": true
+}

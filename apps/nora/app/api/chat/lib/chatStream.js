@@ -5,6 +5,7 @@ import { extractToolCalls, parseXmlToolCalls, normalizeQuery, normalizeUrl } fro
 import { TOOL_DEFINITIONS } from './tools'
 import { log } from './logger'
 import { deepResearch } from './research'
+import { getExecutionPlan } from './orchestratorClient'
 import {
   buildFallbackWebQuery,
   dedupeSourceUrls,
@@ -1118,8 +1119,40 @@ export function streamResponse(model, messages) {
         const userMessage = messages.findLast((m) => m.role === 'user')?.content ?? ''
         log.request(model, userMessage)
         emit({ status: 'Planning…' })
+
+        const orchestration = await getExecutionPlan(userMessage)
+        const executionPlan = orchestration?.plan || {
+          route: 'factual_tool',
+          promptProfile: 'factual',
+          skipToolPlanning: false,
+          requireVerification: true,
+        }
+
+        emit({ orchestration: { route: executionPlan.route, reason: executionPlan.reason, confidence: executionPlan.confidence } })
+
+        if (executionPlan.route === 'local_tool' && orchestration?.execution?.ok) {
+          const localTime = orchestration.execution.payload?.localTime || orchestration.execution.payload?.iso
+          emit({ status: null })
+          emit({ thinkingDone: true })
+          emit({ word: `Current local time: ${localTime}` })
+          controller.enqueue(enc.encode('data: [DONE]\n\n'))
+          controller.close()
+          return
+        }
+
         const compressed = await compressHistory(model, messages)
-        const messagesWithSystem = withSystemMessage(compressed)
+        const promptProfile = executionPlan.promptProfile === 'fast' ? 'fast' : 'factual'
+        const messagesWithSystem = withSystemMessage(compressed, promptProfile, {
+          skillPromptPack: orchestration?.skillPromptPack || '',
+        })
+
+        if (executionPlan.route === 'fast_chat' && executionPlan.skipToolPlanning) {
+          emit({ status: 'Thinking…' })
+          emit({ status: null })
+          log.streamingPass()
+          await streamFinalAnswer(model, messagesWithSystem, [], emit, controller, enc)
+          return
+        }
 
         emit({ status: 'Thinking…' })
         const { followupMessages, sourceUrls: plannedSourceUrls } =

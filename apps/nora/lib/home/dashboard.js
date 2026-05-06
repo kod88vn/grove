@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { listChats } from '@/lib/db/chats'
+import { fetchWeather } from '@/lib/api/weather'
 
 const INTEREST_RULES = [
   { keyword: /(meal|dinner|recipe|grocery|lunch)/i, label: 'meal planning' },
@@ -15,15 +16,17 @@ export async function getHomeDashboardData() {
   const name = requestHeaders.get('tailscale-user-name') || login.split('@')[0] || 'there'
   const pic = requestHeaders.get('tailscale-user-profile-pic') || null
   const recentChats = listChats(login)
+  const weather = await fetchWeather()
 
   return buildHomeDashboardData({
     now: new Date(),
     user: { login, name, pic },
     recentChats,
+    weather,
   })
 }
 
-export function buildHomeDashboardData({ now = new Date(), user, recentChats = [] }) {
+export function buildHomeDashboardData({ now = new Date(), user, recentChats = [], weather = null }) {
   const interests = inferInterests(recentChats)
   const brief = buildBrief(recentChats)
   const hasHistory = recentChats.length > 0
@@ -39,7 +42,7 @@ export function buildHomeDashboardData({ now = new Date(), user, recentChats = [
     headline: hasHistory
       ? `Nora has ${recentChats.length} recent ${recentChats.length === 1 ? 'conversation' : 'conversations'} to learn from.`
       : 'No household data yet. Start chatting with Nora to build a personalized dashboard.',
-    weather: null,
+    weather,
     profile: {
       summary: buildProfileSummary(interests, recentChats.length),
       interests,

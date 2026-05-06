@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "weather_widget",
+  "purpose": "Return normalized raw weather data for widget rendering with no prose output.",
+  "instructions": "Return only normalized weather JSON for widget rendering. Never return prose in this path.",
+  "triggerPatterns": ["weather", "forecast", "temperature"],
+  "allowedTools": ["weather_provider"],
+  "modelProfile": "strict_json",
+  "responseMode": "structured_data",
+  "schemaName": "weather_v1",
+  "verificationPolicy": "required",
+  "allowProse": false
+}

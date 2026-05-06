@@ -49,23 +49,8 @@ export function HomeDashboard({ data }) {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <Panel title="Weather watch" eyebrow={data.weather ? data.weather.locationLabel : 'Live forecast via Nora'} accent="cyan">
-                {data.weather ? (
-                  <>
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        <p className="text-3xl font-semibold text-slate-950">{data.weather.temperature}</p>
-                        <p className="mt-2 text-sm text-slate-600">{data.weather.summary}</p>
-                      </div>
-                      <div className="rounded-2xl bg-cyan-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-900">
-                        Forecast
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">{data.weather.advisory}</p>
-                  </>
-                ) : (
-                  <WeatherWidget />
-                )}
+              <Panel title="Weather watch" eyebrow="Live forecast via Nora" accent="cyan">
+                <WeatherWidget initialData={data.weather} />
               </Panel>
 
               <Panel title="Interest profile" eyebrow="Derived from recent chat history" accent="amber">

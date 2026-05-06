@@ -8,6 +8,7 @@ Monorepo for the Grove family's AI tools and skill library, managed with Turbore
 grove/
 ├── apps/
 │   ├── ai-skill-library/   # skill + MCP catalog with scaffold CLI
+│   ├── orchestrator/       # intent, skill, tool, and schema control plane for Nora and future apps
 │   └── nora/               # AI-powered house steward (Next.js 16)
 ├── .github/
 │   ├── copilot-instructions.md
@@ -31,11 +32,23 @@ yarn dev
 node apps/ai-skill-library/bin/skill-lib.js serve
 ```
 
+## Utilities
+
+```bash
+# kill whatever is listening on one or more ports
+yarn killp 3000
+yarn killp 3000 4010
+```
+
 ## Apps
 
 ### Nora
 
 AI-powered house steward built with Next.js 16, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+
+### Orchestrator
+
+Intent-first orchestration service that is being expanded into the control plane for skill selection, tool routing, MCP integration, and schema-enforced structured outputs. Current baseline includes skill-manifest driven planning, `/orchestrate` execution, strict weather and dashboard schema validation routes, typed MCP unavailability refusals, and route-level audit logging. See [apps/orchestrator/README.md](apps/orchestrator/README.md) and [apps/orchestrator/DESIGN.md](apps/orchestrator/DESIGN.md).
 
 ### AI Skill Library
 

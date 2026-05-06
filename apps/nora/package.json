@@ -29,6 +29,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:apps": "yarn --cwd ../.. dev:apps",
     "build": "next build",
     "start": "next start",
     "link-skills": "sh link-skills.sh",

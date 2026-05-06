@@ -1,47 +1,28 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { parseSseStream } from '@/lib/utils/sseStream'
 
-const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
-
-/**
- * Automatically asks Nora for today's weather on mount and streams the response.
- * No props required — location is injected server-side via the system prompt.
- */
-export function WeatherWidget() {
-  const [text, setText] = useState('')
-  const [status, setStatus] = useState('loading') // loading | done | error
+export function WeatherWidget({ initialData = null }) {
+  const [forecast, setForecast] = useState(initialData)
+  const [status, setStatus] = useState(initialData ? 'done' : 'loading') // loading | done | error
   const fetchedRef = useRef(false)
 
   useEffect(() => {
-    if (fetchedRef.current) return
+    // If we have initial data (SSR), skip the client-side fetch unless we want refreshed data
+    if (initialData || fetchedRef.current) return
     fetchedRef.current = true
 
     async function fetchWeather() {
       try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: DEFAULT_MODEL,
-            messages: [
-              {
-                role: 'user',
-                content:
-                  "What's today's weather forecast for our location? Give me the current conditions and a brief outlook for the rest of the day. Keep it concise — 2-3 sentences.",
-              },
-            ],
-          }),
+        const res = await fetch('/api/weather', {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
         })
 
         if (!res.ok) throw new Error('Request failed')
 
-        for await (const event of parseSseStream(res)) {
-          if (event.word) {
-            setText((prev) => prev + event.word)
-          }
-        }
+        const payload = await res.json()
+        setForecast(payload)
         setStatus('done')
       } catch {
         setStatus('error')
@@ -49,7 +30,7 @@ export function WeatherWidget() {
     }
 
     fetchWeather()
-  }, [])
+  }, [initialData])
 
   if (status === 'error') {
     return (
@@ -59,7 +40,7 @@ export function WeatherWidget() {
     )
   }
 
-  if (status === 'loading' && !text) {
+  if (status === 'loading' && !forecast) {
     return (
       <div className="flex items-center gap-2 text-sm text-slate-400">
         <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-cyan-400" />
@@ -68,12 +49,42 @@ export function WeatherWidget() {
     )
   }
 
+  if (!forecast) {
+    return <p className="text-sm text-slate-500">No weather data available.</p>
+  }
+
+  const observedLabel = forecast.observedAt ? new Date(forecast.observedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'recently'
+
   return (
-    <p className="text-sm leading-6 text-slate-700 whitespace-pre-wrap">
-      {text}
-      {status === 'loading' && (
-        <span className="ml-1 inline-block h-3 w-1 animate-pulse rounded-sm bg-cyan-500" />
-      )}
-    </p>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[2rem] font-semibold leading-none text-slate-950">{forecast.current.temperatureF}°F</p>
+          <p className="mt-2 text-sm font-medium text-slate-700">{forecast.current.condition}</p>
+        </div>
+        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-right text-xs font-medium text-cyan-900">
+          <p>{forecast.location.label}</p>
+          <p className="mt-1 text-cyan-700">Updated {observedLabel}</p>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-3 text-sm text-slate-700 sm:grid-cols-4">
+        <DataChip label="High" value={`H ${forecast.today.highF}°F`} />
+        <DataChip label="Low" value={`L ${forecast.today.lowF}°F`} />
+        <DataChip label="Rain" value={`Rain ${forecast.today.precipChancePct}%`} />
+        <DataChip label="Wind" value={`${forecast.current.windMph ?? 0} mph`} />
+      </dl>
+
+      <p className="text-xs text-slate-500">Source: {forecast.source?.provider || 'unknown'}</p>
+    </div>
+  )
+}
+
+function DataChip({ label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</dt>
+      <dd className="mt-1 font-medium text-slate-800">{value}</dd>
+    </div>
   )
 }

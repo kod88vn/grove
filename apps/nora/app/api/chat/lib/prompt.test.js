@@ -26,4 +26,23 @@ describe('withSystemMessage', () => {
     const [{ content }] = withSystemMessage([{ role: 'user', content: 'test' }])
     expect(content).toContain('Family location:')
   })
+
+  it('supports fast profile prompt for non-factual chat routes', () => {
+    const [{ content }] = withSystemMessage([{ role: 'user', content: 'test' }], 'fast')
+
+    expect(content).toContain('Keep responses concise')
+    expect(content).toContain('Do not perform web/tool verification unless explicitly requested')
+  })
+
+  it('injects selected orchestrator skill instructions when provided', () => {
+    const [{ content }] = withSystemMessage(
+      [{ role: 'user', content: 'test' }],
+      'factual',
+      { skillPromptPack: 'skill: weather_widget\nReturn strict JSON only.' }
+    )
+
+    expect(content).toContain('Selected skill instructions')
+    expect(content).toContain('skill: weather_widget')
+    expect(content).toContain('Return strict JSON only')
+  })
 })

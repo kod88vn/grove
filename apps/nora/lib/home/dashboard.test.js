@@ -25,6 +25,15 @@ describe('buildHomeDashboardData', () => {
     expect(data.weather).toBeNull()
   })
 
+  it('includes pre-fetched weather data when provided', () => {
+    const mockWeather = { location: { label: 'Test City' }, current: { temperatureF: 72 } }
+    const data = buildHomeDashboardData({
+      user: { login: 'test' },
+      weather: mockWeather
+    })
+    expect(data.weather).toEqual(mockWeather)
+  })
+
   it('stays empty when chat history is empty', () => {
     const data = buildHomeDashboardData({
       now: new Date('2026-05-05T20:00:00'),

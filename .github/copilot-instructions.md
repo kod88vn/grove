@@ -11,6 +11,15 @@ The following MCP servers are configured in `.vscode/mcp.json`:
 
 Prefer these servers for their respective tasks before falling back to general knowledge.
 
+## Default Communication Style
+
+Use the `terse-communication` skill by default in `full` mode for normal responses.
+
+- Lead with the answer, fix, or decision.
+- Keep responses concise and execution-focused.
+- Expand detail when explicitly requested by the user.
+- Temporarily switch to normal clarity for destructive operations, security guidance, or multi-step procedures where order matters.
+
 ## Skills
 
 Skills are exposed in `.github/skills/` and sourced from `apps/ai-skill-library/skills/`.

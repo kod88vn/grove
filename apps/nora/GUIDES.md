@@ -1,6 +1,6 @@
 # Nora — Developer Guides
 
-> For the full architecture overview, SSE event contract, and design rationale see [DESIGN.md](./DESIGN.md) and [`docs/adr/`](./docs/adr/).
+> For the full architecture overview, SSE event contract, and design rationale see [docs/design/README.md](./docs/design/README.md) and [`docs/adr/`](./docs/adr/).
 
 ---
 
@@ -146,7 +146,7 @@ data: {"word":"Interest"}
 data: [DONE]
 ```
 
-See [DESIGN.md § SSE Event Contract](./DESIGN.md#4-sse-event-contract) for the complete event table.
+See [docs/design/sse-contract.md](./docs/design/sse-contract.md) for the complete event table.
 
 ---
 
@@ -155,7 +155,7 @@ See [DESIGN.md § SSE Event Contract](./DESIGN.md#4-sse-event-contract) for the 
 1. Add JSON schema to `lib/tools.js`; add it to `TOOL_DEFINITIONS`.
 2. Add an `if (fn?.name === 'your_tool')` branch in `chatStream.executeToolCall`.
 3. Implement the tool logic in an appropriate module (new file if the concern is new).
-4. Update [DESIGN.md § Tool Definitions](./DESIGN.md#5-tool-definitions).
+4. Update [docs/design/tools.md](./docs/design/tools.md).
 
 ---
 

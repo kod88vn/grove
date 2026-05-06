@@ -15,7 +15,7 @@ describe('ModuleGameArcade', () => {
     )
 
     expect(screen.getByText(/Nora Kids Arcade/i)).toBeInTheDocument()
-    expect(screen.getByText(/Misses:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Chances Left:/i)).toBeInTheDocument()
   })
 
   it('renders gomoku game view', () => {

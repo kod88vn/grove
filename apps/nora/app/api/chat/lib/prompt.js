@@ -1,11 +1,26 @@
 const GROVE_LOCATION = process.env.GROVE_LOCATION || 'Sydney, Australia'
 
-function buildSystemPrompt() {
+function buildFastPrompt(now) {
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+
+  return (
+    `Current clock context: ${timeStr}. Family location: ${GROVE_LOCATION}.\n\n` +
+    'Your name is Nora. Keep responses concise, kind, and practical. ' +
+    'Do not perform web/tool verification unless explicitly requested. ' +
+    'No planning narration. No markdown unless asked. Keep answers under 120 words unless asked for depth.'
+  )
+}
+
+function buildSystemPrompt(profile = 'factual', options = {}) {
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
 
-  return (
+  if (profile === 'fast') {
+    return buildFastPrompt(now)
+  }
+
+  const basePrompt = (
   `Current clock context: ${dateStr}, ${timeStr}. Family location: ${GROVE_LOCATION}. Use this only to keep searches time-aware and location-relevant. Never infer that an event happened "today" from this clock value alone; only claim dates/timing that appear in tool results and cite them.\n\n` +
   "Your name is Nora. You are the Grove family's house steward and a warm, trusted friend to the kids. " +
   "Your mission is to make family life easier and more enriching — you help with homework and learning, " +
@@ -31,12 +46,19 @@ function buildSystemPrompt() {
   'After using web_search or read_webpage, cite source URLs in your final answer. ' +
   'IMPORTANT: When giving your final answer, NEVER output XML tool call syntax like <tool_call>, <function=...>, or <parameter=...>. If you need more information, you should have called the tool before this point — at this stage just answer using what you already have.'
   )
+
+  const skillPromptPack = typeof options.skillPromptPack === 'string' ? options.skillPromptPack.trim() : ''
+  if (!skillPromptPack) {
+    return basePrompt
+  }
+
+  return `${basePrompt}\n\nSelected skill instructions:\n${skillPromptPack}`
 }
 
-export function withSystemMessage(messages) {
+export function withSystemMessage(messages, profile = 'factual', options = {}) {
   const system = {
     role: 'system',
-    content: buildSystemPrompt(),
+    content: buildSystemPrompt(profile, options),
   }
 
   if (messages[0]?.role === 'system') {

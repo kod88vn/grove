@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "search_and_summarize",
+  "purpose": "Handle factual lookup requests with evidence gathering before summarizing.",
+  "instructions": "Search trusted sources, gather corroborating evidence, then provide a concise answer with provenance.",
+  "triggerPatterns": ["who is", "what is", "latest", "news"],
+  "allowedTools": ["factual_lookup"],
+  "modelProfile": "factual",
+  "responseMode": "chat",
+  "schemaName": null,
+  "verificationPolicy": "required",
+  "allowProse": true
+}

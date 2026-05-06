@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://grove.local/orchestrator/skills/schema.json",
+  "title": "Orchestrator Skill Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "purpose",
+    "instructions",
+    "triggerPatterns",
+    "allowedTools",
+    "modelProfile",
+    "responseMode",
+    "schemaName",
+    "verificationPolicy",
+    "allowProse"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1
+    },
+    "triggerPatterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "allowedTools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "modelProfile": {
+      "type": "string",
+      "enum": ["none", "fast", "factual", "strict_json"]
+    },
+    "responseMode": {
+      "type": "string",
+      "enum": ["chat", "structured_data", "local_tool", "mcp_tool", "reject"]
+    },
+    "schemaName": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "verificationPolicy": {
+      "type": "string",
+      "enum": ["none", "required"]
+    },
+    "allowProse": {
+      "type": "boolean"
+    }
+  }
+}
