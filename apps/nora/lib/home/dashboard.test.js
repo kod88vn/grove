@@ -52,4 +52,18 @@ describe('buildHomeDashboardData', () => {
     expect(data.reminders).toEqual([])
     expect(data.weather).toBeNull()
   })
+
+  it('falls back to Master when user name looks like localhost address', () => {
+    const data = buildHomeDashboardData({
+      user: {
+        login: '::1',
+        name: '::1',
+        pic: null,
+      },
+      recentChats: [],
+    })
+
+    expect(data.user.name).toBe('Master')
+    expect(data.user.initials).toBe('M')
+  })
 })

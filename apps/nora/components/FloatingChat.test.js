@@ -85,14 +85,14 @@ describe('FloatingChat', () => {
   it('send button is disabled when input is empty', () => {
     render(<FloatingChat />)
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
 
   it('send button becomes enabled when input has text', () => {
     render(<FloatingChat />)
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
-    expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled()
   })
 
   it('shows user message and calls /api/chat when Send is clicked', async () => {
@@ -101,7 +101,7 @@ describe('FloatingChat', () => {
     render(<FloatingChat />)
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 
     // User message appears as soon as send() runs (before the async fetch)
     await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument())
@@ -124,7 +124,7 @@ describe('FloatingChat', () => {
     render(<FloatingChat />)
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
       expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('FloatingChat', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
       expect(textarea.value).toBe('')
@@ -175,7 +175,7 @@ describe('FloatingChat', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(global.fetch).not.toHaveBeenCalled()
   })

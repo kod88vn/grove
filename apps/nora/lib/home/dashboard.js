@@ -12,8 +12,9 @@ const INTEREST_RULES = [
 
 export async function getHomeDashboardData() {
   const requestHeaders = await headers()
-  const login = requestHeaders.get('tailscale-user-login') || requestHeaders.get('x-forwarded-for') || 'anonymous'
-  const name = requestHeaders.get('tailscale-user-name') || login.split('@')[0] || 'there'
+  const login = requestHeaders.get('tailscale-user-login') || requestHeaders.get('x-forwarded-for') || ''
+  const rawName = requestHeaders.get('tailscale-user-name') || (login && login.split('@')[0]) || ''
+  const name = sanitizeDisplayName(rawName, login)
   const pic = requestHeaders.get('tailscale-user-profile-pic') || null
   const recentChats = listChats(login)
   const weather = await fetchWeather()
@@ -27,6 +28,8 @@ export async function getHomeDashboardData() {
 }
 
 export function buildHomeDashboardData({ now = new Date(), user, recentChats = [], weather = null }) {
+  const displayName = sanitizeDisplayName(user?.name, user?.login)
+
   const interests = inferInterests(recentChats)
   const brief = buildBrief(recentChats)
   const hasHistory = recentChats.length > 0
@@ -34,9 +37,9 @@ export function buildHomeDashboardData({ now = new Date(), user, recentChats = [
   return {
     user: {
       login: user.login,
-      name: user.name,
+      name: displayName,
       pic: user.pic || null,
-      initials: getInitials(user.name || user.login || 'G'),
+      initials: getInitials(displayName || user.login || 'G'),
     },
     greeting: buildGreeting(now),
     headline: hasHistory
@@ -144,4 +147,34 @@ function getInitials(value) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || '')
     .join('') || 'G'
+}
+
+function sanitizeDisplayName(primary, fallback) {
+  const first = normalizeCandidate(primary)
+  if (first) return first
+
+  const second = normalizeCandidate(fallback)
+  if (second) return second
+
+  return 'Master'
+}
+
+function normalizeCandidate(value) {
+  if (!value) return null
+
+  const candidate = String(value).trim().split(',')[0].trim()
+  if (!candidate) return null
+
+  const lower = candidate.toLowerCase()
+  if (lower === 'anonymous' || lower === 'there' || lower === 'localhost') return null
+  if (looksLikeIpAddress(candidate)) return null
+
+  return candidate.split('@')[0]
+}
+
+function looksLikeIpAddress(value) {
+  const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/
+  const ipv6 = /^(?:[\da-f]{0,4}:){2,}[\da-f]{0,4}$/i
+  const ipv6MappedIpv4 = /^::ffff:(?:\d{1,3}\.){3}\d{1,3}$/i
+  return ipv4.test(value) || ipv6.test(value) || ipv6MappedIpv4.test(value)
 }

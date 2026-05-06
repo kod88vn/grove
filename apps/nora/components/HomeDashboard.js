@@ -3,31 +3,36 @@ import { WeatherWidget } from '@/components/WeatherWidget'
 
 export function HomeDashboard({ data }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <section className="overflow-hidden rounded-[28px] border border-white/70 bg-white/85 p-6 shadow-[0_24px_80px_-42px_rgba(15,23,42,0.45)] backdrop-blur md:p-8">
+    <main
+      className="min-h-screen px-4 py-6 md:px-6 md:py-8"
+      style={{ background: 'linear-gradient(160deg, #f0f7ee 0%, #faf9f6 45%, #f5f0e8 100%)' }}
+    >
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+
+        {/* Hero */}
+        <section className="overflow-hidden rounded-3xl border border-green-100 bg-white p-6 shadow-sm md:p-8">
           <div className="grid gap-6 lg:grid-cols-[1.45fr,0.95fr]">
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-800 text-sm font-bold text-white shadow-sm">
                   {data.user.initials}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700">Family dashboard</p>
-                  <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-green-700">Grove · Family dashboard</p>
+                  <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
                     {data.greeting}, {data.user.name}
                   </h1>
                 </div>
               </div>
 
-              <p className="max-w-3xl text-base leading-7 text-slate-600 md:text-lg">{data.headline}</p>
+              <p className="max-w-2xl text-base leading-7 text-stone-500 md:text-lg">{data.headline}</p>
 
               {data.profile.interests.length ? (
                 <div className="flex flex-wrap gap-2">
                   {data.profile.interests.map((interest) => (
                     <span
                       key={interest}
-                      className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-900"
+                      className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-800"
                     >
                       {interest}
                     </span>
@@ -40,7 +45,7 @@ export function HomeDashboard({ data }) {
                   <Link
                     key={action.id}
                     href={action.href}
-                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
+                    className="inline-flex items-center justify-center rounded-xl bg-green-800 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-green-700"
                   >
                     {action.label}
                   </Link>
@@ -49,30 +54,31 @@ export function HomeDashboard({ data }) {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <Panel title="Weather watch" eyebrow="Live forecast via Nora" accent="cyan">
+              <Panel title="Weather" eyebrow="Live forecast" accent="sky">
                 <WeatherWidget initialData={data.weather} />
               </Panel>
 
-              <Panel title="Interest profile" eyebrow="Derived from recent chat history" accent="amber">
-                <p className="text-sm leading-6 text-slate-600">{data.profile.summary}</p>
-                <p className="mt-4 text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                  {data.profile.sourceCount} recent chats sampled
+              <Panel title="Household interests" eyebrow="From recent chats" accent="amber">
+                <p className="text-sm leading-6 text-stone-500">{data.profile.summary}</p>
+                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+                  {data.profile.sourceCount} chats sampled
                 </p>
               </Panel>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
-          <div className="space-y-6">
-            <Panel title="Personal brief" eyebrow="AI-curated from recent family activity" accent="violet">
+        {/* Main grid */}
+        <section className="grid gap-5 xl:grid-cols-[1.2fr,0.8fr]">
+          <div className="space-y-5">
+            <Panel title="Personal brief" eyebrow="From recent family activity" accent="green">
               {data.brief.length ? (
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   {data.brief.map((item) => (
-                    <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{item.tag}</p>
-                      <h2 className="mt-3 text-lg font-semibold text-slate-900">{item.title}</h2>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">{item.summary}</p>
+                    <article key={item.id} className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">{item.tag}</p>
+                      <h2 className="mt-2 text-base font-semibold text-stone-900">{item.title}</h2>
+                      <p className="mt-1.5 text-sm leading-6 text-stone-500">{item.summary}</p>
                     </article>
                   ))}
                 </div>
@@ -83,64 +89,63 @@ export function HomeDashboard({ data }) {
               )}
             </Panel>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Panel title="Shopping list" eyebrow="Shared household prep" accent="emerald">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <Panel title="Shopping list" eyebrow="Household prep" accent="green">
                 {data.shoppingList.length ? (
-                  <ul className="space-y-3">
+                  <ul className="space-y-2">
                     {data.shoppingList.map((item) => (
-                      <li key={item.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                      <li key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-stone-100 px-3 py-2.5">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                          <p className="text-sm text-slate-500">{item.detail}</p>
+                          <p className="text-sm font-semibold text-stone-900">{item.label}</p>
+                          <p className="text-sm text-stone-400">{item.detail}</p>
                         </div>
-                        <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                        <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-green-500" aria-hidden="true" />
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <EmptyState>
-                    No shopping items are available yet. Keep this empty until a real list exists.
-                  </EmptyState>
+                  <EmptyState>No shopping items yet.</EmptyState>
                 )}
-                <Link href="/modules/shopping-list" className="mt-4 inline-flex text-sm font-medium text-emerald-700 hover:text-emerald-900">
-                  Open shopping list
+                <Link href="/modules/shopping-list" className="mt-4 inline-flex text-sm font-medium text-green-700 hover:text-green-900">
+                  Open shopping list →
                 </Link>
               </Panel>
 
-              <Panel title="Reminders" eyebrow="Today and next up" accent="rose">
+              <Panel title="Reminders" eyebrow="Today and next up" accent="amber">
                 {data.reminders.length ? (
-                  <ul className="space-y-3">
+                  <ul className="space-y-2">
                     {data.reminders.map((item) => (
-                      <li key={item.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">{item.dueLabel}</p>
+                      <li key={item.id} className="rounded-xl border border-stone-100 px-3 py-2.5">
+                        <p className="text-sm font-semibold text-stone-900">{item.title}</p>
+                        <p className="mt-0.5 text-sm text-stone-400">{item.dueLabel}</p>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <EmptyState>
-                    No reminders are shown until a real reminder source is connected.
-                  </EmptyState>
+                  <EmptyState>No reminders yet.</EmptyState>
                 )}
-                <Link href="/modules/reminders" className="mt-4 inline-flex text-sm font-medium text-rose-700 hover:text-rose-900">
-                  Open reminders
+                <Link href="/modules/reminders" className="mt-4 inline-flex text-sm font-medium text-amber-700 hover:text-amber-900">
+                  Open reminders →
                 </Link>
               </Panel>
             </div>
           </div>
 
-          <Panel title="How Nora can help" eyebrow="Next useful actions" accent="slate">
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-slate-900 p-5 text-white">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Suggested prompt</p>
-                <p className="mt-3 text-base leading-7">
+          <Panel title="Nora suggests" eyebrow="Quick actions" accent="green">
+            <div className="space-y-3">
+              <div
+                className="rounded-2xl p-5 text-white"
+                style={{ background: 'linear-gradient(135deg, #166534 0%, #15803d 100%)' }}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-green-200">Try asking</p>
+                <p className="mt-2.5 text-sm leading-6">
                   Build me a dinner plan from tonight&apos;s shopping list and remind me what has to happen before bedtime.
                 </p>
               </div>
-              <div className="grid gap-3">
-                <ActionItem label="Generate dinner plan" description="Use the shopping list and today’s timing constraints." href="/chat" />
-                <ActionItem label="Turn brief into reminders" description="Convert the personal brief into a clean action list." href="/chat" />
-                <ActionItem label="Review household modules" description="Open planned utilities and decide what to build next." href="/modules" />
+              <div className="grid gap-2">
+                <ActionItem label="Generate dinner plan" description="Shopping list · today's schedule" href="/chat" />
+                <ActionItem label="Brief → reminders" description="Turn the brief into an action list" href="/chat" />
+                <ActionItem label="Explore modules" description="Utilities and household tools" href="/modules" />
               </div>
             </div>
           </Panel>
@@ -151,21 +156,19 @@ export function HomeDashboard({ data }) {
 }
 
 function Panel({ title, eyebrow, accent, children }) {
-  const accentStyles = {
-    cyan: 'from-cyan-100 to-white text-cyan-800',
-    amber: 'from-amber-100 to-white text-amber-800',
-    violet: 'from-violet-100 to-white text-violet-800',
-    emerald: 'from-emerald-100 to-white text-emerald-800',
-    rose: 'from-rose-100 to-white text-rose-800',
-    slate: 'from-slate-100 to-white text-slate-800',
+  const dot = {
+    green: 'bg-green-500',
+    sky: 'bg-sky-400',
+    amber: 'bg-amber-400',
   }
 
   return (
-    <section className="rounded-[28px] border border-white/70 bg-white/90 p-5 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.45)] backdrop-blur md:p-6">
-      <div className={`inline-flex rounded-full bg-gradient-to-r px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${accentStyles[accent]}`}>
-        {eyebrow}
+    <section className="rounded-2xl border border-stone-100 bg-white p-5 shadow-sm md:p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${dot[accent] ?? 'bg-stone-300'}`} />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">{eyebrow}</p>
       </div>
-      <h2 className="mt-4 text-xl font-semibold text-slate-950">{title}</h2>
+      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
   )
@@ -173,13 +176,23 @@ function Panel({ title, eyebrow, accent, children }) {
 
 function ActionItem({ label, description, href }) {
   return (
-    <Link href={href} className="block rounded-2xl border border-slate-200 px-4 py-3 transition hover:border-slate-300 hover:bg-slate-50">
-      <p className="text-sm font-semibold text-slate-900">{label}</p>
-      <p className="mt-1 text-sm text-slate-500">{description}</p>
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-xl border border-stone-100 px-4 py-3 transition hover:border-green-200 hover:bg-green-50 group"
+    >
+      <div>
+        <p className="text-sm font-semibold text-stone-900">{label}</p>
+        <p className="mt-0.5 text-xs text-stone-400">{description}</p>
+      </div>
+      <span className="text-stone-300 transition group-hover:text-green-600">→</span>
     </Link>
   )
 }
 
 function EmptyState({ children }) {
-  return <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">{children}</p>
+  return (
+    <p className="rounded-xl border border-dashed border-stone-200 bg-stone-50 px-4 py-4 text-sm leading-6 text-stone-400">
+      {children}
+    </p>
+  )
 }

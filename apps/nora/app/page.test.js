@@ -12,9 +12,19 @@ jest.mock('@/lib/home/dashboard', () => ({
     greeting: 'Good morning',
     headline: 'Keep tonight light: one pickup run, two reminders, and rain after school.',
     weather: {
-      summary: 'Light rain after 3 PM',
-      temperature: '68F',
-      locationLabel: 'Home base',
+      location: { label: 'Home base', timezone: 'America/New_York' },
+      observedAt: '2026-05-06T17:30:00.000Z',
+      current: {
+        temperatureF: 68,
+        condition: 'Light rain after 3 PM',
+        windMph: 8,
+      },
+      today: {
+        highF: 72,
+        lowF: 61,
+        precipChancePct: 60,
+      },
+      source: { provider: 'open-meteo' },
     },
     profile: {
       summary: 'Nora is leaning into school logistics, meal planning, and family admin.',
