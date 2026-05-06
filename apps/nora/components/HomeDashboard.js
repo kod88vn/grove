@@ -10,15 +10,15 @@ export function HomeDashboard({ data }) {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
 
         {/* Hero */}
-        <section className="overflow-hidden rounded-3xl border border-green-100 bg-white p-6 shadow-sm md:p-8">
+        <section className="overflow-hidden rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm md:p-8">
           <div className="grid gap-6 lg:grid-cols-[1.45fr,0.95fr]">
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-800 text-sm font-bold text-white shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-700 text-sm font-bold text-white shadow-sm">
                   {data.user.initials}
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-green-700">Grove · Family dashboard</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-indigo-600">Grove · Family dashboard</p>
                   <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
                     {data.greeting}, {data.user.name}
                   </h1>
@@ -32,7 +32,7 @@ export function HomeDashboard({ data }) {
                   {data.profile.interests.map((interest) => (
                     <span
                       key={interest}
-                      className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-800"
+                      className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-800"
                     >
                       {interest}
                     </span>
@@ -45,7 +45,7 @@ export function HomeDashboard({ data }) {
                   <Link
                     key={action.id}
                     href={action.href}
-                    className="inline-flex items-center justify-center rounded-xl bg-green-800 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-green-700"
+                    className="inline-flex items-center justify-center rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-600"
                   >
                     {action.label}
                   </Link>
@@ -71,7 +71,7 @@ export function HomeDashboard({ data }) {
         {/* Main grid */}
         <section className="grid gap-5 xl:grid-cols-[1.2fr,0.8fr]">
           <div className="space-y-5">
-            <Panel title="Personal brief" eyebrow="From recent family activity" accent="green">
+            <Panel title="Personal brief" eyebrow="From recent family activity" accent="indigo">
               {data.brief.length ? (
                 <div className="grid gap-3 md:grid-cols-3">
                   {data.brief.map((item) => (
@@ -90,7 +90,7 @@ export function HomeDashboard({ data }) {
             </Panel>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <Panel title="Shopping list" eyebrow="Household prep" accent="green">
+              <Panel title="Shopping list" eyebrow="Household prep" accent="indigo">
                 {data.shoppingList.length ? (
                   <ul className="space-y-2">
                     {data.shoppingList.map((item) => (
@@ -99,14 +99,14 @@ export function HomeDashboard({ data }) {
                           <p className="text-sm font-semibold text-stone-900">{item.label}</p>
                           <p className="text-sm text-stone-400">{item.detail}</p>
                         </div>
-                        <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-green-500" aria-hidden="true" />
+                        <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-indigo-500" aria-hidden="true" />
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <EmptyState>No shopping items yet.</EmptyState>
                 )}
-                <Link href="/modules/shopping-list" className="mt-4 inline-flex text-sm font-medium text-green-700 hover:text-green-900">
+                <Link href="/modules/shopping-list" className="mt-4 inline-flex text-sm font-medium text-indigo-600 hover:text-indigo-800">
                   Open shopping list →
                 </Link>
               </Panel>
@@ -131,13 +131,13 @@ export function HomeDashboard({ data }) {
             </div>
           </div>
 
-          <Panel title="Nora suggests" eyebrow="Quick actions" accent="green">
+          <Panel title="Nora suggests" eyebrow="Quick actions" accent="indigo">
             <div className="space-y-3">
               <div
                 className="rounded-2xl p-5 text-white"
-                style={{ background: 'linear-gradient(135deg, #166534 0%, #15803d 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #6366f1 100%)' }}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-green-200">Try asking</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">Try asking</p>
                 <p className="mt-2.5 text-sm leading-6">
                   Build me a dinner plan from tonight&apos;s shopping list and remind me what has to happen before bedtime.
                 </p>
@@ -157,7 +157,7 @@ export function HomeDashboard({ data }) {
 
 function Panel({ title, eyebrow, accent, children }) {
   const dot = {
-    green: 'bg-green-500',
+    indigo: 'bg-indigo-500',
     sky: 'bg-sky-400',
     amber: 'bg-amber-400',
   }
@@ -178,13 +178,13 @@ function ActionItem({ label, description, href }) {
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-xl border border-stone-100 px-4 py-3 transition hover:border-green-200 hover:bg-green-50 group"
+      className="flex items-center justify-between rounded-xl border border-stone-100 px-4 py-3 transition hover:border-indigo-200 hover:bg-indigo-50 group"
     >
       <div>
         <p className="text-sm font-semibold text-stone-900">{label}</p>
         <p className="mt-0.5 text-xs text-stone-400">{description}</p>
       </div>
-      <span className="text-stone-300 transition group-hover:text-green-600">→</span>
+      <span className="text-stone-300 transition group-hover:text-indigo-600">→</span>
     </Link>
   )
 }
