@@ -601,7 +601,7 @@ export function buildVerificationReport(userMessage, sourceUrls) {
   }
 }
 
-function buildVerificationSystemMessage(report, userMessage = '', sourceUrls = []) {
+export function buildVerificationSystemMessage(report, userMessage = '', sourceUrls = []) {
   if (!report?.required) return ''
 
   const sourceList = sourceUrls && sourceUrls.length > 0 

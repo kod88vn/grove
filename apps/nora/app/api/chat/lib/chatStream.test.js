@@ -5,6 +5,7 @@ import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from '
 import {
   buildVerificationQueries,
   buildVerificationReport,
+  buildVerificationSystemMessage,
   countHighConfidenceSources,
   countReliableSources,
   countTrustedSources,
@@ -1108,5 +1109,64 @@ describe('chat stream edge cases', () => {
     expect(reconstructed).toContain('你好')
     expect(reconstructed).toContain('🌟')
     expect(reconstructed).toContain('quoted')
+  })
+})
+
+describe('buildVerificationSystemMessage', () => {
+  it('mandates source citations for verified status', () => {
+    const report = { required: true, status: 'verified' }
+    const message = buildVerificationSystemMessage(report, 'who is the president', ['https://whitehouse.gov', 'https://bbc.com'])
+    
+    expect(message).toContain('CRITICAL')
+    expect(message).toContain('MUST cite sources')
+    expect(message).toContain('[Source: Name]')
+    expect(message).toContain('at least 2')
+    expect(message).toContain('whitehouse.gov')
+    expect(message).toContain('bbc.com')
+  })
+
+  it('enforces citations for weak evidence', () => {
+    const report = { required: true, status: 'weak' }
+    const message = buildVerificationSystemMessage(report, 'what is the best laptop', ['https://techreview.com'])
+    
+    expect(message).toContain('WEAK EVIDENCE')
+    expect(message).toContain('MUST CITE SOURCES')
+    expect(message).toContain('techreview.com')
+  })
+
+  it('requires strict citations for low confidence', () => {
+    const report = { required: true, status: 'low_confidence' }
+    const message = buildVerificationSystemMessage(report, 'when did X happen', ['https://source1.com'])
+    
+    expect(message).toContain('STRICT CITATION REQUIRED')
+    expect(message).toContain('cite every source explicitly')
+    expect(message).toContain('source1.com')
+  })
+
+  it('returns empty string when verification not required', () => {
+    const report = { required: false }
+    const message = buildVerificationSystemMessage(report, 'hello')
+    
+    expect(message).toBe('')
+  })
+
+  it('includes sources list in system message for model awareness', () => {
+    const report = { required: true, status: 'verified' }
+    const sources = ['https://example1.com', 'https://example2.com', 'https://example3.com']
+    const message = buildVerificationSystemMessage(report, 'test', sources)
+    
+    expect(message).toContain('AVAILABLE SOURCES:')
+    expect(message).toContain('1. https://example1.com')
+    expect(message).toContain('2. https://example2.com')
+    expect(message).toContain('3. https://example3.com')
+  })
+
+  it('limits sources list to first 5 even if more provided', () => {
+    const report = { required: true, status: 'verified' }
+    const sources = Array.from({ length: 10 }, (_, i) => `https://source${i}.com`)
+    const message = buildVerificationSystemMessage(report, 'test', sources)
+    
+    const sourceLines = message.match(/https:\/\/source\d+\.com/g) || []
+    expect(sourceLines.length).toBe(5)
   })
 })
