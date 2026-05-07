@@ -601,6 +601,53 @@ export function buildVerificationReport(userMessage, sourceUrls) {
   }
 }
 
+function extractSourcesFromOrchestratorPayload(payload) {
+  if (!payload) return []
+  
+  const sources = []
+  
+  // Handle factual_lookup results (array of result objects with content and source fields)
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      if (item?.source?.url) sources.push(item.source.url)
+      if (item?.url) sources.push(item.url)
+    }
+  }
+  
+  // Handle object payload with sources array
+  if (payload?.sources && Array.isArray(payload.sources)) {
+    for (const source of payload.sources) {
+      if (typeof source === 'string') sources.push(source)
+      if (source?.url) sources.push(source.url)
+    }
+  }
+  
+  // Handle results array
+  if (payload?.results && Array.isArray(payload.results)) {
+    for (const result of payload.results) {
+      if (result?.url) sources.push(result.url)
+      if (result?.source?.url) sources.push(result.source.url)
+    }
+  }
+  
+  return dedupeSourceUrls(sources.filter(Boolean))
+}
+
+function hasResponseCitations(responseText, minimumSources = MIN_VERIFICATION_SOURCES) {
+  if (!responseText || typeof responseText !== 'string') return false
+  
+  // Count URLs in the response
+  const urlPattern = /https?:\/\/[^\s)]+|www\.[^\s)]+/gi
+  const urlMatches = (responseText.match(urlPattern) || []).length
+  
+  // Count citation patterns like [source], (source), or explicit mentions
+  const citationPatterns = /\[.+?\]|\(.+?(source|wikipedia|article|report|study).+?\)|according to|per |cited in|reference|source|wikipedia|bbc|reuters|ap news|new york times|guardian|cnn|nyt|from/gi
+  const citationMatches = (responseText.match(citationPatterns) || []).length
+  
+  // At least one explicit URL or 2+ citation patterns needed
+  return urlMatches >= 1 || citationMatches >= minimumSources
+}
+
 function buildVerificationSystemMessage(report, userMessage = '') {
   if (!report?.required) return ''
 
@@ -611,21 +658,41 @@ function buildVerificationSystemMessage(report, userMessage = '') {
         'Do NOT use your training data for this value — it is outdated. ' +
         'If the page content does not contain the value, say so explicitly instead of guessing.'
     }
-    return 'Verification phase: evidence is sufficient. Provide the answer grounded in tool results only, and cite sources.'
+    return 'CRITICAL VERIFICATION REQUIREMENT:\n' +
+      '- You MUST cite sources for every factual claim using explicit citations like [Source: Wikipedia] or (per Reuters).\n' +
+      '- List at least 2 independent sources for major claims.\n' +
+      '- Structure your response as: [CLAIM]. [Source 1: ...]. [Source 2: ...]\n' +
+      '- Do NOT provide vague statements without citing where the information came from.\n' +
+      '- If the provided sources do not contain information to answer the question, say so clearly.\n' +
+      '- Your response will be validated for proper source citations — incomplete citations will be rejected.'
   }
 
   if (report.status === 'weak') {
     if (isMarketRecommendationQuestion(userMessage)) {
       return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
     }
-    return 'Verification phase: corroboration is insufficient. Do not make definitive claims. Say that evidence is limited and that you cannot confidently verify the claim yet.'
+    return 'WEAK EVIDENCE DETECTED:\n' +
+      '- Source evidence is limited (only one source found).\n' +
+      '- You MUST explicitly cite the source(s) in your response.\n' +
+      '- Clearly state the limitation: "Based on available sources..." or "According to [source]..."\n' +
+      '- Do not make definitive claims.\n' +
+      '- Caveat: "This information comes from a single source and may not be fully reliable."'
   }
 
   if (report.status === 'low_confidence') {
-    return 'Verification phase: only low-confidence evidence was found. Use only the cited source, avoid unsupported extras, and do not rely on training data.'
+    return 'LOW CONFIDENCE EVIDENCE:\n' +
+      '- Only weak sources were found (not from trusted outlets).\n' +
+      '- Use ONLY explicitly cited sources in your response.\n' +
+      '- Avoid adding information from your training data.\n' +
+      '- Format: Every claim must be immediately followed by its source (e.g., "according to [source]").\n' +
+      '- Clearly state the source limitation in your answer.'
   }
 
-  return 'Verification phase: no reliable evidence was found. Do not provide definitive factual claims. State that you could not verify from current sources and ask whether to run deeper research.'
+  return 'NO SOURCES FOUND:\n' +
+    '- Do not provide definitive factual claims.\n' +
+    '- State explicitly: "I could not find current sources to verify this claim."\n' +
+    '- Offer to run deeper research if needed.\n' +
+    '- Do not rely on training data for this answer.'
 }
 
 async function executeToolCall(call, followupMessages, sourceUrls, emit, model) {
@@ -1156,12 +1223,16 @@ export function streamResponse(model, messages) {
 
         // Inject orchestrator's tool plan results if verification is required and tools were successfully executed
         let messagesForPlanning = [...messagesWithSystem]
+        let orchestratorSourceUrls = []
         if (
           executionPlan.verificationPolicy === 'required' &&
           orchestration?.execution?.ok &&
           orchestration?.execution?.payload
         ) {
           emit({ status: 'Verifying facts with authoritative sources…' })
+          // Extract sources from orchestrator payload
+          orchestratorSourceUrls = extractSourcesFromOrchestratorPayload(orchestration.execution.payload)
+          
           // Prepend orchestrator tool result so model sees verified facts during planning
           const toolName = orchestration?.execution?.toolName || 'factual_lookup'
           messagesForPlanning.push({
@@ -1174,7 +1245,8 @@ export function streamResponse(model, messages) {
         emit({ status: 'Thinking…' })
         const { followupMessages, sourceUrls: plannedSourceUrls } =
           await planTools(model, messagesForPlanning, emit)
-        let sourceUrls = [...plannedSourceUrls]
+        // Include orchestrator sources in the URL tracking
+        let sourceUrls = [...orchestratorSourceUrls, ...plannedSourceUrls]
         let verification = buildVerificationReport(userMessage, sourceUrls)
 
         if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
