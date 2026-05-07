@@ -1099,6 +1099,34 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
             return
           }
 
+          // Check if citations are required but missing
+          const hasVerificationMessage = followupMessages.some(
+            (m) => m.role === 'system' && m.content?.includes('CITATION')
+          )
+          const needsCitations = hasVerificationMessage && sourceUrls.length >= 2
+          const hasProperCitations = hasSufficientCitations(fullContent, 2)
+          
+          if (needsCitations && !hasProperCitations && _pass < 1) {
+            // Response lacks citations when they're required — retract and re-answer
+            emit({ retract: true })
+            emit({ status: 'Enforcing source citations…' })
+            
+            followupMessages.push({ role: 'assistant', content: fullContent, tool_calls: [] })
+            followupMessages.push({
+              role: 'system',
+              content: 'CRITICAL: Your previous response did not cite sources properly.\n' +
+                'Rewrite your answer using ONLY these formats:\n' +
+                '- [Source: Name] for formal citations\n' +
+                '- (per Name) for inline citations\n' +
+                'Every factual claim MUST include at least one citation.\n' +
+                'List at least 2 different sources by name.',
+            })
+            
+            emit({ status: null })
+            await streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc, _pass + 1)
+            return
+          }
+
           // Detect planning narration: model expressed intent to search instead of answering.
           // Retract, run the search it described, then re-stream a real answer.
           const MAX_NARRATION_PASSES = 2
