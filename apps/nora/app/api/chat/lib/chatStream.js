@@ -1154,9 +1154,26 @@ export function streamResponse(model, messages) {
           return
         }
 
+        // Inject orchestrator's tool plan results if verification is required and tools were successfully executed
+        let messagesForPlanning = [...messagesWithSystem]
+        if (
+          executionPlan.verificationPolicy === 'required' &&
+          orchestration?.execution?.ok &&
+          orchestration?.execution?.payload
+        ) {
+          emit({ status: 'Verifying facts with authoritative sources…' })
+          // Prepend orchestrator tool result so model sees verified facts during planning
+          const toolName = orchestration?.execution?.toolName || 'factual_lookup'
+          messagesForPlanning.push({
+            role: 'tool',
+            tool_name: toolName,
+            content: JSON.stringify(orchestration.execution.payload),
+          })
+        }
+
         emit({ status: 'Thinking…' })
         const { followupMessages, sourceUrls: plannedSourceUrls } =
-          await planTools(model, messagesWithSystem, emit)
+          await planTools(model, messagesForPlanning, emit)
         let sourceUrls = [...plannedSourceUrls]
         let verification = buildVerificationReport(userMessage, sourceUrls)
 
