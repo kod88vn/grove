@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import './globals.css'
 import { NoraNav } from '@/components/NoraNav'
 import { FloatingChat } from '@/components/FloatingChat'
@@ -26,9 +27,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="flex min-h-screen flex-col bg-slate-50">
         <DevBadge />
-        <NoraNav />
+        <Suspense><NoraNav /></Suspense>
         <div className="flex-1">{children}</div>
-        <FloatingChat />
+        <Suspense><FloatingChat /></Suspense>
       </body>
     </html>
   )

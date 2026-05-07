@@ -1,12 +1,13 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { MODULE_DOMAINS, getModulesByDomain } from '@/lib/modules/registry'
 
 const DOMAIN_ORDER = ['learning', 'household']
 
-export default function ModuleCatalogPage() {
+function ModuleCatalog() {
   const searchParams = useSearchParams()
   const domainFilter = searchParams.get('domain')
 
@@ -62,5 +63,13 @@ export default function ModuleCatalogPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function ModuleCatalogPage() {
+  return (
+    <Suspense>
+      <ModuleCatalog />
+    </Suspense>
   )
 }
