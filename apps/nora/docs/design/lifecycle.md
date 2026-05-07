@@ -39,8 +39,10 @@ When verification is required (high-risk factual claims, "what happened" questio
    - **Weak status**: "WEAK EVIDENCE - YOU MUST CITE SOURCES...explicitly cite every source"
    - **Low confidence**: "STRICT CITATION REQUIRED...cite every source explicitly"
    - **Available sources list**: Top 5 source URLs included in system message for model awareness
-5. **Source Emission**: After verification rounds complete, `emit({ sources: sourceUrls })` sends collected sources to UI.
-6. **Frontend Display**: ChatMessage component receives sources prop and renders as citation list.
+5. **Minimum Source Gate**: If fewer than 2 independent deduplicated sources remain after verification rounds, Nora refuses to provide a factual answer.
+6. **Citation Retry Enforcement**: If a factual answer is streamed without required citations, response is retracted and a stricter citation rewrite pass is triggered.
+7. **Source Emission**: After verification rounds complete, `emit({ sources: sourceUrls })` sends collected sources to UI.
+8. **Frontend Display**: ChatMessage component receives sources prop and renders as citation list.
 
 This ensures model generates responses that cite sources by name, avoiding fabricated claims without evidence.
 

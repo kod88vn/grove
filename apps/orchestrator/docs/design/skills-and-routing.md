@@ -39,6 +39,13 @@ Validation source:
 
 - `src/skills/schema.json` (JSON Schema, enforced at registry load)
 
+Routing behavior:
+
+- classifier reads `triggerPatterns` from loaded skill manifests
+- each matching pattern contributes to a weighted score per skill
+- highest-scoring skill determines route intent metadata
+- if no skill matches and prompt is question-like (`who/what/when/where/how`), classifier falls back to `factual_tool` for safer verification
+
 Current baseline skills:
 
 - `weather_widget`
@@ -47,6 +54,7 @@ Current baseline skills:
 - `planning_reasoning`
 - `local_time`
 - `search_and_summarize`
+- `intent_classifier`
 
 ## Tool Strategy
 

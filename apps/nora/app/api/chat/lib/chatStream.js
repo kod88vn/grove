@@ -457,8 +457,8 @@ function suppressWikipediaForCurrentTitle(userMessage, urls) {
   })
 }
 
-export function buildVerificationReport(userMessage, sourceUrls) {
-  const required = requiresFactVerification(userMessage)
+export function buildVerificationReport(userMessage, sourceUrls, options = {}) {
+  const required = Boolean(options.forceRequired) || requiresFactVerification(userMessage)
   const rawUrls = dedupeSourceUrls(Array.isArray(sourceUrls) ? sourceUrls.filter(Boolean) : [])
   const dedupedUrls = suppressWikipediaForCurrentTitle(userMessage, rawUrls)
   const sourceCount = dedupedUrls.length
@@ -772,26 +772,40 @@ async function executeToolCall(call, followupMessages, sourceUrls, emit, model) 
   })
 }
 
-async function planTools(model, messagesWithSystem, emit) {
-  const firstPass = await callOllama({
-    model,
-    messages: messagesWithSystem,
-    stream: false,
-    tools: TOOL_DEFINITIONS,
-    options: { num_predict: 512, think: false },
-  })
+async function planTools(model, messagesWithSystem, emit, options = {}) {
+  const forceVerificationFromPlanner = Boolean(options.forceVerification)
 
-  if (!firstPass.ok) {
-    const text = await firstPass.text()
-    throw new Error(text || 'Tool planning request failed')
+  // When orchestrator already required verification, skip the wasteful first
+  // planning model call (which often returns nothing useful and adds 10–30s
+  // latency). The shouldForceVerification block below will run the actual
+  // verification searches.
+  let firstResult = null
+  let toolCalls = []
+  if (forceVerificationFromPlanner) {
+    log.planningResponse(0, { role: 'assistant', content: '[skipped: forced verification]' })
+    log.toolCallsExtracted(0, [])
+  } else {
+    const firstPass = await callOllama({
+      model,
+      messages: messagesWithSystem,
+      stream: false,
+      tools: TOOL_DEFINITIONS,
+      options: { num_predict: 512, think: false },
+    })
+
+    if (!firstPass.ok) {
+      const text = await firstPass.text()
+      throw new Error(text || 'Tool planning request failed')
+    }
+
+    firstResult = await firstPass.json()
+    log.planningResponse(0, firstResult.message)
+    toolCalls = extractToolCalls(firstResult.message)
+    log.toolCallsExtracted(0, toolCalls)
   }
 
-  const firstResult = await firstPass.json()
-  log.planningResponse(0, firstResult.message)
   const followupMessages = [...messagesWithSystem]
   const sourceUrls = []
-  let toolCalls = extractToolCalls(firstResult.message)
-  log.toolCallsExtracted(0, toolCalls)
   let planningResult = firstResult
 
   const userMessage = messagesWithSystem.findLast((m) => m.role === 'user')?.content ?? ''
@@ -860,11 +874,13 @@ async function planTools(model, messagesWithSystem, emit) {
     return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
   }
 
-  const semanticVerification = noToolCalls
+  // Skip the LLM-based verification need assessment when orchestrator already
+  // forced verification (saves one slow Ollama call).
+  const semanticVerification = noToolCalls && !forceVerificationFromPlanner
     ? await assessVerificationNeed(model, userMessage)
-    : { required: false, confidence: 'low', reason: 'tool_call_present', queryHints: [] }
+    : { required: false, confidence: 'low', reason: forceVerificationFromPlanner ? 'orchestrator_forced' : 'tool_call_present', queryHints: [] }
 
-  const shouldForceVerification = noToolCalls && (semanticVerification.required || requiresFactVerification(userMessage))
+  const shouldForceVerification = noToolCalls && (forceVerificationFromPlanner || semanticVerification.required || requiresFactVerification(userMessage))
 
   if (shouldForceVerification) {
     emit({ status: 'Verifying facts with current sources…' })
@@ -1073,6 +1089,7 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
           fullContent += content
           if (!contentStarted) {
             contentStarted = true
+            emit({ status: null })
             emit({ thinkingDone: true })
           }
           emit({ word: content })
@@ -1100,10 +1117,11 @@ async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, cont
           }
 
           // Check if citations are required but missing
-          const hasVerificationMessage = followupMessages.some(
-            (m) => m.role === 'system' && m.content?.includes('CITATION')
-          )
-          const needsCitations = hasVerificationMessage && sourceUrls.length >= 2
+          const hasVerificationMessage = followupMessages.some((m) => {
+            if (m.role !== 'system' || !m.content) return false
+            return /(cite|citation|source)/i.test(m.content) && /(must|required|critical|strict)/i.test(m.content)
+          })
+          const needsCitations = hasVerificationMessage && dedupeSourceUrls(sourceUrls).length >= 2
           const hasProperCitations = hasSufficientCitations(fullContent, 2)
           
           if (needsCitations && !hasProperCitations && _pass < 1) {
@@ -1219,7 +1237,6 @@ export function streamResponse(model, messages) {
 
         if (executionPlan.route === 'fast_chat' && executionPlan.skipToolPlanning) {
           emit({ status: 'Thinking…' })
-          emit({ status: null })
           log.streamingPass()
           await streamFinalAnswer(model, messagesWithSystem, [], emit, controller, enc)
           return
@@ -1227,9 +1244,12 @@ export function streamResponse(model, messages) {
 
         emit({ status: 'Thinking…' })
         const { followupMessages, sourceUrls: plannedSourceUrls } =
-          await planTools(model, messagesWithSystem, emit)
+          await planTools(model, messagesWithSystem, emit, {
+            forceVerification: Boolean(executionPlan.requireVerification),
+          })
         let sourceUrls = [...plannedSourceUrls]
-        let verification = buildVerificationReport(userMessage, sourceUrls)
+        const verifyOptions = { forceRequired: Boolean(executionPlan.requireVerification) }
+        let verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
 
         if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
           emit({ status: 'Evidence is thin — running deeper verification…' })
@@ -1250,7 +1270,7 @@ export function streamResponse(model, messages) {
           })
 
           sourceUrls = dedupeSourceUrls(sourceUrls)
-          verification = buildVerificationReport(userMessage, sourceUrls)
+          verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
         }
 
         if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
@@ -1314,7 +1334,7 @@ export function streamResponse(model, messages) {
           }
 
           sourceUrls = dedupeSourceUrls(sourceUrls)
-          verification = buildVerificationReport(userMessage, sourceUrls)
+          verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
         }
 
                 // Round 3: read top unread sources + additional search variants
@@ -1375,7 +1395,7 @@ export function streamResponse(model, messages) {
           }
 
           sourceUrls = dedupeSourceUrls(sourceUrls)
-          verification = buildVerificationReport(userMessage, sourceUrls)
+          verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
         }
 
         if (sourceUrls.length > 0) {
@@ -1392,6 +1412,18 @@ export function streamResponse(model, messages) {
           emit({ thinkingDone: true })
           emit({
             word: `I ran three rounds of research and couldn't find any sources to answer this. I don't want to guess.`,
+          })
+          controller.enqueue(enc.encode('data: [DONE]\n\n'))
+          controller.close()
+          return
+        }
+
+        const verifiedSourceUrls = dedupeSourceUrls(sourceUrls)
+        if (verification.required && verification.status !== 'verified' && verifiedSourceUrls.length < 2) {
+          emit({ status: null })
+          emit({ thinkingDone: true })
+          emit({
+            word: 'I could not verify this with at least 2 independent sources, so I will not provide an uncited factual answer.',
           })
           controller.enqueue(enc.encode('data: [DONE]\n\n'))
           controller.close()
@@ -1444,7 +1476,7 @@ export function streamResponse(model, messages) {
           }
         }
 
-        emit({ status: null })
+        emit({ status: 'Reasoning over sources…' })
         log.streamingPass()
         await streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc)
       } catch (error) {

@@ -67,6 +67,10 @@ export function resolveSkills(skillIds = []) {
   return skillIds.map((skillId) => getSkillDefinition(skillId))
 }
 
+export function listSkillDefinitions() {
+  return [...loadSkillRegistry().values()]
+}
+
 export function buildSkillPromptPack(skillIds = []) {
   const skills = resolveSkills(skillIds)
   if (skills.length === 0) return ''

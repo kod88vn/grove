@@ -17,11 +17,24 @@ test('Given casual chat, when classifying intent, then route is fast_chat', () =
 test('Given factual weather query, when classifying intent, then route is factual_tool', () => {
   const result = classifyIntent('what is the weather forecast in duluth tomorrow')
   assert.equal(result.route, 'factual_tool')
+  assert.equal(result.intent, 'weather')
 })
 
 test('Given complex analytical request, when classifying intent, then route is reasoning', () => {
   const result = classifyIntent('compare three home AI deployment architectures with tradeoffs')
   assert.equal(result.route, 'reasoning')
+})
+
+test('Given historical event query, when classifying intent, then route is factual_tool', () => {
+  const result = classifyIntent('what happened to charlie kirk')
+  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.intent, 'factual')
+})
+
+test('Given unknown question-style query, when classifying intent, then fallback routes to factual_tool', () => {
+  const result = classifyIntent('when did this incident happen exactly')
+  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.confidence, 'low')
 })
 
 test('Given local tool intent, when building plan, then plan disables model reasoning', () => {
@@ -45,6 +58,14 @@ test('Given factual intent, when building plan, then plan requires verification'
   assert.equal(plan.requireVerification, true)
 })
 
+test('Given historical event intent, when building plan, then plan requires verification and tool planning', () => {
+  const plan = buildExecutionPlan('what happened to charlie kirk')
+  assert.equal(plan.route, 'factual_tool')
+  assert.equal(plan.promptProfile, 'factual')
+  assert.equal(plan.requireVerification, true)
+  assert.equal(plan.skipToolPlanning, false)
+})
+
 test('Given weather widget intent, when building plan, then plan selects strict structured skill metadata', () => {
   const plan = buildExecutionPlan('what is the weather forecast in duluth tomorrow')
 
@@ -53,19 +74,5 @@ test('Given weather widget intent, when building plan, then plan selects strict 
   assert.equal(plan.schemaName, 'weather_v1')
   assert.deepEqual(plan.skillSet, ['weather_widget'])
   assert.equal(plan.allowProse, false)
-
-  test('Given historical event query, when classifying intent, then route is factual_tool', () => {
-    const result = classifyIntent('what happened to charlie kirk')
-    assert.equal(result.route, 'factual_tool')
-    assert.equal(result.intent, 'factual')
-  })
-
-  test('Given historical event intent, when building plan, then plan requires verification and tool planning', () => {
-    const plan = buildExecutionPlan('what happened to charlie kirk')
-    assert.equal(plan.route, 'factual_tool')
-    assert.equal(plan.promptProfile, 'factual')
-    assert.equal(plan.requireVerification, true)
-    assert.equal(plan.skipToolPlanning, false)
-  })
   assert.equal(plan.requireVerification, true)
 })

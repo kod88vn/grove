@@ -38,6 +38,33 @@ test('POST /plan for casual chat returns fast_chat plan', async () => {
   assert.equal(body.plan.skipToolPlanning, true)
 })
 
+test('POST /plan uses model-backed classifier when provided', async () => {
+  const routeServer = createServer({
+    intentClassifier: async () => ({
+      route: 'factual_tool',
+      intent: 'factual',
+      confidence: 'medium',
+      reason: 'model_event_disambiguation',
+    }),
+  })
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/plan`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'can you give me an update on trade sanctions?' }),
+  })
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+
+  assert.equal(res.status, 200)
+  assert.equal(body.plan.route, 'factual_tool')
+  assert.equal(body.plan.toolPlan[0].name, 'factual_lookup')
+})
+
 test('POST /plan for local action executes local tool directly', async () => {
   const res = await fetch(`${baseUrl}/plan`, {
     method: 'POST',

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "intent_classifier",
+  "purpose": "Classify ambiguous user prompts into orchestrator routes when deterministic trigger matching is uncertain.",
+  "instructions": "Classify the user's message into exactly one route: local_tool, reasoning, factual_tool, or fast_chat. Return strict JSON only with keys: route, intent, confidence, reason. Rules: local_tool only for current-time style requests; reasoning for analysis/compare/tradeoff strategy prompts; factual_tool for requests involving real-world facts, news, events, people, current status; fast_chat for casual conversation or rewriting tasks. If uncertain between fast_chat and factual_tool, choose factual_tool.",
+  "triggerPatterns": ["who", "what", "when", "where", "how", "why", "latest", "news", "status", "update"],
+  "allowedTools": [],
+  "modelProfile": "factual",
+  "responseMode": "chat",
+  "schemaName": null,
+  "verificationPolicy": "none",
+  "allowProse": false
+}

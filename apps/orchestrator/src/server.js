@@ -2,7 +2,7 @@ import http from 'node:http'
 
 import { createAuditEvent, logAuditEvent } from './auditLogger.js'
 import { getDashboardPayload } from './dashboardService.js'
-import { buildExecutionPlan } from './intentRouter.js'
+import { buildExecutionPlan, buildExecutionPlanWithClassifier } from './intentRouter.js'
 import { buildSkillPromptPack } from './skillRegistry.js'
 import { executeLocalTool } from './localTools.js'
 import { validateResponse } from './responseValidator.js'
@@ -39,6 +39,7 @@ export function createServer(options = {}) {
   const dashboardProvider = options.dashboardProvider || getDashboardPayload
   const mcpExecutor = options.mcpExecutor
   const mcpEndpoint = options.mcpEndpoint || process.env.ORCHESTRATOR_MCP_EXECUTE_URL || ''
+  const intentClassifier = options.intentClassifier
 
   return http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', 'http://localhost')
@@ -170,7 +171,9 @@ export function createServer(options = {}) {
         return
       }
 
-      const plan = buildExecutionPlan(body.message, { surface: body.surface })
+      const plan = await buildExecutionPlanWithClassifier(body.message, { surface: body.surface }, {
+        classifyWithModel: intentClassifier,
+      })
       const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
       if (plan.route === 'local_tool' && plan.toolName) {
         const execution = executeLocalTool({ name: plan.toolName })
@@ -208,7 +211,9 @@ export function createServer(options = {}) {
         return
       }
 
-      const plan = buildExecutionPlan(body.message, { surface: body.surface })
+      const plan = await buildExecutionPlanWithClassifier(body.message, { surface: body.surface }, {
+        classifyWithModel: intentClassifier,
+      })
       const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
       const toolPlan = Array.isArray(body.toolPlan) ? body.toolPlan : plan.toolPlan
 

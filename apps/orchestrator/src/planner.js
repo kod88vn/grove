@@ -1,4 +1,4 @@
-import { classifyIntent } from './classifier.js'
+import { classifyIntent, classifyIntentWithModel } from './classifier.js'
 import { getSkillDefinition } from './skillRegistry.js'
 
 function buildFactualToolArguments(message) {
@@ -59,9 +59,7 @@ function buildWeatherPlan(intent, context) {
   }
 }
 
-export function buildExecutionPlan(message, context = {}) {
-  const intent = classifyIntent(message)
-
+function buildExecutionPlanFromIntent(intent, message, context = {}) {
   if (context.surface === 'dashboard_profile') {
     return buildDashboardPlan(intent, context)
   }
@@ -143,4 +141,24 @@ export function buildExecutionPlan(message, context = {}) {
     promptProfile: skill.modelProfile,
     requireVerification: true,
   }
+}
+
+export function buildExecutionPlan(message, context = {}) {
+  const intent = classifyIntent(message)
+  return buildExecutionPlanFromIntent(intent, message, context)
+}
+
+export async function buildExecutionPlanWithClassifier(message, context = {}, options = {}) {
+  if (context.surface === 'dashboard_profile') {
+    return buildDashboardPlan({ intent: 'dashboard_profile' }, context)
+  }
+
+  if (context.surface === 'weather_widget') {
+    return buildWeatherPlan({ intent: 'weather' }, context)
+  }
+
+  const intent = await classifyIntentWithModel(message, {
+    classifyWithModel: options.classifyWithModel,
+  })
+  return buildExecutionPlanFromIntent(intent, message, context)
 }

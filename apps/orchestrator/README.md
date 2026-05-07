@@ -6,7 +6,7 @@ Intent-first routing service for Nora chat execution and the future control plan
 
 Current implementation is a thin baseline:
 
-- lightweight intent classification
+- skill-driven intent classification (trigger patterns loaded from skill manifests)
 - planner and skill registry for weather, local time, fast chat, reasoning, and factual lookup routes
 - deterministic weather JSON route with schema validation
 - local tool execution for simple commands
@@ -27,8 +27,9 @@ Slices 1-4 and 6 baseline are implemented:
 - `/dashboard-data` returns strict `dashboard_v1` structured payloads and rejects prose payloads
 - audit events are emitted for `/plan`, `/weather`, and `/orchestrate`
 - skill manifests are validated against `src/skills/schema.json` at load time
+- optional model-assisted second-stage classifier can disambiguate ambiguous chat prompts via the `intent_classifier` skill
 
-Planned production architecture is documented in [docs/design/README.md](./docs/design/README.md). That plan replaces the current regex-only routing with a classifier, planner, skill registry, tool registry, response validation, and audit logging.
+Planned production architecture is documented in [docs/design/README.md](./docs/design/README.md). Routing is now skill-driven via manifests, with deterministic fallback handling for ambiguous question-like prompts.
 
 ## Routes
 
@@ -51,6 +52,25 @@ Planned production architecture is documented in [docs/design/README.md](./docs/
 - wider structured-data schemas beyond weather
 - dashboard-focused orchestrated data routes and contracts
 - deeper verification telemetry and SLO dashboards
+
+## Model-Assisted Classification
+
+The orchestrator supports optional model-backed disambiguation for `/plan` and `/orchestrate`.
+
+- deterministic skill-trigger classifier runs first
+- for low-confidence or fast-chat candidates, an optional second-stage classifier can override route
+- invalid classifier output is ignored and deterministic routing is used
+
+Configure with `createServer({ intentClassifier })`, where `intentClassifier` is an async function returning:
+
+```json
+{
+	"route": "factual_tool",
+	"intent": "factual",
+	"confidence": "medium",
+	"reason": "current_event_request"
+}
+```
 
 ## MCP Adapter Contract
 
