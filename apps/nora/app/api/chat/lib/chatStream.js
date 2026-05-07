@@ -617,9 +617,10 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
     }
     return 'CRITICAL: You MUST cite sources for every factual claim.\n' +
       '- Format citations as [Source: Name] or (per Source Name)\n' +
-      '- Include at least 2 independent sources\n' +
-      '- Example: "Charlie Kirk was fatally shot [Source: Wikipedia, Sept 10, 2025]. This was reported by major outlets [per BBC News]."\n' +
-      '- Do NOT provide vague statements without citing where information came from.' +
+      '- Include at least 2 independent sources explicitly named\n' +
+      '- Example: "Charlie Kirk was reported alive [Source: Reuters]. Multiple outlets confirmed [Source: BBC]."\n' +
+      '- Extract source names from URLs if needed: reuters.com → Reuters, bbc.com → BBC\n' +
+      '- Do NOT provide any factual claims without citing specific sources by name.' +
       sourceList
   }
 
@@ -628,18 +629,18 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
       return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
     }
     return 'WEAK EVIDENCE - YOU MUST CITE SOURCES:\n' +
-      '- Evidence is limited. You must explicitly cite every source.\n' +
+      '- Evidence is limited. Cite every source explicitly by name.\n' +
       '- Format: "According to [Source Name], ..."\n' +
-      '- Use at least the sources provided.\n' +
-      '- State clearly: "Evidence is limited and may not be fully reliable."' +
+      '- Use at least 2 sources provided below.\n' +
+      '- State: "Evidence is limited and may not be fully reliable."' +
       sourceList
   }
 
   if (report.status === 'low_confidence') {
     return 'LOW CONFIDENCE EVIDENCE - STRICT CITATION REQUIRED:\n' +
-      '- Only weak sources available. You MUST cite every source explicitly.\n' +
-      '- Format each claim immediately after: "...claim [Source Name]"\n' +
-      '- Do NOT add information beyond what sources say.' +
+      '- Only weak sources available. Cite every claim with source name.\n' +
+      '- Format: "...claim [Source Name]"\n' +
+      '- Do NOT add unsupported claims.' +
       sourceList
   }
 
@@ -647,6 +648,27 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
     '- Do not provide definitive factual claims.\n' +
     '- State explicitly: "I could not find verified sources for this claim."\n' +
     '- Offer to run deeper research if needed.'
+}
+
+export function hasSufficientCitations(responseText, minimumCitations = 2) {
+  if (!responseText || typeof responseText !== 'string') return false
+  
+  // Match explicit, strict citation formats only
+  // [Source: Name], (per Name), per [Name]
+  const citationPatterns = [
+    /\[Source:\s*[\w\s&\-\.]{2,}\]/gi,  // [Source: Reuters], [Source: BBC News]
+    /\(per\s+[\w\s&\-\.]{2,}\)/gi,       // (per Reuters), (per BBC News)
+  ]
+  
+  const citations = new Set()
+  citationPatterns.forEach(pattern => {
+    const matches = responseText.match(pattern)
+    if (matches) {
+      matches.forEach(m => citations.add(m.toLowerCase()))
+    }
+  })
+  
+  return citations.size >= minimumCitations
 }
 
 async function executeToolCall(call, followupMessages, sourceUrls, emit, model) {

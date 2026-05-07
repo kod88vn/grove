@@ -10,6 +10,7 @@ import {
   countReliableSources,
   countTrustedSources,
   countTrustedTechSources,
+  hasSufficientCitations,
   requiresFactVerification,
   requiresLiveData,
   requiresPreciseValue,
@@ -1139,7 +1140,7 @@ describe('buildVerificationSystemMessage', () => {
     const message = buildVerificationSystemMessage(report, 'when did X happen', ['https://source1.com'])
     
     expect(message).toContain('STRICT CITATION REQUIRED')
-    expect(message).toContain('cite every source explicitly')
+    expect(message).toContain('Cite every claim with source name')
     expect(message).toContain('source1.com')
   })
 
@@ -1168,5 +1169,43 @@ describe('buildVerificationSystemMessage', () => {
     
     const sourceLines = message.match(/https:\/\/source\d+\.com/g) || []
     expect(sourceLines.length).toBe(5)
+  })
+})
+
+describe('hasSufficientCitations', () => {
+  it('detects [Source: Name] format citations', () => {
+    const text = 'Charlie Kirk is alive [Source: Reuters]. This was confirmed [Source: BBC News].'
+    expect(hasSufficientCitations(text, 2)).toBe(true)
+  })
+
+  it('detects (per Source) format citations', () => {
+    const text = 'He continues his work (per Reuters). Multiple outlets report this (per AP News).'
+    expect(hasSufficientCitations(text, 2)).toBe(true)
+  })
+
+  it('returns false when citations are insufficient', () => {
+    const text = 'Charlie Kirk is alive and active. He continues his work.'
+    expect(hasSufficientCitations(text, 2)).toBe(false)
+  })
+
+  it('returns false for only one citation when 2 are required', () => {
+    const text = 'Charlie Kirk is alive [Source: Reuters] according to latest reports.'
+    expect(hasSufficientCitations(text, 2)).toBe(false)
+  })
+
+  it('accepts null/undefined gracefully', () => {
+    expect(hasSufficientCitations(null, 2)).toBe(false)
+    expect(hasSufficientCitations(undefined, 2)).toBe(false)
+    expect(hasSufficientCitations('', 2)).toBe(false)
+  })
+
+  it('is case-insensitive', () => {
+    const text = 'Info [SOURCE: REUTERS]. Data (PER BBC News).'
+    expect(hasSufficientCitations(text, 2)).toBe(true)
+  })
+
+  it('works with mixed citation formats', () => {
+    const text = 'According to sources [Source: Reuters], Kirk is alive (per AP News).'
+    expect(hasSufficientCitations(text, 2)).toBe(true)
   })
 })
