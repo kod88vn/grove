@@ -67,3 +67,25 @@ Configured in `.vscode/mcp.json`. Reload VS Code to activate.
 ## Skills
 
 Available under `.github/skills/`. Copilot will discover them automatically.
+
+## Runner cleanup (Windows self-hosted)
+
+If your self-hosted Windows runner fails to delete the previous workspace (EPERM locked file errors for native modules like `sharp`), use the PowerShell script below to stop Node, take ownership, and remove the workspace. You can run this manually on the runner host or wire the same steps into a `cleanup-runner` job in your CI workflow.
+
+PowerShell (run elevated):
+
+```powershell
+# Stop Node processes that commonly hold native modules
+Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue || $null
+
+# Path to the workspace — adjust if your runner uses a different path
+$workspace = 'C:\Users\kod\dev\actions-runner\_work\grove\grove'
+
+if (Test-Path $workspace) {
+    takeown /f "$workspace" /r /d y
+    icacls "$workspace" /grant Everyone:F /t
+    Remove-Item -LiteralPath "$workspace" -Recurse -Force
+}
+```
+
+Also included in this repo is an example GitHub Actions workflow: `.github/workflows/cleanup-runner-example.yml`. It demonstrates a `cleanup-runner` job that you can integrate into your main workflow by adding `needs: cleanup-runner` to your build jobs.

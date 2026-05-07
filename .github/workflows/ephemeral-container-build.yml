@@ -1,0 +1,33 @@
+name: Ephemeral Container Build
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-in-container:
+    name: Build & Test in Ephemeral Container
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build & test inside ephemeral Docker container
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          echo "Streaming repository into ephemeral container and running build/tests..."
+
+          # Stream the checked-out repo into a fresh container filesystem so that
+          # node_modules and native binaries are created only inside the container
+          # and never persisted on the runner host.
+          tar -C "$GITHUB_WORKSPACE" -cf - . \
+            | docker run --rm -i node:18-bullseye bash -lc "set -euo pipefail; mkdir -p /workspace; tar -xf - -C /workspace; cd /workspace; npm ci --no-audit --no-fund; npm test"
+
+      - name: Upload test results (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: |
+            **/test-results
+            **/coverage
