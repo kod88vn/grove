@@ -601,55 +601,12 @@ export function buildVerificationReport(userMessage, sourceUrls) {
   }
 }
 
-function extractSourcesFromOrchestratorPayload(payload) {
-  if (!payload) return []
-  
-  const sources = []
-  
-  // Handle factual_lookup results (array of result objects with content and source fields)
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      if (item?.source?.url) sources.push(item.source.url)
-      if (item?.url) sources.push(item.url)
-    }
-  }
-  
-  // Handle object payload with sources array
-  if (payload?.sources && Array.isArray(payload.sources)) {
-    for (const source of payload.sources) {
-      if (typeof source === 'string') sources.push(source)
-      if (source?.url) sources.push(source.url)
-    }
-  }
-  
-  // Handle results array
-  if (payload?.results && Array.isArray(payload.results)) {
-    for (const result of payload.results) {
-      if (result?.url) sources.push(result.url)
-      if (result?.source?.url) sources.push(result.source.url)
-    }
-  }
-  
-  return dedupeSourceUrls(sources.filter(Boolean))
-}
-
-function hasResponseCitations(responseText, minimumSources = MIN_VERIFICATION_SOURCES) {
-  if (!responseText || typeof responseText !== 'string') return false
-  
-  // Count URLs in the response
-  const urlPattern = /https?:\/\/[^\s)]+|www\.[^\s)]+/gi
-  const urlMatches = (responseText.match(urlPattern) || []).length
-  
-  // Count citation patterns like [source], (source), or explicit mentions
-  const citationPatterns = /\[.+?\]|\(.+?(source|wikipedia|article|report|study).+?\)|according to|per |cited in|reference|source|wikipedia|bbc|reuters|ap news|new york times|guardian|cnn|nyt|from/gi
-  const citationMatches = (responseText.match(citationPatterns) || []).length
-  
-  // At least one explicit URL or 2+ citation patterns needed
-  return urlMatches >= 1 || citationMatches >= minimumSources
-}
-
-function buildVerificationSystemMessage(report, userMessage = '') {
+function buildVerificationSystemMessage(report, userMessage = '', sourceUrls = []) {
   if (!report?.required) return ''
+
+  const sourceList = sourceUrls && sourceUrls.length > 0 
+    ? `\n\nAVAILABLE SOURCES:\n${sourceUrls.slice(0, 5).map((url, i) => `${i + 1}. ${url}`).join('\n')}`
+    : ''
 
   if (report.status === 'verified') {
     if (requiresPreciseValue(userMessage)) {
@@ -658,41 +615,38 @@ function buildVerificationSystemMessage(report, userMessage = '') {
         'Do NOT use your training data for this value — it is outdated. ' +
         'If the page content does not contain the value, say so explicitly instead of guessing.'
     }
-    return 'CRITICAL VERIFICATION REQUIREMENT:\n' +
-      '- You MUST cite sources for every factual claim using explicit citations like [Source: Wikipedia] or (per Reuters).\n' +
-      '- List at least 2 independent sources for major claims.\n' +
-      '- Structure your response as: [CLAIM]. [Source 1: ...]. [Source 2: ...]\n' +
-      '- Do NOT provide vague statements without citing where the information came from.\n' +
-      '- If the provided sources do not contain information to answer the question, say so clearly.\n' +
-      '- Your response will be validated for proper source citations — incomplete citations will be rejected.'
+    return 'CRITICAL: You MUST cite sources for every factual claim.\n' +
+      '- Format citations as [Source: Name] or (per Source Name)\n' +
+      '- Include at least 2 independent sources\n' +
+      '- Example: "Charlie Kirk was fatally shot [Source: Wikipedia, Sept 10, 2025]. This was reported by major outlets [per BBC News]."\n' +
+      '- Do NOT provide vague statements without citing where information came from.' +
+      sourceList
   }
 
   if (report.status === 'weak') {
     if (isMarketRecommendationQuestion(userMessage)) {
       return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
     }
-    return 'WEAK EVIDENCE DETECTED:\n' +
-      '- Source evidence is limited (only one source found).\n' +
-      '- You MUST explicitly cite the source(s) in your response.\n' +
-      '- Clearly state the limitation: "Based on available sources..." or "According to [source]..."\n' +
-      '- Do not make definitive claims.\n' +
-      '- Caveat: "This information comes from a single source and may not be fully reliable."'
+    return 'WEAK EVIDENCE - YOU MUST CITE SOURCES:\n' +
+      '- Evidence is limited. You must explicitly cite every source.\n' +
+      '- Format: "According to [Source Name], ..."\n' +
+      '- Use at least the sources provided.\n' +
+      '- State clearly: "Evidence is limited and may not be fully reliable."' +
+      sourceList
   }
 
   if (report.status === 'low_confidence') {
-    return 'LOW CONFIDENCE EVIDENCE:\n' +
-      '- Only weak sources were found (not from trusted outlets).\n' +
-      '- Use ONLY explicitly cited sources in your response.\n' +
-      '- Avoid adding information from your training data.\n' +
-      '- Format: Every claim must be immediately followed by its source (e.g., "according to [source]").\n' +
-      '- Clearly state the source limitation in your answer.'
+    return 'LOW CONFIDENCE EVIDENCE - STRICT CITATION REQUIRED:\n' +
+      '- Only weak sources available. You MUST cite every source explicitly.\n' +
+      '- Format each claim immediately after: "...claim [Source Name]"\n' +
+      '- Do NOT add information beyond what sources say.' +
+      sourceList
   }
 
-  return 'NO SOURCES FOUND:\n' +
+  return 'NO RELIABLE SOURCES FOUND:\n' +
     '- Do not provide definitive factual claims.\n' +
-    '- State explicitly: "I could not find current sources to verify this claim."\n' +
-    '- Offer to run deeper research if needed.\n' +
-    '- Do not rely on training data for this answer.'
+    '- State explicitly: "I could not find verified sources for this claim."\n' +
+    '- Offer to run deeper research if needed.'
 }
 
 async function executeToolCall(call, followupMessages, sourceUrls, emit, model) {
@@ -1221,32 +1175,10 @@ export function streamResponse(model, messages) {
           return
         }
 
-        // Inject orchestrator's tool plan results if verification is required and tools were successfully executed
-        let messagesForPlanning = [...messagesWithSystem]
-        let orchestratorSourceUrls = []
-        if (
-          executionPlan.verificationPolicy === 'required' &&
-          orchestration?.execution?.ok &&
-          orchestration?.execution?.payload
-        ) {
-          emit({ status: 'Verifying facts with authoritative sources…' })
-          // Extract sources from orchestrator payload
-          orchestratorSourceUrls = extractSourcesFromOrchestratorPayload(orchestration.execution.payload)
-          
-          // Prepend orchestrator tool result so model sees verified facts during planning
-          const toolName = orchestration?.execution?.toolName || 'factual_lookup'
-          messagesForPlanning.push({
-            role: 'tool',
-            tool_name: toolName,
-            content: JSON.stringify(orchestration.execution.payload),
-          })
-        }
-
         emit({ status: 'Thinking…' })
         const { followupMessages, sourceUrls: plannedSourceUrls } =
-          await planTools(model, messagesForPlanning, emit)
-        // Include orchestrator sources in the URL tracking
-        let sourceUrls = [...orchestratorSourceUrls, ...plannedSourceUrls]
+          await planTools(model, messagesWithSystem, emit)
+        let sourceUrls = [...plannedSourceUrls]
         let verification = buildVerificationReport(userMessage, sourceUrls)
 
         if (verification.required && (verification.status === 'unverified' || verification.status === 'weak' || verification.status === 'low_confidence')) {
@@ -1416,7 +1348,7 @@ export function streamResponse(model, messages) {
           return
         }
 
-        const verificationMessage = buildVerificationSystemMessage(verification, userMessage)
+        const verificationMessage = buildVerificationSystemMessage(verification, userMessage, sourceUrls)
         if (verificationMessage) {
           followupMessages.push({
             role: 'system',
