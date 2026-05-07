@@ -3,7 +3,7 @@
   "id": "local_time",
   "purpose": "Return current local time via deterministic local tool execution.",
   "instructions": "Use the local time tool and return structured time values only.",
-  "triggerPatterns": ["time", "clock", "current time"],
+  "triggerPatterns": ["what time", "current time", "the time", "time is it", "clock"],
   "allowedTools": ["get_current_time"],
   "modelProfile": "none",
   "responseMode": "local_tool",

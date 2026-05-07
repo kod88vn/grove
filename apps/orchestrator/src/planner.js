@@ -159,6 +159,8 @@ export async function buildExecutionPlanWithClassifier(message, context = {}, op
 
   const intent = await classifyIntentWithModel(message, {
     classifyWithModel: options.classifyWithModel,
+    classificationCache: options.classificationCache,
+    cacheContext: { surface: context.surface || 'chat' },
   })
   return buildExecutionPlanFromIntent(intent, message, context)
 }

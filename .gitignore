@@ -29,3 +29,6 @@ Thumbs.db
 apps/ai-skill-library/
 tmp
 watt.log
+
+# orchestrator runtime caches
+apps/orchestrator/data/

@@ -6,8 +6,25 @@ import { createServer, startServer } from '../src/server.js'
 let server
 let baseUrl
 
+// Test stub classifier — mimics what a real model would emit for the
+// specific inputs used in this suite. Real classification is handled by
+// createOllamaClassifier in production.
+const stubClassifier = async ({ message }) => {
+  const m = String(message || '').toLowerCase()
+  if (m.includes('birthday message') || m.includes('rewrite')) {
+    return { route: 'fast_chat', confidence: 'high' }
+  }
+  if (m.includes('current time') || m === 'what time is it') {
+    return { route: 'local_tool', confidence: 'high' }
+  }
+  if (m.includes('current president') || m.includes('chip news') || m.includes('chip exports')) {
+    return { route: 'factual_tool', intent: 'factual', confidence: 'high' }
+  }
+  return { route: 'factual_tool', intent: 'factual', confidence: 'low' }
+}
+
 test.before(async () => {
-  server = await startServer(0)
+  server = await startServer(0, { intentClassifier: stubClassifier })
   const address = server.address()
   baseUrl = `http://127.0.0.1:${address.port}`
 })
@@ -266,4 +283,104 @@ test('GET /dashboard-data returns 502 when provider returns prose payload', asyn
 
   assert.equal(res.status, 502)
   assert.equal(body.error, 'Invalid dashboard payload')
+})
+
+test('POST /plan uses classification cache hit to skip repeated classifier calls', async () => {
+  const cacheMap = new Map()
+  const classificationCache = {
+    get({ message, surface }) {
+      return cacheMap.get(`${surface || 'chat'}:${String(message || '').toLowerCase()}`) || null
+    },
+    rememberFromClassification({ message, surface, intent }) {
+      cacheMap.set(`${surface || 'chat'}:${String(message || '').toLowerCase()}`, intent)
+      return true
+    },
+    promoteWithEvidence() {
+      return false
+    },
+  }
+
+  let classifierCalls = 0
+  const routeServer = createServer({
+    classificationCache,
+    intentClassifier: async () => {
+      classifierCalls += 1
+      return {
+        route: 'fast_chat',
+        intent: 'chat',
+        confidence: 'high',
+        reason: 'rewrite',
+      }
+    },
+  })
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/plan`
+
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'rewrite this in a friendlier tone', surface: 'chat' }),
+  })
+
+  const second = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'rewrite this in a friendlier tone', surface: 'chat' }),
+  })
+  const secondBody = await second.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+
+  assert.equal(classifierCalls, 1)
+  assert.equal(secondBody.plan.route, 'fast_chat')
+})
+
+test('POST /orchestrate promotes factual classification to persistent cache when tool returns citations', async () => {
+  let promoted = null
+  const classificationCache = {
+    get() {
+      return null
+    },
+    rememberFromClassification() {
+      return false
+    },
+    promoteWithEvidence(input) {
+      promoted = input
+      return true
+    },
+  }
+
+  const routeServer = createServer({
+    classificationCache,
+    intentClassifier: async () => ({
+      route: 'factual_tool',
+      intent: 'factual',
+      confidence: 'high',
+      reason: 'fresh_news',
+    }),
+    mcpExecutor: async () => ({
+      ok: true,
+      payload: { results: [{ title: 'News', url: 'https://example.com/news' }] },
+    }),
+  })
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/orchestrate`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'latest chip news', surface: 'chat' }),
+  })
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+
+  assert.equal(res.status, 200)
+  assert.equal(body.plan.route, 'factual_tool')
+  assert.equal(promoted?.message, 'latest chip news')
+  assert.equal(promoted?.intent?.route, 'factual_tool')
 })

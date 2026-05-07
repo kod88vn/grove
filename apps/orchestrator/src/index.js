@@ -1,4 +1,5 @@
 export { createAuditEvent, logAuditEvent } from './auditLogger.js'
+export { createClassificationCache, extractCitationEvidence } from './classificationCache.js'
 export { getDashboardPayload } from './dashboardService.js'
 export { classifyIntent, buildExecutionPlan } from './intentRouter.js'
 export { executeLocalTool } from './localTools.js'

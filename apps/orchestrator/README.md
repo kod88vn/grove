@@ -6,7 +6,7 @@ Intent-first routing service for Nora chat execution and the future control plan
 
 Current implementation is a thin baseline:
 
-- skill-driven intent classification (trigger patterns loaded from skill manifests)
+- model-driven intent classification (local Ollama classifier with safe deterministic fallback)
 - planner and skill registry for weather, local time, fast chat, reasoning, and factual lookup routes
 - deterministic weather JSON route with schema validation
 - local tool execution for simple commands
@@ -28,8 +28,9 @@ Slices 1-4 and 6 baseline are implemented:
 - audit events are emitted for `/plan`, `/weather`, and `/orchestrate`
 - skill manifests are validated against `src/skills/schema.json` at load time
 - optional model-assisted second-stage classifier can disambiguate ambiguous chat prompts via the `intent_classifier` skill
+- classification cache with in-process LRU hot cache + persistent SQLite backing store
 
-Planned production architecture is documented in [docs/design/README.md](./docs/design/README.md). Routing is now skill-driven via manifests, with deterministic fallback handling for ambiguous question-like prompts.
+Planned production architecture is documented in [docs/design/README.md](./docs/design/README.md). Routing is model-driven with deterministic safe fallback behavior.
 
 ## Routes
 
@@ -55,11 +56,11 @@ Planned production architecture is documented in [docs/design/README.md](./docs/
 
 ## Model-Assisted Classification
 
-The orchestrator supports optional model-backed disambiguation for `/plan` and `/orchestrate`.
+The orchestrator supports model-backed classification for `/plan` and `/orchestrate`.
 
-- deterministic skill-trigger classifier runs first
-- for low-confidence or fast-chat candidates, an optional second-stage classifier can override route
-- invalid classifier output is ignored and deterministic routing is used
+- classifier is called via `classifyIntentWithModel` and normalized to one of `local_tool | reasoning | factual_tool | fast_chat`
+- invalid classifier output is ignored and deterministic safe fallback (`factual_tool/low`) is used
+- local Ollama classifier is auto-wired in `startServer` when `OLLAMA_HOST` is set
 
 Configure with `createServer({ intentClassifier })`, where `intentClassifier` is an async function returning:
 
@@ -71,6 +72,28 @@ Configure with `createServer({ intentClassifier })`, where `intentClassifier` is
 	"reason": "current_event_request"
 }
 ```
+
+## Classification Cache
+
+The orchestrator keeps classification results in a two-tier cache:
+
+- in-memory LRU hot cache for repeat requests in the same process
+- persistent SQLite store at `data/classification-cache.sqlite`
+
+Quality gates:
+
+- `local_tool` / `reasoning` / `fast_chat`: cached only when confidence is `high`
+- `factual_tool`: cached only after successful orchestration with citation evidence (>= 1 URL source) and confidence `medium` or `high`
+
+Environment knobs:
+
+- `CLASSIFICATION_CACHE_PATH` - override SQLite path
+- `CLASSIFICATION_CACHE_LRU_MAX` - max in-memory entries (default `500`)
+- `CLASSIFICATION_CACHE_TTL_LOCAL_MS` - TTL for local route (default 180 days)
+- `CLASSIFICATION_CACHE_TTL_REASONING_MS` - TTL for reasoning route (default 30 days)
+- `CLASSIFICATION_CACHE_TTL_CHAT_MS` - TTL for fast chat route (default 30 days)
+- `CLASSIFICATION_CACHE_TTL_FACTUAL_MS` - TTL for factual route (default 7 days)
+- `OLLAMA_CLASSIFIER_PROMPT_VERSION` - included in cache key for prompt-version invalidation
 
 ## MCP Adapter Contract
 

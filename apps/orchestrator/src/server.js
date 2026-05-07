@@ -1,10 +1,12 @@
 import http from 'node:http'
 
 import { createAuditEvent, logAuditEvent } from './auditLogger.js'
+import { createClassificationCache } from './classificationCache.js'
 import { getDashboardPayload } from './dashboardService.js'
 import { buildExecutionPlan, buildExecutionPlanWithClassifier } from './intentRouter.js'
 import { buildSkillPromptPack } from './skillRegistry.js'
 import { executeLocalTool } from './localTools.js'
+import { createOllamaClassifier } from './ollamaClassifier.js'
 import { validateResponse } from './responseValidator.js'
 import { executeToolPlan } from './toolRegistry.js'
 import { getWeatherPayload } from './weatherService.js'
@@ -40,8 +42,14 @@ export function createServer(options = {}) {
   const mcpExecutor = options.mcpExecutor
   const mcpEndpoint = options.mcpEndpoint || process.env.ORCHESTRATOR_MCP_EXECUTE_URL || ''
   const intentClassifier = options.intentClassifier
+  const ownedClassificationCache = options.classificationCache
+    ? null
+    : createClassificationCache({
+        dbPath: process.env.CLASSIFICATION_CACHE_PATH,
+      })
+  const classificationCache = options.classificationCache || ownedClassificationCache
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', 'http://localhost')
 
     if (req.method === 'GET' && requestUrl.pathname === '/health') {
@@ -173,6 +181,7 @@ export function createServer(options = {}) {
 
       const plan = await buildExecutionPlanWithClassifier(body.message, { surface: body.surface }, {
         classifyWithModel: intentClassifier,
+        classificationCache,
       })
       const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
       if (plan.route === 'local_tool' && plan.toolName) {
@@ -213,6 +222,7 @@ export function createServer(options = {}) {
 
       const plan = await buildExecutionPlanWithClassifier(body.message, { surface: body.surface }, {
         classifyWithModel: intentClassifier,
+        classificationCache,
       })
       const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
       const toolPlan = Array.isArray(body.toolPlan) ? body.toolPlan : plan.toolPlan
@@ -288,6 +298,21 @@ export function createServer(options = {}) {
           }
         }
 
+        if (classificationCache && typeof classificationCache.promoteWithEvidence === 'function') {
+          classificationCache.promoteWithEvidence({
+            message: body.message,
+            surface: body.surface || 'chat',
+            intent: {
+              route: plan.route,
+              intent: plan.intent,
+              confidence: plan.confidence,
+              reason: plan.reason,
+              toolName: plan.toolName,
+            },
+            payload: execution.payload,
+          })
+        }
+
         logAuditEvent(
           createAuditEvent({
             requestId,
@@ -329,10 +354,27 @@ export function createServer(options = {}) {
 
     json(res, 404, { error: 'Not found' })
   })
+
+  if (ownedClassificationCache) {
+    const originalClose = server.close.bind(server)
+    server.close = (callback) => {
+      ownedClassificationCache.close()
+      return originalClose(callback)
+    }
+  }
+
+  return server
 }
 
 export function startServer(port = Number(process.env.PORT || 4010), options = {}) {
-  const server = createServer(options)
+  const resolvedOptions = { ...options }
+  // Auto-wire local Ollama classifier when OLLAMA_HOST is set and the caller
+  // didn't supply one. Tests run without OLLAMA_HOST so they get the safe
+  // default classifier (factual_tool/low) unless they inject a stub.
+  if (!resolvedOptions.intentClassifier && process.env.OLLAMA_HOST) {
+    resolvedOptions.intentClassifier = createOllamaClassifier()
+  }
+  const server = createServer(resolvedOptions)
   return new Promise((resolve) => {
     server.listen(port, () => resolve(server))
   })

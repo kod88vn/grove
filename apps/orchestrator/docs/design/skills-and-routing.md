@@ -41,10 +41,20 @@ Validation source:
 
 Routing behavior:
 
-- classifier reads `triggerPatterns` from loaded skill manifests
-- each matching pattern contributes to a weighted score per skill
-- highest-scoring skill determines route intent metadata
-- if no skill matches and prompt is question-like (`who/what/when/where/how`), classifier falls back to `factual_tool` for safer verification
+- routing is **model-driven**: `classifyIntentWithModel` calls an injected classifier (default: `createOllamaClassifier`, single JSON call to local Ollama) and normalizes the response to one of `local_tool | reasoning | factual_tool | fast_chat`
+- the deterministic `classifyIntent` is a **safe-default only** path used when no classifier is wired or the model call fails — it returns `factual_tool/low` for any non-empty input (research over destructive shortcuts)
+- skill `triggerPatterns` are documentation only — they are not consulted by the classifier (kept on manifests so authors can hint intent to the model prompt in future iterations)
+- the Ollama classifier is auto-wired in `startServer` whenever `OLLAMA_HOST` is set; tests inject their own stub via `createServer({ intentClassifier })`
+
+Classification cache behavior:
+
+- orchestrator uses a two-level cache in `src/classificationCache.js`:
+	- hot in-memory LRU map for fastest repeats in-process
+	- persistent SQLite store at `data/classification-cache.sqlite` (or `CLASSIFICATION_CACHE_PATH`)
+- cache keys include normalized message + surface + classifier model + prompt version
+- non-factual routes (`local_tool`, `reasoning`, `fast_chat`) are cached only when confidence is `high`
+- factual route (`factual_tool`) is promoted to persistent cache only after successful tool execution with source evidence (at least one cited URL) and confidence `medium|high`
+- factual results are never cached from classifier output alone; they require evidence-backed promotion via `/orchestrate`
 
 Current baseline skills:
 
