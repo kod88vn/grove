@@ -29,3 +29,13 @@ test('Given local time request, when building execution plan, then local_time sk
   assert.equal(plan.schemaName, 'local_time_v1')
   assert.equal(plan.allowProse, false)
 })
+
+test('Given factual request, when building execution plan, then factual lookup uses executable MCP tool plan', () => {
+  const plan = buildExecutionPlan("who's the current president")
+
+  assert.equal(plan.route, 'factual_tool')
+  assert.deepEqual(plan.skillSet, ['search_and_summarize'])
+  assert.equal(plan.toolPlan[0].type, 'mcp_tool')
+  assert.equal(plan.toolPlan[0].name, 'factual_lookup')
+  assert.equal(plan.toolPlan[0].arguments.query, "who's the current president")
+})

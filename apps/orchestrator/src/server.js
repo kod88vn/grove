@@ -229,6 +229,7 @@ export function createServer(options = {}) {
 
       try {
         const execution = await executeToolPlan(toolPlan, {
+          userMessage: body.message,
           location: body.location || process.env.WEATHER_LOCATION || 'Duluth, GA',
           weatherProvider,
           dashboardProvider,

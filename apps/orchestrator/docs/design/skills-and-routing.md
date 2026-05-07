@@ -59,6 +59,12 @@ Preferred order for live/factual tasks:
 
 If structured-data schema cannot be satisfied, return typed refusal/degraded payload. Never fall back to prose.
 
+### Factual Lookup Contract
+
+- planner emits factual requests as `mcp_tool` with `name: factual_lookup`
+- `arguments.query` is the user message for the lookup step
+- tool registry accepts legacy `tool_family:factual_lookup` plans and normalizes them to the MCP factual lookup contract for backward compatibility
+
 ## UI Contracts
 
 - weather widgets consume strict weather JSON

@@ -46,4 +46,21 @@ describe('getExecutionPlan', () => {
     expect(result.plan.route).toBe('factual_tool')
     expect(result.plan.reason).toBe('orchestrator_unreachable')
   })
+
+  it('retains orchestrator plan from non-OK responses when payload includes plan', async () => {
+    process.env.NODE_ENV = 'development'
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        plan: { route: 'factual_tool', promptProfile: 'factual', skillSet: ['search_and_summarize'] },
+        error: { code: 'MCP_TOOL_UNAVAILABLE' },
+      }),
+    })
+
+    const result = await getExecutionPlan("who's the current president")
+    expect(result.plan.route).toBe('factual_tool')
+    expect(result.plan.skillSet).toEqual(['search_and_summarize'])
+    expect(result.error.code).toBe('MCP_TOOL_UNAVAILABLE')
+  })
 })

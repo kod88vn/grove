@@ -26,11 +26,22 @@ export async function getExecutionPlan(message) {
       body: JSON.stringify({ message, surface: 'chat' }),
     })
 
+    const payload = await res.json().catch(() => null)
+
+    if (payload?.plan?.route) {
+      return {
+        ...payload,
+        plan: {
+          ...payload.plan,
+          reason: res.ok ? payload.plan.reason : payload.plan.reason || `orchestrator_http_${res.status}`,
+        },
+      }
+    }
+
     if (!res.ok) {
       return buildFallbackPlan(`orchestrator_http_${res.status}`)
     }
 
-    const payload = await res.json()
     if (!payload?.plan?.route) {
       return buildFallbackPlan('orchestrator_invalid_payload')
     }

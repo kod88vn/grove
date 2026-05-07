@@ -1,6 +1,23 @@
 import { executeLocalTool } from './localTools.js'
 import { executeMcpTool } from './mcpGateway.js'
 
+function normalizeToolCall(call, context = {}) {
+  if (!call || typeof call !== 'object') return call
+
+  if (call.type !== 'tool_family') return call
+
+  if (call.name === 'factual_lookup') {
+    const query = String(call.arguments?.query || context.userMessage || '').trim()
+    return {
+      type: 'mcp_tool',
+      name: 'factual_lookup',
+      arguments: query ? { query } : {},
+    }
+  }
+
+  return call
+}
+
 export async function executeToolPlan(toolPlan = [], context = {}) {
   if (!Array.isArray(toolPlan) || toolPlan.length === 0) {
     return {
@@ -13,7 +30,7 @@ export async function executeToolPlan(toolPlan = [], context = {}) {
     }
   }
 
-  const first = toolPlan[0]
+  const first = normalizeToolCall(toolPlan[0], context)
 
   if (first.type === 'local_tool') {
     const result = executeLocalTool({ name: first.name })

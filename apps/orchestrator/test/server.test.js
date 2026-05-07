@@ -141,6 +141,30 @@ test('POST /orchestrate returns typed refusal when MCP tool is unavailable', asy
   assert.equal(body.plan.responseMode, 'chat')
 })
 
+test('POST /orchestrate for factual query no longer returns UNKNOWN_TOOL_TYPE', async () => {
+  const routeServer = createServer()
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/orchestrate`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: "who's the current president",
+      surface: 'chat',
+    }),
+  })
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+
+  assert.equal(res.status, 503)
+  assert.equal(body.error.code, 'MCP_TOOL_UNAVAILABLE')
+  assert.equal(body.plan.toolPlan[0].type, 'mcp_tool')
+  assert.equal(body.plan.toolPlan[0].name, 'factual_lookup')
+})
+
 test('POST /orchestrate returns execution payload when MCP adapter succeeds', async () => {
   const routeServer = createServer({
     mcpExecutor: async (call) => ({

@@ -42,3 +42,23 @@ test('Given MCP executor, when executing MCP tool plan, then adapter payload is 
   assert.equal(result.toolName, 'web_search')
   assert.equal(Array.isArray(result.payload.results), true)
 })
+
+test('Given legacy factual tool_family plan, when executing tool plan, then it maps to MCP factual_lookup call', async () => {
+  const result = await executeToolPlan(
+    [{ type: 'tool_family', name: 'factual_lookup' }],
+    {
+      userMessage: "who's the current president",
+      mcpExecutor: async (call) => ({
+        ok: true,
+        kind: 'mcp_tool',
+        toolName: call.name,
+        payload: { query: call.arguments?.query || null, results: [] },
+      }),
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(result.kind, 'mcp_tool')
+  assert.equal(result.toolName, 'factual_lookup')
+  assert.equal(result.payload.query, "who's the current president")
+})

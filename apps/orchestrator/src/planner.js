@@ -1,6 +1,12 @@
 import { classifyIntent } from './classifier.js'
 import { getSkillDefinition } from './skillRegistry.js'
 
+function buildFactualToolArguments(message) {
+  const query = String(message || '').trim()
+  if (!query) return {}
+  return { query }
+}
+
 function buildDashboardPlan(intent, context) {
   const skill = getSkillDefinition('dashboard_profile')
 
@@ -127,7 +133,7 @@ export function buildExecutionPlan(message, context = {}) {
     ...intent,
     surface: context.surface || 'chat',
     skillSet: [skill.id],
-    toolPlan: [{ type: 'tool_family', name: 'factual_lookup' }],
+    toolPlan: [{ type: 'mcp_tool', name: 'factual_lookup', arguments: buildFactualToolArguments(message) }],
     responseMode: skill.responseMode,
     schemaName: skill.schemaName,
     verificationPolicy: skill.verificationPolicy,
