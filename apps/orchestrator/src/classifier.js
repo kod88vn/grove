@@ -1,6 +1,6 @@
 const LOCAL_TIME_PATTERN = /\b(time|clock|current time|local time)\b/i
 const WEATHER_PATTERN = /\b(weather|forecast|temperature)\b/i
-const FACTUAL_PATTERN = /\b(weather|forecast|temperature|price|latest|current|today|tomorrow|who is|what is|news|stock|version|release)\b/i
+const FACTUAL_PATTERN = /\b(weather|forecast|temperature|price|latest|current|today|tomorrow|who is|what is|what happened|happened|news|stock|version|release)\b/i
 const REASONING_PATTERN = /\b(compare|tradeoff|architecture|strategy|analy[sz]e|evaluation|pros and cons|multi-step)\b/i
 
 export function classifyIntent(message) {
