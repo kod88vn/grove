@@ -19,7 +19,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
-    "ai-skill-library": "https://github.com/kod88vn/my-recipes.git",
+    "ai-skill-library": "file:../ai-skill-library",
     "autoprefixer": "^10.4.20",
     "babel-jest": "^29.7.0",
     "dependency-cruiser": "^17.4.0",
