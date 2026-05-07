@@ -6,7 +6,7 @@
 
 ## Overview
 
-Grove is a self-hosted monorepo deployed on a local Windows machine, accessible to family members via Tailscale MagicDNS at `http://grove`. Nora is the primary interface — more apps will be added over time.
+Grove is the self-hosted monorepo platform deployed on a local Windows machine, housing multiple AI applications (Nora, Orchestrator, etc.) and accessible to family members via Tailscale MagicDNS at `http://grove`. Nora (the house steward) is currently the primary user-facing interface, with additional apps being added over time.
 
 ```
 GitHub (source of truth)
