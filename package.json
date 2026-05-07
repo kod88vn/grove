@@ -5,6 +5,7 @@
   "packageManager": "yarn@1.17.3",
   "workspaces": ["packages/*","apps/*"],
   "scripts": {
+    "prepare": "husky",
     "dev": "turbo run dev --filter=nora",
     "dev:apps": "turbo run dev --filter=./apps/* --filter=!./apps/ai-skill-library",
     "dev:orchestrator": "turbo run dev --filter=@grove/orchestrator",
@@ -16,6 +17,7 @@
     "test": "turbo run test"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "turbo": "^1.5.0"
   }
 }

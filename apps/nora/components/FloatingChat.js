@@ -9,7 +9,7 @@ import { useChatMessages } from '@/hooks/useChatMessages'
 const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
 
 /** Floating Nora chat drawer — shown on all pages except /chat */
-export function FloatingChat() {
+export function FloatingChat({ enableGreeting = true } = {}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -112,7 +112,7 @@ export function FloatingChat() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <GreetingTrigger onGreet={triggerGreeting} />
+          {enableGreeting ? <GreetingTrigger onGreet={triggerGreeting} /> : null}
           {messages.length === 0 && !isStreaming && (
             <p className="text-center text-base text-cyan-400 mt-10">
               Ask me anything — weather, homework, family tasks…

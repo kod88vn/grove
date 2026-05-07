@@ -25,6 +25,9 @@ grove/
 # install dependencies
 yarn install
 
+# install git hooks (runs automatically on install via prepare)
+yarn prepare
+
 # start Nora (AI house steward) — requires Ollama at http://grove:11434
 yarn dev
 

@@ -2,6 +2,11 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { TextEncoder as NodeTextEncoder, TextDecoder as NodeTextDecoder } from 'node:util'
+
+jest.mock('@/components/GreetingTrigger', () => ({
+  GreetingTrigger: () => null,
+}))
+
 import { FloatingChat } from './FloatingChat'
 
 if (!global.TextDecoder) global.TextDecoder = NodeTextDecoder
@@ -23,30 +28,34 @@ function makeSseResponse(...words) {
 }
 
 describe('FloatingChat', () => {
+  function renderFloatingChat() {
+    return render(<FloatingChat enableGreeting={false} />)
+  }
+
   beforeEach(() => {
     mockUsePathname.mockReturnValue('/')
     global.fetch = jest.fn()
   })
 
   it('renders the floating chat button', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     expect(screen.getByRole('button', { name: 'Ask Nora' })).toBeInTheDocument()
   })
 
   it('returns nothing on the /chat route', () => {
     mockUsePathname.mockReturnValue('/chat')
-    const { container } = render(<FloatingChat />)
+    const { container } = renderFloatingChat()
     expect(container).toBeEmptyDOMElement()
   })
 
   it('shows on /modules route', () => {
     mockUsePathname.mockReturnValue('/modules')
-    render(<FloatingChat />)
+    renderFloatingChat()
     expect(screen.getByRole('button', { name: 'Ask Nora' })).toBeInTheDocument()
   })
 
   it('opens the drawer when the button is clicked', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     expect(screen.getByRole('dialog', { name: 'Ask Nora' })).toBeInTheDocument()
     // Button label flips to close
@@ -54,7 +63,7 @@ describe('FloatingChat', () => {
   })
 
   it('closes the drawer via the header close button', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('button', { name: 'Close Nora chat' })).toBeNull()
@@ -62,7 +71,7 @@ describe('FloatingChat', () => {
   })
 
   it('closes when clicking the backdrop', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const backdrop = document.querySelector('[aria-hidden="true"]')
     fireEvent.click(backdrop)
@@ -70,35 +79,43 @@ describe('FloatingChat', () => {
   })
 
   it('closes on Escape key when open', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Ask Nora' })).toBeInTheDocument()
   })
 
   it('shows empty-state prompt when no messages', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     expect(screen.getByText(/Ask me anything/i)).toBeInTheDocument()
   })
 
   it('send button is disabled when input is empty', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
 
   it('send button becomes enabled when input has text', () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
     expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled()
   })
 
   it('shows user message and calls /api/chat when Send is clicked', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse('Hi!'))
+    global.fetch.mockImplementation((url, options) => {
+      if (url === '/api/chats' && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'chat-1' }) })
+      }
+      if (url === '/api/chat' && options?.method === 'POST') {
+        return Promise.resolve(makeSseResponse('Hi!'))
+      }
+      return Promise.resolve({ ok: false, json: async () => ({ error: 'Request failed' }) })
+    })
 
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
@@ -119,22 +136,38 @@ describe('FloatingChat', () => {
   })
 
   it('shows error message when fetch fails', async () => {
-    global.fetch.mockResolvedValue({ ok: false, body: {} })
+    global.fetch.mockImplementation((url, options) => {
+      if (url === '/api/chats' && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'chat-1' }) })
+      }
+      if (url === '/api/chat' && options?.method === 'POST') {
+        return Promise.resolve({ ok: false, json: async () => ({ error: 'Request failed' }) })
+      }
+      return Promise.resolve({ ok: false, json: async () => ({ error: 'Request failed' }) })
+    })
 
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     fireEvent.change(screen.getByPlaceholderText('Message Nora…'), { target: { value: 'Hello' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
+      expect(screen.getByText('Error: Request failed')).toBeInTheDocument()
     })
   })
 
   it('clears the input after sending', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse('Ok'))
+    global.fetch.mockImplementation((url, options) => {
+      if (url === '/api/chats' && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'chat-1' }) })
+      }
+      if (url === '/api/chat' && options?.method === 'POST') {
+        return Promise.resolve(makeSseResponse('Ok'))
+      }
+      return Promise.resolve({ ok: false, json: async () => ({ error: 'Request failed' }) })
+    })
 
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
@@ -146,9 +179,17 @@ describe('FloatingChat', () => {
   })
 
   it('sends on Enter key (without Shift)', async () => {
-    global.fetch.mockResolvedValue(makeSseResponse('Ok'))
+    global.fetch.mockImplementation((url, options) => {
+      if (url === '/api/chats' && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'chat-1' }) })
+      }
+      if (url === '/api/chat' && options?.method === 'POST') {
+        return Promise.resolve(makeSseResponse('Ok'))
+      }
+      return Promise.resolve({ ok: false, json: async () => ({ error: 'Request failed' }) })
+    })
 
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
@@ -160,7 +201,7 @@ describe('FloatingChat', () => {
   })
 
   it('does not send on Shift+Enter', async () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
@@ -171,7 +212,7 @@ describe('FloatingChat', () => {
   })
 
   it('does not send when input is whitespace only', async () => {
-    render(<FloatingChat />)
+    renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))
     const textarea = screen.getByPlaceholderText('Message Nora…')
     fireEvent.change(textarea, { target: { value: '   ' } })
