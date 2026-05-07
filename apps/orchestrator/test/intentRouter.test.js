@@ -53,5 +53,19 @@ test('Given weather widget intent, when building plan, then plan selects strict 
   assert.equal(plan.schemaName, 'weather_v1')
   assert.deepEqual(plan.skillSet, ['weather_widget'])
   assert.equal(plan.allowProse, false)
+
+  test('Given historical event query, when classifying intent, then route is factual_tool', () => {
+    const result = classifyIntent('what happened to charlie kirk')
+    assert.equal(result.route, 'factual_tool')
+    assert.equal(result.intent, 'factual')
+  })
+
+  test('Given historical event intent, when building plan, then plan requires verification and tool planning', () => {
+    const plan = buildExecutionPlan('what happened to charlie kirk')
+    assert.equal(plan.route, 'factual_tool')
+    assert.equal(plan.promptProfile, 'factual')
+    assert.equal(plan.requireVerification, true)
+    assert.equal(plan.skipToolPlanning, false)
+  })
   assert.equal(plan.requireVerification, true)
 })
