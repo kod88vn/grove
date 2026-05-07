@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "id": "planning_reasoning",
   "purpose": "Handle complex reasoning requests where structured planning and verification are required.",
-  "instructions": "Use deliberate reasoning, request tool-backed evidence when factual claims are made, and disclose uncertainty.",
+  "instructions": "MANDATORY: When analyzing, comparing, or planning:\n1. IDENTIFY factual vs. subjective elements. For any factual claim (dates, statistics, past events, current status), MUST use factual_lookup.\n2. CALL factual_lookup for: historical facts, current events, statistics, product details, person details, policy changes.\n3. CITE SOURCES: Every factual statement must cite its source (outlet, date, or database).\n4. DISTINGUISH: Mark claims as verified, disputed, or uncertain based on source agreement.\n5. DISCLOSE LIMITS: State explicitly where evidence is incomplete, conflicting, or where you lack information.\n6. REASONING PATH: Show your reasoning steps. Do not skip to conclusions without evidence.\n7. REJECT GUESSES: If factual_lookup returns insufficient data, say so—do not fabricate or speculate as fact.\nRESPONSE VALIDATION: Factual claims without citations will be rejected. Speculation must be labeled as such.",
   "triggerPatterns": ["compare", "tradeoff", "architecture", "strategy"],
   "allowedTools": ["factual_lookup"],
   "modelProfile": "factual",
