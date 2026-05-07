@@ -1,22 +1,36 @@
+'use client'
+
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { MODULE_DOMAINS, getModulesByDomain } from '@/lib/modules/registry'
 
 const DOMAIN_ORDER = ['learning', 'household']
 
 export default function ModuleCatalogPage() {
+  const searchParams = useSearchParams()
+  const domainFilter = searchParams.get('domain')
+
+  const domainsToRender = domainFilter && DOMAIN_ORDER.includes(domainFilter)
+    ? [domainFilter]
+    : DOMAIN_ORDER
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 md:py-10">
       <div className="mx-auto w-full max-w-6xl">
         <header className="mb-8 flex flex-col gap-3">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-700">Nora Modules</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Pluggable features inside the Nora app</h1>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-700">
+            {domainFilter === 'learning' ? 'Nora Games' : domainFilter === 'household' ? 'Nora Utilities' : 'Nora Modules'}
+          </p>
+          <h1 className="text-3xl font-semibold text-slate-900">
+            {domainFilter === 'learning' ? 'Fun games for curious kids' : domainFilter === 'household' ? 'Helpful tools for the household' : 'Pluggable features inside the Nora app'}
+          </h1>
           <p className="max-w-3xl text-base text-slate-600">
             These routes are reserved for Nora-native tools. You can ship each module incrementally without changing URL structure.
           </p>
         </header>
 
         <div className="space-y-6">
-          {DOMAIN_ORDER.map((domainKey) => {
+          {domainsToRender.map((domainKey) => {
             const domain = MODULE_DOMAINS[domainKey]
             const modules = getModulesByDomain(domainKey)
 

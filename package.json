@@ -12,7 +12,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test:orchestrator": "yarn workspace @grove/orchestrator test",
-    "test:games": "yarn workspace @grove/games test"
+    "test:games": "yarn workspace @grove/games test",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "turbo": "^1.5.0"

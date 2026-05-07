@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { parseSseStream } from '@/lib/utils/sseStream'
+import { ChatMessage } from '@/components/ChatMessage'
+import { GreetingTrigger } from '@/components/GreetingTrigger'
+import { useChatMessages } from '@/hooks/useChatMessages'
 
 const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
 
@@ -10,9 +12,12 @@ const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
 export function FloatingChat() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
-  const [streaming, setStreaming] = useState(false)
+  const { messages, isStreaming, sendMessage, triggerGreeting } = useChatMessages({
+    model: DEFAULT_MODEL,
+    initialMessages: [],
+    initialChatId: null,
+  })
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -39,47 +44,10 @@ export function FloatingChat() {
 
   async function send() {
     const text = input.trim()
-    if (!text || streaming) return
+    if (!text || isStreaming) return
 
     setInput('')
-    const userMsg = { role: 'user', content: text }
-    const assistantMsg = { role: 'assistant', content: '' }
-    const history = [...messages, userMsg]
-    setMessages([...history, assistantMsg])
-    setStreaming(true)
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: DEFAULT_MODEL, messages: history }),
-      })
-      if (!res.ok) throw new Error('Request failed')
-
-      for await (const event of parseSseStream(res)) {
-        if (event.word) {
-          setMessages((prev) => {
-            const updated = [...prev]
-            updated[updated.length - 1] = {
-              ...updated[updated.length - 1],
-              content: updated[updated.length - 1].content + event.word,
-            }
-            return updated
-          })
-        }
-      }
-    } catch {
-      setMessages((prev) => {
-        const updated = [...prev]
-        updated[updated.length - 1] = {
-          ...updated[updated.length - 1],
-          content: 'Something went wrong. Please try again.',
-        }
-        return updated
-      })
-    } finally {
-      setStreaming(false)
-    }
+    await sendMessage(text)
   }
 
   function handleKeyDown(e) {
@@ -144,31 +112,14 @@ export function FloatingChat() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {messages.length === 0 && (
+          <GreetingTrigger onGreet={triggerGreeting} />
+          {messages.length === 0 && !isStreaming && (
             <p className="text-center text-base text-cyan-400 mt-10">
               Ask me anything — weather, homework, family tasks…
             </p>
           )}
           {messages.map((msg, i) => (
-            <div key={i} className="flex items-end gap-2">
-              {msg.role === 'assistant' && (
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700 shadow">N</span>
-              )}
-              <div
-                className={[
-                  'rounded-2xl px-4 py-2.5 text-sm leading-6 shadow',
-                  msg.role === 'user'
-                    ? 'ml-auto bg-cyan-700 text-white border border-cyan-200'
-                    : 'mr-auto bg-white text-cyan-900 border border-cyan-100',
-                ].join(' ')}
-                style={{ maxWidth: '80%' }}
-              >
-                {msg.content || (streaming && i === messages.length - 1 ? '…' : '')}
-              </div>
-              {msg.role === 'user' && (
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-cyan-50 text-xs font-bold text-cyan-400 border border-cyan-100 shadow">U</span>
-              )}
-            </div>
+            <ChatMessage key={i} {...msg} isStreaming={isStreaming && i === messages.length - 1} />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -182,18 +133,18 @@ export function FloatingChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Message Nora…"
-              disabled={streaming}
+              disabled={isStreaming}
               rows={1}
               className="flex-1 resize-none rounded-xl border border-cyan-200 px-3 py-2 text-base focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:opacity-50 shadow"
               style={{ minHeight: 40 }}
             />
             <button
               onClick={send}
-              disabled={streaming || !input.trim()}
+              disabled={isStreaming || !input.trim()}
               className="rounded-full bg-cyan-700 p-0.5 w-10 h-10 flex items-center justify-center text-white shadow-lg transition hover:bg-cyan-800 disabled:opacity-40"
               aria-label="Send message"
             >
-              {streaming ? (
+              {isStreaming ? (
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
               ) : (
                 <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>

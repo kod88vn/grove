@@ -1,111 +1,134 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import { NoraNav } from './NoraNav'
 
-// usePathname is globally mocked in jest.setup.js
+// usePathname and useSearchParams are globally mocked in jest.setup.js
 const mockUsePathname = jest.requireMock('next/navigation').usePathname
+const mockUseSearchParams = jest.requireMock('next/navigation').useSearchParams
 
 describe('NoraNav', () => {
   beforeEach(() => {
     mockUsePathname.mockReturnValue('/')
-    global.fetch = jest.fn().mockResolvedValue({
-      json: () => Promise.resolve({ name: null, pic: null, login: null }),
-    })
+    mockUseSearchParams.mockReturnValue(new URLSearchParams())
+    global.fetch = jest.fn().mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ name: null, pic: null, login: null }),
+      })
+    )
   })
 
-  it('renders Grove branding', () => {
-    render(<NoraNav />)
+  it('renders Grove branding', async () => {
+    await act(async () => {
+      render(<NoraNav />)
+    })
     expect(screen.getByText('Grove')).toBeInTheDocument()
   })
 
-  it('renders all three nav links', () => {
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Chat' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Modules' })).toBeInTheDocument()
+  it('renders all three nav links', async () => {
+    await act(async () => {
+      render(<NoraNav />)
+    })
+    expect(screen.getByRole('link', { name: 'Utilities' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Nora' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Games' })).toBeInTheDocument()
   })
 
-  it('gives Home the active style on / route', () => {
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Home' }).className).toContain('bg-slate-100')
-    expect(screen.getByRole('link', { name: 'Chat' }).className).not.toContain('bg-slate-100')
-  })
-
-  it('does not mark Home active on /chat', () => {
+  it('gives Nora the active style on /chat route', async () => {
     mockUsePathname.mockReturnValue('/chat')
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Home' }).className).not.toContain('bg-slate-100')
+    await act(async () => {
+      render(<NoraNav />)
+    })
+    expect(screen.getByRole('link', { name: 'Nora' }).className).toContain('bg-indigo-50')
   })
 
-  it('gives Chat the active style on /chat route', () => {
-    mockUsePathname.mockReturnValue('/chat')
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Chat' }).className).toContain('bg-slate-100')
-    expect(screen.getByRole('link', { name: 'Home' }).className).not.toContain('bg-slate-100')
-  })
-
-  it('gives Modules the active style on /modules route', () => {
+  it('gives Utilities the active style on /modules route with household domain', async () => {
     mockUsePathname.mockReturnValue('/modules')
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Modules' }).className).toContain('bg-slate-100')
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('domain=household'))
+    await act(async () => {
+      render(<NoraNav />)
+    })
+    expect(screen.getByRole('link', { name: 'Utilities' }).className).toContain('bg-indigo-50')
   })
 
-  it('gives Modules the active style on /modules/[slug] sub-routes', () => {
-    mockUsePathname.mockReturnValue('/modules/shopping-list')
-    render(<NoraNav />)
-    expect(screen.getByRole('link', { name: 'Modules' }).className).toContain('bg-slate-100')
+  it('gives Games the active style on /modules route with learning domain', async () => {
+    mockUsePathname.mockReturnValue('/modules')
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('domain=learning'))
+    await act(async () => {
+      render(<NoraNav />)
+    })
+    expect(screen.getByRole('link', { name: 'Games' }).className).toContain('bg-indigo-50')
   })
 
   it('shows user name when API returns a name', async () => {
-    global.fetch.mockResolvedValue({
-      json: () => Promise.resolve({ name: 'Alice Grove', pic: null, login: 'alice' }),
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ name: 'Alice Grove', pic: null, login: 'alice' }),
+      })
+    )
+    await act(async () => {
+      render(<NoraNav />)
     })
-    render(<NoraNav />)
     await waitFor(() => {
       expect(screen.getByText('Alice Grove')).toBeInTheDocument()
     })
   })
 
   it('shows initials avatar when user has no pic', async () => {
-    global.fetch.mockResolvedValue({
-      json: () => Promise.resolve({ name: 'Alice Grove', pic: null, login: 'alice' }),
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ name: 'Alice Grove', pic: null, login: 'alice' }),
+      })
+    )
+    await act(async () => {
+      render(<NoraNav />)
     })
-    render(<NoraNav />)
     await waitFor(() => {
       expect(screen.getByText('AG')).toBeInTheDocument()
     })
   })
 
   it('shows a single initial when user has a single-word name', async () => {
-    global.fetch.mockResolvedValue({
-      json: () => Promise.resolve({ name: 'Nora', pic: null, login: 'nora' }),
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ name: 'Nora', pic: null, login: 'nora' }),
+      })
+    )
+    await act(async () => {
+      render(<NoraNav />)
     })
-    render(<NoraNav />)
     await waitFor(() => {
       expect(screen.getByText('N')).toBeInTheDocument()
     })
   })
 
   it('shows avatar img when user has a pic URL', async () => {
-    global.fetch.mockResolvedValue({
-      json: () =>
-        Promise.resolve({ name: 'Alice Grove', pic: 'https://cdn.example.com/alice.jpg', login: 'alice' }),
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({ name: 'Alice Grove', pic: 'https://cdn.example.com/alice.jpg', login: 'alice' }),
+      })
+    )
+    await act(async () => {
+      render(<NoraNav />)
     })
-    render(<NoraNav />)
     await waitFor(() => {
       const img = screen.getByRole('img', { name: 'Alice Grove' })
       expect(img).toHaveAttribute('src', 'https://cdn.example.com/alice.jpg')
     })
   })
 
-  it('renders without crashing when fetch fails', () => {
-    global.fetch.mockRejectedValue(new Error('Network error'))
-    expect(() => render(<NoraNav />)).not.toThrow()
+  it('renders without crashing when fetch fails', async () => {
+    global.fetch.mockImplementation(() => Promise.reject(new Error('Network error')))
+    await act(async () => {
+      render(<NoraNav />)
+    })
     expect(screen.getByText('Grove')).toBeInTheDocument()
   })
 
   it('hides user section when API returns null name', async () => {
-    render(<NoraNav />) // default mock returns null name
+    await act(async () => {
+      render(<NoraNav />)
+    })
     await waitFor(() => {
       expect(screen.queryByRole('img')).toBeNull()
     })
