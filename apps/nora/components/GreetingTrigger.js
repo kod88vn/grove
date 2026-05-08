@@ -3,8 +3,6 @@
 import { use, useEffect, Suspense } from 'react'
 import { mePromise } from '@/lib/api/me'
 
-const IS_DEV_MODE = process.env.NODE_ENV !== 'production'
-
 /**
  * Resolves user identity (React 19 `use()`), then fires `onGreet` once.
  * Suspends until the /api/me fetch settles so greetings include the real name.
@@ -14,7 +12,8 @@ function GreetingTriggerInner({ onGreet }) {
   const user = use(mePromise)
 
   useEffect(() => {
-    const firstName = IS_DEV_MODE
+    const isDevMode = process.env.NODE_ENV !== 'production'
+    const firstName = isDevMode
       ? 'Master'
       : (user?.name ? user.name.split(' ')[0] : user?.login?.split('@')[0] ?? null)
     onGreet(firstName)

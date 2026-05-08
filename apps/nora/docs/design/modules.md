@@ -7,10 +7,6 @@ app/
 ├── page.js
 ├── chat/
 │   └── page.js
-├── modules/
-│   ├── page.js
-│   └── [slug]/
-│       └── page.js
 ├── api/
 │   ├── chat/
 │   │   ├── route.js
@@ -25,32 +21,22 @@ app/
 │   │       ├── research.js
 │   │       ├── logger.js
 │   │       └── chatStream.js
-│   ├── models/
-│   │   └── route.js
-│   └── weather/
+│   └── models/
 │       └── route.js
 components/
-├── HomeDashboard.js
-├── ModuleGameArcade.js
 ├── ChatWorkspace.js
 ├── ChatSidebar.js
 ├── ChatMessage.js
 └── ChatInput.js
-lib/home/
-└── dashboard.js
-lib/modules/
-├── registry.js
-└── games.js
-components/games/
-└── arcadeFx.js
 public/
-└── gomoku-ai-worker.js
+└── (static chat assets)
 ```
 
 ## Responsibilities
 
 | Module | Responsibility |
 |--------|---------------|
+| `app/page.js` | Redirect root traffic into the dedicated `/chat` experience |
 | `route.js` | Parse and validate HTTP request body and delegate to `chatStream` |
 | `constants.js` | Shared env/config constants |
 | `tools.js` | Tool schemas for model planning |
@@ -62,7 +48,6 @@ public/
 | `research.js` | Multi-angle deep research pipeline |
 | `logger.js` | Append-only audit logging |
 | `chatStream.js` | Tool planning and final streaming orchestration |
-| `app/api/weather/route.js` | Strict deterministic weather proxy |
 
 ## Dependency Graph
 

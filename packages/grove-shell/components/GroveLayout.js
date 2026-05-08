@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { NoraWidget } from './components/NoraWidget.js'
+import { NoraWidget } from './NoraWidget.js'
 
 /**
  * GroveLayout — shared shell for all Grove apps.

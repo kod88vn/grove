@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "main": "./index.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./navigation": "./navigation.js"
   },
   "peerDependencies": {
     "react": "^19.0.0",

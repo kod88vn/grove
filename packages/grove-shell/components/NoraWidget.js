@@ -37,6 +37,7 @@ export function NoraWidget({ noraUrl = 'http://localhost:3000' }) {
       {/* Backdrop */}
       {open && (
         <div
+          data-testid="backdrop"
           className="fixed inset-0 z-40 bg-black/20"
           onClick={() => setOpen(false)}
           aria-hidden="true"

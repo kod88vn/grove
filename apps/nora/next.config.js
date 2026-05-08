@@ -14,6 +14,7 @@ const { hash, date } = getGitInfo()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/chat',
   reactStrictMode: true,
   serverExternalPackages: ['better-sqlite3'],
   env: {

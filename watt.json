@@ -1,14 +1,38 @@
 {
   "$schema": "https://schemas.platformatic.dev/@platformatic/runtime/3.52.4.json",
-  "entrypoint": "nora",
+  "entrypoint": "grove",
   "server": {
     "hostname": "0.0.0.0",
     "port": 80
   },
+  "metrics": {
+    "hostname": "0.0.0.0",
+    "port": 9090,
+    "endpoint": "/metrics",
+    "labels": {
+      "app": "grove"
+    }
+  },
   "services": [
+    {
+      "id": "grove",
+      "path": "./apps/grove"
+    },
     {
       "id": "nora",
       "path": "./apps/nora"
+    },
+    {
+      "id": "games",
+      "path": "./apps/games"
+    },
+    {
+      "id": "shopping-list",
+      "path": "./apps/shopping-list"
+    },
+    {
+      "id": "reminders",
+      "path": "./apps/reminders"
     }
   ]
 }

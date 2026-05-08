@@ -1,6 +1,6 @@
 # Nora
 
-Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App Router, Tailwind CSS, and streaming responses from a local Ollama LLM.
+Nora is the Grove family's AI-powered chatbot. Built with Next.js 16 App Router, Tailwind CSS, and streaming responses from a local Ollama LLM.
 
 ## Features
 
@@ -16,24 +16,15 @@ Nora is the Grove family's AI-powered house steward. Built with Next.js 16 App R
 - **Mobile-friendly composer** — input guidance is shown below the textarea to prevent placeholder clipping on narrow screens
 - **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
-- **Family dashboard home** — only shows real household data; chat history can personalize the brief, while unsupported cards stay empty until real sources exist
-- **Structured weather widget** — weather panel fetches typed JSON from `/api/weather` (proxied from orchestrator) instead of chat prose
-- **Kids game arcade** — eight playable educational games (`crossword`, `hangman`, `sudoku`, `gomoku`, `math-lightning`, `word-scramble`, `memory-match`, `logic-code`) live under `/modules/[slug]`, with source logic owned by sibling app `apps/games`
-- **Arcade sound + celebration FX** — game actions trigger lightweight Web Audio tones and burst animations for correct answers, wins, and milestones
-- **Smarter Gomoku AI** — time-bounded Monte Carlo search runs in a Web Worker so deeper thinking does not block UI
 
 ## Architecture
 
 ```
 app/
 ├── layout.js                    # Root layout with metadata
-├── page.js                      # Family dashboard landing page
+├── page.js                      # Redirects root traffic to /chat
 ├── chat/
 │   └── page.js                  # Main chat interface route
-├── modules/
-│   ├── page.js                  # Nora module catalog grouped by domain
-│   └── [slug]/
-│       └── page.js              # Game renderer for educational slugs + placeholders for other modules
 ├── globals.css                  # Tailwind directives
 └── api/
     ├── chat/
@@ -49,25 +40,14 @@ app/
     │       ├── ollama.js        # Ollama HTTP client + history compression
     │       ├── web.js           # Web search, webpage reader, HTML utilities
     │       └── chatStream.js    # Tool-planning loop + SSE orchestration
-    ├── models/
-    │   └── route.js             # Proxies Ollama /api/tags for model list
-    └── weather/
-        └── route.js             # GET handler — strict weather JSON proxy to sibling orchestrator
+    └── models/
+      └── route.js             # Proxies Ollama /api/tags for model list
 
 components/
-├── HomeDashboard.js    # Family dashboard cards and quick actions
-├── ModuleGameArcade.js # Kid-friendly game UIs (Crossword, Hangman, Sudoku, Gomoku, Math Lightning, Word Scramble, Memory Match, Logic Code)
 ├── ChatWorkspace.js    # Chat experience extracted for route reuse
 ├── ChatMessage.js      # Message bubbles (thinking + content + sources)
 ├── ChatInput.js        # Input textarea + send button
 └── ChatSidebar.js      # Chat history list + mobile full-screen overlay
-
-lib/modules/
-├── registry.js         # Nora module registry (internal features)
-└── games.js            # Thin compatibility re-export from sibling source `apps/games/src/index.js`
-
-lib/home/
-└── dashboard.js        # Home dashboard data builder using identity + real chat history only
 
 tailwind.config.js      # Tailwind configuration
 postcss.config.js       # PostCSS/Tailwind setup
@@ -76,7 +56,9 @@ postcss.config.js       # PostCSS/Tailwind setup
 Sibling apps in this monorepo:
 
 - `apps/orchestrator` — intent classifier + execution planner service consumed by Nora
-- `apps/games` — source-of-truth game logic package used by Nora arcade UI
+- `apps/games` — separate game workspace/package; no longer mounted inside Nora routes
+- `apps/shopping-list` — separate shopping-list workspace/app boundary
+- `apps/reminders` — separate reminders workspace/app boundary
 
 See [docs/design/README.md](./docs/design/README.md) for the full architecture, SSE event contract, tool table, and architecture decision records.
 
@@ -131,18 +113,6 @@ data: {"thinking":"..."}
 data: {"thinkingDone":true}
 data: {"word":"Hello"}
 data: [DONE]
-```
-
-The `/api/weather` endpoint returns a structured weather payload:
-
-```json
-{
-  "location": { "label": "Duluth, Georgia, US", "timezone": "America/New_York" },
-  "observedAt": "2026-05-06T12:00",
-  "current": { "temperatureF": 73, "condition": "Partly cloudy", "windMph": 10 },
-  "today": { "highF": 74, "lowF": 61, "precipChancePct": 40 },
-  "source": { "provider": "open-meteo" }
-}
 ```
 
 ## Build for Production

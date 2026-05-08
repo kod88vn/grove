@@ -6,11 +6,11 @@
   "workspaces": ["packages/*","apps/*"],
   "scripts": {
     "prepare": "husky",
-    "dev": "turbo run dev --filter=nora",
-    "dev:apps": "turbo run dev --filter=./apps/* --filter=!./apps/ai-skill-library",
-    "dev:orchestrator": "turbo run dev --filter=@grove/orchestrator",
+    "dev": "turbo run dev --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
+    "dev:orchestrator": "yarn workspace @grove/orchestrator dev",
+    "build": "turbo run build --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
+    "start": "platformatic start",
     "killp": "./scripts/killp.sh",
-    "build": "turbo run build",
     "lint": "turbo run lint",
     "test:orchestrator": "yarn workspace @grove/orchestrator test",
     "test:games": "yarn workspace @grove/games test",
@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "husky": "^9.1.7",
+    "platformatic": "^3.53.0",
     "turbo": "^1.5.0"
   }
 }

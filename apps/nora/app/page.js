@@ -1,8 +1,5 @@
-import { HomeDashboard } from '@/components/HomeDashboard'
-import { getHomeDashboardData } from '@/lib/home/dashboard'
+import { ChatWorkspace } from '@/components/ChatWorkspace'
 
-export default async function HomePage() {
-  const data = await getHomeDashboardData()
-
-  return <HomeDashboard data={data} />
+export default function HomePage() {
+  return <ChatWorkspace />
 }

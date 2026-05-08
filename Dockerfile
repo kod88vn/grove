@@ -6,7 +6,11 @@ RUN apk add --no-cache git python3 make g++
 
 # Copy only manifests first so this layer is cached until deps change
 COPY package.json yarn.lock ./
-COPY apps/nora/package.json ./apps/nora/
+COPY apps/grove/package.json         ./apps/grove/
+COPY apps/nora/package.json          ./apps/nora/
+COPY apps/games/package.json         ./apps/games/
+COPY apps/shopping-list/package.json ./apps/shopping-list/
+COPY apps/reminders/package.json     ./apps/reminders/
 
 RUN yarn install --frozen-lockfile --ignore-scripts && \
 	npm rebuild better-sqlite3
@@ -24,7 +28,12 @@ COPY . .
 ARG COMMIT_HASH=dev
 RUN printf "NEXT_PUBLIC_COMMIT_HASH=%s\n" "${COMMIT_HASH}" > apps/nora/.env.local
 
-RUN yarn workspace nora build
+# Build all zone apps
+RUN yarn workspace @grove/grove build && \
+    yarn workspace nora build && \
+    yarn workspace @grove/games build && \
+    yarn workspace @grove/shopping-list build && \
+    yarn workspace @grove/reminders build
 
 # ─── Stage 3: production runner ────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -32,14 +41,37 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Only copy what next start needs
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/apps/nora/package.json ./apps/nora/
-COPY --from=builder /app/apps/nora/next.config.js ./apps/nora/
-COPY --from=builder /app/apps/nora/.next ./apps/nora/.next
+COPY --from=builder /app/watt.json    ./
 
+# Grove shell
+COPY --from=builder /app/apps/grove/package.json         ./apps/grove/
+COPY --from=builder /app/apps/grove/next.config.js       ./apps/grove/
+COPY --from=builder /app/apps/grove/.next                ./apps/grove/.next
+
+# Nora
+COPY --from=builder /app/apps/nora/package.json          ./apps/nora/
+COPY --from=builder /app/apps/nora/next.config.js        ./apps/nora/
+COPY --from=builder /app/apps/nora/.next                 ./apps/nora/.next
+
+# Games
+COPY --from=builder /app/apps/games/package.json         ./apps/games/
+COPY --from=builder /app/apps/games/next.config.js       ./apps/games/
+COPY --from=builder /app/apps/games/.next                ./apps/games/.next
+
+# Shopping List
+COPY --from=builder /app/apps/shopping-list/package.json         ./apps/shopping-list/
+COPY --from=builder /app/apps/shopping-list/next.config.js       ./apps/shopping-list/
+COPY --from=builder /app/apps/shopping-list/.next                ./apps/shopping-list/.next
+
+# Reminders
+COPY --from=builder /app/apps/reminders/package.json     ./apps/reminders/
+COPY --from=builder /app/apps/reminders/next.config.js   ./apps/reminders/
+COPY --from=builder /app/apps/reminders/.next            ./apps/reminders/.next
+
+# App port + Prometheus metrics port
 EXPOSE 80
-WORKDIR /app/apps/nora
+EXPOSE 9090
 
-CMD ["node", "../../node_modules/.bin/next", "start", "-p", "80"]
+CMD ["node_modules/.bin/watt", "start"]

@@ -48,12 +48,6 @@ describe('FloatingChat', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows on /modules route', () => {
-    mockUsePathname.mockReturnValue('/modules')
-    renderFloatingChat()
-    expect(screen.getByRole('button', { name: 'Ask Nora' })).toBeInTheDocument()
-  })
-
   it('opens the drawer when the button is clicked', () => {
     renderFloatingChat()
     fireEvent.click(screen.getByRole('button', { name: 'Ask Nora' }))

@@ -1,8 +1,14 @@
 # Games
 
-Source-of-truth game logic for Grove educational modules.
+Source-of-truth workspace for Grove educational games.
 
-This package exports shared rules and helpers used by Nora game UIs.
+This package now owns both the shared rules/helpers and the game UI source that was previously embedded inside Nora.
+
+Current layout:
+
+- `src/index.js` — shared game rules and helpers
+- `src/ModuleGameArcade.js` — top-level arcade renderer source
+- `src/ui/` — individual game UI modules and arcade effects
 
 ## Tests
 

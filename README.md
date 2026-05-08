@@ -7,9 +7,11 @@ Monorepo for the Grove family's AI tools and skill library, managed with Turbore
 ```
 grove/
 ├── apps/
-│   ├── ai-skill-library/   # skill + MCP catalog with scaffold CLI
+│   ├── games/              # educational games workspace
 │   ├── orchestrator/       # intent, skill, tool, and schema control plane for Nora and future apps
-│   └── nora/               # AI-powered house steward (Next.js 16)
+│   ├── reminders/          # reminder and routine app workspace
+│   ├── shopping-list/      # shopping-list app workspace
+│   └── nora/               # AI-powered chat app (Next.js 16)
 ├── .github/
 │   ├── copilot-instructions.md
 │   └── skills -> apps/ai-skill-library/skills
@@ -47,7 +49,15 @@ yarn killp 3000 4010
 
 ### Nora
 
-AI-powered house steward built with Next.js 16, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+AI-powered family chatbot built with Next.js 16, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+
+### Shopping List
+
+Workspace boundary for the Grove shopping-list app. See [apps/shopping-list/README.md](apps/shopping-list/README.md).
+
+### Reminders
+
+Workspace boundary for the Grove reminders app. See [apps/reminders/README.md](apps/reminders/README.md).
 
 ### Orchestrator
 

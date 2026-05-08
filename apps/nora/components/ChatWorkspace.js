@@ -86,7 +86,7 @@ export function ChatWorkspace() {
   }
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
+    <div className="flex h-full bg-white overflow-hidden">
       <ChatSidebar
         chats={chats}
         selectedId={activeChatId}

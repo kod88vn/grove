@@ -2,14 +2,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { NoraNav } from './NoraNav'
 
-// usePathname and useSearchParams are globally mocked in jest.setup.js
+// usePathname is globally mocked in jest.setup.js
 const mockUsePathname = jest.requireMock('next/navigation').usePathname
-const mockUseSearchParams = jest.requireMock('next/navigation').useSearchParams
 
 describe('NoraNav', () => {
   beforeEach(() => {
     mockUsePathname.mockReturnValue('/')
-    mockUseSearchParams.mockReturnValue(new URLSearchParams())
     global.fetch = jest.fn().mockImplementation(() =>
       Promise.resolve({
         json: () => Promise.resolve({ name: null, pic: null, login: null }),
@@ -21,16 +19,29 @@ describe('NoraNav', () => {
     await act(async () => {
       render(<NoraNav />)
     })
-    expect(screen.getByText('Grove')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Grove' })).toHaveAttribute('href', '/')
   })
 
-  it('renders all three nav links', async () => {
+  it('renders all nav links', async () => {
     await act(async () => {
       render(<NoraNav />)
     })
-    expect(screen.getByRole('link', { name: 'Utilities' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Grove' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Nora' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Games' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Shopping List' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Reminders' })).toBeInTheDocument()
+  })
+
+  it('wires nav links to the expected zone paths', async () => {
+    await act(async () => {
+      render(<NoraNav />)
+    })
+    expect(screen.getByRole('link', { name: 'Grove' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Nora' })).toHaveAttribute('href', '/chat')
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('href', '/games')
+    expect(screen.getByRole('link', { name: 'Shopping List' })).toHaveAttribute('href', '/shopping-list')
+    expect(screen.getByRole('link', { name: 'Reminders' })).toHaveAttribute('href', '/reminders')
   })
 
   it('gives Nora the active style on /chat route', async () => {
@@ -39,24 +50,6 @@ describe('NoraNav', () => {
       render(<NoraNav />)
     })
     expect(screen.getByRole('link', { name: 'Nora' }).className).toContain('bg-indigo-50')
-  })
-
-  it('gives Utilities the active style on /modules route with household domain', async () => {
-    mockUsePathname.mockReturnValue('/modules')
-    mockUseSearchParams.mockReturnValue(new URLSearchParams('domain=household'))
-    await act(async () => {
-      render(<NoraNav />)
-    })
-    expect(screen.getByRole('link', { name: 'Utilities' }).className).toContain('bg-indigo-50')
-  })
-
-  it('gives Games the active style on /modules route with learning domain', async () => {
-    mockUsePathname.mockReturnValue('/modules')
-    mockUseSearchParams.mockReturnValue(new URLSearchParams('domain=learning'))
-    await act(async () => {
-      render(<NoraNav />)
-    })
-    expect(screen.getByRole('link', { name: 'Games' }).className).toContain('bg-indigo-50')
   })
 
   it('shows user name when API returns a name', async () => {
