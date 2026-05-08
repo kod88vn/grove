@@ -1,7 +1,20 @@
 'use client'
 
-import { useState } from 'react'
-import { pickHangmanRound } from '../index.js'
+import { useCallback, useEffect, useState } from 'react'
+import { HANGMAN_LEVELS, pickHangmanRound } from '../index.js'
+
+async function fetchWordFromAI(level) {
+  const res = await fetch('/api/nora-word', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
+    signal: AbortSignal.timeout(7000),
+  })
+  if (!res.ok) throw new Error('ai_unavailable')
+  const json = await res.json()
+  if (json.error || !json.word) throw new Error(json.error || 'bad_word')
+  return json
+}
 
 const HANGMAN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -46,13 +59,36 @@ function HangmanVisual({ wrongCount }) {
 }
 
 export default function HangmanGame() {
-  const [round, setRound] = useState(() => pickHangmanRound())
-  const [guessed, setGuessed] = useState(() => new Set())
+  const [level, setLevel] = useState('elementary')
+  const [round, setRound] = useState(null)
+  const [guessed, setGuessed] = useState(new Set())
   const [wrongCount, setWrongCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [aiSource, setAiSource] = useState(false)
 
-  const letters = round.word.split('')
+  const startRound = useCallback(async (chosenLevel) => {
+    setLoading(true)
+    setGuessed(new Set())
+    setWrongCount(0)
+    try {
+      const word = await fetchWordFromAI(chosenLevel)
+      setRound(word)
+      setAiSource(true)
+    } catch {
+      setRound(pickHangmanRound(chosenLevel))
+      setAiSource(false)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    startRound('elementary')
+  }, [startRound])
+
+  const letters = round?.word?.split('') ?? []
   const uniqueLetters = new Set(letters)
-  const isWon = Array.from(uniqueLetters).every((letter) => guessed.has(letter))
+  const isWon = letters.length > 0 && Array.from(uniqueLetters).every((letter) => guessed.has(letter))
   const isLost = wrongCount >= 7
 
   const maskedWord = letters.map((letter) => (guessed.has(letter) || isLost ? letter : '_')).join(' ')
@@ -69,13 +105,24 @@ export default function HangmanGame() {
   }
 
   const onNewRound = () => {
-    setRound(pickHangmanRound())
-    setGuessed(new Set())
-    setWrongCount(0)
+    startRound(level)
+  }
+
+  const onLevelChange = (nextLevel) => {
+    setLevel(nextLevel)
+    startRound(nextLevel)
   }
 
   return (
     <section>
+      {loading && (
+        <div className="flex items-center justify-center gap-3 rounded-2xl border-2 border-amber-200 bg-amber-50 p-10 text-amber-700">
+          <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span className="text-sm font-bold">Nora is thinking of a word…</span>
+        </div>
+      )}
+
+      {!loading && round && (
       <div className="flex flex-col gap-6 md:flex-row">
         <div className="flex-1 rounded-2xl border-2 border-amber-200 bg-amber-50 p-6 flex flex-col justify-center shadow-inner">
           <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-amber-800">
@@ -90,7 +137,7 @@ export default function HangmanGame() {
             <p className="text-sm font-bold text-slate-700">
               Chances Left: <span className={wrongCount >= 5 ? 'text-rose-600' : 'text-cyan-600'}>{7 - wrongCount}</span>
             </p>
-            <p className="text-xs font-medium text-slate-500 italic">Get the letters right to save the day!</p>
+            {!aiSource && <p className="text-xs text-slate-400 italic">local word</p>}
           </div>
         </div>
 
@@ -98,10 +145,11 @@ export default function HangmanGame() {
           <HangmanVisual wrongCount={wrongCount} />
         </div>
       </div>
+      )}
 
       <div className="mt-8 grid grid-cols-7 gap-2 sm:grid-cols-9 md:grid-cols-13">
         {HANGMAN_ALPHABET.map((letter) => {
-          const disabled = guessed.has(letter) || isWon || isLost
+          const disabled = loading || !round || guessed.has(letter) || isWon || isLost
           return (
             <button
               key={letter}
@@ -116,17 +164,39 @@ export default function HangmanGame() {
         })}
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {HANGMAN_LEVELS.map((option) => {
+          const active = option === level
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onLevelChange(option)}
+              disabled={loading}
+              className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide transition disabled:opacity-50 ${
+                active
+                  ? 'border-cyan-600 bg-cyan-600 text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:border-cyan-500 hover:text-cyan-700'
+              }`}
+            >
+              {option === 'middleschool' ? 'Middle School' : option}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {isWon && <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">🎉 You saved the word!</p>}
-        {isLost && (
+        {isLost && round && (
           <p className="rounded-full bg-rose-100 px-4 py-2 text-sm font-bold text-rose-700">😅 Oops! The word was {round.word}.</p>
         )}
         <button
           type="button"
           onClick={onNewRound}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
+          disabled={loading}
+          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-50"
         >
-          New Word
+          {loading ? 'Loading…' : 'New Word'}
         </button>
       </div>
     </section>
