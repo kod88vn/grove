@@ -16,6 +16,7 @@ Nora is the Grove family's AI-powered chatbot. Built with Next.js 16 App Router,
 - **Mobile-friendly composer** — input guidance is shown below the textarea to prevent placeholder clipping on narrow screens
 - **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
+- **Dense crossword generation API** — `/api/nora-crossword` enforces higher-depth grids with level-based entry counts (`8/12/16` words) and strict intersection validation
 
 ## Architecture
 
@@ -40,6 +41,8 @@ app/
     │       ├── ollama.js        # Ollama HTTP client + history compression
     │       ├── web.js           # Web search, webpage reader, HTML utilities
     │       └── chatStream.js    # Tool-planning loop + SSE orchestration
+    ├── nora-crossword/
+    │   └── route.js             # Dense crossword generator/validator for games app
     └── models/
       └── route.js             # Proxies Ollama /api/tags for model list
 

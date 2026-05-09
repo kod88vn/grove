@@ -21,6 +21,8 @@ app/
 │   │       ├── research.js
 │   │       ├── logger.js
 │   │       └── chatStream.js
+│   ├── nora-crossword/
+│   │   └── route.js
 │   └── models/
 │       └── route.js
 components/
@@ -48,6 +50,7 @@ public/
 | `research.js` | Multi-angle deep research pipeline |
 | `logger.js` | Append-only audit logging |
 | `chatStream.js` | Tool planning and final streaming orchestration |
+| `app/api/nora-crossword/route.js` | Generate and validate dense level-based crossword layouts for games |
 
 ## Dependency Graph
 

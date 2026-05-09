@@ -90,6 +90,7 @@ export default function HangmanGame() {
   const uniqueLetters = new Set(letters)
   const isWon = letters.length > 0 && Array.from(uniqueLetters).every((letter) => guessed.has(letter))
   const isLost = wrongCount >= 7
+  const wrongGuesses = Array.from(guessed).filter((letter) => !letters.includes(letter)).sort()
 
   const maskedWord = letters.map((letter) => (guessed.has(letter) || isLost ? letter : '_')).join(' ')
 
@@ -112,6 +113,25 @@ export default function HangmanGame() {
     setLevel(nextLevel)
     startRound(nextLevel)
   }
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (loading || !round || isWon || isLost) {
+        return
+      }
+
+      const key = String(event.key || '').toUpperCase()
+      if (!/^[A-Z]$/.test(key)) {
+        return
+      }
+
+      event.preventDefault()
+      onGuess(key)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [loading, round, isWon, isLost, onGuess])
 
   return (
     <section>
@@ -145,6 +165,13 @@ export default function HangmanGame() {
           <HangmanVisual wrongCount={wrongCount} />
         </div>
       </div>
+      )}
+
+      {!loading && round && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span className="font-semibold">Keyboard:</span>
+          <span>Type A-Z to guess letters.</span>
+        </div>
       )}
 
       <div className="mt-8 grid grid-cols-7 gap-2 sm:grid-cols-9 md:grid-cols-13">
@@ -184,6 +211,22 @@ export default function HangmanGame() {
           )
         })}
       </div>
+
+      {!loading && round && wrongGuesses.length > 0 && (
+        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-rose-700">Tried and missed</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {wrongGuesses.map((letter) => (
+              <span
+                key={letter}
+                className="rounded-full border border-rose-300 bg-white px-2 py-1 text-xs font-bold text-rose-700"
+              >
+                {letter}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {isWon && <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">🎉 You saved the word!</p>}

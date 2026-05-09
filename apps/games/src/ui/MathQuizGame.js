@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
-
-const LEVELS = [
-  { name: 'Rookie', range: 10, time: 10 },
-  { name: 'Pro', range: 12, time: 7 },
-  { name: 'Expert', range: 15, time: 5 },
-  { name: 'Lightning', range: 20, time: 3 }
-]
+import {
+  MATH_LIGHTNING_LEVELS,
+  adjustMathLightningLevel,
+  generateMathLightningQuestion,
+  scoreMathLightningAnswer,
+} from '../mathLightning.js'
 
 export default function MathQuizGame() {
   const [gameState, setGameState] = useState('menu')
@@ -27,28 +26,32 @@ export default function MathQuizGame() {
     setTimeout(() => setBurst([]), 520)
   }, [])
 
-  const generateQuestion = useCallback(() => {
-    const config = LEVELS[level]
-    const a = Math.floor(Math.random() * config.range) + 1
-    const b = Math.floor(Math.random() * config.range) + 1
-    const answer = a * b
-    setQuestion({ a, b, answer })
+  const applyQuestion = useCallback((levelIndex) => {
+    const config = MATH_LIGHTNING_LEVELS[levelIndex]
+    const next = generateMathLightningQuestion(levelIndex)
+    setQuestion(next)
     setTimeLeft(config.time)
     setUserInput('')
-  }, [level])
+  }, [])
 
-  const startLevel = (idx) => {
-    setLevel(idx)
+  const startGame = () => {
+    setLevel(0)
     setScore(0)
     setRound(1)
     setHistory([])
     setGameState('playing')
     playArcadeEffect('start')
+    applyQuestion(0)
   }
 
   const handleAnswer = useCallback((isTimeout = false) => {
-    const isCorrect = !isTimeout && parseInt(userInput) === question.answer
-    const points = isCorrect ? Math.ceil(parseFloat(timeLeft) * 10) : 0
+    const { isCorrect, points } = scoreMathLightningAnswer({
+      userInput,
+      answer: question.answer,
+      timeLeft,
+      levelIndex: level,
+      isTimeout,
+    })
     
     const outcome = {
       q: question.a + " x " + question.b,
@@ -72,47 +75,43 @@ export default function MathQuizGame() {
       }
       setGameState('finished')
     } else {
+      const nextLevel = adjustMathLightningLevel(level, isCorrect)
+      setLevel(nextLevel)
       setRound((prev) => prev + 1)
-      generateQuestion()
+      applyQuestion(nextLevel)
     }
-  }, [userInput, question, timeLeft, round, generateQuestion, celebrate])
+  }, [userInput, question, timeLeft, level, round, applyQuestion, celebrate])
 
   useEffect(() => {
-    if (gameState === 'playing') {
-      generateQuestion()
-    }
-  }, [gameState, generateQuestion])
-
-  useEffect(() => {
-    if (gameState !== 'playing' || parseFloat(timeLeft) <= 0) {
-      if (parseFloat(timeLeft) <= 0 && gameState === 'playing') {
-        handleAnswer(true)
-      }
+    if (gameState !== 'playing') {
       return
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (parseFloat(prev) - 0.1).toFixed(1))
+    if (timeLeft <= 0) {
+      handleAnswer(true)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft((previous) => Math.max(0, Number((previous - 0.1).toFixed(1))))
     }, 100)
 
-    return () => clearInterval(timer)
+    return () => clearTimeout(timer)
   }, [timeLeft, gameState, handleAnswer])
 
   if (gameState === 'menu') {
     return (
       <div className="flex flex-col items-center py-8">
         <h2 className="text-4xl font-black text-indigo-600 mb-2">Math Lightning</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-lg mt-8">
-          {LEVELS.map((l, i) => (
-            <button
-              key={i}
-              onClick={() => startLevel(i)}
-              className="rounded-2xl bg-white border-2 border-slate-100 p-6 text-left transition hover:border-indigo-500"
-            >
-              <span className="text-xl font-black text-slate-800">{l.name}</span>
-            </button>
-          ))}
-        </div>
+        <p className="mt-3 max-w-md text-center text-sm font-semibold text-slate-600">
+          Start at Rookie. Beat the timer to level up for bigger rewards and tighter time limits. Miss a round and you drop a level.
+        </p>
+        <button
+          onClick={startGame}
+          className="mt-8 rounded-2xl bg-indigo-600 px-8 py-4 text-xl font-bold text-white shadow-lg transition hover:bg-indigo-700 active:scale-95"
+        >
+          Start Run
+        </button>
       </div>
     )
   }
@@ -144,6 +143,9 @@ export default function MathQuizGame() {
         />
       ))}
       <div className="mb-4 rounded-full bg-indigo-100 px-3 py-1 text-slate-500 text-sm font-bold uppercase">Round {round} / 10</div>
+      <div className="mb-2 rounded-full bg-cyan-100 px-3 py-1 text-cyan-700 text-xs font-black uppercase">
+        Level: {MATH_LIGHTNING_LEVELS[level].name} · x{MATH_LIGHTNING_LEVELS[level].rewardMultiplier}
+      </div>
       <div className="mb-12 text-6xl font-black text-indigo-700">{question.a} x {question.b}</div>
       <form onSubmit={(e) => { e.preventDefault(); handleAnswer(); }} className="w-full">
         <input
@@ -156,7 +158,7 @@ export default function MathQuizGame() {
         />
       </form>
       <div className="mt-4 text-sm font-bold text-slate-500">Score: {score}</div>
-      <div className="mt-3 text-2xl font-black text-indigo-500">Time Left: {timeLeft}s</div>
+      <div className="mt-3 text-2xl font-black text-indigo-500">Time Left: {timeLeft.toFixed(1)}s</div>
     </div>
   )
 }
