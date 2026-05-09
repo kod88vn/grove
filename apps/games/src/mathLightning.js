@@ -1,8 +1,8 @@
 export const MATH_LIGHTNING_LEVELS = [
-  { name: 'Rookie', range: 10, time: 10, rewardMultiplier: 1 },
-  { name: 'Pro', range: 12, time: 7, rewardMultiplier: 1.4 },
-  { name: 'Expert', range: 15, time: 5, rewardMultiplier: 1.8 },
-  { name: 'Lightning', range: 20, time: 3, rewardMultiplier: 2.4 },
+  { name: 'Rookie', range: 9, time: 10, rewardMultiplier: 1 },
+  { name: 'Pro', range: 9, time: 7, rewardMultiplier: 1.4 },
+  { name: 'Expert', range: 9, time: 5, rewardMultiplier: 1.8 },
+  { name: 'Lightning', range: 9, time: 3, rewardMultiplier: 2.4 },
 ]
 
 function clamp(value, min, max) {
