@@ -5,10 +5,10 @@ import { createBurstParticles, playArcadeEffect } from './arcadeFx'
 
 const SYMBOLS = ['🌟', '🎨', '🎭', '🎪', '🎯', '🎲', '🎸', '🎮', '🏆', '🎁']
 const GRID_SIZES = {
-  easy: { rows: 6, cols: 8 },
-  medium: { rows: 8, cols: 8 },
-  hard: { rows: 10, cols: 8 },
-  expert: { rows: 12, cols: 10 },
+  easy: { rows: 4, cols: 10 },
+  medium: { rows: 6, cols: 10 },
+  hard: { rows: 8, cols: 10 },
+  expert: { rows: 10, cols: 10 },
 }
 
 function createGrid(rows, cols) {
@@ -130,13 +130,13 @@ export default function TileMatchGame() {
   useEffect(() => {
     const updateTileSize = () => {
       const width = window.innerWidth
-      // Mobile: 1.75rem, Tablet (768+): 2.25rem, Desktop (1024+): 3rem
+      // Mobile: 2.5rem, Tablet (768+): 3.5rem, Desktop (1024+): 5rem
       if (width < 768) {
-        setTileSize(1.75)
+        setTileSize(2.5)
       } else if (width < 1024) {
-        setTileSize(2.25)
+        setTileSize(3.5)
       } else {
-        setTileSize(3)
+        setTileSize(5)
       }
     }
     updateTileSize()
@@ -205,7 +205,7 @@ export default function TileMatchGame() {
                   onClick={() => startGame(lv)}
                   className="rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-bold uppercase text-slate-700 transition hover:border-cyan-500 hover:bg-cyan-50"
                 >
-                  {lv === 'easy' ? '6×8 Easy' : lv === 'medium' ? '8×8 Medium' : lv === 'hard' ? '10×8 Hard' : '12×10 Expert'}
+                  {lv === 'easy' ? '4×10 Easy' : lv === 'medium' ? '6×10 Medium' : lv === 'hard' ? '8×10 Hard' : '10×10 Expert'}
                 </button>
               ))}
             </div>
