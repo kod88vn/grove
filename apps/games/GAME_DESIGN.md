@@ -229,20 +229,62 @@ Multiple themed emoji sets in `src/wordbanks/memory.js`:
 
 ### Current state
 AI already runs via a Web Worker with MCTS.
-AI config (`timeBudgetMs`, `maxPlayouts`, etc.) is hard-coded in the component.
+AI config (`timeBudgetMs`, `maxPlayouts`, etc.) is configurable in the component.
 Board is always 15×15 (Gomoku standard), win condition is 5 in a row.
+Players select their animal symbol at game start.
 
-### Target state (difficulty levels only)
+### Implemented features
+
+#### Symbol selection (completed)
+Players now select their animal symbol at the start of the game from a pool of 10 available symbols:
+- 🦊 Fox, 🐼 Panda, 🐰 Bunny, 🦁 Lion, 🐯 Tiger, 🐻 Bear, 🐺 Wolf, 🦅 Eagle, 🐢 Turtle, 🦗 Cricket
+
+Once the player selects their symbol, the AI automatically gets assigned a different random symbol from the remaining 9.
+
+#### Difficulty levels (completed)
+
+Two difficulty levels are now implemented with automatic progression:
+
+**Intermediate (Default)**
+- Uses Monte Carlo Tree Search (MCTS) algorithm
+- Config: `timeBudgetMs: 2200, maxPlayouts: 9000, maxRolloutDepth: 14, candidateLimit: 24`
+- AI starts at Intermediate level
+
+**Expert (Unlocked after first AI loss)**
+- Uses a reward-based algorithm based on connection potential
+- Scores moves by evaluating:
+  - Direct connections and their potential for extension
+  - Open-ended vs. blocked sides (open sides worth much more)
+  - Future extension potential and flexibility
+  - Centralization (preference for moves near existing stones)
+- Strategically prioritizes:
+  1. Immediate winning moves
+  2. Blocking user's winning moves
+  3. Defending against user's open 3-in-a-row and 4-in-a-row with 1 blocked side
+  4. Building own strong threats
+  5. Opportunistic moves based on connection potential
+- Automatically activated once the AI loses at least once
+- Same computational budget as Intermediate level
+
+The UI displays the current AI level at the bottom of the game ("⚡ Intermediate" or "🏆 Expert").
+
+**Development Mode**
+In development (`NODE_ENV === 'development'`), an additional dev control panel appears below the game allowing:
+- Manual selection of Intermediate or Expert difficulty for testing
+- "Auto" button to switch back to automatic progression
+- Visual indicator showing when a manual override is active
+- Difficulty selection screen appears after symbol selection for initial level choice
+
+### Previous target state (difficulty variations)
 
 | Difficulty | timeBudgetMs | maxPlayouts | maxRolloutDepth | candidateLimit |
 |------------|-------------|-------------|-----------------|----------------|
 | Easy       | 400          | 800         | 6               | 10             |
 | Normal     | 1200         | 3500        | 10              | 18             |
-| Hard       | 2200         | 9000        | 14              | 24 (current)   |
+| Hard       | 2200         | 9000        | 14              | 24             |
 | Champion   | 4000         | 20000       | 18              | 32             |
 
-Difficulty selector shown on a "new game" screen.
-Config object passed to the worker message instead of being hard-coded.
+This target is deferred in favor of the current Expert system which is more engaging.
 
 ---
 

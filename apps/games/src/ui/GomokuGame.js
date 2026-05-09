@@ -3,21 +3,38 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   chooseGomokuAIMove,
+  chooseGomokuAIMoveExpert,
   coordKey,
   getGomokuWinner,
   isGomokuMoveLegal,
+  GOMOKU_DIFFICULTY_LEVELS,
+  GOMOKU_AI_CONFIGS,
 } from '../index.js'
 import { getGomokuWorkerUrl } from '../gomokuWorker.js'
 
-const GOMOKU_AI_CONFIG = {
-  timeBudgetMs: 2200,
-  maxPlayouts: 9000,
-  maxRolloutDepth: 14,
-  candidateLimit: 24,
-  rolloutCandidateLimit: 10,
+const AVAILABLE_SYMBOLS = [
+  { emoji: '🦊', name: 'Fox' },
+  { emoji: '🐼', name: 'Panda' },
+  { emoji: '🐰', name: 'Bunny' },
+  { emoji: '🦁', name: 'Lion' },
+  { emoji: '🐯', name: 'Tiger' },
+  { emoji: '🐻', name: 'Bear' },
+  { emoji: '🐺', name: 'Wolf' },
+  { emoji: '🦅', name: 'Eagle' },
+  { emoji: '🐢', name: 'Turtle' },
+  { emoji: '🦗', name: 'Cricket' },
+]
+
+function getRandomAiSymbol(humanEmoji) {
+  const available = AVAILABLE_SYMBOLS.filter((s) => s.emoji !== humanEmoji)
+  return available[Math.floor(Math.random() * available.length)]
 }
 
 export default function GomokuGame() {
+  const [symbolSelectionMode, setSymbolSelectionMode] = useState(true)
+  const [humanSymbol, setHumanSymbol] = useState(null)
+  const [aiSymbol, setAiSymbol] = useState(null)
+  const [difficultySelectionMode, setDifficultySelectionMode] = useState(false)
   const [stones, setStones] = useState({ [coordKey(0, 0)]: 'ai' })
   const [lastHumanMove, setLastHumanMove] = useState(null)
   const [lastAiMove, setLastAiMove] = useState({ x: 0, y: 0 })
@@ -26,9 +43,31 @@ export default function GomokuGame() {
   const [message, setMessage] = useState('AI played the first stone at the center. Your turn!')
   const [winner, setWinner] = useState(null)
   const [aiThinking, setAiThinking] = useState(false)
+  const [aiDifficulty, setAiDifficulty] = useState('intermediate')
+  const [expertUnlocked, setExpertUnlocked] = useState(false)
+  const [manualDifficultyOverride, setManualDifficultyOverride] = useState(null)
   const workerRef = useRef(null)
   const pendingJobIdRef = useRef(0)
   const pendingBoardRef = useRef(null)
+
+  const handleSymbolSelect = (selectedEmoji) => {
+    setHumanSymbol(selectedEmoji)
+    const aiSym = getRandomAiSymbol(selectedEmoji)
+    setAiSymbol(aiSym.emoji)
+    setSymbolSelectionMode(false)
+    // Show difficulty selection in dev mode
+    if (process.env.NODE_ENV === 'development') {
+      setDifficultySelectionMode(true)
+    } else {
+      setMessage('AI played the first stone at the center. Your turn!')
+    }
+  }
+
+  const handleDifficultySelect = (difficulty) => {
+    setManualDifficultyOverride(difficulty)
+    setDifficultySelectionMode(false)
+    setMessage('AI played the first stone at the center. Your turn!')
+  }
 
   useEffect(() => {
     if (typeof Worker === 'undefined') {
@@ -160,10 +199,17 @@ export default function GomokuGame() {
       setLastLoser('ai')
       setScore((s) => ({ ...s, human: nextScore }))
 
+      // Unlock expert difficulty when AI loses
+      if (!expertUnlocked) {
+        setExpertUnlocked(true)
+      }
+
       if (nextScore === 5 && score.ai === 5) {
         setMessage('⚽ Penalty Shootout Draw! Both reached 5. Unbelievable!')
       } else if (nextScore === 5) {
         setMessage('🏆 YOU WIN THE TOURNAMENT! (5 points)')
+      } else if (!expertUnlocked) {
+        setMessage('🏆 You made five! Loser (AI) starts the next round.\n🎓 Expert level unlocked!')
       } else {
         setMessage('🏆 You made five! Loser (AI) starts the next round.')
       }
@@ -177,11 +223,16 @@ export default function GomokuGame() {
     pendingJobIdRef.current = jobId
     pendingBoardRef.current = afterHuman
 
+    // Select difficulty level: use manual override if set, otherwise auto-unlock expert after first AI loss
+    const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
+    const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
+
     if (workerRef.current) {
       workerRef.current.postMessage({
         jobId,
         stones: afterHuman,
-        config: GOMOKU_AI_CONFIG,
+        config: aiConfig,
+        difficulty: currentDifficulty,
       })
       return
     }
@@ -192,7 +243,16 @@ export default function GomokuGame() {
         return
       }
 
-      const aiMove = chooseGomokuAIMove(afterHuman, GOMOKU_AI_CONFIG)
+      const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
+      const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
+
+      let aiMove
+      if (currentDifficulty === 'expert') {
+        aiMove = chooseGomokuAIMoveExpert(afterHuman, aiConfig)
+      } else {
+        aiMove = chooseGomokuAIMove(afterHuman, aiConfig)
+      }
+
       if (!aiMove) {
         setAiThinking(false)
         setMessage('No legal moves left. It is a draw!')
@@ -258,6 +318,63 @@ export default function GomokuGame() {
 
   const columns = bounds.maxX - bounds.minX + 1
 
+  // If in symbol selection mode, show selection UI
+  if (symbolSelectionMode) {
+    return (
+      <section>
+        <div className="rounded-2xl border-2 border-lime-300 bg-lime-50 p-8">
+          <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose Your Symbol</h2>
+          <p className="mb-6 text-center text-sm text-lime-700">Pick an animal symbol to play with. The AI will choose a different one.</p>
+          
+          <div className="grid grid-cols-5 gap-4">
+            {AVAILABLE_SYMBOLS.map((symbol) => (
+              <button
+                key={symbol.emoji}
+                onClick={() => handleSymbolSelect(symbol.emoji)}
+                className="flex flex-col items-center gap-2 rounded-lg border-2 border-lime-200 bg-white p-4 transition hover:border-lime-400 hover:bg-lime-100 active:scale-95"
+              >
+                <span className="text-5xl">{symbol.emoji}</span>
+                <span className="text-xs font-semibold text-slate-600">{symbol.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // Difficulty selection screen (development mode only)
+  if (difficultySelectionMode) {
+    return (
+      <section>
+        <div className="rounded-2xl border-2 border-lime-300 bg-lime-50 p-8">
+          <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose AI Difficulty</h2>
+          <p className="mb-6 text-center text-sm text-lime-700">Select the AI difficulty level for testing.</p>
+          
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={() => handleDifficultySelect('intermediate')}
+              className="rounded-lg border-2 border-blue-300 bg-blue-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-100 active:scale-95"
+            >
+              <div className="text-3xl mb-2">⚡</div>
+              <h3 className="text-lg font-bold text-blue-900">Intermediate</h3>
+              <p className="text-sm text-blue-700 mt-2">Standard MCTS algorithm. Good for learning and casual play.</p>
+            </button>
+            
+            <button
+              onClick={() => handleDifficultySelect('expert')}
+              className="rounded-lg border-2 border-red-300 bg-red-50 p-6 text-center transition hover:border-red-400 hover:bg-red-100 active:scale-95"
+            >
+              <div className="text-3xl mb-2">🏆</div>
+              <h3 className="text-lg font-bold text-red-900">Expert</h3>
+              <p className="text-sm text-red-700 mt-2">Reward-based AI. Strategic play with strong defense and connection building.</p>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section>
       <p className="mb-3 rounded-xl bg-lime-100 px-4 py-3 text-sm font-semibold text-lime-800">
@@ -267,7 +384,7 @@ export default function GomokuGame() {
       <div className="max-h-[66vh] overflow-auto rounded-2xl border-2 border-lime-300 bg-lime-50 p-3">
         <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 2.1rem))` }}>
           {cells.map((cell) => {
-            const marker = cell.stone === 'human' ? '🦊' : cell.stone === 'ai' ? '🐼' : ''
+            const marker = cell.stone === 'human' ? humanSymbol : cell.stone === 'ai' ? aiSymbol : ''
             const occupied = Boolean(cell.stone)
             const legal = isGomokuMoveLegal(stones, cell.x, cell.y)
             const isLastMove =
@@ -299,9 +416,9 @@ export default function GomokuGame() {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold shadow-sm">
           <span className="text-slate-500">🏆 Series Score:</span>
-          <span className="text-blue-600">🦊 {score.human}</span>
+          <span className="text-blue-600">{humanSymbol} {score.human}</span>
           <span className="text-slate-300">|</span>
-          <span className="text-rose-600">🐼 {score.ai}</span>
+          <span className="text-rose-600">{aiSymbol} {score.ai}</span>
         </div>
         <p className="flex-1 text-sm font-semibold text-slate-700">{message}</p>
         <button
@@ -313,7 +430,46 @@ export default function GomokuGame() {
         </button>
       </div>
 
-      <p className="mt-2 text-xs font-medium text-slate-500">You are 🦊 and AI is 🐼.</p>
+      <p className="mt-2 text-xs font-medium text-slate-500">
+        You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{manualDifficultyOverride || (expertUnlocked ? '🏆 Expert' : '⚡ Intermediate')}</span>
+        {manualDifficultyOverride && <span className="ml-2 text-orange-600">(🧪 Dev Override)</span>}
+      </p>
+
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 flex gap-2 rounded-lg border-2 border-orange-300 bg-orange-50 p-3">
+          <span className="text-xs font-semibold text-orange-700">🧪 Dev Mode:</span>
+          <button
+            onClick={() => setManualDifficultyOverride('intermediate')}
+            className={`rounded px-2 py-1 text-xs font-semibold transition ${
+              manualDifficultyOverride === 'intermediate'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
+            }`}
+          >
+            ⚡ Intermediate
+          </button>
+          <button
+            onClick={() => setManualDifficultyOverride('expert')}
+            className={`rounded px-2 py-1 text-xs font-semibold transition ${
+              manualDifficultyOverride === 'expert'
+                ? 'bg-red-500 text-white'
+                : 'bg-white text-red-600 border border-red-300 hover:bg-red-50'
+            }`}
+          >
+            🏆 Expert
+          </button>
+          <button
+            onClick={() => setManualDifficultyOverride(null)}
+            className={`rounded px-2 py-1 text-xs font-semibold transition ${
+              manualDifficultyOverride === null
+                ? 'bg-slate-500 text-white'
+                : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            ⚙️ Auto
+          </button>
+        </div>
+      )}
     </section>
   )
 }

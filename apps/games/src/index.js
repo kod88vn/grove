@@ -20,6 +20,24 @@ export const GAME_SLUGS = [
 
 export const HANGMAN_LEVELS = ['elementary', 'middleschool', 'highschool']
 export const SCRAMBLE_LEVELS = ['elementary', 'middleschool', 'highschool']
+export const GOMOKU_DIFFICULTY_LEVELS = ['intermediate', 'expert']
+
+export const GOMOKU_AI_CONFIGS = {
+  intermediate: {
+    timeBudgetMs: 2200,
+    maxPlayouts: 9000,
+    maxRolloutDepth: 14,
+    candidateLimit: 24,
+    rolloutCandidateLimit: 10,
+  },
+  expert: {
+    timeBudgetMs: 2200,
+    maxPlayouts: 9000,
+    maxRolloutDepth: 14,
+    candidateLimit: 24,
+    rolloutCandidateLimit: 10,
+  },
+}
 
 export function resolveHangmanLevel(value) {
   if (HANGMAN_LEVELS.includes(value)) return value
@@ -922,4 +940,134 @@ export function chooseGomokuAIMove(stones, config = {}) {
   })
 
   return { x: rootStats[0].x, y: rootStats[0].y }
+}
+
+// Expert AI using reward/points algorithm based on connection potential
+function lineThreatScore(stones, x, y, player, dx, dy) {
+  // Score a line in a given direction
+  // Count connected stones and evaluate potential for extension
+  let sameCount = 0
+  let opponentCount = 0
+  let openEnds = 0
+
+  // Forward direction
+  for (let i = 1; i <= 5; i += 1) {
+    const nx = x + dx * i
+    const ny = y + dy * i
+    const occupant = stones[coordKey(nx, ny)]
+    if (occupant === player) {
+      sameCount += 1
+    } else if (occupant) {
+      opponentCount += 1
+      break
+    } else if (i === 1 && isGomokuMoveLegal(stones, nx, ny)) {
+      openEnds += 1
+    }
+  }
+
+  // Backward direction
+  let backSameCount = 0
+  let backOpponentCount = 0
+  let backOpenEnd = 0
+  for (let i = 1; i <= 5; i += 1) {
+    const nx = x - dx * i
+    const ny = y - dy * i
+    const occupant = stones[coordKey(nx, ny)]
+    if (occupant === player) {
+      backSameCount += 1
+    } else if (occupant) {
+      backOpponentCount += 1
+      break
+    } else if (i === 1 && isGomokuMoveLegal(stones, nx, ny)) {
+      backOpenEnd += 1
+    }
+  }
+
+  const totalConnected = sameCount + backSameCount + 1 // +1 for the current stone
+  const blocked = (opponentCount > 0 ? 1 : 0) + (backOpponentCount > 0 ? 1 : 0)
+  const openSides = 2 - blocked
+  const isOpenThreats = openSides === 2
+
+  // Scoring logic
+  let score = 0
+  if (totalConnected >= 5) {
+    score = 10000 // Winning move
+  } else if (totalConnected === 4) {
+    score = isOpenThreats ? 5000 : 2500 // Open-ended 4-in-a-row is very valuable
+  } else if (totalConnected === 3) {
+    score = isOpenThreats ? 1000 : 200 // Open-ended 3-in-a-row is good
+  } else if (totalConnected === 2) {
+    score = isOpenThreats ? 100 : 20
+  } else if (totalConnected === 1) {
+    score = isOpenThreats ? 10 : 2
+  }
+
+  // Penalty for blocked sides reduces value but doesn't eliminate it
+  if (!isOpenThreats) {
+    score = Math.floor(score * 0.4)
+  }
+
+  return score
+}
+
+export function chooseGomokuAIMoveExpert(stones, config = {}) {
+  const candidates = getCandidateMoves(stones, 2)
+  if (!candidates.length) {
+    return null
+  }
+
+  // First, check for immediate winning moves
+  const aiThreats = getImmediateThreatMoves(stones, 'ai')
+  if (aiThreats.winningMoves.length) {
+    return pickBestTacticalMove(stones, aiThreats.winningMoves, 'ai')
+  }
+
+  // Defend against user's winning moves
+  const humanThreats = getImmediateThreatMoves(stones, 'human')
+  if (humanThreats.winningMoves.length) {
+    return pickBestTacticalMove(stones, humanThreats.winningMoves, 'ai')
+  }
+
+  // Defend against user's open 3-in-a-row and 4-in-a-row with 1 blocked side
+  if (humanThreats.strongThreatMoves.length) {
+    return pickBestTacticalMove(stones, humanThreats.strongThreatMoves, 'ai')
+  }
+
+  // Build own strong threats
+  if (aiThreats.strongThreatMoves.length) {
+    return pickBestTacticalMove(stones, aiThreats.strongThreatMoves, 'ai')
+  }
+
+  // Score all candidate moves based on connection potential
+  const scoredMoves = candidates.map((move) => {
+    let score = 0
+
+    // Evaluate all directions from this position
+    for (const [dx, dy] of DIRECTIONS) {
+      // Score both as AI and as human to understand both offensive and defensive potential
+      const aiScore = lineThreatScore(stones, move.x, move.y, 'ai', dx, dy)
+      const humanScore = lineThreatScore(stones, move.x, move.y, 'human', dx, dy)
+
+      // Offensive value: building own lines
+      score += aiScore * 1.2
+
+      // Defensive value: understanding human potential (important for counter-moves)
+      // We consider this but weight it less than offensive
+      score += humanScore * 0.3
+    }
+
+    // Adjacency bonus: prefer moves close to existing stones (centralization)
+    score += adjacencyScore(stones, move.x, move.y, 'ai') * 5
+
+    return { x: move.x, y: move.y, score }
+  })
+
+  // Sort by score and pick the best move
+  scoredMoves.sort((a, b) => b.score - a.score)
+
+  if (scoredMoves.length === 0) {
+    return null
+  }
+
+  return { x: scoredMoves[0].x, y: scoredMoves[0].y }
 }
