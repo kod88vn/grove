@@ -8,7 +8,7 @@ import {
   MathQuizGame,
   WordScrambleGame,
   MemoryGame,
-  LogicCodeGame,
+  TileMatchGame,
 } from './ui'
 
 export function ModuleGameArcade({ module }) {
@@ -28,7 +28,7 @@ export function ModuleGameArcade({ module }) {
         {module.slug === 'math-lightning' && <MathQuizGame />}
         {module.slug === 'word-scramble' && <WordScrambleGame />}
         {module.slug === 'memory-match' && <MemoryGame />}
-        {module.slug === 'logic-code' && <LogicCodeGame />}
+        {module.slug === 'logic-code' && <TileMatchGame />}
       </section>
     </main>
   )

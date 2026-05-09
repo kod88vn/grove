@@ -8,7 +8,7 @@ export const GAME_META = {
   'math-lightning': { label: 'Math Lightning', emoji: '⚡', title: 'Math Lightning', summary: 'Fast arithmetic rounds for quick practice.' },
   'word-scramble': { label: 'Word Scramble', emoji: '🔤', title: 'Word Scramble', summary: 'Unscramble mixed-up words against the clock.' },
   'memory-match': { label: 'Memory Match', emoji: '🃏', title: 'Memory Match', summary: 'Flip cards and find all the matching pairs.' },
-  'logic-code': { label: 'Logic Code', emoji: '🧩', title: 'Logic Code', summary: 'Crack the code with deduction and clues.' },
+  'logic-code': { label: 'Tile Match', emoji: '🎯', title: 'Tile Match', summary: 'Connect matching tiles with a direct line.' },
 }
 
 export function getGameModule(slug) {
