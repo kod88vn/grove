@@ -211,7 +211,8 @@ function generateAttempt(pool, seed, target) {
 }
 
 export function generateCrossword(level = 'elementary', seed = Math.random(), options = {}) {
-  const pool = WORD_POOLS[level] ?? WORD_POOLS.elementary
+  const customPool = Array.isArray(options.pool) ? options.pool : null
+  const pool = customPool && customPool.length >= 4 ? customPool : (WORD_POOLS[level] ?? WORD_POOLS.elementary)
   const target = options.targetEntries ?? TARGETS[level] ?? 8
 
   let best = []

@@ -1,5 +1,6 @@
 import { callOllama } from '@/app/api/chat/lib/ollama'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
+import { generateCrossword } from '@grove/games/src/crosswordGenerator.js'
 
 const LEVEL_PROMPTS = {
   elementary: 'simple concrete vocabulary suitable for children aged 6–10',
@@ -8,12 +9,12 @@ const LEVEL_PROMPTS = {
 }
 
 const LEVEL_CONFIG = {
-  elementary: { gridSize: 7, entryCount: 8, minIntersectionsPerEntry: 2, minFillRatio: 0.35 },
-  middleschool: { gridSize: 11, entryCount: 12, minIntersectionsPerEntry: 2, minFillRatio: 0.28 },
-  highschool: { gridSize: 15, entryCount: 16, minIntersectionsPerEntry: 2, minFillRatio: 0.2 },
+  elementary: { entryCount: 8, requestCount: 24, minWordLen: 3, maxWordLen: 8 },
+  middleschool: { entryCount: 12, requestCount: 30, minWordLen: 4, maxWordLen: 10 },
+  highschool: { entryCount: 16, requestCount: 36, minWordLen: 4, maxWordLen: 12 },
 }
 
-const ANSWER_RE = /^[A-Z]{3,12}$/
+const ANSWER_RE = /^[A-Z]+$/
 
 function extractJson(text) {
   const stripped = String(text || '').replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
@@ -26,107 +27,22 @@ function extractJson(text) {
   }
 }
 
-function getEntryCells(entry) {
-  return Array.from({ length: entry.answer.length }, (_, idx) => ({
-    row: entry.row + (entry.direction === 'down' ? idx : 0),
-    col: entry.col + (entry.direction === 'across' ? idx : 0),
-    letter: entry.answer[idx],
-  }))
-}
-
-function validatePuzzle(parsed, config) {
-  if (!parsed || !Array.isArray(parsed.entries) || parsed.entries.length !== config.entryCount) return false
-
-  const across = parsed.entries.filter((e) => e.direction === 'across').length
-  const down = parsed.entries.filter((e) => e.direction === 'down').length
-  if (across !== config.entryCount / 2 || down !== config.entryCount / 2) return false
-
-  if (
-    !parsed.entries.every(
-      (e) =>
-        e.id &&
-        e.clue &&
-        (e.direction === 'across' || e.direction === 'down') &&
-        ANSWER_RE.test(String(e.answer ?? '').toUpperCase()) &&
-        Number.isInteger(e.row) &&
-        Number.isInteger(e.col),
-    )
-  ) {
-    return false
+function sanitizePool(rawPairs, config) {
+  if (!Array.isArray(rawPairs)) return []
+  const seen = new Set()
+  const pool = []
+  for (const pair of rawPairs) {
+    if (!pair || typeof pair !== 'object') continue
+    const answer = String(pair.answer ?? pair.word ?? '').toUpperCase().replace(/[^A-Z]/g, '')
+    const clue = String(pair.clue ?? pair.hint ?? '').trim()
+    if (!answer || !clue) continue
+    if (!ANSWER_RE.test(answer)) continue
+    if (answer.length < config.minWordLen || answer.length > config.maxWordLen) continue
+    if (seen.has(answer)) continue
+    seen.add(answer)
+    pool.push({ answer, clue })
   }
-
-  const entries = parsed.entries.map((entry) => ({
-    ...entry,
-    answer: String(entry.answer).toUpperCase(),
-  }))
-
-  const cellMap = new Map()
-  const touchCounts = new Map()
-  const entryTouches = Array.from({ length: entries.length }, () => new Set())
-
-  for (let i = 0; i < entries.length; i += 1) {
-    const entry = entries[i]
-    for (const cell of getEntryCells(entry)) {
-      if (cell.row < 0 || cell.col < 0 || cell.row >= config.gridSize || cell.col >= config.gridSize) {
-        return false
-      }
-
-      const key = `${cell.row},${cell.col}`
-      const existing = cellMap.get(key)
-      if (existing && existing.letter !== cell.letter) {
-        return false
-      }
-
-      if (!existing) {
-        cellMap.set(key, { letter: cell.letter, owners: [i] })
-        touchCounts.set(key, 1)
-      } else {
-        if (!existing.owners.includes(i)) {
-          existing.owners.push(i)
-          touchCounts.set(key, (touchCounts.get(key) ?? 1) + 1)
-        }
-      }
-    }
-  }
-
-  for (const { owners } of cellMap.values()) {
-    if (owners.length < 2) {
-      continue
-    }
-    for (const owner of owners) {
-      for (const otherOwner of owners) {
-        if (owner !== otherOwner) {
-          entryTouches[owner].add(otherOwner)
-        }
-      }
-    }
-  }
-
-  for (const touches of entryTouches) {
-    if (touches.size < config.minIntersectionsPerEntry) {
-      return false
-    }
-  }
-
-  const visited = new Set([0])
-  const queue = [0]
-  while (queue.length) {
-    const current = queue.shift()
-    for (const neighbor of entryTouches[current]) {
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor)
-        queue.push(neighbor)
-      }
-    }
-  }
-
-  if (visited.size !== entries.length) {
-    return false
-  }
-
-  const filledCells = touchCounts.size
-  const minFilledCells = Math.ceil(config.gridSize * config.gridSize * config.minFillRatio)
-  return filledCells >= minFilledCells
+  return pool
 }
 
 export async function POST(request) {
@@ -142,49 +58,29 @@ export async function POST(request) {
 
   const description = LEVEL_PROMPTS[level]
   const config = LEVEL_CONFIG[level]
-  const entryCount = config.entryCount
-  const gridSize = config.gridSize
+  const seed = Math.floor(Math.random() * 1_000_000)
 
   const prompt =
-    `Create one ${gridSize}x${gridSize} crossword puzzle using ${description}.\n` +
-    'Respond ONLY with raw JSON, no explanation, no markdown.\n' +
-    `Generate exactly ${entryCount} entries: ${entryCount / 2} across and ${entryCount / 2} down.\n` +
-    '\n' +
-    'CRITICAL REQUIREMENTS FOR PUZZLE QUALITY:\n' +
-    `1. INTERSECTIONS: Every entry must intersect with at least ${config.minIntersectionsPerEntry} other entries.\n` +
-    '2. GRID SPREAD: Distribute entries across the entire grid (not clustered in one corner).\n' +
-    '3. LETTER MATCHING: Crossing letters MUST match exactly at every intersection.\n' +
-    '4. CONTIGUITY: All entries must form one connected grid (no isolated islands).\n' +
-    '5. WORD LENGTH: Each answer must be 3–12 characters, preferably 5–8 characters.\n' +
-    `6. DENSITY: Fill at least ${Math.round(config.minFillRatio * 100)}% of the grid with letters (not mostly empty).\n` +
-    '\n' +
-    'STRATEGY FOR PLACEMENT:\n' +
-    '- Start with a main horizontal entry near the top-left, at least 6 letters long.\n' +
-    '- Add vertical entries that cross this main word, ensuring letters match.\n' +
-    '- Build out horizontally and vertically in a balanced pattern.\n' +
-    '- Ensure each entry touches at least 2 other entries.\n' +
-    '\n' +
-    'EXAMPLE SHAPE (replace with your generated content and exact required entry count):\n' +
-    '{"title":"Sample","entries":[\n' +
-    '  {"id":"1A","clue":"A thing","answer":"APPLE","row":0,"col":0,"direction":"across"},\n' +
-    '  {"id":"1D","clue":"Egg container","answer":"NEST","row":0,"col":0,"direction":"down"},\n' +
-    '  {"id":"2D","clue":"Writing fluid","answer":"INK","row":0,"col":2,"direction":"down"},\n' +
-    '  {"id":"3A","clue":"Close","answer":"NEAR","row":2,"col":1,"direction":"across"}\n' +
-    ']}\n' +
-    '\n' +
-    'Generate the puzzle now:'
+    `Generate a list of ${config.requestCount} crossword word/clue pairs using ${description}.\n` +
+    `Each answer must be a single English word in ALL CAPS, ${config.minWordLen}–${config.maxWordLen} letters, A–Z only (no spaces, hyphens, or punctuation).\n` +
+    'Each clue must be short (under 60 characters) and unambiguous.\n' +
+    'Use a wide variety of topics and starting letters. Avoid duplicates and avoid trivial defaults like CAT, DOG, APPLE.\n' +
+    'Respond with ONLY raw JSON, no markdown, no explanation:\n' +
+    '{"pairs":[{"answer":"PLANET","clue":"Orbits a star"},{"answer":"RIVER","clue":"Flows to the sea"}]}\n' +
+    `Variation token (use to vary output, do not echo): ${seed}\n` +
+    'Generate the list now:'
 
-  let parsed = null
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  let pool = []
+  for (let attempt = 0; attempt < 3 && pool.length < config.entryCount * 2; attempt += 1) {
     let res
     try {
       res = await callOllama({
         model: DEFAULT_MODEL,
         stream: false,
         think: false,
-        options: { num_predict: 1500, temperature: 0.2 },
+        options: { num_predict: 1500, temperature: 0.8, top_p: 0.95, seed: seed + attempt },
         messages: [
-          { role: 'system', content: 'You are a crossword assistant. Respond only with the requested JSON.' },
+          { role: 'system', content: 'You are a crossword word-bank assistant. Respond only with the requested JSON.' },
           { role: 'user', content: prompt },
         ],
       })
@@ -205,21 +101,34 @@ export async function POST(request) {
 
     const content = json.message?.content?.trim() ?? ''
     const candidate = extractJson(content)
-    if (candidate && validatePuzzle(candidate, config)) {
-      parsed = candidate
-      break
+    const sanitized = sanitizePool(candidate?.pairs, config)
+    const seenAnswers = new Set(pool.map((p) => p.answer))
+    for (const pair of sanitized) {
+      if (!seenAnswers.has(pair.answer)) {
+        seenAnswers.add(pair.answer)
+        pool.push(pair)
+      }
     }
   }
 
-  if (!parsed) {
+  if (pool.length < 4) {
+    return Response.json({ error: 'bad_puzzle' }, { status: 502 })
+  }
+
+  const generated = generateCrossword(level, Math.random(), {
+    pool,
+    targetEntries: config.entryCount,
+  })
+
+  if (!generated.entries || generated.entries.length < 4) {
     return Response.json({ error: 'bad_puzzle' }, { status: 502 })
   }
 
   return Response.json({
     puzzle: {
-      title: parsed.title ?? 'Crossword',
+      title: generated.title ?? 'Crossword',
       level,
-      entries: parsed.entries.map((e) => ({
+      entries: generated.entries.map((e) => ({
         id: e.id,
         clue: e.clue,
         answer: String(e.answer).toUpperCase(),

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@grove/games": "*",
     "@grove/shell": "*",
     "@platformatic/next": "^3.52.4",
     "better-sqlite3": "^12.9.0",
