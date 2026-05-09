@@ -5,24 +5,107 @@ import { createBurstParticles, playArcadeEffect } from './arcadeFx'
 
 const SYMBOLS = ['🌟', '🎨', '🎭', '🎪', '🎯', '🎲', '🎸', '🎮', '🏆', '🎁']
 const GRID_SIZES = {
-  easy: { rows: 4, cols: 5 },
-  medium: { rows: 6, cols: 6 },
-  hard: { rows: 8, cols: 5 },
+  easy: { rows: 6, cols: 8 },
+  medium: { rows: 8, cols: 8 },
+  hard: { rows: 10, cols: 8 },
+}
+
+function isSolvable(grid, cols) {
+  // Check if all pairs can be matched via the canConnect rules
+  const rows = Math.ceil(grid.length / cols)
+  const removed = new Set()
+  const canConnect = (idx1, idx2) => {
+    if (grid[idx1] !== grid[idx2] || removed.has(idx1) || removed.has(idx2)) return false
+    const [r1, c1] = [Math.floor(idx1 / cols), idx1 % cols]
+    const [r2, c2] = [Math.floor(idx2 / cols), idx2 % cols]
+    if (r1 === r2) {
+      const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
+      for (let c = minC + 1; c < maxC; c++) {
+        if (removed.has(r1 * cols + c)) return false
+      }
+      return true
+    }
+    if (c1 === c2) {
+      const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
+      for (let r = minR + 1; r < maxR; r++) {
+        if (removed.has(r * cols + c1)) return false
+      }
+      return true
+    }
+    const corner1 = r1 * cols + c2
+    if (!removed.has(corner1)) {
+      let ok = true
+      const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
+      for (let c = minC + 1; c < maxC; c++) {
+        if (removed.has(r1 * cols + c)) { ok = false; break }
+      }
+      if (ok) {
+        const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
+        for (let r = minR + 1; r < maxR; r++) {
+          if (removed.has(r * cols + c2)) { ok = false; break }
+        }
+      }
+      if (ok) return true
+    }
+    const corner2 = r2 * cols + c1
+    if (!removed.has(corner2)) {
+      let ok = true
+      const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
+      for (let r = minR + 1; r < maxR; r++) {
+        if (removed.has(r * cols + c1)) { ok = false; break }
+      }
+      if (ok) {
+        const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
+        for (let c = minC + 1; c < maxC; c++) {
+          if (removed.has(r2 * cols + c)) { ok = false; break }
+        }
+      }
+      if (ok) return true
+    }
+    return false
+  }
+  const solve = (count) => {
+    if (count === grid.length) return true
+    for (let i = 0; i < grid.length; i++) {
+      if (removed.has(i)) continue
+      for (let j = i + 1; j < grid.length; j++) {
+        if (removed.has(j)) continue
+        if (canConnect(i, j)) {
+          removed.add(i)
+          removed.add(j)
+          if (solve(count + 2)) return true
+          removed.delete(i)
+          removed.delete(j)
+        }
+      }
+    }
+    return false
+  }
+  return solve(0)
 }
 
 function createGrid(rows, cols) {
-  const tiles = []
-  const pairsPerSymbol = Math.ceil((rows * cols) / (SYMBOLS.length * 2))
-  for (let s = 0; s < SYMBOLS.length; s++) {
-    for (let p = 0; p < pairsPerSymbol && tiles.length < rows * cols; p++) {
-      tiles.push(SYMBOLS[s])
+  let grid = []
+  let attempts = 0
+  while (attempts < 10) {
+    const tiles = []
+    const pairsPerSymbol = Math.ceil((rows * cols) / (SYMBOLS.length * 2))
+    for (let s = 0; s < SYMBOLS.length; s++) {
+      for (let p = 0; p < pairsPerSymbol && tiles.length < rows * cols; p++) {
+        tiles.push(SYMBOLS[s])
+      }
     }
+    for (let i = tiles.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tiles[i], tiles[j]] = [tiles[j], tiles[i]]
+    }
+    if (isSolvable(tiles, cols)) {
+      grid = tiles
+      break
+    }
+    attempts++
   }
-  for (let i = tiles.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [tiles[i], tiles[j]] = [tiles[j], tiles[i]]
-  }
-  return tiles
+  return grid
 }
 
 function getIndex(row, col, cols) {
@@ -193,9 +276,9 @@ export default function TileMatchGame() {
 
       <div className="relative rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 shadow-inner">
         <div
-          className="mx-auto inline-grid gap-1 rounded-md border-2 border-slate-700 bg-slate-700 p-1"
+          className="mx-auto inline-grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
           style={{
-            gridTemplateColumns: `repeat(${cols}, minmax(2rem, 4rem))`,
+            gridTemplateColumns: `repeat(${cols}, 2.5rem)`,
             width: 'fit-content',
           }}
         >
@@ -207,7 +290,7 @@ export default function TileMatchGame() {
                 key={idx}
                 onClick={() => toggleTile(idx)}
                 disabled={isRemoved || gameState !== 'playing'}
-                className={`h-12 w-12 rounded-lg border-2 text-xl font-bold transition disabled:opacity-0 ${
+                className={`h-10 w-10 rounded-md border-2 text-lg font-bold transition disabled:opacity-0 ${
                   isSelected
                     ? 'scale-110 border-cyan-400 bg-cyan-200'
                     : 'border-slate-600 bg-white hover:scale-105 hover:border-cyan-500'
