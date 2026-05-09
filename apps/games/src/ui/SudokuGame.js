@@ -1,12 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { SUDOKU_LEVELS, cloneMiniSudokuBoard, coordKey, isMiniSudokuPlacementValid, isMiniSudokuSolved, pickSudokuPuzzle } from '../index.js'
+import {
+  SUDOKU_LEVELS,
+  cloneMiniSudokuBoard,
+  coordKey,
+  getSudokuBlockDims,
+  isMiniSudokuPlacementValid,
+  isMiniSudokuSolved,
+  pickSudokuPuzzle,
+} from '../index.js'
 
 const LEVEL_META = {
-  elementary: { label: 'Elementary', detail: 'More clues, easier solving' },
-  middleschool: { label: 'Middle School', detail: 'Balanced difficulty' },
-  highschool: { label: 'High School', detail: 'Fewer clues, trickier logic' },
+  elementary: { label: 'Elementary', detail: '4×4 mini grid · more clues' },
+  middleschool: { label: 'Middle School', detail: '6×6 grid · balanced clues' },
+  highschool: { label: 'High School', detail: '9×9 classic · fewer clues' },
 }
 
 export default function SudokuGame() {
@@ -36,16 +44,22 @@ export default function SudokuGame() {
   }
 
   const solved = useMemo(() => board && isMiniSudokuSolved(board), [board])
+  const size = puzzle?.size ?? 4
+  const blockRows = puzzle?.blockRows ?? getSudokuBlockDims(size).blockRows
+  const blockCols = puzzle?.blockCols ?? getSudokuBlockDims(size).blockCols
 
   const setCell = (row, col, valueText) => {
     if (!puzzle || puzzle.board[row][col] !== 0) {
       return
     }
 
-    const value = Number(valueText)
+    const raw = String(valueText || '').replace(/\D/g, '').slice(-1)
+    const value = raw === '' ? 0 : Number(raw)
+    const accepted = value >= 1 && value <= size ? value : 0
+
     setBoard((previous) => {
       const next = cloneMiniSudokuBoard(previous)
-      next[row][col] = [1, 2, 3, 4].includes(value) ? value : 0
+      next[row][col] = accepted
       return next
     })
   }
@@ -55,13 +69,17 @@ export default function SudokuGame() {
     setBoard(cloneMiniSudokuBoard(puzzle.board))
   }
 
+  // Cell sizing scales down for larger grids so 9x9 fits nicely on mobile.
+  const cellSize =
+    size === 4 ? 'h-14 w-14 text-2xl' : size === 6 ? 'h-11 w-11 text-xl' : 'h-9 w-9 text-base'
+
   return (
     <section>
       {showLevelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border-2 border-violet-200 bg-white p-6 shadow-xl">
             <h2 className="mb-2 text-xl font-bold text-slate-800">Choose difficulty</h2>
-            <p className="mb-5 text-sm text-slate-500">Pick a level and solve the 4x4 Sudoku puzzle.</p>
+            <p className="mb-5 text-sm text-slate-500">Each level uses a different grid size.</p>
             <div className="grid gap-3">
               {SUDOKU_LEVELS.map((l) => {
                 const meta = LEVEL_META[l]
@@ -84,16 +102,22 @@ export default function SudokuGame() {
       {puzzle && board && (
       <>
       <p className="mb-4 rounded-xl bg-violet-100 px-4 py-3 text-sm font-semibold text-violet-800">
-        🧠 Fill numbers 1-4 so each row, column, and 2x2 block has all numbers exactly once.
+        🧠 Fill numbers 1–{size} so each row, column, and {blockRows}×{blockCols} block has every number exactly once.
       </p>
 
       <div className="mx-auto w-fit">
-        <div className="grid grid-cols-4 gap-1 rounded-2xl bg-slate-900 p-2">
+        <div
+          className="grid gap-1 rounded-2xl bg-slate-900 p-2"
+          style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+        >
           {board.map((row, rowIndex) =>
             row.map((value, colIndex) => {
               const locked = puzzle.board[rowIndex][colIndex] !== 0
               const valid = !value || isMiniSudokuPlacementValid(board, rowIndex, colIndex, value)
-              const blockTone = (Math.floor(rowIndex / 2) + Math.floor(colIndex / 2)) % 2 === 0 ? 'bg-amber-50' : 'bg-sky-50'
+              const blockTone =
+                (Math.floor(rowIndex / blockRows) + Math.floor(colIndex / blockCols)) % 2 === 0
+                  ? 'bg-amber-50'
+                  : 'bg-sky-50'
 
               return (
                 <input
@@ -103,7 +127,7 @@ export default function SudokuGame() {
                   value={value || ''}
                   disabled={locked}
                   onChange={(event) => setCell(rowIndex, colIndex, event.target.value)}
-                  className={`${blockTone} h-14 w-14 rounded-lg border-2 text-center text-2xl font-black outline-none ${
+                  className={`${blockTone} ${cellSize} rounded-lg border-2 text-center font-black outline-none ${
                     locked
                       ? 'border-slate-300 text-slate-900'
                       : valid

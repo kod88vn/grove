@@ -1,4 +1,11 @@
 import { generateCrossword } from './crosswordGenerator.js'
+import {
+  SUDOKU_SIZES,
+  generateSudokuForLevel,
+  getSudokuBlockDims,
+} from './sudoku.js'
+
+export { SUDOKU_SIZES, generateSudokuForLevel, getSudokuBlockDims }
 
 export const GAME_SLUGS = [
   'crossword',
@@ -252,9 +259,15 @@ function resolveSudokuLevel(level) {
 export function pickSudokuPuzzle(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
   const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveSudokuLevel(levelOrSeed)
   const seed = typeof levelOrSeed === 'number' ? levelOrSeed : maybeSeed
-  const puzzles = SUDOKU_PUZZLES_BY_LEVEL[level]
-  const index = Math.floor(Math.abs(seed) * puzzles.length) % puzzles.length
-  return puzzles[index]
+  const generated = generateSudokuForLevel(level, seed)
+  return {
+    level,
+    size: generated.size,
+    blockRows: generated.blockRows,
+    blockCols: generated.blockCols,
+    board: generated.board,
+    solution: generated.solution,
+  }
 }
 
 const DIRECTIONS = [
@@ -435,11 +448,13 @@ export function cloneMiniSudokuBoard(board) {
 }
 
 export function isMiniSudokuPlacementValid(board, row, col, value) {
-  if (![1, 2, 3, 4].includes(value)) {
+  const size = board.length
+  if (!Number.isInteger(value) || value < 1 || value > size) {
     return false
   }
+  const { blockRows, blockCols } = getSudokuBlockDims(size)
 
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < size; i += 1) {
     if (i !== col && board[row][i] === value) {
       return false
     }
@@ -448,11 +463,11 @@ export function isMiniSudokuPlacementValid(board, row, col, value) {
     }
   }
 
-  const blockRowStart = Math.floor(row / 2) * 2
-  const blockColStart = Math.floor(col / 2) * 2
+  const blockRowStart = Math.floor(row / blockRows) * blockRows
+  const blockColStart = Math.floor(col / blockCols) * blockCols
 
-  for (let r = blockRowStart; r < blockRowStart + 2; r += 1) {
-    for (let c = blockColStart; c < blockColStart + 2; c += 1) {
+  for (let r = blockRowStart; r < blockRowStart + blockRows; r += 1) {
+    for (let c = blockColStart; c < blockColStart + blockCols; c += 1) {
       if ((r !== row || c !== col) && board[r][c] === value) {
         return false
       }
@@ -463,8 +478,9 @@ export function isMiniSudokuPlacementValid(board, row, col, value) {
 }
 
 export function isMiniSudokuSolved(board) {
-  for (let row = 0; row < 4; row += 1) {
-    for (let col = 0; col < 4; col += 1) {
+  const size = board.length
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
       const value = board[row][col]
       if (!value || !isMiniSudokuPlacementValid(board, row, col, value)) {
         return false
