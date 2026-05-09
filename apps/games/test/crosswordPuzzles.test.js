@@ -123,4 +123,51 @@ test('pickCrosswordPuzzle returns dense puzzles per level', () => {
   }
 })
 
+test('crossword numbering follows grid position and shares numbers across/down at same start', () => {
+  const normalized = normalizeCrosswordPuzzle({
+    title: 'Numbering',
+    level: 'elementary',
+    entries: [
+      // Across at (0,0) and Down at (0,0) — must share number 1
+      { id: 'A1', clue: 'a', answer: 'CAT', row: 0, col: 0, direction: 'across' },
+      { id: 'D1', clue: 'd', answer: 'COW', row: 0, col: 0, direction: 'down' },
+      // Down at (0,2) — next start by row-major order = 2
+      { id: 'D2', clue: 'd2', answer: 'TOE', row: 0, col: 2, direction: 'down' },
+      // Across at (2,0) — last start = 3
+      { id: 'A3', clue: 'a3', answer: 'WOE', row: 2, col: 0, direction: 'across' },
+    ],
+  })
+  const byId = Object.fromEntries(normalized.entries.map((e) => [e.id, e]))
+  assert.equal(byId.A1.number, 1)
+  assert.equal(byId.D1.number, 1, 'across+down at same start must share number')
+  assert.equal(byId.D2.number, 2)
+  assert.equal(byId.A3.number, 3)
+})
 
+test('generated crossword assigns shared numbers in row-major order', () => {
+  for (const level of ['elementary', 'middleschool', 'highschool']) {
+    const puzzle = pickCrosswordPuzzle(level, 0.31)
+    // Every entry has a number.
+    for (const entry of puzzle.entries) {
+      assert.equal(typeof entry.number, 'number', `${level} ${entry.id} missing number`)
+      assert.ok(entry.number >= 1)
+    }
+    // Entries with the same (row,col) start share the same number.
+    const byStart = new Map()
+    for (const entry of puzzle.entries) {
+      const key = `${entry.row},${entry.col}`
+      if (byStart.has(key)) {
+        assert.equal(byStart.get(key), entry.number, `${level} shared start ${key} should share number`)
+      } else {
+        byStart.set(key, entry.number)
+      }
+    }
+    // Numbers are 1..N where N = unique starts, ordered row-major.
+    const starts = [...byStart.keys()]
+      .map((k) => k.split(',').map(Number))
+      .sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]))
+    starts.forEach(([r, c], idx) => {
+      assert.equal(byStart.get(`${r},${c}`), idx + 1, `${level} numbering off at start ${r},${c}`)
+    })
+  }
+})

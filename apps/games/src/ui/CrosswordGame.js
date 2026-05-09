@@ -147,8 +147,12 @@ export default function CrosswordGame() {
     ))
   }
 
-  const across = puzzle?.entries?.filter((entry) => entry.direction === 'across') ?? []
-  const down = puzzle?.entries?.filter((entry) => entry.direction === 'down') ?? []
+  const across = (puzzle?.entries?.filter((entry) => entry.direction === 'across') ?? [])
+    .slice()
+    .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+  const down = (puzzle?.entries?.filter((entry) => entry.direction === 'down') ?? [])
+    .slice()
+    .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
 
   return (
     <section className="relative">
@@ -222,7 +226,7 @@ export default function CrosswordGame() {
                   <div key={key} className="relative h-7 w-7 bg-white sm:h-9 sm:w-9">
                     {startEntry && (
                       <span className="absolute left-0.5 top-0.5 z-10 text-[9px] font-bold leading-none text-slate-500 sm:text-[10px]">
-                        {startEntry.id}
+                        {startEntry.number ?? startEntry.id}
                       </span>
                     )}
                     <input
@@ -297,7 +301,7 @@ export default function CrosswordGame() {
             <ul className="space-y-1.5 text-sm text-slate-700">
               {across.map((entry) => (
                 <li key={entry.id} className="flex gap-2">
-                  <span className="w-6 flex-shrink-0 font-bold text-slate-500">{entry.id}.</span>
+                  <span className="w-6 flex-shrink-0 font-bold text-slate-500">{entry.number ?? entry.id}.</span>
                   <span>{entry.clue}</span>
                 </li>
               ))}
@@ -309,7 +313,7 @@ export default function CrosswordGame() {
             <ul className="space-y-1.5 text-sm text-slate-700">
               {down.map((entry) => (
                 <li key={entry.id} className="flex gap-2">
-                  <span className="w-6 flex-shrink-0 font-bold text-slate-500">{entry.id}.</span>
+                  <span className="w-6 flex-shrink-0 font-bold text-slate-500">{entry.number ?? entry.id}.</span>
                   <span>{entry.clue}</span>
                 </li>
               ))}

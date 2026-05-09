@@ -349,6 +349,24 @@ export function normalizeCrosswordPuzzle(puzzle, fallbackLevel = 'elementary') {
   //   throw new Error('crossword_no_intersection')
   // }
 
+  // Assign standard crossword numbers based on grid position (top-to-bottom,
+  // then left-to-right). Entries that start at the same cell (one across +
+  // one down) share the same number — matching real crossword conventions.
+  const startKeys = []
+  const seenStarts = new Set()
+  for (const entry of normalizedEntries) {
+    const key = `${entry.row},${entry.col}`
+    if (!seenStarts.has(key)) {
+      seenStarts.add(key)
+      startKeys.push({ row: entry.row, col: entry.col, key })
+    }
+  }
+  startKeys.sort((a, b) => (a.row - b.row) || (a.col - b.col))
+  const numberByKey = new Map(startKeys.map((s, idx) => [s.key, idx + 1]))
+  for (const entry of normalizedEntries) {
+    entry.number = numberByKey.get(`${entry.row},${entry.col}`)
+  }
+
   return {
     title: String(puzzle?.title ?? 'Crossword Challenge').trim() || 'Crossword Challenge',
     level,
