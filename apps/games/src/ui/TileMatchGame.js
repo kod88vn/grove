@@ -214,7 +214,7 @@ export default function TileMatchGame() {
         </div>
       )}
 
-      <div className="relative rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 shadow-inner">
+      <div>
         <div
           className="mx-auto grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
           style={{
