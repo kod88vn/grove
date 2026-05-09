@@ -119,12 +119,30 @@ export default function TileMatchGame() {
   const [selected, setSelected] = useState([])
   const [gameState, setGameState] = useState('menu') // menu, playing, won
   const [burst, setBurst] = useState([])
+  const [tileSize, setTileSize] = useState(1.75) // in rem
 
   const celebrate = (effect) => {
     playArcadeEffect(effect)
     setBurst(createBurstParticles(14))
     setTimeout(() => setBurst([]), 520)
   }
+
+  useEffect(() => {
+    const updateTileSize = () => {
+      const width = window.innerWidth
+      // Mobile: 1.75rem, Tablet (768+): 2.25rem, Desktop (1024+): 3rem
+      if (width < 768) {
+        setTileSize(1.75)
+      } else if (width < 1024) {
+        setTileSize(2.25)
+      } else {
+        setTileSize(3)
+      }
+    }
+    updateTileSize()
+    window.addEventListener('resize', updateTileSize)
+    return () => window.removeEventListener('resize', updateTileSize)
+  }, [])
 
   const startGame = useCallback((selectedLevel) => {
     const { rows, cols } = GRID_SIZES[selectedLevel]
@@ -199,7 +217,7 @@ export default function TileMatchGame() {
         <div
           className="mx-auto inline-grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
           style={{
-            gridTemplateColumns: `repeat(${cols}, 1.75rem)`,
+            gridTemplateColumns: `repeat(${cols}, ${tileSize}rem)`,
             width: 'fit-content',
           }}
         >
@@ -211,7 +229,12 @@ export default function TileMatchGame() {
                 key={idx}
                 onClick={() => toggleTile(idx)}
                 disabled={isRemoved || gameState !== 'playing'}
-                className={`h-7 w-7 rounded border text-sm font-bold transition disabled:opacity-0 ${
+                style={{
+                  width: `${tileSize}rem`,
+                  height: `${tileSize}rem`,
+                  fontSize: tileSize >= 2.5 ? '1rem' : '0.875rem',
+                }}
+                className={`rounded border-2 font-bold transition disabled:opacity-0 ${
                   isSelected
                     ? 'scale-110 border-cyan-400 bg-cyan-200'
                     : 'border-slate-600 bg-white hover:scale-105 hover:border-cyan-500'
