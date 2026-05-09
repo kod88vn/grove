@@ -241,13 +241,15 @@ export default function TileMatchGame() {
             🎉 All tiles cleared!
           </p>
         )}
-        <button
-          type="button"
-          onClick={() => setGameState('menu')}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-50"
-        >
-          {gameState === 'won' ? 'Play Again' : 'Back'}
-        </button>
+        {gameState !== 'menu' && (
+          <button
+            type="button"
+            onClick={() => setGameState('menu')}
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
+          >
+            New Game
+          </button>
+        )}
       </div>
     </section>
   )
