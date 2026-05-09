@@ -150,6 +150,112 @@ export const MINI_SUDOKU_PUZZLE = {
     [4, 3, 2, 1],
   ],
 }
+export const SUDOKU_LEVELS = ['elementary', 'middleschool', 'highschool']
+
+const SUDOKU_PUZZLES_BY_LEVEL = {
+  elementary: [
+    {
+      board: [
+        [1, 0, 3, 4],
+        [0, 4, 1, 0],
+        [2, 0, 4, 3],
+        [4, 3, 0, 1],
+      ],
+      solution: [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ],
+    },
+    {
+      board: [
+        [2, 1, 0, 0],
+        [0, 3, 2, 0],
+        [0, 0, 1, 2],
+        [3, 0, 0, 4],
+      ],
+      solution: [
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+        [3, 4, 1, 2],
+        [1, 2, 3, 4],
+      ],
+    },
+  ],
+  middleschool: [
+    {
+      board: [
+        [1, 0, 0, 4],
+        [0, 4, 1, 0],
+        [0, 0, 4, 3],
+        [4, 3, 0, 0],
+      ],
+      solution: [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ],
+    },
+    {
+      board: [
+        [0, 0, 3, 0],
+        [3, 0, 1, 0],
+        [2, 0, 0, 3],
+        [0, 3, 0, 1],
+      ],
+      solution: [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ],
+    },
+  ],
+  highschool: [
+    {
+      board: [
+        [0, 0, 3, 0],
+        [0, 4, 0, 0],
+        [0, 0, 4, 3],
+        [4, 0, 0, 0],
+      ],
+      solution: [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ],
+    },
+    {
+      board: [
+        [0, 0, 0, 4],
+        [0, 0, 1, 0],
+        [2, 0, 0, 0],
+        [0, 3, 0, 0],
+      ],
+      solution: [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ],
+    },
+  ],
+}
+
+function resolveSudokuLevel(level) {
+  return SUDOKU_LEVELS.includes(level) ? level : 'elementary'
+}
+
+export function pickSudokuPuzzle(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
+  const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveSudokuLevel(levelOrSeed)
+  const seed = typeof levelOrSeed === 'number' ? levelOrSeed : maybeSeed
+  const puzzles = SUDOKU_PUZZLES_BY_LEVEL[level]
+  const index = Math.floor(Math.abs(seed) * puzzles.length) % puzzles.length
+  return puzzles[index]
+}
 
 const DIRECTIONS = [
   [1, 0],
