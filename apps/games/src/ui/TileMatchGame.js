@@ -104,6 +104,87 @@ function canConnect(grid, cols, idx1, idx2, removed) {
     if (path2Clear) return true
   }
 
+  // Check U-shaped paths: try detours to edges
+  const rows = Math.ceil(grid.length / cols)
+  
+  // Try going to outer columns (left/right edge) then across then back
+  for (let detourCol of [0, cols - 1]) {
+    if (detourCol === c1 || detourCol === c2) continue
+    let uPathClear = true
+    
+    // Horizontal from c1 to detourCol
+    const [minC_u1, maxC_u1] = c1 < detourCol ? [c1, detourCol] : [detourCol, c1]
+    for (let c = minC_u1 + 1; c < maxC_u1; c++) {
+      if (!removed.has(getIndex(r1, c, cols))) {
+        uPathClear = false
+        break
+      }
+    }
+    
+    // Vertical from r1 to r2
+    if (uPathClear) {
+      const [minR_u, maxR_u] = r1 < r2 ? [r1, r2] : [r2, r1]
+      for (let r = minR_u + 1; r < maxR_u; r++) {
+        if (!removed.has(getIndex(r, detourCol, cols))) {
+          uPathClear = false
+          break
+        }
+      }
+    }
+    
+    // Horizontal from detourCol to c2
+    if (uPathClear) {
+      const [minC_u2, maxC_u2] = detourCol < c2 ? [detourCol, c2] : [c2, detourCol]
+      for (let c = minC_u2 + 1; c < maxC_u2; c++) {
+        if (!removed.has(getIndex(r2, c, cols))) {
+          uPathClear = false
+          break
+        }
+      }
+    }
+    
+    if (uPathClear) return true
+  }
+  
+  // Try going to outer rows (top/bottom edge) then across then back
+  for (let detourRow of [0, rows - 1]) {
+    if (detourRow === r1 || detourRow === r2) continue
+    let uPathClear = true
+    
+    // Vertical from r1 to detourRow
+    const [minR_u1, maxR_u1] = r1 < detourRow ? [r1, detourRow] : [detourRow, r1]
+    for (let r = minR_u1 + 1; r < maxR_u1; r++) {
+      if (!removed.has(getIndex(r, c1, cols))) {
+        uPathClear = false
+        break
+      }
+    }
+    
+    // Horizontal from c1 to c2
+    if (uPathClear) {
+      const [minC_u, maxC_u] = c1 < c2 ? [c1, c2] : [c2, c1]
+      for (let c = minC_u + 1; c < maxC_u; c++) {
+        if (!removed.has(getIndex(detourRow, c, cols))) {
+          uPathClear = false
+          break
+        }
+      }
+    }
+    
+    // Vertical from detourRow to r2
+    if (uPathClear) {
+      const [minR_u2, maxR_u2] = detourRow < r2 ? [detourRow, r2] : [r2, detourRow]
+      for (let r = minR_u2 + 1; r < maxR_u2; r++) {
+        if (!removed.has(getIndex(r, c2, cols))) {
+          uPathClear = false
+          break
+        }
+      }
+    }
+    
+    if (uPathClear) return true
+  }
+
   return false
 }
 
