@@ -9,7 +9,7 @@ async function fetchCrosswordFromAI(level) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ level }),
-    signal: AbortSignal.timeout(7000),
+    signal: AbortSignal.timeout(45000),
   })
   if (!res.ok) throw new Error('ai_unavailable')
   const json = await res.json()
