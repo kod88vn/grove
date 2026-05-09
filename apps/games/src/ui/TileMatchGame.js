@@ -39,150 +39,54 @@ function canConnect(grid, cols, idx1, idx2, removed) {
 
   const [r1, c1] = [Math.floor(idx1 / cols), idx1 % cols]
   const [r2, c2] = [Math.floor(idx2 / cols), idx2 % cols]
-
-  // Check horizontal line: same row, no tiles between
-  if (r1 === r2) {
-    const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-    for (let c = minC + 1; c < maxC; c++) {
-      if (!removed.has(getIndex(r1, c, cols))) {
-        return false // blocked by another tile
-      }
-    }
-    return true
-  }
-
-  // Check vertical line: same column, no tiles between
-  if (c1 === c2) {
-    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    for (let r = minR + 1; r < maxR; r++) {
-      if (!removed.has(getIndex(r, c1, cols))) {
-        return false // blocked by another tile
-      }
-    }
-    return true
-  }
-
-  // Check L-path: horizontal then vertical, or vertical then horizontal
-  // Path 1: (r1,c1) -> (r1,c2) -> (r2,c2)
-  // Corner tile doesn't need to be empty; just the path segments
-  let path1Clear = true
-  const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-  for (let c = minC + 1; c < maxC; c++) {
-    if (!removed.has(getIndex(r1, c, cols))) {
-      path1Clear = false
-      break
-    }
-  }
-  if (path1Clear) {
-    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    for (let r = minR + 1; r < maxR; r++) {
-      if (!removed.has(getIndex(r, c2, cols))) {
-        path1Clear = false
-        break
-      }
-    }
-    if (path1Clear) return true
-  }
-
-  // Path 2: (r1,c1) -> (r2,c1) -> (r2,c2)
-  let path2Clear = true
-  const [minR2, maxR2] = r1 < r2 ? [r1, r2] : [r2, r1]
-  for (let r = minR2 + 1; r < maxR2; r++) {
-    if (!removed.has(getIndex(r, c1, cols))) {
-      path2Clear = false
-      break
-    }
-  }
-  if (path2Clear) {
-    const [minC2, maxC2] = c1 < c2 ? [c1, c2] : [c2, c1]
-    for (let c = minC2 + 1; c < maxC2; c++) {
-      if (!removed.has(getIndex(r2, c, cols))) {
-        path2Clear = false
-        break
-      }
-    }
-    if (path2Clear) return true
-  }
-
-  // Check U-shaped paths: try detours to edges
   const rows = Math.ceil(grid.length / cols)
-  
-  // Try going to outer columns (left/right edge) then across then back
-  for (let detourCol of [0, cols - 1]) {
-    if (detourCol === c1 || detourCol === c2) continue
-    let uPathClear = true
-    
-    // Horizontal from c1 to detourCol
-    const [minC_u1, maxC_u1] = c1 < detourCol ? [c1, detourCol] : [detourCol, c1]
-    for (let c = minC_u1 + 1; c < maxC_u1; c++) {
-      if (!removed.has(getIndex(r1, c, cols))) {
-        uPathClear = false
-        break
+
+  // BFS to find if there's a path through removed cells with max 2 turns
+  const queue = [[r1, c1, 0, -1]] // [row, col, turns, lastDirection]
+  const visited = new Set()
+  visited.add(`${r1},${c1}`)
+
+  const directions = [
+    [0, 1, 0], // right
+    [0, -1, 1], // left
+    [1, 0, 2], // down
+    [-1, 0, 3], // up
+  ]
+
+  while (queue.length > 0) {
+    const [r, c, turns, lastDir] = queue.shift()
+
+    for (const [dr, dc, dirIdx] of directions) {
+      const nr = r + dr
+      const nc = c + dc
+
+      // Bounds check
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue
+
+      // Is this the target?
+      if (nr === r2 && nc === c2) {
+        return true
       }
-    }
-    
-    // Vertical from r1 to r2
-    if (uPathClear) {
-      const [minR_u, maxR_u] = r1 < r2 ? [r1, r2] : [r2, r1]
-      for (let r = minR_u + 1; r < maxR_u; r++) {
-        if (!removed.has(getIndex(r, detourCol, cols))) {
-          uPathClear = false
-          break
+
+      const nidx = getIndex(nr, nc, cols)
+      const key = `${nr},${nc}`
+
+      // Only move through empty cells (removed tiles)
+      if (removed.has(nidx) && !visited.has(key)) {
+        visited.add(key)
+
+        // Count turns: if direction changed and it's not the first move
+        let newTurns = turns
+        if (lastDir !== -1 && lastDir !== dirIdx) {
+          newTurns = turns + 1
+        }
+
+        // Only allow up to 2 turns (so max 3 line segments)
+        if (newTurns <= 2) {
+          queue.push([nr, nc, newTurns, dirIdx])
         }
       }
     }
-    
-    // Horizontal from detourCol to c2
-    if (uPathClear) {
-      const [minC_u2, maxC_u2] = detourCol < c2 ? [detourCol, c2] : [c2, detourCol]
-      for (let c = minC_u2 + 1; c < maxC_u2; c++) {
-        if (!removed.has(getIndex(r2, c, cols))) {
-          uPathClear = false
-          break
-        }
-      }
-    }
-    
-    if (uPathClear) return true
-  }
-  
-  // Try going to outer rows (top/bottom edge) then across then back
-  for (let detourRow of [0, rows - 1]) {
-    if (detourRow === r1 || detourRow === r2) continue
-    let uPathClear = true
-    
-    // Vertical from r1 to detourRow
-    const [minR_u1, maxR_u1] = r1 < detourRow ? [r1, detourRow] : [detourRow, r1]
-    for (let r = minR_u1 + 1; r < maxR_u1; r++) {
-      if (!removed.has(getIndex(r, c1, cols))) {
-        uPathClear = false
-        break
-      }
-    }
-    
-    // Horizontal from c1 to c2
-    if (uPathClear) {
-      const [minC_u, maxC_u] = c1 < c2 ? [c1, c2] : [c2, c1]
-      for (let c = minC_u + 1; c < maxC_u; c++) {
-        if (!removed.has(getIndex(detourRow, c, cols))) {
-          uPathClear = false
-          break
-        }
-      }
-    }
-    
-    // Vertical from detourRow to r2
-    if (uPathClear) {
-      const [minR_u2, maxR_u2] = detourRow < r2 ? [detourRow, r2] : [r2, detourRow]
-      for (let r = minR_u2 + 1; r < maxR_u2; r++) {
-        if (!removed.has(getIndex(r, c2, cols))) {
-          uPathClear = false
-          break
-        }
-      }
-    }
-    
-    if (uPathClear) return true
   }
 
   return false
