@@ -130,14 +130,12 @@ export default function TileMatchGame() {
   useEffect(() => {
     const updateTileSize = () => {
       const width = window.innerWidth
-      // Mobile: 2.5rem, Tablet (768+): 3.5rem, Desktop (1024+): 5rem
-      if (width < 768) {
-        setTileSize(2.5)
-      } else if (width < 1024) {
-        setTileSize(3.5)
-      } else {
-        setTileSize(5)
-      }
+      const padding = 48 // 24px padding on container sides
+      const cols = 10
+      const availableWidthPx = width - padding
+      const tileSizeRem = availableWidthPx / (cols * 16) // 16px per rem
+      const capped = Math.max(1.5, Math.min(6, tileSizeRem))
+      setTileSize(parseFloat(capped.toFixed(2)))
     }
     updateTileSize()
     window.addEventListener('resize', updateTileSize)
@@ -215,10 +213,11 @@ export default function TileMatchGame() {
 
       <div className="relative rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 shadow-inner">
         <div
-          className="mx-auto inline-grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
+          className="mx-auto grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
           style={{
             gridTemplateColumns: `repeat(${cols}, ${tileSize}rem)`,
-            width: 'fit-content',
+            width: '100%',
+            justifyContent: 'center',
           }}
         >
           {grid.map((symbol, idx) => {
