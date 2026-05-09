@@ -65,6 +65,7 @@ export default function HangmanGame() {
   const [wrongCount, setWrongCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [aiSource, setAiSource] = useState(false)
+  const [showLevelModal, setShowLevelModal] = useState(true)
 
   const startRound = useCallback(async (chosenLevel) => {
     setLoading(true)
@@ -83,8 +84,14 @@ export default function HangmanGame() {
   }, [])
 
   useEffect(() => {
-    startRound('elementary')
-  }, [startRound])
+    // Do not auto-start; wait for user to pick level
+  }, [])
+
+  const onStartLevel = (chosenLevel) => {
+    setShowLevelModal(false)
+    setLevel(chosenLevel)
+    startRound(chosenLevel)
+  }
 
   const letters = round?.word?.split('') ?? []
   const uniqueLetters = new Set(letters)
@@ -135,6 +142,34 @@ export default function HangmanGame() {
 
   return (
     <section>
+      {showLevelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border-2 border-amber-200 bg-white p-6 shadow-xl">
+            <h2 className="mb-2 text-xl font-bold text-slate-800">Choose difficulty</h2>
+            <p className="mb-5 text-sm text-slate-500">Nora will pick a word for the level you choose.</p>
+            <div className="grid gap-3">
+              {HANGMAN_LEVELS.map((l) => {
+                const meta = {
+                  elementary: { label: 'Elementary', detail: 'Short common words' },
+                  middleschool: { label: 'Middle School', detail: 'Themed words' },
+                  highschool: { label: 'High School', detail: 'Advanced vocabulary' },
+                }[l]
+                return (
+                  <button
+                    key={l}
+                    onClick={() => onStartLevel(l)}
+                    className="group flex flex-col rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition hover:border-amber-400 hover:bg-amber-50"
+                  >
+                    <span className="text-base font-bold text-slate-800 group-hover:text-amber-700">{meta.label}</span>
+                    <span className="mt-0.5 text-xs text-slate-500">{meta.detail}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center justify-center gap-3 rounded-2xl border-2 border-amber-200 bg-amber-50 p-10 text-amber-700">
           <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
