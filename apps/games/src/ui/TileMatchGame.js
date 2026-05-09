@@ -63,50 +63,41 @@ function canConnect(grid, cols, idx1, idx2, removed) {
 
   // Check L-path: horizontal then vertical, or vertical then horizontal
   // Path 1: (r1,c1) -> (r1,c2) -> (r2,c2)
-  const corner1 = getIndex(r1, c2, cols)
-  if (removed.has(corner1)) {
-    let path1Clear = true
-    // Check horizontal segment
-    const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-    for (let c = minC + 1; c < maxC; c++) {
-      if (!removed.has(getIndex(r1, c, cols))) {
+  // Corner tile doesn't need to be empty; just the path segments
+  let path1Clear = true
+  const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
+  for (let c = minC + 1; c < maxC; c++) {
+    if (!removed.has(getIndex(r1, c, cols))) {
+      path1Clear = false
+      break
+    }
+  }
+  if (path1Clear) {
+    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
+    for (let r = minR + 1; r < maxR; r++) {
+      if (!removed.has(getIndex(r, c2, cols))) {
         path1Clear = false
         break
-      }
-    }
-    // Check vertical segment
-    if (path1Clear) {
-      const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-      for (let r = minR + 1; r < maxR; r++) {
-        if (!removed.has(getIndex(r, c2, cols))) {
-          path1Clear = false
-          break
-        }
       }
     }
     if (path1Clear) return true
   }
 
   // Path 2: (r1,c1) -> (r2,c1) -> (r2,c2)
-  const corner2 = getIndex(r2, c1, cols)
-  if (removed.has(corner2)) {
-    let path2Clear = true
-    // Check vertical segment
-    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    for (let r = minR + 1; r < maxR; r++) {
-      if (!removed.has(getIndex(r, c1, cols))) {
+  let path2Clear = true
+  const [minR2, maxR2] = r1 < r2 ? [r1, r2] : [r2, r1]
+  for (let r = minR2 + 1; r < maxR2; r++) {
+    if (!removed.has(getIndex(r, c1, cols))) {
+      path2Clear = false
+      break
+    }
+  }
+  if (path2Clear) {
+    const [minC2, maxC2] = c1 < c2 ? [c1, c2] : [c2, c1]
+    for (let c = minC2 + 1; c < maxC2; c++) {
+      if (!removed.has(getIndex(r2, c, cols))) {
         path2Clear = false
         break
-      }
-    }
-    // Check horizontal segment
-    if (path2Clear) {
-      const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-      for (let c = minC + 1; c < maxC; c++) {
-        if (!removed.has(getIndex(r2, c, cols))) {
-          path2Clear = false
-          break
-        }
       }
     }
     if (path2Clear) return true
