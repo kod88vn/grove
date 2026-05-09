@@ -8,6 +8,7 @@ const GRID_SIZES = {
   easy: { rows: 6, cols: 8 },
   medium: { rows: 8, cols: 8 },
   hard: { rows: 10, cols: 8 },
+  expert: { rows: 12, cols: 10 },
 }
 
 function createGrid(rows, cols) {
@@ -180,13 +181,13 @@ export default function TileMatchGame() {
             <h2 className="mb-2 text-xl font-bold text-slate-800">Tile Match</h2>
             <p className="mb-5 text-sm text-slate-500">Connect matching tiles with a direct line (no obstacles).</p>
             <div className="grid gap-3">
-              {['easy', 'medium', 'hard'].map((lv) => (
+              {['easy', 'medium', 'hard', 'expert'].map((lv) => (
                 <button
                   key={lv}
                   onClick={() => startGame(lv)}
                   className="rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-bold uppercase text-slate-700 transition hover:border-cyan-500 hover:bg-cyan-50"
                 >
-                  {lv === 'easy' ? '4×5 Easy' : lv === 'medium' ? '6×6 Medium' : '8×5 Hard'}
+                  {lv === 'easy' ? '6×8 Easy' : lv === 'medium' ? '8×8 Medium' : lv === 'hard' ? '10×8 Hard' : '12×10 Expert'}
                 </button>
               ))}
             </div>
@@ -198,7 +199,7 @@ export default function TileMatchGame() {
         <div
           className="mx-auto inline-grid gap-0 rounded-md border-2 border-slate-700 bg-slate-700 p-0"
           style={{
-            gridTemplateColumns: `repeat(${cols}, 2.5rem)`,
+            gridTemplateColumns: `repeat(${cols}, 1.75rem)`,
             width: 'fit-content',
           }}
         >
@@ -210,7 +211,7 @@ export default function TileMatchGame() {
                 key={idx}
                 onClick={() => toggleTile(idx)}
                 disabled={isRemoved || gameState !== 'playing'}
-                className={`h-10 w-10 rounded-md border-2 text-lg font-bold transition disabled:opacity-0 ${
+                className={`h-7 w-7 rounded border text-sm font-bold transition disabled:opacity-0 ${
                   isSelected
                     ? 'scale-110 border-cyan-400 bg-cyan-200'
                     : 'border-slate-600 bg-white hover:scale-105 hover:border-cyan-500'
