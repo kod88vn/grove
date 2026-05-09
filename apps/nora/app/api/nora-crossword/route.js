@@ -124,14 +124,45 @@ export async function POST(request) {
     return Response.json({ error: 'bad_puzzle' }, { status: 502 })
   }
 
-  const entries = generated.entries.map((e) => ({
-    id: e.id,
+  const rawEntries = generated.entries.map((e) => ({
     clue: e.clue,
     answer: String(e.answer).toUpperCase(),
     row: e.row,
     col: e.col,
     direction: e.direction,
   }))
+
+  // Standard crossword numbering: scan cells in reading order; a cell starts
+  // a word if any entry begins at that cell. The same number is shared by an
+  // across and a down entry that both start at the same cell.
+  const startMap = new Map()
+  for (const e of rawEntries) {
+    const key = `${e.row},${e.col}`
+    if (!startMap.has(key)) startMap.set(key, [])
+    startMap.get(key).push(e)
+  }
+
+  const orderedKeys = Array.from(startMap.keys()).sort((a, b) => {
+    const [ar, ac] = a.split(',').map(Number)
+    const [br, bc] = b.split(',').map(Number)
+    return ar - br || ac - bc
+  })
+
+  const entries = []
+  orderedKeys.forEach((key, idx) => {
+    const number = idx + 1
+    for (const e of startMap.get(key)) {
+      entries.push({
+        id: `${number}${e.direction === 'across' ? 'A' : 'D'}`,
+        number,
+        clue: e.clue,
+        answer: e.answer,
+        row: e.row,
+        col: e.col,
+        direction: e.direction,
+      })
+    }
+  })
 
   let maxRow = 0
   let maxCol = 0
