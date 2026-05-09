@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "prepare": "husky",
-    "dev": "turbo dev",
+    "dev": "turbo run dev --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
     "dev:orchestrator": "yarn workspace @grove/orchestrator dev",
     "build": "turbo run build --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
     "start": "platformatic start",
