@@ -113,12 +113,7 @@ export default function HangmanGame() {
   }
 
   const onNewRound = () => {
-    startRound(level)
-  }
-
-  const onLevelChange = (nextLevel) => {
-    setLevel(nextLevel)
-    startRound(nextLevel)
+    setShowLevelModal(true)
   }
 
   useEffect(() => {
@@ -221,27 +216,6 @@ export default function HangmanGame() {
               className="rounded-xl border border-slate-300 bg-white px-2 py-2 text-sm font-bold text-slate-700 transition hover:scale-105 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {letter}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {HANGMAN_LEVELS.map((option) => {
-          const active = option === level
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onLevelChange(option)}
-              disabled={loading}
-              className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide transition disabled:opacity-50 ${
-                active
-                  ? 'border-cyan-600 bg-cyan-600 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:border-cyan-500 hover:text-cyan-700'
-              }`}
-            >
-              {option === 'middleschool' ? 'Middle School' : option}
             </button>
           )
         })}
