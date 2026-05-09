@@ -17,6 +17,7 @@ function createGrid(rows, cols) {
   for (let s = 0; s < SYMBOLS.length; s++) {
     for (let p = 0; p < pairsPerSymbol && tiles.length < rows * cols; p++) {
       tiles.push(SYMBOLS[s])
+      tiles.push(SYMBOLS[s]) // Push twice per pair to make matching pairs
     }
   }
   // Fisher-Yates shuffle with multiple iterations for better randomization
