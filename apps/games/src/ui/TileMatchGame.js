@@ -10,102 +10,22 @@ const GRID_SIZES = {
   hard: { rows: 10, cols: 8 },
 }
 
-function isSolvable(grid, cols) {
-  // Check if all pairs can be matched via the canConnect rules
-  const rows = Math.ceil(grid.length / cols)
-  const removed = new Set()
-  const canConnect = (idx1, idx2) => {
-    if (grid[idx1] !== grid[idx2] || removed.has(idx1) || removed.has(idx2)) return false
-    const [r1, c1] = [Math.floor(idx1 / cols), idx1 % cols]
-    const [r2, c2] = [Math.floor(idx2 / cols), idx2 % cols]
-    if (r1 === r2) {
-      const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-      for (let c = minC + 1; c < maxC; c++) {
-        if (removed.has(r1 * cols + c)) return false
-      }
-      return true
-    }
-    if (c1 === c2) {
-      const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-      for (let r = minR + 1; r < maxR; r++) {
-        if (removed.has(r * cols + c1)) return false
-      }
-      return true
-    }
-    const corner1 = r1 * cols + c2
-    if (!removed.has(corner1)) {
-      let ok = true
-      const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-      for (let c = minC + 1; c < maxC; c++) {
-        if (removed.has(r1 * cols + c)) { ok = false; break }
-      }
-      if (ok) {
-        const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-        for (let r = minR + 1; r < maxR; r++) {
-          if (removed.has(r * cols + c2)) { ok = false; break }
-        }
-      }
-      if (ok) return true
-    }
-    const corner2 = r2 * cols + c1
-    if (!removed.has(corner2)) {
-      let ok = true
-      const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-      for (let r = minR + 1; r < maxR; r++) {
-        if (removed.has(r * cols + c1)) { ok = false; break }
-      }
-      if (ok) {
-        const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-        for (let c = minC + 1; c < maxC; c++) {
-          if (removed.has(r2 * cols + c)) { ok = false; break }
-        }
-      }
-      if (ok) return true
-    }
-    return false
-  }
-  const solve = (count) => {
-    if (count === grid.length) return true
-    for (let i = 0; i < grid.length; i++) {
-      if (removed.has(i)) continue
-      for (let j = i + 1; j < grid.length; j++) {
-        if (removed.has(j)) continue
-        if (canConnect(i, j)) {
-          removed.add(i)
-          removed.add(j)
-          if (solve(count + 2)) return true
-          removed.delete(i)
-          removed.delete(j)
-        }
-      }
-    }
-    return false
-  }
-  return solve(0)
-}
-
 function createGrid(rows, cols) {
-  let grid = []
-  let attempts = 0
-  while (attempts < 10) {
-    const tiles = []
-    const pairsPerSymbol = Math.ceil((rows * cols) / (SYMBOLS.length * 2))
-    for (let s = 0; s < SYMBOLS.length; s++) {
-      for (let p = 0; p < pairsPerSymbol && tiles.length < rows * cols; p++) {
-        tiles.push(SYMBOLS[s])
-      }
+  const tiles = []
+  const pairsPerSymbol = Math.ceil((rows * cols) / (SYMBOLS.length * 2))
+  for (let s = 0; s < SYMBOLS.length; s++) {
+    for (let p = 0; p < pairsPerSymbol && tiles.length < rows * cols; p++) {
+      tiles.push(SYMBOLS[s])
     }
+  }
+  // Fisher-Yates shuffle with multiple iterations for better randomization
+  for (let iter = 0; iter < 3; iter++) {
     for (let i = tiles.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [tiles[i], tiles[j]] = [tiles[j], tiles[i]]
     }
-    if (isSolvable(tiles, cols)) {
-      grid = tiles
-      break
-    }
-    attempts++
   }
-  return grid
+  return tiles
 }
 
 function getIndex(row, col, cols) {
