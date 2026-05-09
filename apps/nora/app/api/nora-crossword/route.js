@@ -124,18 +124,33 @@ export async function POST(request) {
     return Response.json({ error: 'bad_puzzle' }, { status: 502 })
   }
 
+  const entries = generated.entries.map((e) => ({
+    id: e.id,
+    clue: e.clue,
+    answer: String(e.answer).toUpperCase(),
+    row: e.row,
+    col: e.col,
+    direction: e.direction,
+  }))
+
+  let maxRow = 0
+  let maxCol = 0
+  for (const e of entries) {
+    const endRow = e.direction === 'down' ? e.row + e.answer.length - 1 : e.row
+    const endCol = e.direction === 'across' ? e.col + e.answer.length - 1 : e.col
+    maxRow = Math.max(maxRow, endRow)
+    maxCol = Math.max(maxCol, endCol)
+  }
+
   return Response.json({
     puzzle: {
       title: generated.title ?? 'Crossword',
       level,
-      entries: generated.entries.map((e) => ({
-        id: e.id,
-        clue: e.clue,
-        answer: String(e.answer).toUpperCase(),
-        row: e.row,
-        col: e.col,
-        direction: e.direction,
-      })),
+      entries,
+      dimensions: {
+        rows: maxRow + 1,
+        cols: maxCol + 1,
+      },
     },
   })
 }
