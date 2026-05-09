@@ -7,7 +7,7 @@ const LEVEL_PROMPTS = {
   highschool: 'advanced STEM or humanities vocabulary for high schoolers (ages 15–18)',
 }
 
-const WORD_RE = /^[A-Z]{4,12}$/
+const WORD_RE = /^[A-Z]{3,12}$/
 
 function cleanResponseContent(content) {
   return String(content || '')
@@ -52,7 +52,7 @@ export async function POST(request) {
     `Give me one hangman word using ${description}.\n` +
     `Respond with ONLY valid JSON, no extra text, no markdown:\n` +
     `{"word":"ELEPHANT","hint":"Largest land animal","mascot":"🐘"}\n` +
-    `The word must be a single English word in ALL CAPS, 4–12 letters, no spaces or punctuation.`
+    `The word must be a single English word in ALL CAPS, 3–12 letters, no spaces or punctuation.`
 
   let lastError = 'ai_unavailable'
 
@@ -63,10 +63,10 @@ export async function POST(request) {
         model: DEFAULT_MODEL,
         stream: false,
         format: 'json',
+        think: false,
         options: {
-          think: false,
           temperature: 0,
-          num_predict: 80,
+          num_predict: 200,
         },
         messages: [
           { role: 'system', content: 'You are a helpful word game assistant. Respond only with valid JSON.' },

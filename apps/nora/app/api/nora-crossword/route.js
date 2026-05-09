@@ -181,7 +181,8 @@ export async function POST(request) {
       res = await callOllama({
         model: DEFAULT_MODEL,
         stream: false,
-        options: { think: false, num_predict: 500, temperature: 0.2 },
+        think: false,
+        options: { num_predict: 1500, temperature: 0.2 },
         messages: [
           { role: 'system', content: 'You are a crossword assistant. Respond only with the requested JSON.' },
           { role: 'user', content: prompt },
