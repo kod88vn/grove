@@ -87,32 +87,34 @@ export default function SudokuGame() {
         🧠 Fill numbers 1-4 so each row, column, and 2x2 block has all numbers exactly once.
       </p>
 
-      <div className="inline-grid grid-cols-4 gap-1 rounded-2xl bg-slate-900 p-2">
-        {board.map((row, rowIndex) =>
-          row.map((value, colIndex) => {
-            const locked = puzzle.board[rowIndex][colIndex] !== 0
-            const valid = !value || isMiniSudokuPlacementValid(board, rowIndex, colIndex, value)
-            const blockTone = (Math.floor(rowIndex / 2) + Math.floor(colIndex / 2)) % 2 === 0 ? 'bg-amber-50' : 'bg-sky-50'
+      <div className="mx-auto w-fit">
+        <div className="grid grid-cols-4 gap-1 rounded-2xl bg-slate-900 p-2">
+          {board.map((row, rowIndex) =>
+            row.map((value, colIndex) => {
+              const locked = puzzle.board[rowIndex][colIndex] !== 0
+              const valid = !value || isMiniSudokuPlacementValid(board, rowIndex, colIndex, value)
+              const blockTone = (Math.floor(rowIndex / 2) + Math.floor(colIndex / 2)) % 2 === 0 ? 'bg-amber-50' : 'bg-sky-50'
 
-            return (
-              <input
-                key={coordKey(rowIndex, colIndex)}
-                inputMode="numeric"
-                maxLength={1}
-                value={value || ''}
-                disabled={locked}
-                onChange={(event) => setCell(rowIndex, colIndex, event.target.value)}
-                className={`${blockTone} h-14 w-14 rounded-lg border-2 text-center text-2xl font-black outline-none ${
-                  locked
-                    ? 'border-slate-300 text-slate-900'
-                    : valid
-                    ? 'border-cyan-300 text-cyan-900 focus:border-cyan-500'
-                    : 'border-rose-400 text-rose-700 focus:border-rose-500'
-                }`}
-              />
-            )
-          })
-        )}
+              return (
+                <input
+                  key={coordKey(rowIndex, colIndex)}
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={value || ''}
+                  disabled={locked}
+                  onChange={(event) => setCell(rowIndex, colIndex, event.target.value)}
+                  className={`${blockTone} h-14 w-14 rounded-lg border-2 text-center text-2xl font-black outline-none ${
+                    locked
+                      ? 'border-slate-300 text-slate-900'
+                      : valid
+                      ? 'border-cyan-300 text-cyan-900 focus:border-cyan-500'
+                      : 'border-rose-400 text-rose-700 focus:border-rose-500'
+                  }`}
+                />
+              )
+            })
+          )}
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-3">
