@@ -1,4 +1,4 @@
-const OLLAMA_TAGS_URL = 'http://grove:11434/api/tags'
+const OLLAMA_TAGS_URL = `${process.env.OLLAMA_URL || 'http://grove:11434'}/api/tags`
 const DEFAULT_MODEL = process.env.DEFAULT_MODEL || process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
 
 function normalizeModels(payload) {
