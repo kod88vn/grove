@@ -1,6 +1,6 @@
 {
   "$schema": "https://schemas.platformatic.dev/@platformatic/runtime/3.52.4.json",
-  "entrypoint": "grove",
+  "entrypoint": "gateway",
   "server": {
     "hostname": "0.0.0.0",
     "port": 80
@@ -14,6 +14,10 @@
     }
   },
   "services": [
+    {
+      "id": "gateway",
+      "path": "./apps/gateway"
+    },
     {
       "id": "grove",
       "path": "./apps/grove"

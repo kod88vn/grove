@@ -1,20 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
+import { SCRAMBLE_LEVELS, pickScrambleRound } from '../index.js'
 
-const WORDBANK = [
-  { word: 'DRAGON', hint: 'Breaths fire!' },
-  { word: 'PIZZA', hint: 'Cheesy triangle slice.' },
-  { word: 'GIRAFFE', hint: 'Long necked spotted animal.' },
-  { word: 'RAINBOW', hint: 'Seven colors in the sky.' },
-  { word: 'BICYCLE', hint: 'Two wheels and pedals.' },
-  { word: 'ROCKET', hint: 'Goes to the moon.' },
-  { word: 'GARDEN', hint: 'Where flowers grow.' },
-  { word: 'JUICE', hint: 'Fruit drink.' },
-  { word: 'SCHOOL', hint: 'Where you go to learn.' },
-  { word: 'WIZARD', hint: 'Wears a pointy hat and does magic.' },
-]
+async function fetchWordFromAI(level) {
+  const res = await fetch('/api/nora-word', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
+    signal: AbortSignal.timeout(7000),
+  })
+  if (!res.ok) throw new Error('ai_unavailable')
+  const json = await res.json()
+  if (json.error || !json.word) throw new Error(json.error || 'bad_word')
+  return json
+}
 
 function shuffle(word) {
   const arr = word.split('')
@@ -26,6 +27,7 @@ function shuffle(word) {
 }
 
 export default function WordScrambleGame() {
+  const [level, setLevel] = useState('elementary')
   const [current, setCurrent] = useState(null)
   const [scrambled, setScrambled] = useState('')
   const [input, setInput] = useState('')
@@ -34,6 +36,8 @@ export default function WordScrambleGame() {
   const [gameState, setGameState] = useState('idle') // idle, playing, won, finished
   const [message, setMessage] = useState('')
   const [burst, setBurst] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [showLevelModal, setShowLevelModal] = useState(true)
 
   const celebrate = (effect = 'success') => {
     playArcadeEffect(effect)
@@ -41,25 +45,35 @@ export default function WordScrambleGame() {
     setTimeout(() => setBurst([]), 520)
   }
 
-  const nextRound = () => {
+  const nextRound = useCallback(async (chosenLevel = level) => {
     if (round >= 5) {
       setGameState('finished')
       return
     }
-    const pick = WORDBANK[Math.floor(Math.random() * WORDBANK.length)]
+    
+    setLoading(true)
+    setMessage('')
+    
+    let pick
+    try {
+      pick = await fetchWordFromAI(chosenLevel)
+    } catch {
+      pick = pickScrambleRound(chosenLevel)
+    }
+    
     setCurrent(pick)
     setScrambled(shuffle(pick.word))
     setInput('')
     setRound(r => r + 1)
     setGameState('playing')
-    setMessage('')
+    setLoading(false)
     playArcadeEffect('tap')
-  }
+  }, [round, level])
 
   const check = () => {
     if (input.toUpperCase() === current.word) {
       setScore(s => s + 100)
-      setMessage('🌟 Correct! +100')
+      setMessage(`🌟 Correct! It was ${current.word}! +100`)
       setGameState('won')
       celebrate('success')
     } else {
@@ -68,21 +82,51 @@ export default function WordScrambleGame() {
     }
   }
 
-  const start = () => {
+  const start = (chosenLevel) => {
+    setLevel(chosenLevel)
     setScore(0)
     setRound(0)
+    setShowLevelModal(false)
     playArcadeEffect('start')
-    nextRound()
+    nextRound(chosenLevel)
   }
 
-  if (gameState === 'idle') {
+  if (showLevelModal) {
     return (
       <div className="flex flex-col items-center py-12">
-        <h2 className="text-4xl font-black text-rose-600">🔠 Word Scramble</h2>
-        <p className="mt-4 text-slate-600 font-bold">Unscramble the letters to find the hidden word!</p>
-        <button onClick={start} className="mt-8 rounded-2xl bg-rose-500 px-8 py-4 text-xl font-bold text-white shadow-lg hover:bg-rose-600">
-          Start Playing
-        </button>
+        <h2 className="text-4xl font-black text-rose-600 mb-6">🔠 Word Scramble</h2>
+        <div className="w-full max-w-md rounded-2xl border-2 border-rose-200 bg-white p-6 shadow-xl text-center">
+            <h3 className="mb-2 text-xl font-bold text-slate-800">Choose difficulty</h3>
+            <p className="mb-5 text-sm text-slate-500">How hard should the words be?</p>
+            <div className="grid gap-3">
+              {SCRAMBLE_LEVELS.map((l) => {
+                const meta = {
+                  elementary: { label: 'Elementary', detail: 'Short common words' },
+                  middleschool: { label: 'Middle School', detail: 'Themed words' },
+                  highschool: { label: 'High School', detail: 'Advanced vocabulary' },
+                }[l]
+                return (
+                  <button
+                    key={l}
+                    onClick={() => start(l)}
+                    className="group flex flex-col rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition hover:border-rose-400 hover:bg-rose-50"
+                  >
+                    <span className="text-base font-bold text-slate-800 group-hover:text-rose-700">{meta.label}</span>
+                    <span className="mt-0.5 text-xs text-slate-500">{meta.detail}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-4">
+        <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-rose-500 border-t-transparent" />
+        <p className="text-xl font-bold text-rose-600 animate-pulse">Nora is scrambling a word...</p>
       </div>
     )
   }
@@ -92,7 +136,7 @@ export default function WordScrambleGame() {
       <div className="flex flex-col items-center py-12">
         <h2 className="text-4xl font-black text-slate-800">Game Over!</h2>
         <p className="mt-4 text-xl font-bold">Your Total Score: <span className="text-rose-600">{score}</span></p>
-        <button onClick={start} className="mt-8 rounded-2xl bg-slate-900 px-8 py-4 text-xl font-bold text-white shadow-lg hover:bg-slate-800">
+        <button onClick={() => setShowLevelModal(true)} className="mt-8 rounded-2xl bg-slate-900 px-8 py-4 text-xl font-bold text-white shadow-lg hover:bg-slate-800">
           Play Again
         </button>
       </div>
@@ -116,7 +160,7 @@ export default function WordScrambleGame() {
         />
       ))}
       <div className="flex w-full justify-between items-center mb-8">
-        <div className="rounded-xl bg-rose-100 px-4 py-1 text-sm font-bold text-rose-600">Round {round}/5</div>
+        <div className="rounded-xl bg-rose-100 px-4 py-1 text-sm font-bold text-rose-600">Round {round}/5 • {level}</div>
         <div className="text-2xl font-black text-slate-800">Score: {score}</div>
       </div>
 
@@ -125,7 +169,10 @@ export default function WordScrambleGame() {
         <p className="text-5xl font-black tracking-widest text-indigo-600 font-mono">{scrambled}</p>
       </div>
 
-      <p className="mb-8 text-slate-500 font-bold italic">💡 Hint: {current.hint}</p>
+      <p className="mb-8 text-slate-500 font-bold italic">
+        <span className="text-2xl mr-2">{current.mascot}</span>
+        💡 Hint: {current.hint}
+      </p>
 
       {gameState === 'playing' ? (
         <div className="flex w-full max-w-sm gap-2">
@@ -142,7 +189,7 @@ export default function WordScrambleGame() {
       ) : (
         <div className="text-center">
           <p className="text-2xl font-black text-emerald-600 mb-6">{message}</p>
-          <button onClick={nextRound} className="rounded-2xl bg-slate-900 px-8 py-4 font-bold text-white shadow-lg">Next Word</button>
+          <button onClick={() => nextRound(level)} className="rounded-2xl bg-slate-900 px-8 py-4 font-bold text-white shadow-lg">Next Word</button>
         </div>
       )}
       {message.includes('❌') && <p className="mt-4 text-rose-500 font-bold">{message}</p>}

@@ -19,6 +19,17 @@ export const GAME_SLUGS = [
 ]
 
 export const HANGMAN_LEVELS = ['elementary', 'middleschool', 'highschool']
+export const SCRAMBLE_LEVELS = ['elementary', 'middleschool', 'highschool']
+
+export function resolveHangmanLevel(value) {
+  if (HANGMAN_LEVELS.includes(value)) return value
+  return 'elementary'
+}
+
+export function resolveScrambleLevel(value) {
+  if (SCRAMBLE_LEVELS.includes(value)) return value
+  return 'elementary'
+}
 
 export const HANGMAN_DICTIONARY = {
   elementary: [
@@ -74,7 +85,21 @@ export const HANGMAN_DICTIONARY = {
   ],
 }
 
-export const HANGMAN_ROUNDS = HANGMAN_DICTIONARY.elementary
+export function pickHangmanRound(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
+  const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveHangmanLevel(levelOrSeed)
+  const seed = typeof levelOrSeed === 'number' ? levelOrSeed : maybeSeed
+  const rounds = HANGMAN_DICTIONARY[level]
+  const index = Math.floor(Math.abs(seed) * rounds.length) % rounds.length
+  return rounds[index]
+}
+
+export function pickScrambleRound(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
+  const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveScrambleLevel(levelOrSeed)
+  const seed = typeof levelOrSeed === 'number' ? levelOrSeed : maybeSeed
+  const words = HANGMAN_DICTIONARY[level]
+  const index = Math.floor(Math.abs(seed) * words.length) % words.length
+  return words[index]
+}
 
 export const CROSSWORD_LEVELS = ['elementary', 'middleschool', 'highschool']
 
@@ -277,10 +302,6 @@ const DIRECTIONS = [
   [1, -1],
 ]
 
-function resolveHangmanLevel(level) {
-  return HANGMAN_LEVELS.includes(level) ? level : 'elementary'
-}
-
 function resolveCrosswordLevel(level) {
   return CROSSWORD_LEVELS.includes(level) ? level : 'elementary'
 }
@@ -397,14 +418,6 @@ export const CROSSWORD_PUZZLES = Object.fromEntries(
 )
 
 export const CROSSWORD_PUZZLE = CROSSWORD_PUZZLES.elementary[0]
-
-export function pickHangmanRound(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
-  const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveHangmanLevel(levelOrSeed)
-  const seed = typeof levelOrSeed === 'number' ? levelOrSeed : maybeSeed
-  const rounds = HANGMAN_DICTIONARY[level]
-  const index = Math.floor(Math.abs(seed) * rounds.length) % rounds.length
-  return rounds[index]
-}
 
 export function pickCrosswordPuzzle(levelOrSeed = 'elementary', maybeSeed = Math.random()) {
   const level = typeof levelOrSeed === 'number' ? 'elementary' : resolveCrosswordLevel(levelOrSeed)

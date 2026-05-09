@@ -7,6 +7,7 @@ RUN apk add --no-cache git python3 make g++
 # Copy only manifests first so this layer is cached until deps change
 COPY package.json yarn.lock ./
 COPY packages/grove-shell/package.json ./packages/grove-shell/
+COPY apps/gateway/package.json       ./apps/gateway/
 COPY apps/grove/package.json         ./apps/grove/
 COPY apps/nora/package.json          ./apps/nora/
 COPY apps/games/package.json         ./apps/games/
@@ -46,6 +47,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/watt.json    ./
 COPY --from=builder /app/packages/grove-shell ./packages/grove-shell
+
+# Gateway (entrypoint)
+COPY --from=builder /app/apps/gateway ./apps/gateway
 
 # Grove shell
 COPY --from=builder /app/apps/grove/package.json         ./apps/grove/

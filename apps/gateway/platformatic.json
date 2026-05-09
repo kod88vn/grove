@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.platformatic.dev/@platformatic/gateway/3.54.0.json",
+  "gateway": {
+    "applications": [
+      {
+        "id": "nora",
+        "proxy": { "prefix": "/chat" }
+      },
+      {
+        "id": "nora",
+        "proxy": { "prefix": "/api", "rewritePrefix": "/chat/api" }
+      },
+      {
+        "id": "games",
+        "proxy": { "prefix": "/games" }
+      },
+      {
+        "id": "shopping-list",
+        "proxy": { "prefix": "/shopping-list" }
+      },
+      {
+        "id": "reminders",
+        "proxy": { "prefix": "/reminders" }
+      },
+      {
+        "id": "grove",
+        "proxy": { "prefix": "/" }
+      }
+    ]
+  }
+}

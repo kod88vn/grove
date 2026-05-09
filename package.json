@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "packageManager": "yarn@1.17.3",
-  "workspaces": ["packages/*","apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "prepare": "husky",
-    "dev": "turbo run dev --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
+    "dev": "turbo dev",
     "dev:orchestrator": "yarn workspace @grove/orchestrator dev",
     "build": "turbo run build --filter=@grove/grove --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders",
     "start": "platformatic start",
@@ -17,6 +20,7 @@
     "test": "turbo run test"
   },
   "devDependencies": {
+    "@platformatic/gateway": "^3.54.0",
     "husky": "^9.1.7",
     "platformatic": "^3.53.0",
     "turbo": "^1.5.0"

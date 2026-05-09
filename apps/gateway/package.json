@@ -1,0 +1,9 @@
+{
+  "name": "@grove/gateway",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@platformatic/gateway": "^3.54.0"
+  }
+}

@@ -9,6 +9,34 @@ const LEVEL_PROMPTS = {
 
 const WORD_RE = /^[A-Z]{4,12}$/
 
+function cleanResponseContent(content) {
+  return String(content || '')
+    .trim()
+    .replace(/^```[a-z]*\n?/i, '')
+    .replace(/\n?```$/, '')
+    .trim()
+}
+
+function parseWordPayload(rawContent) {
+  const cleaned = cleanResponseContent(rawContent)
+
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    // Some models still prepend text despite JSON-mode; extract the first object.
+    const firstBrace = cleaned.indexOf('{')
+    const lastBrace = cleaned.lastIndexOf('}')
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1))
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+}
+
 export async function POST(request) {
   let level
   try {
@@ -26,52 +54,68 @@ export async function POST(request) {
     `{"word":"ELEPHANT","hint":"Largest land animal","mascot":"🐘"}\n` +
     `The word must be a single English word in ALL CAPS, 4–12 letters, no spaces or punctuation.`
 
-  let res
-  try {
-    res = await callOllama({
-      model: DEFAULT_MODEL,
-      stream: false,
-      options: { think: false, num_predict: 80 },
-      messages: [
-        { role: 'system', content: 'You are a helpful word game assistant. Respond only with valid JSON.' },
-        { role: 'user', content: prompt },
-      ],
+  let lastError = 'ai_unavailable'
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let res
+    try {
+      res = await callOllama({
+        model: DEFAULT_MODEL,
+        stream: false,
+        format: 'json',
+        options: {
+          think: false,
+          temperature: 0,
+          num_predict: 80,
+        },
+        messages: [
+          { role: 'system', content: 'You are a helpful word game assistant. Respond only with valid JSON.' },
+          {
+            role: 'user',
+            content:
+              attempt === 0
+                ? prompt
+                : `${prompt}\nIMPORTANT: Output a single JSON object only. No prose, no markdown, no code fence.`,
+          },
+        ],
+      })
+    } catch {
+      lastError = 'ai_unavailable'
+      continue
+    }
+
+    if (!res.ok) {
+      lastError = 'ai_unavailable'
+      continue
+    }
+
+    let json
+    try {
+      json = await res.json()
+    } catch {
+      lastError = 'bad_response'
+      continue
+    }
+
+    const parsed = parseWordPayload(json.message?.content)
+    if (!parsed || typeof parsed !== 'object') {
+      lastError = 'bad_word'
+      continue
+    }
+
+    const word = typeof parsed.word === 'string' ? parsed.word.trim().toUpperCase() : ''
+    if (!WORD_RE.test(word)) {
+      lastError = 'bad_word'
+      continue
+    }
+
+    return Response.json({
+      word,
+      hint: parsed.hint ?? '',
+      mascot: parsed.mascot ?? '🤔',
     })
-  } catch {
-    return Response.json({ error: 'ai_unavailable' }, { status: 503 })
   }
 
-  if (!res.ok) {
-    return Response.json({ error: 'ai_unavailable' }, { status: 503 })
-  }
-
-  let json
-  try {
-    json = await res.json()
-  } catch {
-    return Response.json({ error: 'bad_response' }, { status: 502 })
-  }
-
-  const content = json.message?.content?.trim() ?? ''
-
-  // Strip possible markdown code fences
-  const cleaned = content.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim()
-
-  let parsed
-  try {
-    parsed = JSON.parse(cleaned)
-  } catch {
-    return Response.json({ error: 'bad_word' }, { status: 502 })
-  }
-
-  const word = typeof parsed.word === 'string' ? parsed.word.trim().toUpperCase() : ''
-  if (!WORD_RE.test(word)) {
-    return Response.json({ error: 'bad_word' }, { status: 502 })
-  }
-
-  return Response.json({
-    word,
-    hint: parsed.hint ?? '',
-    mascot: parsed.mascot ?? '🤔',
-  })
+  const status = lastError === 'ai_unavailable' ? 503 : 502
+  return Response.json({ error: lastError }, { status })
 }
