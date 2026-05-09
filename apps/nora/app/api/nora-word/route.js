@@ -48,11 +48,19 @@ export async function POST(request) {
 
   const description = LEVEL_PROMPTS[level] ?? LEVEL_PROMPTS.elementary
 
+  // Random seed/letter hint to prevent the model from returning the same
+  // deterministic word on every call.
+  const seed = Math.floor(Math.random() * 1_000_000)
+  const startLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26))
+
   const prompt =
     `Give me one hangman word using ${description}.\n` +
+    `Pick a fresh, surprising word that starts with the letter "${startLetter}" if possible (otherwise any letter).\n` +
+    `Avoid common defaults like CAT, DOG, APPLE, ELEPHANT.\n` +
     `Respond with ONLY valid JSON, no extra text, no markdown:\n` +
     `{"word":"ELEPHANT","hint":"Largest land animal","mascot":"🐘"}\n` +
-    `The word must be a single English word in ALL CAPS, 3–12 letters, no spaces or punctuation.`
+    `The word must be a single English word in ALL CAPS, 3–12 letters, no spaces or punctuation.\n` +
+    `Variation token (ignore content, just use to vary output): ${seed}`
 
   let lastError = 'ai_unavailable'
 
@@ -65,7 +73,9 @@ export async function POST(request) {
         format: 'json',
         think: false,
         options: {
-          temperature: 0,
+          temperature: 0.9,
+          top_p: 0.95,
+          seed,
           num_predict: 200,
         },
         messages: [
