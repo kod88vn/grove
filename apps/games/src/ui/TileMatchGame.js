@@ -36,79 +36,32 @@ function getIndex(row, col, cols) {
 function canConnect(grid, cols, idx1, idx2, removed) {
   if (grid[idx1] !== grid[idx2] || removed.has(idx1) || removed.has(idx2)) return false
 
-  const rows = Math.ceil(grid.length / cols)
   const [r1, c1] = [Math.floor(idx1 / cols), idx1 % cols]
   const [r2, c2] = [Math.floor(idx2 / cols), idx2 % cols]
 
-  // Check horizontal line (same row, all cells between are not removed)
+  // Check horizontal line: same row, no tiles between
   if (r1 === r2) {
     const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-    let blocked = false
     for (let c = minC + 1; c < maxC; c++) {
-      if (removed.has(getIndex(r1, c, cols))) {
-        blocked = true
-        break
+      if (!removed.has(getIndex(r1, c, cols))) {
+        return false // blocked by another tile
       }
     }
-    if (!blocked) return true
+    return true
   }
 
-  // Check vertical line (same column, all cells between are not removed)
+  // Check vertical line: same column, no tiles between
   if (c1 === c2) {
     const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    let blocked = false
     for (let r = minR + 1; r < maxR; r++) {
-      if (removed.has(getIndex(r, c1, cols))) {
-        blocked = true
-        break
+      if (!removed.has(getIndex(r, c1, cols))) {
+        return false // blocked by another tile
       }
     }
-    if (!blocked) return true
+    return true
   }
 
-  // Check L-path: (r1,c1) -> (r1,c2) -> (r2,c2) OR (r1,c1) -> (r2,c1) -> (r2,c2)
-  // Corner 1: (r1, c2) — horizontal from c1 to c2 at row r1, then vertical from r1 to r2 at col c2
-  const corner1 = getIndex(r1, c2, cols)
-  if (!removed.has(corner1)) {
-    let path1Clear = true
-    const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-    for (let c = minC + 1; c < maxC; c++) {
-      if (removed.has(getIndex(r1, c, cols))) {
-        path1Clear = false
-        break
-      }
-    }
-    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    for (let r = minR + 1; r < maxR && path1Clear; r++) {
-      if (removed.has(getIndex(r, c2, cols))) {
-        path1Clear = false
-        break
-      }
-    }
-    if (path1Clear) return true
-  }
-
-  // Corner 2: (r2, c1) — vertical from r1 to r2 at col c1, then horizontal from c1 to c2 at row r2
-  const corner2 = getIndex(r2, c1, cols)
-  if (!removed.has(corner2)) {
-    let path2Clear = true
-    const [minR, maxR] = r1 < r2 ? [r1, r2] : [r2, r1]
-    for (let r = minR + 1; r < maxR; r++) {
-      if (removed.has(getIndex(r, c1, cols))) {
-        path2Clear = false
-        break
-      }
-    }
-    const [minC, maxC] = c1 < c2 ? [c1, c2] : [c2, c1]
-    for (let c = minC + 1; c < maxC && path2Clear; c++) {
-      if (removed.has(getIndex(r2, c, cols))) {
-        path2Clear = false
-        break
-      }
-    }
-    if (path2Clear) return true
-  }
-
+  // No match unless horizontal or vertical
   return false
 }
 
