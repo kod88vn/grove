@@ -1,9 +1,7 @@
 import { RECENT_KEEP, ROLLING_WINDOW } from './constants'
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://grove:11434'
-
 export async function callOllama(payload) {
-  return fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+  return fetch('http://grove:11434/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
