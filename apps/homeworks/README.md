@@ -21,13 +21,7 @@ AI-powered homework system for Grade 5 students focusing on English and Mathemat
    # or another model: mistral, neural-chat, etc.
    ```
 
-4. **Configure `.env.local` at the workspace root:**
-   ```bash
-   # /Users/kod/dev/grove/.env.local
-   OLLAMA_BASE_URL=http://localhost:11434
-   ```
-
-For production (Platformatic runtime), Ollama runs on the internal mesh at `http://grove:11434`.
+Ollama runs on the `grove` machine at `http://grove:11434` (Platformatic mesh). This is configured via `OLLAMA_HOST` in the workspace root `.env.local`.
 
 ## Features
 
@@ -77,7 +71,7 @@ For production (Platformatic runtime), Ollama runs on the internal mesh at `http
 ## Configuration
 
 Set environment variables:
-- `OLLAMA_BASE_URL` (default: `http://grove:11434`)
+- `OLLAMA_HOST` (default: `http://grove:11434`)
 - `OLLAMA_MODEL` (default: `llama2`)
 
 ## Testing

@@ -186,7 +186,7 @@ Each app keeps a `.env.production.local` in its own folder on the machine — ne
 
 **`apps/nora/.env.production.local`:**
 ```
-OLLAMA_BASE_URL=http://grove:11434
+OLLAMA_HOST=http://grove:11434
 ```
 
 Add per-app env files as new apps are introduced.
@@ -221,7 +221,7 @@ No port forwarding, no public IP exposure. Tailscale encrypts all traffic end-to
 3. ✅ `turbo` on PATH in Git Bash
 4. ✅ `watt.json` created at repo root
 5. ✅ `.github/workflows/deploy.yml` created with `runs-on: grove`
-6. Create `apps/nora/.env.production.local` on the machine with `OLLAMA_BASE_URL`
+6. Create `apps/nora/.env.production.local` on the machine with `OLLAMA_HOST`
 7. Open port 80 in Windows Firewall
 8. Push a trivial change to `apps/nora/` — confirm pipeline runs end-to-end and PM2 keeps `nora` online
 9. Foundation done — stabilize Nora on PM2
