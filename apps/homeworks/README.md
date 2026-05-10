@@ -2,6 +2,32 @@
 
 AI-powered homework system for Grade 5 students focusing on English and Mathematics.
 
+## Prerequisites
+
+**Ollama** must be running locally for exercise generation and grading to work.
+
+### Setup Ollama
+
+1. **Install Ollama** from [ollama.ai](https://ollama.ai)
+2. **Start the Ollama service:**
+   ```bash
+   ollama serve
+   ```
+   This starts Ollama on `http://localhost:11434` (default)
+
+3. **Pull a model** (if not already present):
+   ```bash
+   ollama pull llama2
+   # or another model: mistral, neural-chat, etc.
+   ```
+
+4. **For local dev**, set the environment variable when running:
+   ```bash
+   OLLAMA_BASE_URL=http://localhost:11434 yarn dev
+   ```
+
+For production (Platformatic runtime), Ollama runs on the internal mesh at `http://grove:11434`.
+
 ## Features
 
 ### 📚 English Section

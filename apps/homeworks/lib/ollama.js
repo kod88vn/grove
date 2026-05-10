@@ -2,17 +2,32 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://grove:11434'
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama2'
 
 export async function callOllama(payload) {
-  const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  
-  if (!res.ok) {
-    throw new Error(`Ollama API error: ${res.status}`)
+  try {
+    const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    
+    if (!res.ok) {
+      const errorDetails = await res.text().catch(() => 'No details')
+      const message = res.status === 404
+        ? `Ollama not found at ${OLLAMA_BASE_URL}. Ensure Ollama is running and OLLAMA_BASE_URL is set correctly.`
+        : `Ollama API error: ${res.status}`
+      throw new Error(message)
+    }
+    
+    return res
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(
+        `Cannot reach Ollama at ${OLLAMA_BASE_URL}. ` +
+        `Make sure Ollama is running. ` +
+        `For local dev, set: OLLAMA_BASE_URL=http://localhost:11434`
+      )
+    }
+    throw error
   }
-  
-  return res
 }
 
 export async function generateExercise(type, subject) {
