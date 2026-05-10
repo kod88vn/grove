@@ -21,9 +21,10 @@ AI-powered homework system for Grade 5 students focusing on English and Mathemat
    # or another model: mistral, neural-chat, etc.
    ```
 
-4. **For local dev**, set the environment variable when running:
+4. **Configure `.env.local` at the workspace root:**
    ```bash
-   OLLAMA_BASE_URL=http://localhost:11434 yarn dev
+   # /Users/kod/dev/grove/.env.local
+   OLLAMA_BASE_URL=http://localhost:11434
    ```
 
 For production (Platformatic runtime), Ollama runs on the internal mesh at `http://grove:11434`.

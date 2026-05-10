@@ -58,7 +58,7 @@ export function createServer(options = {}) {
     }
 
     if (req.method === 'GET' && requestUrl.pathname === '/weather') {
-      const location = requestUrl.searchParams.get('location') || process.env.WEATHER_LOCATION || 'Duluth, GA'
+      const location = requestUrl.searchParams.get('location') || process.env.GROVE_LOCATION || 'Duluth, Georgia, USA'
       const plan = buildExecutionPlan(`weather forecast for ${location}`, { surface: 'weather_widget' })
       const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
@@ -245,7 +245,7 @@ export function createServer(options = {}) {
       try {
         const execution = await executeToolPlan(toolPlan, {
           userMessage: body.message,
-          location: body.location || process.env.WEATHER_LOCATION || 'Duluth, GA',
+          location: body.location || process.env.GROVE_LOCATION || 'Duluth, Georgia, USA',
           weatherProvider,
           dashboardProvider,
           mcpExecutor,

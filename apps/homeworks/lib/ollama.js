@@ -1,4 +1,4 @@
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://grove:11434'
+const OLLAMA_BASE_URL = process.env.OLLAMA_HOST || 'http://grove:11434'
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama2'
 
 export async function callOllama(payload) {
