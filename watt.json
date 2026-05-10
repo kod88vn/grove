@@ -37,6 +37,10 @@
     {
       "id": "reminders",
       "path": "./apps/reminders"
+    },
+    {
+      "id": "homeworks",
+      "path": "./apps/homeworks"
     }
   ]
 }

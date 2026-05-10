@@ -31,6 +31,14 @@ const APPS = [
     accent: 'border-rose-200 hover:border-rose-400',
     badge: 'bg-rose-50 text-rose-700',
   },
+  {
+    href: '/homeworks',
+    label: 'Homeworks',
+    emoji: '📚',
+    description: 'AI-generated Grade 5 English and Math practice.',
+    accent: 'border-sky-200 hover:border-sky-400',
+    badge: 'bg-sky-50 text-sky-700',
+  },
 ]
 
 export default function LandingPage() {

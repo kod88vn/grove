@@ -8,6 +8,7 @@ const NORA_URL = process.env.PLT_NORA_URL || 'http://localhost:3001'
 const GAMES_URL = process.env.PLT_GAMES_URL || 'http://localhost:3002'
 const SHOPPING_LIST_URL = process.env.PLT_SHOPPING_LIST_URL || 'http://localhost:3003'
 const REMINDERS_URL = process.env.PLT_REMINDERS_URL || 'http://localhost:3004'
+const HOMEWORKS_URL = process.env.PLT_HOMEWORKS_URL || 'http://localhost:3005'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -24,6 +25,8 @@ const nextConfig = {
       { source: '/shopping-list/:path*', destination: `${SHOPPING_LIST_URL}/shopping-list/:path*` },
       { source: '/reminders', destination: `${REMINDERS_URL}/reminders` },
       { source: '/reminders/:path*', destination: `${REMINDERS_URL}/reminders/:path*` },
+      { source: '/homeworks', destination: `${HOMEWORKS_URL}/homeworks` },
+      { source: '/homeworks/:path*', destination: `${HOMEWORKS_URL}/homeworks/:path*` },
     ]
   },
 }

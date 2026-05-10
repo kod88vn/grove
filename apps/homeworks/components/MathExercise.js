@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 export function MathExercise({ onSubmit, loading }) {
   const [exercise, setExercise] = useState(null)
-  const [loading_, setLoading] = useState(false)
+  const [loading_, setLoading_] = useState(false)
   const [submitted, setSubmitted] = useState(null)
   const [answers, setAnswers] = useState({})
   const [work, setWork] = useState({})
