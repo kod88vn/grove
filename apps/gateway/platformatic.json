@@ -23,6 +23,10 @@
         "proxy": { "prefix": "/reminders" }
       },
       {
+        "id": "homeworks",
+        "proxy": { "prefix": "/homeworks" }
+      },
+      {
         "id": "grove",
         "proxy": { "prefix": "/" }
       }
