@@ -8,6 +8,7 @@ Monorepo for the Grove family's AI tools and skill library, managed with Turbore
 grove/
 ├── apps/
 │   ├── games/              # educational games workspace
+│   ├── homeworks/          # homework tracker app workspace
 │   ├── orchestrator/       # intent, skill, tool, and schema control plane for Nora and future apps
 │   ├── reminders/          # reminder and routine app workspace
 │   ├── shopping-list/      # shopping-list app workspace
@@ -54,6 +55,10 @@ AI-powered family chatbot built with Next.js 16, Tailwind CSS, and streaming res
 ### Shopping List
 
 Workspace boundary for the Grove shopping-list app. See [apps/shopping-list/README.md](apps/shopping-list/README.md).
+
+### Homeworks
+
+Workspace boundary for the Grove homeworks tracker app. See [apps/homeworks/README.md](apps/homeworks/README.md).
 
 ### Reminders
 

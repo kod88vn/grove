@@ -3,6 +3,7 @@ export const NAV_ITEMS = [
   { href: '/games', label: 'Games' },
   { href: '/shopping-list', label: 'Shopping List' },
   { href: '/reminders', label: 'Reminders' },
+  { href: '/homeworks', label: 'Homeworks' },
 ]
 
 export function getNavItems() {
