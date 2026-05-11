@@ -19,7 +19,7 @@ export function MathExercise({ onSubmit, loading }) {
       setWork({})
       setSubmitted(null)
     } catch (error) {
-      alert('Failed to load exercise: ' + error.message)
+      console.log('Failed to load exercise: ' + error.message)
     } finally {
       setLoading_(false)
     }
@@ -51,7 +51,7 @@ export function MathExercise({ onSubmit, loading }) {
       setSubmitted(result)
       onSubmit?.(result)
     } catch (error) {
-      alert('Failed to submit: ' + error.message)
+      console.log('Failed to submit: ' + error.message)
     } finally {
       setLoading_(false)
     }
@@ -107,6 +107,15 @@ export function MathExercise({ onSubmit, loading }) {
         )}
 
         <button
+          type="button"
+          onClick={() => setSubmitted(null)}
+          className="rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
+        >
+          Revise and Resubmit
+        </button>
+
+        <button
+          type="button"
           onClick={() => {
             setExercise(null)
             setSubmitted(null)

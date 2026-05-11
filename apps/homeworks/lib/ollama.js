@@ -1,13 +1,28 @@
 const NORA_URL = process.env.PLT_NORA_URL || 'http://localhost:3001'
 // Nora's Next.js app has basePath: '/chat'
 const NORA_BASE = `${NORA_URL}/chat`
+const NORA_TIMEOUT_MS = Number(process.env.HOMEWORKS_NORA_TIMEOUT_MS || 25000)
 
 async function callNora(path, body) {
-  const res = await fetch(`${NORA_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), NORA_TIMEOUT_MS)
+
+  let res
+  try {
+    res = await fetch(`${NORA_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      throw new Error(`Nora API timeout after ${NORA_TIMEOUT_MS}ms`) 
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')

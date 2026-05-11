@@ -22,9 +22,21 @@ export async function GET(request) {
     })
   } catch (error) {
     console.error('Exercise generation error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to generate exercise'
+    const isTimeout = message.includes('timeout')
+    const upstreamStatusMatch = message.match(/Nora API error\s+(\d{3})/)
+    const upstreamStatus = upstreamStatusMatch ? Number(upstreamStatusMatch[1]) : 0
+
+    let status = 500
+    if (isTimeout) {
+      status = 504
+    } else if (upstreamStatus >= 400 && upstreamStatus <= 599) {
+      status = upstreamStatus
+    }
+
     return Response.json(
-      { error: error.message || 'Failed to generate exercise' },
-      { status: 500 }
+      { error: message },
+      { status }
     )
   }
 }

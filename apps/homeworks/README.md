@@ -4,24 +4,13 @@ AI-powered homework system for Grade 5 students focusing on English and Mathemat
 
 ## Prerequisites
 
-**Ollama** must be running locally for exercise generation and grading to work.
+Nora must be running and reachable for exercise generation and grading to work.
 
-### Setup Ollama
+### Nora + Ollama connectivity
 
-1. **Install Ollama** from [ollama.ai](https://ollama.ai)
-2. **Start the Ollama service:**
-   ```bash
-   ollama serve
-   ```
-   This starts Ollama on `http://localhost:11434` (default)
-
-3. **Pull a model** (if not already present):
-   ```bash
-   ollama pull llama2
-   # or another model: mistral, neural-chat, etc.
-   ```
-
-Ollama runs on the `grove` machine at `http://grove:11434` (Platformatic mesh). This is configured via `OLLAMA_HOST` in the workspace root `.env.local`.
+1. Start Nora (`apps/nora`) so Homeworks can call `/chat/api/nora-homework/*`.
+2. Ensure Tailscale is connected so Nora can reach Ollama at `http://grove:11434`.
+3. Confirm `PLT_NORA_URL` points to the Nora app (default local dev: `http://localhost:3001`).
 
 ## Features
 
@@ -30,6 +19,7 @@ Ollama runs on the `grove` machine at `http://grove:11434` (Platformatic mesh). 
 - **Comprehension Quizzes**: Mix of multiple-choice and short-answer questions
 - **Varied Question Types**: Tests understanding in creative ways beyond simple recall
 - **AI Grading**: Receives feedback on comprehension and writing quality
+- **Revise & Resubmit**: Students can edit answers after grading and resubmit the same exercise
 
 ### 🔢 Math Section
 - **Step-by-Step Problem Solving**: Problems designed like textbook exercises
@@ -37,6 +27,7 @@ Ollama runs on the `grove` machine at `http://grove:11434` (Platformatic mesh). 
 - **Work Visibility**: Students must show their work for each step
 - **Scaffolded Learning**: Hints and step guides help guide problem-solving process
 - **AI Grading**: Checks both correct answers and proper methodology
+- **Revise & Resubmit**: Students can correct work and submit updated solutions without loading a new set
 
 ### 📊 Progress Review
 - **Comprehensive Tracking**: Track completion and scores over time
@@ -57,22 +48,22 @@ Ollama runs on the `grove` machine at `http://grove:11434` (Platformatic mesh). 
 - `ProgressReview.js` - Progress tracking and analytics
 
 ### Libraries
-- `lib/ollama.js` - Ollama AI integration for exercise generation and grading
+- `lib/ollama.js` - Nora API client for exercise generation and grading
 - `lib/progress.js` - Progress tracking and storage
 
 ## How It Works
 
-1. **Exercise Generation**: When a student starts an exercise, the app calls Ollama to generate an appropriate Grade 5 level exercise
+1. **Exercise Generation**: When a student starts an exercise, the app calls Nora (`/chat/api/nora-homework/exercise`), which generates exercise content from Ollama. English reading generation is chunked into passage then questions to reduce timeout risk.
 2. **Student Work**: Student reads, answers questions, or solves problems
-3. **AI Grading**: Submission is sent to Ollama for intelligent grading with feedback
+3. **AI Grading**: Submission is sent to Nora, which grades via Ollama
 4. **Progress Recording**: Results are recorded in the progress store
 5. **Feedback**: Student receives detailed feedback on their work
 
 ## Configuration
 
 Set environment variables:
-- `OLLAMA_HOST` (default: `http://grove:11434`)
-- `OLLAMA_MODEL` (default: `llama2`)
+- `PLT_NORA_URL` (default: `http://localhost:3001`)
+- `HOMEWORKS_NORA_TIMEOUT_MS` (default: `25000`)
 
 ## Testing
 

@@ -1,7 +1,8 @@
 import { RECENT_KEEP, ROLLING_WINDOW } from './constants'
 
 export async function callOllama(payload) {
-  return fetch('http://grove:11434/api/chat', {
+  const ollamaHost = String(process.env.OLLAMA_HOST || 'http://grove:11434').trim().replace(/\/+$/, '')
+  return fetch(`${ollamaHost}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

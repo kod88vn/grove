@@ -42,7 +42,7 @@ describe('normalizeUrl', () => {
 
   it('rejects non-http protocols', () => {
     expect(normalizeUrl({ url: 'ftp://example.com' })).toBe('')
-    expect(normalizeUrl({ url: 'javascript:alert(1)' })).toBe('')
+    expect(normalizeUrl({ url: 'javascript:console.log(1)' })).toBe('')
   })
 
   it('returns empty string for a malformed URL', () => {

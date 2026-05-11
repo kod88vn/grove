@@ -17,6 +17,8 @@ Nora is the Grove family's AI-powered chatbot. Built with Next.js 16 App Router,
 - **Thinking bubble** — separate assistant-thinking bubble stays visible until answer text starts, with a 3-line smooth auto-follow viewport that users can scroll upward
 - **Auto-scroll** — chat scrolls to latest message
 - **Dense crossword generation API** — `/api/nora-crossword` enforces higher-depth grids with level-based entry counts (`8/12/16` words) and strict intersection validation
+- **Homework generation uses structured output** — `/api/nora-homework/exercise` sends JSON schemas via Ollama `format` with `think: false`, retries transient empty payloads, and returns `502` on final failure
+- **Homework grading uses structured output** — `/api/nora-homework/grade` uses schema-formatted Ollama requests with retries for empty payloads, returning `502` on final failure
 
 ## Architecture
 
@@ -87,6 +89,8 @@ Visit http://localhost:3000
 | `DEFAULT_MODEL` | `qwen3.5:9b` | LLM model used server-side (`lib/constants.js`) |
 | `NEXT_PUBLIC_DEFAULT_MODEL` | `qwen3.5:9b` | Initial model shown in UI before `/api/models` loads |
 | `ORCHESTRATOR_URL` | `http://127.0.0.1:4010` | Endpoint for external orchestrator planning service |
+| `OLLAMA_HOST` | `http://grove:11434` | Ollama host used by Nora server routes |
+| `HOMEWORKS_OLLAMA_MODEL` | `DEFAULT_MODEL` | Optional model override for `/api/nora-homework/*` routes |
 
 ## API
 

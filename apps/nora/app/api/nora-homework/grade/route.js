@@ -1,6 +1,89 @@
 import { callOllama } from '@/app/api/chat/lib/ollama'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 
+const HOMEWORKS_MODEL = process.env.HOMEWORKS_OLLAMA_MODEL || DEFAULT_MODEL
+const MAX_OLLAMA_ATTEMPTS = 3
+
+const ENGLISH_READING_GRADE_SCHEMA = {
+  type: 'object',
+  properties: {
+    answers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          score: { type: 'number' },
+          feedback: { type: 'string' },
+        },
+        required: ['id', 'score', 'feedback'],
+      },
+    },
+    totalScore: { type: 'number' },
+    maxScore: { type: 'number' },
+    overallFeedback: { type: 'string' },
+  },
+  required: ['answers', 'totalScore', 'maxScore', 'overallFeedback'],
+  additionalProperties: false,
+}
+
+const ENGLISH_WRITING_GRADE_SCHEMA = {
+  type: 'object',
+  properties: {
+    criteria: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          score: { type: 'number' },
+          maxScore: { type: 'number' },
+          feedback: { type: 'string' },
+        },
+        required: ['name', 'score', 'maxScore', 'feedback'],
+      },
+    },
+    totalScore: { type: 'number' },
+    maxScore: { type: 'number' },
+    comment: { type: 'string' },
+  },
+  required: ['criteria', 'totalScore', 'maxScore', 'comment'],
+  additionalProperties: false,
+}
+
+const MATH_MIXED_GRADE_SCHEMA = {
+  type: 'object',
+  properties: {
+    problems: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          answer: { type: 'string' },
+          correct: { type: 'boolean' },
+          workShown: { type: 'boolean' },
+          feedback: { type: 'string' },
+        },
+        required: ['id', 'answer', 'correct', 'workShown', 'feedback'],
+      },
+    },
+    totalCorrect: { type: 'number' },
+    totalProblems: { type: 'number' },
+    score: { type: 'number' },
+    comment: { type: 'string' },
+  },
+  required: ['problems', 'totalCorrect', 'totalProblems', 'score', 'comment'],
+  additionalProperties: false,
+}
+
+function getGradeSchema(subject, type) {
+  if (subject === 'english' && type === 'reading') return ENGLISH_READING_GRADE_SCHEMA
+  if (subject === 'english' && type === 'writing') return ENGLISH_WRITING_GRADE_SCHEMA
+  if (subject === 'math' && type === 'mixed') return MATH_MIXED_GRADE_SCHEMA
+  return null
+}
+
 function buildPrompt(subject, type, exercise, answers) {
   if (subject === 'english' && type === 'reading') {
     return `You are a Grade 5 teacher grading reading comprehension. 
@@ -72,6 +155,62 @@ function extractJson(text) {
   }
 }
 
+function parseModelJson(json) {
+  const content = json?.message?.content
+  if (content && typeof content === 'object') {
+    return content
+  }
+
+  const trimmed = typeof content === 'string' ? content.trim() : ''
+  if (!trimmed) {
+    return null
+  }
+
+  return extractJson(trimmed)
+}
+
+async function gradeWithOllama(prompt, format) {
+  let lastError = null
+
+  for (let attempt = 1; attempt <= MAX_OLLAMA_ATTEMPTS; attempt += 1) {
+    try {
+      const res = await callOllama({
+        model: HOMEWORKS_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a supportive Grade 5 teacher. Grade student work fairly and provide constructive, encouraging feedback. Return only JSON that matches the provided schema exactly. No markdown, no prose.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        stream: false,
+        think: false,
+        format,
+      })
+
+      if (!res.ok) {
+        throw new Error(`Ollama error: ${res.status}`)
+      }
+
+      const json = await res.json()
+      const parsed = parseModelJson(json)
+      if (!parsed) {
+        throw new Error('Empty response from Ollama')
+      }
+
+      return parsed
+    } catch (error) {
+      lastError = error
+      if (attempt === MAX_OLLAMA_ATTEMPTS) {
+        break
+      }
+    }
+  }
+
+  throw lastError || new Error('Failed to grade with Ollama')
+}
+
 export async function POST(request) {
   let body
   try {
@@ -82,38 +221,19 @@ export async function POST(request) {
 
   const { subject, type, exercise, answers } = body || {}
   const prompt = buildPrompt(subject, type, exercise, answers)
+  const format = getGradeSchema(subject, type)
 
-  if (!prompt) {
+  if (!prompt || !format) {
     return Response.json({ error: `Unknown subject/type: ${subject}/${type}` }, { status: 400 })
   }
 
-  const res = await callOllama({
-    model: DEFAULT_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are a supportive Grade 5 teacher. Grade student work fairly and provide constructive, encouraging feedback. Always respond with valid JSON only, no other text.',
-      },
-      { role: 'user', content: prompt },
-    ],
-    stream: false,
-  })
-
-  if (!res.ok) {
-    return Response.json({ error: `Ollama error: ${res.status}` }, { status: 502 })
+  try {
+    const result = await gradeWithOllama(prompt, format)
+    return Response.json(result)
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Failed to grade submission' },
+      { status: 502 }
+    )
   }
-
-  const json = await res.json()
-  const content = json.message?.content?.trim()
-  if (!content) {
-    return Response.json({ error: 'Empty response from Ollama' }, { status: 502 })
-  }
-
-  const result = extractJson(content)
-  if (!result) {
-    return Response.json({ error: 'Invalid JSON from Ollama' }, { status: 502 })
-  }
-
-  return Response.json(result)
 }

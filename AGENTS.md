@@ -14,10 +14,20 @@ This document defines the roles and responsibilities of AI agents working within
 **Only Nora may call Ollama directly.** All other apps must call Nora's API routes.
 
 - Ollama runs at `http://grove:11434` inside the Platformatic mesh and is only reachable from Nora's server-side code.
+- Local/dev access to `http://grove:11434` depends on Tailscale connectivity; if Tailscale is disconnected, fail fast and restore connectivity.
+- Do not implement or attempt localhost Ollama fallbacks (for example `http://localhost:11434`) in Nora routes or helpers.
 - When a sibling app (e.g. `homeworks`, `games`) needs AI generation or grading, it POSTs to a Nora API route (e.g. `/api/nora-homework/exercise`).
 - Nora routes follow the pattern in `apps/nora/app/api/nora-crossword/route.js`: import `callOllama` and `DEFAULT_MODEL` from `@/app/api/chat/lib/`, then return `Response.json(...)`.
 - Sibling apps reach Nora via `process.env.PLT_NORA_URL` (default `http://localhost:3001` for local dev; resolved automatically in the Platformatic mesh in production).
 - **Never** add `OLLAMA_HOST`, `OLLAMA_BASE_URL`, or direct `http://grove:11434` fetch calls to any app other than Nora.
+
+## Prompt Failure Handling Policy
+
+- For content generation failures (for example empty/invalid model output), fix the prompt contract and request parameters first.
+- Add diagnostics (logs, traces, targeted tests) to identify why the model response failed.
+- Do **not** implement fallback content or fallback response paths that mask model errors.
+- Do **not** silently accept generation failure and substitute canned output.
+- Retries are allowed, but final failure should surface clearly so prompt/model issues are corrected at the source.
 
 ## Workspace Standards
 

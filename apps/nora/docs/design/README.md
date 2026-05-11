@@ -11,6 +11,7 @@ This folder replaces the previous single-file design doc with focused design fil
 - [tools.md](./tools.md): tool definitions and extension flow
 - [configuration.md](./configuration.md): environment and model configuration
 - [failure-modes.md](./failure-modes.md): failure and recovery behavior
+- [homeworks.md](./homeworks.md): homework generation strategy, schema contract, and retry/error behavior
 - [architecture-decisions.md](./architecture-decisions.md): ADR map and extension points
 
 ## Update Rule

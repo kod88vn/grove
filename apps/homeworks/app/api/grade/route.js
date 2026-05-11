@@ -58,9 +58,21 @@ export async function POST(request) {
     })
   } catch (error) {
     console.error('Grading error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to grade submission'
+    const isTimeout = message.includes('timeout')
+    const upstreamStatusMatch = message.match(/Nora API error\s+(\d{3})/)
+    const upstreamStatus = upstreamStatusMatch ? Number(upstreamStatusMatch[1]) : 0
+
+    let status = 500
+    if (isTimeout) {
+      status = 504
+    } else if (upstreamStatus >= 400 && upstreamStatus <= 599) {
+      status = upstreamStatus
+    }
+
     return Response.json(
-      { error: error.message || 'Failed to grade submission' },
-      { status: 500 }
+      { error: message },
+      { status }
     )
   }
 }

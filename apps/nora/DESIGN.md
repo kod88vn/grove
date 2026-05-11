@@ -11,6 +11,7 @@ Use these files directly:
 - [docs/design/tools.md](./docs/design/tools.md)
 - [docs/design/configuration.md](./docs/design/configuration.md)
 - [docs/design/failure-modes.md](./docs/design/failure-modes.md)
+- [docs/design/homeworks.md](./docs/design/homeworks.md)
 - [docs/design/architecture-decisions.md](./docs/design/architecture-decisions.md)
 
 
