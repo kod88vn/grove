@@ -298,19 +298,28 @@ Format as JSON with keys: prompt, keyPoints, outline, wordCountTarget (suggest 1
 
 Requirements:
 - Exactly 10 problems total.
-- At least 5 must be "column-method" addition/subtraction with 2-4 digit whole numbers.
-- Remaining problems must be "standard" multiplication/division facts.
+- At least 5 must be "column-method" problems using addition, subtraction, multiplication, or division with 2-4 digit whole numbers.
+- "column-method" problems MUST use a bare expression in the "problem" field — no narrative or story. Format examples: "24 × 38 = ?" or "432 ÷ 12 = ?" or "524 + 318 = ?" or "857 − 243 = ?".
+- Remaining problems must be "standard" word problems: 2-3 sentences with a named character or real-life setting, ending with a clear question. The expected answer is a single whole number.
 - For "column-method":
   - operands: two number strings, e.g. ["324","251"]
-  - operator: "+" or "-"
+  - operator: "+", "-", "*", or "/"
 - For "standard":
   - operands: []
   - operator: ""
 - operations: 1-2 simple words, e.g. ["addition"].
 - difficulty: easy | medium | hard.
 
+Good column-method examples:
+  - "24 × 38 = ?"
+  - "432 ÷ 12 = ?"
+  - "524 + 318 = ?"
+Good standard word problem examples:
+  - "Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?"
+  - "A farmer harvests 432 apples and divides them equally into 12 boxes. How many apples are in each box?"
+
 Return JSON only:
-{"problems":[{"id":1,"problem":"324 + 251 = ?","problemType":"column-method","operands":["324","251"],"operator":"+","operations":["addition"],"expectedAnswer":"575","difficulty":"easy"},{"id":2,"problem":"8 x 7 = ?","problemType":"standard","operands":[],"operator":"","operations":["multiplication"],"expectedAnswer":"56","difficulty":"medium"}]}`,
+{"problems":[{"id":1,"problem":"24 × 38 = ?","problemType":"column-method","operands":["24","38"],"operator":"*","operations":["multiplication"],"expectedAnswer":"912","difficulty":"medium"},{"id":2,"problem":"Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?","problemType":"standard","operands":[],"operator":"","operations":["multiplication"],"expectedAnswer":"144","difficulty":"easy"}]}`,
   },
 }
 

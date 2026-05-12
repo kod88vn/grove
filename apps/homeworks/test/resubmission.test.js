@@ -160,7 +160,7 @@ describe('exercise resubmission flow', () => {
     })
   })
 
-  it('renders column method grid and submits per-digit answer', async () => {
+  it('renders column method grid and submits multiplication answers', async () => {
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
@@ -169,13 +169,13 @@ describe('exercise resubmission flow', () => {
             problems: [
               {
                 id: 1,
-                problem: '24 + 38 = ?',
+                problem: '24 * 38 = ?',
                 problemType: 'column-method',
                 operands: ['24', '38'],
-                operator: '+',
-                operations: ['addition'],
-                expectedAnswer: '62',
-                difficulty: 'easy',
+                operator: '*',
+                operations: ['multiplication'],
+                expectedAnswer: '912',
+                difficulty: 'medium',
               },
             ],
           },
@@ -201,19 +201,32 @@ describe('exercise resubmission flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
 
-    await screen.findByText('Column Method: fill each digit box')
+    await screen.findByText('Long Multiplication: fill each digit box')
 
-    const carryTens = screen.getByLabelText('Carry T')
-    const carryOnes = screen.getByLabelText('Carry O')
+    // Partial product 1 (24 × 8 = 192): fills H, T, O columns
+    const pp1H = screen.getByLabelText('Partial product 1 digit H')
+    const pp1T = screen.getByLabelText('Partial product 1 digit T')
+    const pp1O = screen.getByLabelText('Partial product 1 digit O')
+
+    // Partial product 2 (24 × 3 = 72, shift 1): fills H, T columns; O is static '0'
+    const pp2H = screen.getByLabelText('Partial product 2 digit H')
+    const pp2T = screen.getByLabelText('Partial product 2 digit T')
+
+    const answerHundreds = screen.getByLabelText('Answer digit H')
     const answerTens = screen.getByLabelText('Answer digit T')
     const answerOnes = screen.getByLabelText('Answer digit O')
 
+    expect(answerHundreds).toBeRequired()
     expect(answerTens).toBeRequired()
     expect(answerOnes).toBeRequired()
 
-    fireEvent.change(carryTens, { target: { value: '1' } })
-    fireEvent.change(carryOnes, { target: { value: '' } })
-    fireEvent.change(answerTens, { target: { value: '6' } })
+    fireEvent.change(pp1H, { target: { value: '1' } })
+    fireEvent.change(pp1T, { target: { value: '9' } })
+    fireEvent.change(pp1O, { target: { value: '2' } })
+    fireEvent.change(pp2H, { target: { value: '7' } })
+    fireEvent.change(pp2T, { target: { value: '2' } })
+    fireEvent.change(answerHundreds, { target: { value: '9' } })
+    fireEvent.change(answerTens, { target: { value: '1' } })
     fireEvent.change(answerOnes, { target: { value: '2' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
@@ -221,12 +234,190 @@ describe('exercise resubmission flow', () => {
     await screen.findByText('Problems Graded!')
 
     const secondCallBody = JSON.parse(global.fetch.mock.calls[1][1].body)
-    expect(secondCallBody.answers.problems[0].answer).toBe('62')
+    expect(secondCallBody.answers.problems[0].answer).toBe('912')
     expect(secondCallBody.answers.problems[0].work).toBe(
       JSON.stringify({
-        digits: { 0: '6', 1: '2' },
-        carries: { 0: '1' },
+        digits: { 0: '9', 1: '1', 2: '2' },
+        carries: { pp0_0: '1', pp0_1: '9', pp0_2: '2', pp1_0: '7', pp1_1: '2' },
       })
     )
+  })
+
+  it('renders column method grid and submits division answers', async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exercise: {
+            problems: [
+              {
+                id: 1,
+                problem: '84 ÷ 7 = ?',
+                problemType: 'column-method',
+                operands: ['84', '7'],
+                operator: '/',
+                operations: ['division'],
+                expectedAnswer: '12',
+                difficulty: 'medium',
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          gradeResult: {
+            totalCorrect: 1,
+            totalProblems: 1,
+            comment: 'Good job',
+            problems: [{ id: 1, correct: true, workShown: true, feedback: 'Nice steps' }],
+          },
+          score: 1,
+          maxScore: 1,
+          percentage: 100,
+          feedback: 'Good job',
+        }),
+      })
+
+    render(<MathExercise />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
+
+    await screen.findByText('Long Division: fill each digit box')
+    expect(screen.getByText('84 ÷ 7 = ?')).toBeInTheDocument()
+
+    const quotientTens = screen.getByLabelText('Quotient digit T')
+    const quotientOnes = screen.getByLabelText('Quotient digit O')
+
+    // Step 1: 8 ÷ 7 → quotient digit 1, subtraction = 7 (single digit)
+    const step1Sub1 = screen.getByLabelText('Step 1 subtraction digit 1')
+    expect(step1Sub1).toBeRequired()
+    expect(screen.queryByLabelText('Step 1 subtraction digit 2')).toBeNull()
+
+    // Step 2: 14 ÷ 7 → quotient digit 2, subtraction = 14 (two digits)
+    const step2Sub1 = screen.getByLabelText('Step 2 subtraction digit 1')
+    const step2Sub2 = screen.getByLabelText('Step 2 subtraction digit 2')
+    expect(step2Sub1).toBeRequired()
+    expect(step2Sub2).toBeRequired()
+
+    // Working value between steps (bring-down 14) is rendered statically
+    const workingRow = screen.getByTestId('working-2')
+    expect(workingRow).toHaveTextContent('14')
+
+    // Final remainder 0 is rendered statically
+    expect(screen.getByTestId('final-remainder')).toHaveTextContent('0')
+
+    fireEvent.change(quotientTens, { target: { value: '1' } })
+    fireEvent.change(quotientOnes, { target: { value: '2' } })
+    fireEvent.change(step1Sub1, { target: { value: '7' } })
+    fireEvent.change(step2Sub1, { target: { value: '1' } })
+    fireEvent.change(step2Sub2, { target: { value: '4' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
+
+    await screen.findByText('Problems Graded!')
+
+    const secondCallBody = JSON.parse(global.fetch.mock.calls[1][1].body)
+    expect(secondCallBody.answers.problems[0].answer).toBe('12')
+    expect(secondCallBody.answers.problems[0].work).toBe(
+      JSON.stringify({
+        digits: { 0: '1', 1: '2' },
+        carries: { step1_0: '7', step2_0: '1', step2_1: '4' },
+      })
+    )
+  })
+
+  it('aligns long division steps under the correct dividend columns when leading quotient digit is zero', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        exercise: {
+          problems: [
+            {
+              id: 1,
+              problem: 'A factory packs 432 items into boxes of 12. How many full boxes?',
+              problemType: 'column-method',
+              operands: ['432', '12'],
+              operator: '/',
+              operations: ['division'],
+              expectedAnswer: '36',
+              difficulty: 'medium',
+            },
+          ],
+        },
+      }),
+    })
+
+    render(<MathExercise />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
+    await screen.findByText('Long Division: fill each digit box')
+
+    // 432 / 12 = 36 → leading quotient digit (hundreds) is 0 and is suppressed.
+    // Two visible quotient inputs over the tens & ones columns of the dividend.
+    expect(screen.getByLabelText('Quotient digit T')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quotient digit O')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Quotient digit H')).toBeNull()
+
+    // Step 1 (43 ÷ 12 → 3): subtraction is 36 (two digits)
+    expect(screen.getByLabelText('Step 1 subtraction digit 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Step 1 subtraction digit 2')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Step 1 subtraction digit 3')).toBeNull()
+
+    // Working value 72 is rendered before step 2 (the bring-down of remainder 7 with dividend's 2)
+    expect(screen.getByTestId('working-2')).toHaveTextContent('72')
+
+    // Step 2 (72 ÷ 12 → 6): subtraction is 72 (two digits)
+    expect(screen.getByLabelText('Step 2 subtraction digit 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Step 2 subtraction digit 2')).toBeInTheDocument()
+
+    // Final remainder = 0
+    expect(screen.getByTestId('final-remainder')).toHaveTextContent('0')
+  })
+
+  it('presents math problems as narrative word problems with highlighted numbers', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        exercise: {
+          problems: [
+            {
+              id: 1,
+              problem:
+                'Maya is helping her mother pack cookies for the school fair. She fills 24 trays with 38 cookies on each tray. How many cookies has she packed in total?',
+              problemType: 'standard',
+              operands: [],
+              operator: '',
+              operations: ['multiplication'],
+              expectedAnswer: '912',
+              difficulty: 'medium',
+            },
+          ],
+        },
+      }),
+    })
+
+    render(<MathExercise />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
+
+    // Narrative card label
+    await screen.findByText('Word Problem #1')
+
+    // Full narrative sentence is rendered
+    expect(
+      screen.getByText(/Maya is helping her mother pack cookies/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/How many cookies has she packed in total/i)).toBeInTheDocument()
+
+    // Numbers in the narrative are highlighted as <strong> elements
+    const highlighted24 = screen.getAllByText('24').find((el) => el.tagName === 'STRONG')
+    const highlighted38 = screen.getAllByText('38').find((el) => el.tagName === 'STRONG')
+    expect(highlighted24).toBeInTheDocument()
+    expect(highlighted38).toBeInTheDocument()
+
+    // "Numbers:" pill row lists the extracted numbers
+    expect(screen.getByText(/^Numbers:/)).toBeInTheDocument()
   })
 })

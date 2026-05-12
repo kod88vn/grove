@@ -201,15 +201,22 @@ describe('POST /api/nora-homework/exercise', () => {
     expect(callOllama).toHaveBeenCalledTimes(2)
   })
 
-  it('generates math mixed quiz with 10 column-method-compatible problems', async () => {
+  it('generates math mixed quiz with column-method multiplication and division coverage', async () => {
     const problems = Array.from({ length: 10 }, (_, i) => ({
       id: i + 1,
       problem: `Problem ${i + 1}`,
-      problemType: i < 5 ? 'column-method' : 'standard',
-      operands: i < 5 ? ['324', '251'] : [],
-      operator: i < 5 ? '+' : '',
-      operations: ['addition'],
-      expectedAnswer: String(i + 10),
+      problemType: i < 6 ? 'column-method' : 'standard',
+      operands:
+        i === 0
+          ? ['24', '38']
+          : i === 1
+            ? ['84', '7']
+            : i < 6
+              ? ['324', '251']
+              : [],
+      operator: i === 0 ? '*' : i === 1 ? '/' : i < 6 ? '+' : '',
+      operations: i === 0 ? ['multiplication'] : i === 1 ? ['division'] : ['addition'],
+      expectedAnswer: i === 0 ? '912' : i === 1 ? '12' : String(575 + i),
       difficulty: i % 3 === 0 ? 'easy' : i % 3 === 1 ? 'medium' : 'hard',
     }))
 
@@ -230,7 +237,10 @@ describe('POST /api/nora-homework/exercise', () => {
     expect(
       body.problems.filter((p) => p.problemType === 'column-method').length
     ).toBeGreaterThanOrEqual(5)
+    expect(body.problems.some((p) => p.problemType === 'column-method' && p.operator === '*')).toBe(true)
+    expect(body.problems.some((p) => p.problemType === 'column-method' && p.operator === '/')).toBe(true)
     expect(callOllama.mock.calls[0][0].messages[1].content).toContain('exactly 10 problems')
+    expect(callOllama.mock.calls[0][0].messages[1].content).toContain('multiplication, or division')
     expect(callOllama.mock.calls[0][0].format.properties.problems.minItems).toBe(10)
   })
 })
