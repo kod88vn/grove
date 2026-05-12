@@ -246,18 +246,30 @@ const MATH_MIXED_SCHEMA = {
   properties: {
     problems: {
       type: 'array',
-      minItems: 3,
-      maxItems: 3,
+      minItems: 10,
+      maxItems: 10,
       items: {
         type: 'object',
         properties: {
           id: { type: 'integer' },
           problem: { type: 'string' },
+          problemType: { type: 'string', enum: ['column-method', 'standard'] },
+          operands: { type: 'array', items: { type: 'string' } },
+          operator: { type: 'string' },
           operations: { type: 'array', items: { type: 'string' } },
           expectedAnswer: { type: 'string' },
           difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'] },
         },
-        required: ['id', 'problem', 'operations', 'expectedAnswer', 'difficulty'],
+        required: [
+          'id',
+          'problem',
+          'problemType',
+          'operands',
+          'operator',
+          'operations',
+          'expectedAnswer',
+          'difficulty',
+        ],
       },
     },
   },
@@ -267,7 +279,7 @@ const MATH_MIXED_SCHEMA = {
 
 const PROMPTS = {
   english: {
-  readingQuestions: `Given the passage below, create exactly 3 Grade 5 comprehension questions:
+    readingQuestions: `Given the passage below, create exactly 3 Grade 5 comprehension questions:
 1) one multiple-choice with exactly 3 options,
 2) one short-answer,
 3) one creative short-answer.
@@ -282,15 +294,23 @@ Return JSON only:
 Format as JSON with keys: prompt, keyPoints, outline, wordCountTarget (suggest 150-250 words)`,
   },
   math: {
-    mixed: `Generate a Grade 5 Math problem set with 3 problems mixing operations. For each problem:
-1. The problem statement
-2. Required step-by-step solution showing each operation
-3. Space for student work
+    mixed: `Generate a Grade 5 Math quiz with exactly 10 problems. Keep text short and compact.
 
-Include: 1 multi-step addition/subtraction, 1 multiplication, 1 division problem
-All numbers should result in whole numbers or simple decimals.
+Requirements:
+- Exactly 10 problems total.
+- At least 5 must be "column-method" addition/subtraction with 2-4 digit whole numbers.
+- Remaining problems must be "standard" multiplication/division facts.
+- For "column-method":
+  - operands: two number strings, e.g. ["324","251"]
+  - operator: "+" or "-"
+- For "standard":
+  - operands: []
+  - operator: ""
+- operations: 1-2 simple words, e.g. ["addition"].
+- difficulty: easy | medium | hard.
 
-Format as JSON with: problems (array with: id, problem, operations (array showing steps like "addition", "multiplication"), expectedAnswer, difficulty ('easy'|'medium'|'hard'))`,
+Return JSON only:
+{"problems":[{"id":1,"problem":"324 + 251 = ?","problemType":"column-method","operands":["324","251"],"operator":"+","operations":["addition"],"expectedAnswer":"575","difficulty":"easy"},{"id":2,"problem":"8 x 7 = ?","problemType":"standard","operands":[],"operator":"","operations":["multiplication"],"expectedAnswer":"56","difficulty":"medium"}]}`,
   },
 }
 
@@ -381,7 +401,6 @@ export async function POST(request) {
         recentReadingTopics.shift()
       }
 
-      // Chunk generation into two smaller model calls to reduce latency.
       const passageJson = await askJson(
         [
           {
@@ -397,7 +416,6 @@ export async function POST(request) {
       )
 
       const passage = String(passageJson.passage || '').trim()
-
       if (!passage) {
         return Response.json({ error: 'Failed to generate passage' }, { status: 502 })
       }
@@ -419,7 +437,6 @@ export async function POST(request) {
       )
 
       const questions = Array.isArray(questionsJson.questions) ? questionsJson.questions : []
-
       if (questions.length === 0) {
         return Response.json({ error: 'Failed to generate questions' }, { status: 502 })
       }
@@ -437,7 +454,7 @@ export async function POST(request) {
         },
         { role: 'user', content: prompt },
       ],
-      360,
+      subject === 'math' ? 1600 : 360,
       subject === 'english' && type === 'writing' ? WRITING_SCHEMA : MATH_MIXED_SCHEMA
     )
 

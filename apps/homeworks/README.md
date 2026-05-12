@@ -24,7 +24,9 @@ Nora must be running and reachable for exercise generation and grading to work.
 ### 🔢 Math Section
 - **Step-by-Step Problem Solving**: Problems designed like textbook exercises
 - **Four Operations**: Addition, subtraction, multiplication, and division
+- **10-Question Quiz**: Mixed math quizzes now generate exactly 10 problems
 - **Work Visibility**: Students must show their work for each step
+- **Column Method Grid**: Column-method items show per-digit boxes (plus carry row) for place-value work
 - **Scaffolded Learning**: Hints and step guides help guide problem-solving process
 - **AI Grading**: Checks both correct answers and proper methodology
 - **Revise & Resubmit**: Students can correct work and submit updated solutions without loading a new set
@@ -44,7 +46,7 @@ Nora must be running and reachable for exercise generation and grading to work.
 
 ### Components
 - `EnglishExercise.js` - Reading passage and comprehension quiz
-- `MathExercise.js` - Math problems with step-by-step work
+- `MathExercise.js` - Math problems with column-method digit grid and standard-answer mode
 - `ProgressReview.js` - Progress tracking and analytics
 
 ### Libraries
@@ -63,7 +65,7 @@ Nora must be running and reachable for exercise generation and grading to work.
 
 Set environment variables:
 - `PLT_NORA_URL` (default: `http://localhost:3001`)
-- `HOMEWORKS_NORA_TIMEOUT_MS` (default: `25000`)
+- `HOMEWORKS_NORA_TIMEOUT_MS` (default: `60000`)
 
 ## Testing
 

@@ -159,4 +159,74 @@ describe('exercise resubmission flow', () => {
       expect(global.fetch).toHaveBeenCalledTimes(3)
     })
   })
+
+  it('renders column method grid and submits per-digit answer', async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exercise: {
+            problems: [
+              {
+                id: 1,
+                problem: '24 + 38 = ?',
+                problemType: 'column-method',
+                operands: ['24', '38'],
+                operator: '+',
+                operations: ['addition'],
+                expectedAnswer: '62',
+                difficulty: 'easy',
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          gradeResult: {
+            totalCorrect: 1,
+            totalProblems: 1,
+            comment: 'Good job',
+            problems: [{ id: 1, correct: true, workShown: true, feedback: 'Nice steps' }],
+          },
+          score: 1,
+          maxScore: 1,
+          percentage: 100,
+          feedback: 'Good job',
+        }),
+      })
+
+    render(<MathExercise />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
+
+    await screen.findByText('Column Method: fill each digit box')
+
+    const carryTens = screen.getByLabelText('Carry T')
+    const carryOnes = screen.getByLabelText('Carry O')
+    const answerTens = screen.getByLabelText('Answer digit T')
+    const answerOnes = screen.getByLabelText('Answer digit O')
+
+    expect(answerTens).toBeRequired()
+    expect(answerOnes).toBeRequired()
+
+    fireEvent.change(carryTens, { target: { value: '1' } })
+    fireEvent.change(carryOnes, { target: { value: '' } })
+    fireEvent.change(answerTens, { target: { value: '6' } })
+    fireEvent.change(answerOnes, { target: { value: '2' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
+
+    await screen.findByText('Problems Graded!')
+
+    const secondCallBody = JSON.parse(global.fetch.mock.calls[1][1].body)
+    expect(secondCallBody.answers.problems[0].answer).toBe('62')
+    expect(secondCallBody.answers.problems[0].work).toBe(
+      JSON.stringify({
+        digits: { 0: '6', 1: '2' },
+        carries: { 0: '1' },
+      })
+    )
+  })
 })

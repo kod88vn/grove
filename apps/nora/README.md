@@ -18,6 +18,7 @@ Nora is the Grove family's AI-powered chatbot. Built with Next.js 16 App Router,
 - **Auto-scroll** — chat scrolls to latest message
 - **Dense crossword generation API** — `/api/nora-crossword` enforces higher-depth grids with level-based entry counts (`8/12/16` words) and strict intersection validation
 - **Homework generation uses structured output** — `/api/nora-homework/exercise` sends JSON schemas via Ollama `format` with `think: false`, retries transient empty payloads, and returns `502` on final failure
+- **Math column-method output contract** — mixed math generation returns 10 problems with column-method metadata (`problemType`, `operands`, `operator`) for per-digit UI rendering
 - **Homework grading uses structured output** — `/api/nora-homework/grade` uses schema-formatted Ollama requests with retries for empty payloads, returning `502` on final failure
 
 ## Architecture

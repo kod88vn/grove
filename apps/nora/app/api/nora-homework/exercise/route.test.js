@@ -201,33 +201,36 @@ describe('POST /api/nora-homework/exercise', () => {
     expect(callOllama).toHaveBeenCalledTimes(2)
   })
 
-  it('falls back to candidate profile when profile review returns empty', async () => {
-    callOllama
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ message: { content: '   ' } }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: { content: '{"passage":"A fallback-profile passage."}' } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: {
-            content:
-              '{"questions":[{"id":1,"type":"multiple-choice","question":"Q1?","options":["A","B","C"],"correctAnswer":"A"},{"id":2,"type":"short-answer","question":"Q2?","correctAnswer":"Ans2"},{"id":3,"type":"short-answer","question":"Q3?","correctAnswer":"Ans3"}]}'
-          },
-        }),
-      })
+  it('generates math mixed quiz with 10 column-method-compatible problems', async () => {
+    const problems = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      problem: `Problem ${i + 1}`,
+      problemType: i < 5 ? 'column-method' : 'standard',
+      operands: i < 5 ? ['324', '251'] : [],
+      operator: i < 5 ? '+' : '',
+      operations: ['addition'],
+      expectedAnswer: String(i + 10),
+      difficulty: i % 3 === 0 ? 'easy' : i % 3 === 1 ? 'medium' : 'hard',
+    }))
+
+    callOllama.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: { content: { problems } } }),
+    })
 
     const request = {
-      json: jest.fn().mockResolvedValue({ subject: 'english', type: 'reading' }),
+      json: jest.fn().mockResolvedValue({ subject: 'math', type: 'mixed' }),
     }
 
     const response = await POST(request)
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.passage).toBe('A fallback-profile passage.')
-    expect(body.questions).toHaveLength(3)
-    expect(callOllama).toHaveBeenCalledTimes(3)
+    expect(body.problems).toHaveLength(10)
+    expect(
+      body.problems.filter((p) => p.problemType === 'column-method').length
+    ).toBeGreaterThanOrEqual(5)
+    expect(callOllama.mock.calls[0][0].messages[1].content).toContain('exactly 10 problems')
+    expect(callOllama.mock.calls[0][0].format.properties.problems.minItems).toBe(10)
   })
 })

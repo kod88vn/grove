@@ -52,7 +52,7 @@ Nora sends an explicit schema in the Ollama `format` field for each shape:
 - passage schema (`{ passage: string }`)
 - questions schema (`{ questions: [...] }`)
 - writing schema
-- math mixed schema
+- math mixed schema (exactly 10 problems with column-method metadata)
 
 Nora also sets:
 
@@ -60,6 +60,12 @@ Nora also sets:
 - `think: false`
 
 This combination reduces non-JSON output and lowers empty/invalid payload rates.
+
+For math mixed generation, Nora requires:
+
+- exactly 10 problems
+- a combination of `column-method` and `standard` problems
+- `operands` and `operator` for `column-method` items so UI can render place-value digit boxes
 
 ### 3) Retry Transient Empty/Invalid Payloads
 

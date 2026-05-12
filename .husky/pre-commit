@@ -1,2 +1,26 @@
 #!/usr/bin/env sh
+# Ensure Node is available when Git hooks are run from GUI apps (e.g. Sourcetree).
+for p in "$HOME/.volta/bin" "/opt/homebrew/bin" "/usr/local/bin"; do
+	case ":$PATH:" in
+		*":$p:"*) ;;
+		*) PATH="$p:$PATH" ;;
+	esac
+done
+
+# Load nvm if present (common on macOS dev machines).
+if [ -z "${NVM_DIR:-}" ]; then
+	NVM_DIR="$HOME/.nvm"
+fi
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+	. "$NVM_DIR/nvm.sh"
+fi
+
+export PATH
+
+if ! command -v node >/dev/null 2>&1; then
+	echo "husky - node not found in PATH: $PATH"
+	echo "husky - install Node or expose it to GUI apps (Sourcetree)"
+	exit 127
+fi
+
 yarn test

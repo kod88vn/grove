@@ -13,6 +13,7 @@ COPY apps/nora/package.json          ./apps/nora/
 COPY apps/games/package.json         ./apps/games/
 COPY apps/shopping-list/package.json ./apps/shopping-list/
 COPY apps/reminders/package.json     ./apps/reminders/
+COPY apps/homeworks/package.json     ./apps/homeworks/
 
 RUN yarn install --frozen-lockfile --ignore-scripts && \
 	npm rebuild better-sqlite3
@@ -35,7 +36,8 @@ RUN yarn workspace @grove/grove build && \
     yarn workspace nora build && \
     yarn workspace @grove/games build && \
     yarn workspace @grove/shopping-list build && \
-    yarn workspace @grove/reminders build
+    yarn workspace @grove/reminders build && \
+    yarn workspace @grove/homeworks build
 
 # ─── Stage 3: production runner ────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -75,6 +77,11 @@ COPY --from=builder /app/apps/shopping-list/.next                ./apps/shopping
 COPY --from=builder /app/apps/reminders/package.json     ./apps/reminders/
 COPY --from=builder /app/apps/reminders/next.config.js   ./apps/reminders/
 COPY --from=builder /app/apps/reminders/.next            ./apps/reminders/.next
+
+# Homeworks
+COPY --from=builder /app/apps/homeworks/package.json     ./apps/homeworks/
+COPY --from=builder /app/apps/homeworks/next.config.js   ./apps/homeworks/
+COPY --from=builder /app/apps/homeworks/.next            ./apps/homeworks/.next
 
 # App port + Prometheus metrics port
 EXPOSE 80
