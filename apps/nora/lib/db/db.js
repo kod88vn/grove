@@ -28,6 +28,24 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
   CREATE INDEX IF NOT EXISTS idx_chats_user_updated ON chats(user_id, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS skills_library (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    skill_category TEXT NOT NULL,
+    skill_name TEXT NOT NULL,
+    skill_label TEXT NOT NULL,
+    problem_text TEXT NOT NULL,
+    problem_json TEXT NOT NULL,
+    answer_json TEXT NOT NULL,
+    score REAL NOT NULL,
+    max_score REAL NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_skills_library_student ON skills_library(student_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_skills_library_skill ON skills_library(student_id, skill_category, skill_name);
 `
 
 export function createDatabase(dbPath) {

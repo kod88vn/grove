@@ -27,6 +27,8 @@ const nextConfig = {
       { source: '/reminders/:path*', destination: `${REMINDERS_URL}/reminders/:path*` },
       { source: '/homeworks', destination: `${HOMEWORKS_URL}/homeworks` },
       { source: '/homeworks/:path*', destination: `${HOMEWORKS_URL}/homeworks/:path*` },
+      { source: '/library', destination: `${HOMEWORKS_URL}/homeworks/library` },
+      { source: '/library/:path*', destination: `${HOMEWORKS_URL}/homeworks/library/:path*` },
     ]
   },
 }

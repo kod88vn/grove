@@ -66,6 +66,7 @@ For math mixed generation, Nora requires:
 - exactly 10 problems
 - a combination of `column-method` and `standard` problems
 - `operands` and `operator` for `column-method` items so UI can render place-value digit boxes
+- column-method coverage can include addition, subtraction, multiplication, and division
 
 ### 3) Retry Transient Empty/Invalid Payloads
 

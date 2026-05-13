@@ -86,7 +86,7 @@ describe('exercise resubmission flow', () => {
         json: async () => ({
           exercise: {
             problems: [
-              { id: 1, problem: '6 + 4', operations: ['add 6 and 4'] },
+              { id: 1, problem: '6 + 4', operations: ['add 6 and 4'], skillCategory: 'addition-subtraction', skillName: 'Add Whole Numbers', skillLabel: '➕ Add Whole Numbers' },
             ],
           },
         }),
@@ -108,6 +108,11 @@ describe('exercise resubmission flow', () => {
           feedback: 'Please revise',
         }),
       })
+      // Mock for library save after first submission
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'lib-1', success: true }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -124,6 +129,11 @@ describe('exercise resubmission flow', () => {
           percentage: 100,
           feedback: 'Great correction',
         }),
+      })
+      // Mock for library save after second submission
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'lib-2', success: true }),
       })
 
     render(<MathExercise />)
@@ -156,7 +166,7 @@ describe('exercise resubmission flow', () => {
     await screen.findByText('Problems Graded!')
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(3)
+      expect(global.fetch).toHaveBeenCalledTimes(5)
     })
   })
 
@@ -176,6 +186,9 @@ describe('exercise resubmission flow', () => {
                 operations: ['multiplication'],
                 expectedAnswer: '912',
                 difficulty: 'medium',
+                skillCategory: 'multiplication',
+                skillName: 'Long Multiplication',
+                skillLabel: '✖️ Long Multiplication',
               },
             ],
           },
@@ -195,6 +208,11 @@ describe('exercise resubmission flow', () => {
           percentage: 100,
           feedback: 'Good job',
         }),
+      })
+      // Mock for library save
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'lib-1', success: true }),
       })
 
     render(<MathExercise />)

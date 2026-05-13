@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const PLACE_LABELS = ['O', 'T', 'H', 'Th', 'TTh', 'HTh']
 
@@ -439,7 +439,7 @@ function getOperatorLabel(op) {
   return ''
 }
 
-export function MathExercise({ onSubmit, loading }) {
+export function MathExercise({ onSubmit, loading, skillCategory, autoStart = false }) {
   const [exercise, setExercise] = useState(null)
   const [loading_, setLoading_] = useState(false)
   const [submitted, setSubmitted] = useState(null)
@@ -451,7 +451,12 @@ export function MathExercise({ onSubmit, loading }) {
   async function loadExercise() {
     setLoading_(true)
     try {
-      const res = await fetch('/homeworks/api/exercises?subject=math&type=mixed')
+      const query = new URLSearchParams({ subject: 'math', type: 'mixed' })
+      if (skillCategory) {
+        query.set('skillCategory', skillCategory)
+      }
+
+      const res = await fetch(`/homeworks/api/exercises?${query.toString()}`)
       const data = await res.json()
       setExercise(data.exercise)
       setAnswers({})
@@ -465,6 +470,13 @@ export function MathExercise({ onSubmit, loading }) {
       setLoading_(false)
     }
   }
+
+  useEffect(() => {
+    if (autoStart && !exercise && !loading_) {
+      loadExercise()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, skillCategory])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -500,6 +512,44 @@ export function MathExercise({ onSubmit, loading }) {
 
       const result = await res.json()
       setSubmitted(result)
+
+      // Save each problem to skills library
+      if (result.gradeResult?.problems) {
+        for (const gradedProblem of result.gradeResult.problems) {
+          const originalProblem = exercise.problems.find((p) => p.id === gradedProblem.id)
+          if (originalProblem) {
+            const studentAnswer =
+              originalProblem.problemType === 'column-method'
+                ? assembleColumnAnswer(originalProblem, columnDigits[originalProblem.id] || {})
+                : answers[originalProblem.id]
+
+            try {
+              await fetch('/api/nora-homework/library', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  studentId: 'default',
+                  subject: 'math',
+                  skillCategory: originalProblem.skillCategory || 'general',
+                  skillName: originalProblem.skillName || 'Math',
+                  skillLabel: originalProblem.skillLabel || '📝 Math Problem',
+                  problemText: originalProblem.problem,
+                  problemJson: originalProblem,
+                  answerJson: {
+                    studentAnswer,
+                    expectedAnswer: originalProblem.expectedAnswer,
+                  },
+                  score: gradedProblem.correct ? 1 : 0,
+                  maxScore: 1,
+                }),
+              })
+            } catch (error) {
+              console.log('Error saving to library:', error)
+            }
+          }
+        }
+      }
+
       onSubmit?.(result)
     } catch (error) {
       console.log('Failed to submit: ' + error.message)
@@ -511,6 +561,11 @@ export function MathExercise({ onSubmit, loading }) {
   if (!exercise) {
     return (
       <div className="space-y-4">
+        {skillCategory && (
+          <p className="text-sm text-slate-600">
+            Section practice mode: {skillCategory}
+          </p>
+        )}
         <button
           onClick={loadExercise}
           disabled={loading_ || loading}

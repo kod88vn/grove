@@ -32,8 +32,13 @@ async function callNora(path, body) {
   return res.json()
 }
 
-export async function generateExercise(type, subject) {
-  return callNora('/api/nora-homework/exercise', { subject, type })
+export async function generateExercise(type, subject, options = {}) {
+  const { skillCategory } = options
+  return callNora('/api/nora-homework/exercise', {
+    subject,
+    type,
+    ...(skillCategory ? { skillCategory } : {}),
+  })
 }
 
 export async function gradeSubmission(type, subject, exercise, answers) {

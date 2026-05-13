@@ -32,3 +32,16 @@ When asked to update skills, always treat `apps/ai-skill-library` as the canonic
 - Discovery path for Copilot: `.github/skills/` (linked to the library skills folder)
 - If a skill update is requested, inspect existing skills in the library, then modify the matching skill files under `apps/ai-skill-library/skills/`.
 - Prefer reusing existing workflow skills before creating new ones.
+
+## Repository Defaults
+
+- Default GitHub repository context for MCP operations:
+	- Owner: `kod88vn`
+	- Repository: `grove`
+- When a user asks for PR/check/build status and does not provide repo details, assume `kod88vn/grove` first.
+
+## Build-Fix Workflow
+
+- If the user asks to "fix build" (or equivalent), first query GitHub MCP for the relevant PR/commit status checks and workflow results in `kod88vn/grove`.
+- Use those failing checks/log context to scope the fix before making code changes.
+- If no PR is provided, inspect the most recently updated open PR first; if none exist, ask for a branch/commit to diagnose.

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { EnglishExercise } from '../components/EnglishExercise'
 import { MathExercise } from '../components/MathExercise'
 import { ProgressReview } from '../components/ProgressReview'
@@ -14,6 +15,25 @@ const SECTIONS = {
 export default function HomeworksPage() {
   const [activeSection, setActiveSection] = useState(SECTIONS.english)
   const [lastSubmission, setLastSubmission] = useState(null)
+  const [requestedSection, setRequestedSection] = useState(null)
+  const [requestedSkillCategory, setRequestedSkillCategory] = useState(undefined)
+  const [autoStartPractice, setAutoStartPractice] = useState(false)
+  const isSkillsLibraryNavEnabled = ['1', 'true'].includes(
+    String(process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV || '').toLowerCase()
+  )
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setRequestedSection(params.get('section'))
+    setRequestedSkillCategory(params.get('skillCategory') || undefined)
+    setAutoStartPractice(params.get('practice') === '1')
+  }, [])
+
+  useEffect(() => {
+    if (requestedSection === SECTIONS.math) {
+      setActiveSection(SECTIONS.math)
+    }
+  }, [requestedSection])
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -54,6 +74,14 @@ export default function HomeworksPage() {
         >
           📊 Progress
         </button>
+        {isSkillsLibraryNavEnabled && (
+          <Link
+            href="/library"
+            className="ml-auto px-4 py-3 font-medium text-slate-600 transition-all hover:text-slate-800"
+          >
+            📚 Skills Library
+          </Link>
+        )}
       </div>
 
       {/* Success Banner */}
@@ -92,7 +120,11 @@ export default function HomeworksPage() {
               Solve math problems by showing your work step-by-step. Covers addition, subtraction,
               multiplication, and division. Remember to show all your steps!
             </p>
-            <MathExercise onSubmit={setLastSubmission} />
+            <MathExercise
+              onSubmit={setLastSubmission}
+              skillCategory={requestedSkillCategory}
+              autoStart={autoStartPractice}
+            />
           </div>
         )}
 

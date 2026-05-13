@@ -33,3 +33,15 @@ This document defines the roles and responsibilities of AI agents working within
 
 - **Linkification**: When mentioning files in chat, always use markdown links: `[path/to/file.ts](path/to/file.ts)`.
 - **Documentation**: Update `DESIGN.md` and `README.md` immediately after any structural or capability change.
+
+## Routing Contract (Critical)
+
+Grove routing is layered. Do not treat app-local routes as globally reachable unless they are wired through the gateway/dev shell.
+
+- `apps/homeworks` has `basePath: /homeworks`; its `app/library/page.js` resolves to `/homeworks/library` at the app level.
+- Public top-level paths in production are controlled by `apps/gateway/platformatic.json` proxies.
+- Public top-level paths in local dev (`yarn dev`) are controlled by `apps/grove/next.config.js` rewrites.
+- For any new top-level route alias (example: `/library`), update both:
+	- Gateway proxy mapping (`apps/gateway/platformatic.json`)
+	- Grove dev rewrites (`apps/grove/next.config.js`)
+- In Next.js UI code, use `next/link` (not raw `<a href>` for internal navigation) so `basePath` and app routing are handled correctly.

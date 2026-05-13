@@ -26,7 +26,11 @@ Nora must be running and reachable for exercise generation and grading to work.
 - **Four Operations**: Addition, subtraction, multiplication, and division
 - **10-Question Quiz**: Mixed math quizzes now generate exactly 10 problems
 - **Work Visibility**: Students must show their work for each step
-- **Column Method Grid**: Column-method items show per-digit boxes (plus carry row) for place-value work
+- **Column Method Grid**: Column-method items show operator-specific multi-row layouts:
+  - **Addition / Subtraction**: Stacked operands with a carry row and a per-digit answer row
+  - **Long Multiplication**: Multiplicand and multiplier rows, then one fill-in partial-product row per digit of the multiplier (trailing zeros shown statically for positional shift), then a fill-in final-answer row
+  - **Long Division**: Classic bracket layout — quotient fill-in boxes above the dividend, then per-step rows showing the static bring-down value and a fill-in subtraction row, ending with the static remainder
+- **Word Problems**: All problems are real-life word problem sentences (not bare equations); column-method problems also display a derived `Calculate: X op Y = ?` line for clarity
 - **Scaffolded Learning**: Hints and step guides help guide problem-solving process
 - **AI Grading**: Checks both correct answers and proper methodology
 - **Revise & Resubmit**: Students can correct work and submit updated solutions without loading a new set

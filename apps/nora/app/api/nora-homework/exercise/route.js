@@ -1,5 +1,6 @@
 import { callOllama } from '@/app/api/chat/lib/ollama'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
+import { MATH_SKILLS_CATALOG } from '@/lib/skills-catalog'
 
 const HOMEWORKS_MODEL = process.env.HOMEWORKS_OLLAMA_MODEL || DEFAULT_MODEL
 const MAX_OLLAMA_ATTEMPTS = 3
@@ -259,6 +260,9 @@ const MATH_MIXED_SCHEMA = {
           operations: { type: 'array', items: { type: 'string' } },
           expectedAnswer: { type: 'string' },
           difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'] },
+          skillCategory: { type: 'string' },
+          skillName: { type: 'string' },
+          skillLabel: { type: 'string' },
         },
         required: [
           'id',
@@ -269,6 +273,9 @@ const MATH_MIXED_SCHEMA = {
           'operations',
           'expectedAnswer',
           'difficulty',
+          'skillCategory',
+          'skillName',
+          'skillLabel',
         ],
       },
     },
@@ -294,7 +301,7 @@ Return JSON only:
 Format as JSON with keys: prompt, keyPoints, outline, wordCountTarget (suggest 150-250 words)`,
   },
   math: {
-    mixed: `Generate a Grade 5 Math quiz with exactly 10 problems. Keep text short and compact.
+    mixed: `Generate a Grade 5 Math quiz with exactly 10 problems. Include skill labels for learning library.
 
 Requirements:
 - Exactly 10 problems total.
@@ -309,18 +316,43 @@ Requirements:
   - operator: ""
 - operations: 1-2 simple words, e.g. ["addition"].
 - difficulty: easy | medium | hard.
+- skillCategory: one of "addition-subtraction", "multiplication", "division", "fractions", "decimals"
+- skillName: descriptive skill name like "Long Multiplication", "Long Division", "Add/Subtract Whole Numbers"
+- skillLabel: emoji + name like "✖️ Long Multiplication"
+
+Mix skills: include multiplication, division, and addition/subtraction column methods. Vary between column methods and word problems.
 
 Good column-method examples:
-  - "24 × 38 = ?"
-  - "432 ÷ 12 = ?"
-  - "524 + 318 = ?"
+  - "24 × 38 = ?" (skillCategory: "multiplication", skillName: "Long Multiplication", skillLabel: "✖️ Long Multiplication")
+  - "432 ÷ 12 = ?" (skillCategory: "division", skillName: "Long Division", skillLabel: "➗ Long Division")
+  - "524 + 318 = ?" (skillCategory: "addition-subtraction", skillName: "Add Whole Numbers", skillLabel: "➕ Add Whole Numbers")
 Good standard word problem examples:
-  - "Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?"
-  - "A farmer harvests 432 apples and divides them equally into 12 boxes. How many apples are in each box?"
+  - "Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?" (skillCategory: "multiplication", skillName: "Multiplication Word Problems", skillLabel: "📖 Word Problems (Multiply)")
+  - "A farmer harvests 432 apples and divides them equally into 12 boxes. How many apples are in each box?" (skillCategory: "division", skillName: "Division Word Problems", skillLabel: "📖 Word Problems (Divide)")
 
 Return JSON only:
-{"problems":[{"id":1,"problem":"24 × 38 = ?","problemType":"column-method","operands":["24","38"],"operator":"*","operations":["multiplication"],"expectedAnswer":"912","difficulty":"medium"},{"id":2,"problem":"Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?","problemType":"standard","operands":[],"operator":"","operations":["multiplication"],"expectedAnswer":"144","difficulty":"easy"}]}`,
+{"problems":[{"id":1,"problem":"24 × 38 = ?","problemType":"column-method","operands":["24","38"],"operator":"*","operations":["multiplication"],"expectedAnswer":"912","difficulty":"medium","skillCategory":"multiplication","skillName":"Long Multiplication","skillLabel":"✖️ Long Multiplication"},{"id":2,"problem":"Maya has 24 bags of cookies with 6 cookies each. How many cookies does she have in total?","problemType":"standard","operands":[],"operator":"","operations":["multiplication"],"expectedAnswer":"144","difficulty":"easy","skillCategory":"multiplication","skillName":"Multiplication Word Problems","skillLabel":"📖 Word Problems (Multiply)"}]}`,
   },
+}
+
+function buildMathMixedPrompt(skillCategory) {
+  if (!skillCategory || !MATH_SKILLS_CATALOG[skillCategory]) {
+    return PROMPTS.math.mixed
+  }
+
+  const category = MATH_SKILLS_CATALOG[skillCategory]
+  const skillLines = category.skills
+    .map((skill) => `- ${skill.label}: ${skill.description}`)
+    .join('\n')
+
+  return `${PROMPTS.math.mixed}
+
+Section practice mode:
+- Focus all 10 problems on this section only: "${category.category}" (key: "${skillCategory}").
+- Use only skills from this section:
+${skillLines}
+- Set each problem's skillCategory to "${skillCategory}".
+- Vary across this section's skills and difficulty levels.`
 }
 
 function extractJson(text) {
@@ -395,7 +427,7 @@ export async function POST(request) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { subject, type } = body || {}
+  const { subject, type, skillCategory } = body || {}
   if (!PROMPTS[subject]?.[type] && !(subject === 'english' && type === 'reading')) {
     return Response.json({ error: `Unknown subject/type: ${subject}/${type}` }, { status: 400 })
   }
@@ -453,7 +485,10 @@ export async function POST(request) {
       return Response.json({ passage, questions })
     }
 
-    const prompt = PROMPTS[subject][type]
+    const prompt =
+      subject === 'math' && type === 'mixed'
+        ? buildMathMixedPrompt(skillCategory)
+        : PROMPTS[subject][type]
     const exercise = await askJson(
       [
         {

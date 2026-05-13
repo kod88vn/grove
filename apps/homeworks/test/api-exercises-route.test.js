@@ -59,6 +59,21 @@ describe('GET /api/exercises', () => {
     expect(body.exercise).toEqual({ passage: 'P', questions: [] })
   })
 
+  it('forwards skillCategory for section practice generation', async () => {
+    generateExercise.mockResolvedValue({ problems: [] })
+
+    const request = {
+      url: 'http://localhost:3000/api/exercises?subject=math&type=mixed&skillCategory=division',
+    }
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(generateExercise).toHaveBeenCalledWith('mixed', 'math', {
+      skillCategory: 'division',
+    })
+  })
+
   it('preserves upstream Nora 502 status', async () => {
     generateExercise.mockRejectedValue(
       new Error('Nora API error 502: {"error":"Empty response from Ollama"}')
