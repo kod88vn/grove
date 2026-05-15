@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from '@jest/globals'
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals'
 import Database from 'better-sqlite3'
 
 import { createDatabase } from './db.js'
@@ -16,6 +16,12 @@ let db
 
 beforeEach(() => {
   db = createDatabase(':memory:')
+})
+
+afterEach(() => {
+  if (db && !db.closed) {
+    db.close()
+  }
 })
 
 function addMsg(chatId, role, content) {
