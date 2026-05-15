@@ -22,7 +22,7 @@ jobs:
       # Detect which packages changed since the last commit on this branch
       - name: Detect changed packages
         id: changed
-        shell: pwsh
+        shell: powershell
         run: |
           # For pushes to master, compare against the previous commit on the branch
           $base = git rev-parse HEAD~1
