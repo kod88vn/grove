@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { createMcpBridgeServer, startMcpBridgeServer } from '../src/mcpBridgeServer.js'
+import { createMcpBridgeServer } from '../src/mcpBridgeServer.js'
 
 test('GET /health returns mcp bridge health status', async () => {
   const server = createMcpBridgeServer()
@@ -60,7 +60,8 @@ test('POST /execute for web_search returns normalized result payload', async (t)
 })
 
 test('POST /execute returns typed error for unsupported tool', async () => {
-  const server = await startMcpBridgeServer(0)
+  const server = createMcpBridgeServer()
+  await new Promise((resolve) => server.listen(0, resolve))
   const address = server.address()
   const res = await fetch(`http://127.0.0.1:${address.port}/execute`, {
     method: 'POST',
