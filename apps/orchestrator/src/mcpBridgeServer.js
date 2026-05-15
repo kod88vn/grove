@@ -45,7 +45,7 @@ function normalizeDdgTopics(topics = []) {
   return normalized
 }
 
-async function executeWebSearch(args = {}) {
+async function executeWebSearch(args = {}, fetchImpl = fetch) {
   const query = String(args.query || '').trim()
   if (!query) {
     return {
@@ -63,7 +63,7 @@ async function executeWebSearch(args = {}) {
   url.searchParams.set('no_html', '1')
   url.searchParams.set('skip_disambig', '1')
 
-  const response = await fetch(url)
+  const response = await fetchImpl(url)
   if (!response.ok) {
     return {
       ok: false,
@@ -86,7 +86,7 @@ async function executeWebSearch(args = {}) {
   }
 }
 
-async function executeReadWebpage(args = {}) {
+async function executeReadWebpage(args = {}, fetchImpl = fetch) {
   const target = String(args.url || '').trim()
   if (!target) {
     return {
@@ -111,7 +111,7 @@ async function executeReadWebpage(args = {}) {
     }
   }
 
-  const response = await fetch(url)
+  const response = await fetchImpl(url)
   if (!response.ok) {
     return {
       ok: false,
@@ -136,13 +136,13 @@ async function executeReadWebpage(args = {}) {
   }
 }
 
-async function executeTool(toolName, args) {
+async function executeTool(toolName, args, fetchImpl = fetch) {
   if (toolName === 'web_search') {
-    return executeWebSearch(args)
+    return executeWebSearch(args, fetchImpl)
   }
 
   if (toolName === 'read_webpage') {
-    return executeReadWebpage(args)
+    return executeReadWebpage(args, fetchImpl)
   }
 
   return {
@@ -154,7 +154,7 @@ async function executeTool(toolName, args) {
   }
 }
 
-export function createMcpBridgeServer() {
+export function createMcpBridgeServer({ fetchImpl = fetch } = {}) {
   return http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', 'http://localhost')
 
@@ -175,7 +175,7 @@ export function createMcpBridgeServer() {
 
       const toolName = body.toolName
       const args = body.arguments || {}
-      const result = await executeTool(toolName, args)
+      const result = await executeTool(toolName, args, fetchImpl)
 
       if (!result.ok) {
         const status = result.error?.code === 'UNSUPPORTED_MCP_TOOL' || result.error?.code === 'INVALID_ARGUMENTS' ? 400 : 502

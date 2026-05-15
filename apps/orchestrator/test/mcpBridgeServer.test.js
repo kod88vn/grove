@@ -17,13 +17,8 @@ test('GET /health returns mcp bridge health status', async () => {
   assert.equal(body.service, 'mcp-bridge')
 })
 
-test('POST /execute for web_search returns normalized result payload', async (t) => {
-  const originalFetch = global.fetch
-  t.after(() => {
-    global.fetch = originalFetch
-  })
-
-  global.fetch = async (url, options) => {
+test('POST /execute for web_search returns normalized result payload', async () => {
+  const fetchStub = async (url, options) => {
     if (String(url).includes('duckduckgo.com')) {
       return {
         ok: true,
@@ -35,15 +30,15 @@ test('POST /execute for web_search returns normalized result payload', async (t)
       }
     }
 
-    return originalFetch(url, options)
+    return fetch(url, options)
   }
 
-  const server = createMcpBridgeServer()
+  const server = createMcpBridgeServer({ fetchImpl: fetchStub })
   await new Promise((resolve) => server.listen(0, resolve))
   const address = server.address()
   const res = await fetch(`http://127.0.0.1:${address.port}/execute`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Connection: 'close' },
     body: JSON.stringify({
       toolName: 'web_search',
       arguments: { query: 'latest chip news' },
@@ -65,7 +60,7 @@ test('POST /execute returns typed error for unsupported tool', async () => {
   const address = server.address()
   const res = await fetch(`http://127.0.0.1:${address.port}/execute`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Connection: 'close' },
     body: JSON.stringify({ toolName: 'not_real_tool', arguments: {} }),
   })
   const body = await res.json()
