@@ -36,8 +36,8 @@
     "build": "next build",
     "start": "next start",
     "link-skills": "sh link-skills.sh",
-    "test": "jest --ci --forceExit --passWithNoTests",
-    "test:ci": "jest --ci --passWithNoTests",
+    "test": "jest --ci --detectOpenHandles --runInBand --passWithNoTests",
+    "test:ci": "jest --ci --detectOpenHandles --runInBand --passWithNoTests",
     "arch": "depcruise app/api/chat/lib --output-type mermaid",
     "arch:check": "depcruise app/api/chat/lib --output-type err",
     "prepare": "husky"

@@ -7,7 +7,7 @@
     "dev": "next dev -p 3003",
     "build": "next build",
     "start": "next start",
-    "test": "jest --ci --forceExit"
+    "test": "jest --ci --detectOpenHandles --runInBand"
   },
   "dependencies": {
     "@grove/shell": "*",
