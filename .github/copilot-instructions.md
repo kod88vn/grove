@@ -45,3 +45,11 @@ When asked to update skills, always treat `apps/ai-skill-library` as the canonic
 - If the user asks to "fix build" (or equivalent), first query GitHub MCP for the relevant PR/commit status checks and workflow results in `kod88vn/grove`.
 - Use those failing checks/log context to scope the fix before making code changes.
 - If no PR is provided, inspect the most recently updated open PR first; if none exist, ask for a branch/commit to diagnose.
+
+## Cline Bridge
+
+This workspace supports both GitHub Copilot and Cline AI agents. See [.github/CLINE-BRIDGE.md](../.github/CLINE-BRIDGE.md) for details on how MCP configuration is shared between both agents.
+- Copilot reads `.vscode/mcp.json` (CDN-based `npx` installs)
+- Cline reads `.vscode/cline_mcp_settings.json` (absolute paths to pre-installed servers)
+- Shared servers are defined in `.vscode/mcp-shared.json` (canonical source)
+- Run `node .vscode/sync-cline-mcp.js` after editing shared config to regenerate Cline settings

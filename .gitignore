@@ -23,6 +23,7 @@ Thumbs.db
 
 # editor
 .vscode/settings.json
+.vscode/cline_mcp_settings.json
 .idea/
 
 # scaffolded library (managed by create-turborepo, not versioned here)

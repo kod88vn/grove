@@ -1,0 +1,46 @@
+{
+  "_comment": "Shared MCP configuration - canonical source for both Copilot and Cline. Copilot reads .vscode/mcp.json, Cline can reference this via a symlink or copy. Last synced: 2026-05-14",
+  "servers": {
+    "context7": {
+      "command": "node",
+      "args": ["/Users/kod/Documents/Cline/MCP/context7-mcp/node_modules/@upstash/context7-mcp/dist/index.js"],
+      "env": {
+        "CONTEXT7_API_KEY": "ctx7sk-45e07ef6-f341-4d44-9d3b-1969d6d42095"
+      }
+    },
+    "github": {
+      "command": "/Users/kod/Documents/Cline/MCP/github-mcp-server/github-mcp-server",
+      "args": ["stdio"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"],
+      "env": {
+        "PLAYWRIGHT_HEADLESS": "1"
+      }
+    },
+    "git": {
+      "command": "/Users/kod/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/kod/Documents/Cline/MCP/mcp-server-git/src/src/git",
+        "run",
+        "mcp-server-git"
+      ],
+      "env": {}
+    },
+    "browser-tools-mcp": {
+      "command": "node",
+      "args": ["/Users/kod/Documents/Cline/MCP/browser-tools-mcp/browser-tools-mcp/dist/mcp-server.js"],
+      "env": {}
+    },
+    "sequentialthinking": {
+      "command": "node",
+      "args": ["/Users/kod/Documents/Cline/MCP/mcp-server-git/src/src/sequentialthinking/dist/index.js"],
+      "env": {}
+    }
+  }
+}
