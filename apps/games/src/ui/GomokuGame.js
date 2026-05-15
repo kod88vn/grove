@@ -10,7 +10,7 @@ import {
   GOMOKU_DIFFICULTY_LEVELS,
   GOMOKU_AI_CONFIGS,
 } from '../index.js'
-import { getGomokuWorkerUrl } from '../gomokuWorker.js'
+import { createWorker } from '../gomokuWorker.js'
 
 const AVAILABLE_SYMBOLS = [
   { emoji: '🦊', name: 'Fox' },
@@ -74,7 +74,7 @@ export default function GomokuGame() {
       return undefined
     }
 
-    const worker = new Worker(getGomokuWorkerUrl(window.location.pathname))
+    const worker = createWorker(window.location.pathname)
     workerRef.current = worker
 
     worker.onmessage = (event) => {

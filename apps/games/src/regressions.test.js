@@ -13,7 +13,7 @@ test('games tailwind config scans src files for utility classes', () => {
 test('gomoku worker url respects the games base path', () => {
   assert.equal(getGomokuWorkerUrl('/games/gomoku'), '/games/gomoku-ai-worker.js')
   assert.equal(getGomokuWorkerUrl('/games'), '/games/gomoku-ai-worker.js')
-  assert.equal(getGomokuWorkerUrl('/'), '/gomoku-ai-worker.js')
+  assert.equal(getGomokuWorkerUrl('/'), '/games/gomoku-ai-worker.js')
 })
 
 test('gomoku ai chooses a legal unoccupied reply on an active board', () => {
