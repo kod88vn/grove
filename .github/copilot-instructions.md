@@ -1,54 +1,88 @@
 # GitHub Copilot Instructions
 
-This is a scaffolded AI skill library workspace.
+This is the Grove monorepo — a multi-app AI-powered workspace built on Next.js and Platformatic.
 
 ## MCP Servers
 
 The following MCP servers are configured in `.vscode/mcp.json`:
 
-- **Context7 MCP** (`context7`): Retrieves focused library and framework documentation context for coding tasks.
-- **Playwright MCP** (`playwright`): Browser automation, page inspection, screenshots, and UI verification for coding workflows.
+- **Context7 MCP** (`context7`): Retrieves focused library and framework documentation for coding tasks.
+- **Playwright MCP** (`playwright`): Browser automation, page inspection, screenshots, and UI verification.
+- **GitHub MCP** (`github`): PRs, issues, code search, and repository operations on `kod88vn/grove`.
+- **Git MCP** (`git`): Git operations (status, diff, log, commit).
+- **Browser Tools MCP** (`browser-tools-mcp`): Browser console logs, network inspection, and debugging.
+- **Sequential Thinking** (`sequentialthinking`): Chain-of-thought reasoning for complex problems.
 
 Prefer these servers for their respective tasks before falling back to general knowledge.
 
-## Default Communication Style
-
-Use the `terse-communication` skill by default in `full` mode for normal responses.
-
-- Lead with the answer, fix, or decision.
-- Keep responses concise and execution-focused.
-- Expand detail when explicitly requested by the user.
-- Temporarily switch to normal clarity for destructive operations, security guidance, or multi-step procedures where order matters.
-
 ## Skills
 
-Skills are exposed in `.github/skills/` and sourced from `apps/ai-skill-library/skills/`.
+Skills are the source of truth for AI agent behavior in this workspace.
 
-## Skill Update Workflow
+- **Canonical location**: `skills/<category>/<name>/SKILL.md`
+- **Discovery path**: `.github/skills/` → symlink to `skills/`
 
-When asked to update skills, always treat `apps/ai-skill-library` as the canonical skill library and apply edits there first.
+### Available Skills
 
-- Source of truth for skill content: `apps/ai-skill-library/skills/`
-- Discovery path for Copilot: `.github/skills/` (linked to the library skills folder)
-- If a skill update is requested, inspect existing skills in the library, then modify the matching skill files under `apps/ai-skill-library/skills/`.
-- Prefer reusing existing workflow skills before creating new ones.
+| Category | Skill | When to Use |
+|----------|-------|-------------|
+| coding | `code-review` | Review PRs, audit files, check for bugs, improve code quality |
+| coding | `debugging` | Reproduce bugs, read logs, find root cause, verify fixes |
+| coding | `unit-testing` | Write tests, fix failing tests, TDD workflows (Jest/Playwright) |
+| coding | `component-architecture` | Design React/Next.js components, refactor UI, evaluate boundaries |
+| workflow | `terse-communication` | Brief, execution-first responses (default mode) |
+
+### Skill Update Workflow
+
+When asked to update skills:
+- Edit `skills/<category>/<name>/SKILL.md` directly — this is the canonical source.
+- `.github/skills/` is a symlink and should not be edited manually.
+- Prefer reusing existing skills before creating new ones.
+
+## Default Communication Style
+
+Use the `terse-communication` skill by default in `full` mode:
+- Lead with the answer, fix, or decision.
+- Keep responses concise and execution-focused.
+- Expand detail when explicitly requested.
+- Temporarily switch to normal clarity for destructive operations, security guidance, or multi-step procedures.
+
+## Workspace Standards (from AGENTS.md)
+
+1. **Verify via Build**: Run `npx next build` after completing tasks to catch syntax/type/layout errors.
+2. **Test-First Triage**: Follow BDD-style triage — reproduce bugs in failing tests before fixing.
+3. **Keep Nora Thin**: Avoid bloating `apps/nora`. Place major capabilities in sibling apps.
+4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
+
+## Ollama / AI Access Pattern
+
+**Only Nora may call Ollama directly.** All other apps must call Nora's API routes.
+
+- Ollama runs at `http://grove:11434` inside the Platformatic mesh.
+- Sibling apps (homeworks, games) POST to Nora API routes (e.g., `/api/nora-homework/exercise`).
+- **Never** add `OLLAMA_HOST` or direct Ollama fetch calls to apps other than Nora.
+
+## Prompt Failure Handling
+
+- For content generation failures, fix the prompt contract and request parameters first.
+- Add diagnostics (logs, traces, tests) to identify why the model response failed.
+- **Do not** implement fallback content that masks model errors.
 
 ## Repository Defaults
 
-- Default GitHub repository context for MCP operations:
-	- Owner: `kod88vn`
-	- Repository: `grove`
-- When a user asks for PR/check/build status and does not provide repo details, assume `kod88vn/grove` first.
+- Default GitHub context: Owner `kod88vn`, Repo `grove`.
+- When a user asks for PR/check/build status without specifying repo, assume `kod88vn/grove`.
 
 ## Build-Fix Workflow
 
-- If the user asks to "fix build" (or equivalent), first query GitHub MCP for the relevant PR/commit status checks and workflow results in `kod88vn/grove`.
-- Use those failing checks/log context to scope the fix before making code changes.
-- If no PR is provided, inspect the most recently updated open PR first; if none exist, ask for a branch/commit to diagnose.
+- If asked to "fix build", first query GitHub MCP for relevant PR/commit status checks.
+- Use failing check logs to scope the fix before making code changes.
+- If no PR is provided, inspect the most recently updated open PR; if none exist, ask for a branch/commit.
 
 ## Cline Bridge
 
 This workspace supports both GitHub Copilot and Cline AI agents. See [.github/CLINE-BRIDGE.md](../.github/CLINE-BRIDGE.md) for details on how MCP configuration is shared between both agents.
+
 - Copilot reads `.vscode/mcp.json` (CDN-based `npx` installs)
 - Cline reads `.vscode/cline_mcp_settings.json` (absolute paths to pre-installed servers)
 - Shared servers are defined in `.vscode/mcp-shared.json` (canonical source)
