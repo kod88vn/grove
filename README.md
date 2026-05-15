@@ -68,6 +68,22 @@ Workspace boundary for the Grove reminders app. See [apps/reminders/README.md](a
 
 Intent-first orchestration service that is being expanded into the control plane for skill selection, tool routing, MCP integration, and schema-enforced structured outputs. Current baseline includes skill-manifest driven planning, `/orchestrate` execution, strict weather and dashboard schema validation routes, typed MCP unavailability refusals, and route-level audit logging. See [apps/orchestrator/README.md](apps/orchestrator/README.md) and [apps/orchestrator/DESIGN.md](apps/orchestrator/DESIGN.md).
 
+## Development SMS Test Page
+
+The Grove app now includes a development-only test page for the nightly digest SMS/email-to-text flow:
+
+- path: `/dev/sms-test`
+- API proxy: `/dev-api/sms-test`
+- orchestrator endpoint: `POST /nightly-digest/test`
+
+This flow is gated to development mode and controlled by `ENABLE_SMS_TEST_PAGE`.
+
+Values are read from `.env.local`, which is loaded automatically by the root `yarn dev` script.
+
+`yarn dev` now starts orchestrator alongside the Next apps, so the SMS test page can reach `POST /nightly-digest/test` without a separate manual orchestrator startup step.
+
+Important: a successful dry-run does not send anything to your phone. Real delivery requires SMTP credentials in `.env.local` such as `DIGEST_SMTP_HOST`, `DIGEST_SMTP_FROM`, and optionally `DIGEST_SMTP_USER`, `DIGEST_SMTP_PASS`, `DIGEST_SMTP_PORT`, `DIGEST_SMTP_SECURE`.
+
 ### AI Skill Library
 
 Skill + MCP catalog with a scaffold CLI for creating ready-to-use coding workspaces. See [apps/ai-skill-library/README.md](apps/ai-skill-library/README.md).

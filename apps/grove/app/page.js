@@ -41,7 +41,21 @@ const APPS = [
   },
 ]
 
+const DEV_APPS = [
+  {
+    href: '/dev/sms-test',
+    label: 'SMS Test',
+    emoji: '📲',
+    description: 'Development-only page for testing nightly digest SMS sends.',
+    accent: 'border-slate-300 hover:border-slate-500',
+    badge: 'bg-slate-100 text-slate-700',
+  },
+]
+
 export default function LandingPage() {
+  const showDevApps = process.env.NODE_ENV !== 'production' && process.env.ENABLE_SMS_TEST_PAGE !== 'false'
+  const appCards = showDevApps ? [...APPS, ...DEV_APPS] : APPS
+
   return (
     <main className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-4 py-16">
       <div className="w-full max-w-2xl">
@@ -51,7 +65,7 @@ export default function LandingPage() {
         </div>
 
         <ul className="grid gap-4 sm:grid-cols-2">
-          {APPS.map(({ href, label, emoji, description, accent, badge }) => (
+          {appCards.map(({ href, label, emoji, description, accent, badge }) => (
             <li key={href}>
               <a
                 href={href}

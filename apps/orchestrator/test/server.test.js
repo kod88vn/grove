@@ -384,3 +384,74 @@ test('POST /orchestrate promotes factual classification to persistent cache when
   assert.equal(promoted?.message, 'latest chip news')
   assert.equal(promoted?.intent?.route, 'factual_tool')
 })
+
+test('POST /nightly-digest/test returns 404 when SMS test page feature is disabled', async () => {
+  const previousValue = process.env.ENABLE_SMS_TEST_PAGE
+  process.env.ENABLE_SMS_TEST_PAGE = 'false'
+
+  const routeServer = createServer()
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/nightly-digest/test`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phoneNumber: '7705551234', carrier: 'att' }),
+  })
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+  if (typeof previousValue === 'undefined') {
+    delete process.env.ENABLE_SMS_TEST_PAGE
+  } else {
+    process.env.ENABLE_SMS_TEST_PAGE = previousValue
+  }
+
+  assert.equal(res.status, 404)
+  assert.equal(body.error, 'Not found')
+})
+
+test('POST /nightly-digest/test runs nightly digest in dry-run mode when feature is enabled', async () => {
+  const previousValue = process.env.ENABLE_SMS_TEST_PAGE
+  process.env.ENABLE_SMS_TEST_PAGE = 'true'
+
+  const routeServer = createServer({
+    nightlyDigestRunner: async (options) => {
+      assert.equal(options.phoneNumber, '7705551234')
+      assert.equal(options.carrier, 'att')
+      assert.equal(options.env.DIGEST_DRY_RUN, 'true')
+      return {
+        requestId: 'req-test-1',
+        delivery: { ok: true, id: 'dry-run' },
+        payload: {
+          generatedAt: '2026-05-13T06:30:00.000Z',
+          delivery: { channel: 'email_to_sms', address: '7705551234@txt.att.net' },
+          sections: { reminders: [], shoppingList: [], weather: {}, market: [], news: [] },
+        },
+      }
+    },
+  })
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/nightly-digest/test`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phoneNumber: '7705551234', carrier: 'att', dryRun: true }),
+  })
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+  if (typeof previousValue === 'undefined') {
+    delete process.env.ENABLE_SMS_TEST_PAGE
+  } else {
+    process.env.ENABLE_SMS_TEST_PAGE = previousValue
+  }
+
+  assert.equal(res.status, 200)
+  assert.equal(body.ok, true)
+  assert.equal(body.delivery.id, 'dry-run')
+  assert.equal(body.payload.delivery.address, '7705551234@txt.att.net')
+})

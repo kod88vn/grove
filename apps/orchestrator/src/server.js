@@ -7,6 +7,7 @@ import { buildExecutionPlan, buildExecutionPlanWithClassifier } from './intentRo
 import { buildSkillPromptPack } from './skillRegistry.js'
 import { executeLocalTool } from './localTools.js'
 import { createOllamaClassifier } from './ollamaClassifier.js'
+import { runNightlyDigestJob } from './nightlyDigestWorker.js'
 import { validateResponse } from './responseValidator.js'
 import { executeToolPlan } from './toolRegistry.js'
 import { getWeatherPayload } from './weatherService.js'
@@ -42,6 +43,7 @@ export function createServer(options = {}) {
   const mcpExecutor = options.mcpExecutor
   const mcpEndpoint = options.mcpEndpoint || process.env.ORCHESTRATOR_MCP_EXECUTE_URL || ''
   const intentClassifier = options.intentClassifier
+  const nightlyDigestRunner = options.nightlyDigestRunner || runNightlyDigestJob
   const ownedClassificationCache = options.classificationCache
     ? null
     : createClassificationCache({
@@ -166,6 +168,47 @@ export function createServer(options = {}) {
         )
         json(res, 502, {
           error: 'Unable to load dashboard data',
+          detail: error instanceof Error ? error.message : 'unknown_error',
+        })
+      }
+      return
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/nightly-digest/test') {
+      const enabledInDev = process.env.NODE_ENV !== 'production' && process.env.ENABLE_SMS_TEST_PAGE !== 'false'
+      if (!enabledInDev) {
+        json(res, 404, { error: 'Not found' })
+        return
+      }
+
+      const body = await readJsonBody(req)
+      if (!body) {
+        json(res, 400, { error: 'Invalid JSON payload' })
+        return
+      }
+
+      try {
+        const result = await nightlyDigestRunner({
+          location: body.location,
+          phoneNumber: body.phoneNumber,
+          carrier: body.carrier,
+          maxLength: body.maxLength,
+          env: {
+            ...process.env,
+            DIGEST_DRY_RUN: body.dryRun === false ? 'false' : 'true',
+          },
+        })
+
+        json(res, 200, {
+          ok: true,
+          requestId: result.requestId,
+          delivery: result.delivery,
+          payload: result.payload,
+        })
+      } catch (error) {
+        json(res, 502, {
+          ok: false,
+          error: 'Nightly digest send failed',
           detail: error instanceof Error ? error.message : 'unknown_error',
         })
       }

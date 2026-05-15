@@ -7,9 +7,11 @@
     "dev": "node src/server.js",
     "dev:mcp-bridge": "node src/mcpBridgeServer.js",
     "dev:bridge-mode": "ORCHESTRATOR_MCP_EXECUTE_URL=http://127.0.0.1:4020/execute node src/server.js",
+    "dev:nightly-digest": "node src/nightlyDigestWorker.js",
     "test": "node --test"
   },
   "dependencies": {
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "nodemailer": "^6.10.1"
   }
 }

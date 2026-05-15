@@ -49,3 +49,38 @@ test('Given prose payload, when validating dashboard_v1, then validation fails',
   assert.equal(result.ok, false)
   assert.equal(result.errors.includes('profile.summary must be a string'), true)
 })
+
+test('Given structured nightly digest payload, when validating nightly_digest_v1, then validation succeeds', () => {
+  const result = validateResponse('nightly_digest_v1', {
+    generatedAt: '2026-05-12T04:00:00.000Z',
+    delivery: {
+      channel: 'email_to_sms',
+      address: '7705551234@txt.att.net',
+    },
+    sections: {
+      reminders: [],
+      shoppingList: [],
+      weather: {
+        location: { label: 'Duluth, Georgia, US' },
+        current: { temperatureF: 73, condition: 'Partly cloudy' },
+        today: { highF: 75, lowF: 61, precipChancePct: 20 },
+        source: { provider: 'open-meteo' },
+      },
+      market: [],
+      news: [],
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.errors, [])
+})
+
+test('Given prose payload, when validating nightly_digest_v1, then validation fails', () => {
+  const result = validateResponse('nightly_digest_v1', {
+    message: 'The digest can be sent later.',
+  })
+
+  assert.equal(result.ok, false)
+  assert.equal(result.errors.includes('generatedAt must be a string'), true)
+  assert.equal(result.errors.includes('sections.weather must be an object'), true)
+})

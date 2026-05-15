@@ -44,3 +44,14 @@ Status: Implemented baseline
 
 - structured JSONL audit events for `/plan`, `/weather`, `/orchestrate`, `/dashboard-data`
 - advanced metrics/SLO dashboards pending
+
+## Slice 7: Nightly Digest Foundation
+
+Status: Implemented baseline
+
+- digest composer module for reminders, shopping list, weather, market, and news sections
+- free-first AT&T email-to-text delivery helper
+- schema validation for nightly digest payloads
+- scheduler/worker baseline with local-time run window and audit events
+- outbound delivery adapter baseline: dry-run and webhook
+- production retry strategy and multi-channel expansion pending

@@ -16,11 +16,14 @@ Implemented baseline includes:
 - weather and dashboard structured-data schema validation
 - orchestration route and strict data routes
 - structured audit logging
+- nightly digest composer foundation with a free email-to-text delivery helper
+- nightly digest worker module with scheduled local-time execution and sender adapter boundary
 
 Current gap:
 
 - broader MCP provider coverage beyond current executor/HTTP bridge path
 - broader structured schemas beyond weather + dashboard baseline
+- advanced delivery retries, dead-lettering, and multi-channel fanout
 
 ## Core Principles
 
@@ -40,3 +43,5 @@ Current gap:
 6. `responseValidator` enforces schema/refusal
 7. `auditLogger` writes structured request event
 8. Response returns typed data, chat plan, or typed refusal
+
+The nightly digest slice reuses the same composition/validation pattern via a separate worker entrypoint and free-first delivery adapter.
