@@ -34,6 +34,18 @@ This document defines the roles and responsibilities of AI agents working within
 - **Linkification**: When mentioning files in chat, always use markdown links: `[path/to/file.ts](path/to/file.ts)`.
 - **Documentation**: Update `DESIGN.md` and `README.md` immediately after any structural or capability change.
 
+## Side-by-Side Testing Rule
+
+**Test files MUST live side by side with the production code they test, never in a separate `test/` directory.**
+
+- Naming convention: `<module>.test.js` next to `<module>.js`, or `<module>.spec.js` for spec-style tests.
+- For Next.js pages/routes: `app/page.js` → `app/page.test.js`, `app/api/foo/route.js` → `app/api/foo/route.test.js`.
+- For Next.js components: `components/Header.js` → `components/Header.test.js`.
+- For lib utilities: `lib/db/chats.js` → `lib/db/chats.test.js`.
+- **No `test/`, `__tests__/`, or any other flat test directory is allowed.**
+- Jest/Node test runners must be configured to discover `**/*.test.js` and `**/*.spec.js` files recursively within their app directories.
+- When creating a new production file, create its test file alongside it immediately.
+
 ## Routing Contract (Critical)
 
 Grove routing is layered. Do not treat app-local routes as globally reachable unless they are wired through the gateway/dev shell.
