@@ -22,44 +22,45 @@ jobs:
       # Detect which packages changed since the last commit on this branch
       - name: Detect changed packages
         id: changed
-        shell: bash
+        shell: pwsh
         run: |
           # For pushes to master, compare against the previous commit on the branch
-          BASE=$(git rev-parse HEAD~1)
-          HEAD=$(git rev-parse HEAD)
+          $base = git rev-parse HEAD~1
+          $head = git rev-parse HEAD
 
           # Get list of changed package directories
-          CHANGED=$(git diff --name-only "$BASE" "$HEAD" \
-            | grep -E '^apps/' \
-            | cut -d/ -f1-2 \
-            | sort -u)
+          $changed = git diff --name-only $base $head `
+            | Where-Object { $_ -match '^apps/[^/]+' } `
+            | ForEach-Object { $_.Split('/')[0..1] -join '/' } `
+            | Sort-Object -Unique
 
-          if [ -z "$CHANGED" ]; then
-            echo "No app packages changed, running all tests."
-            FILTER="..."
-          else
+          if (-not $changed) {
+            Write-Host "No app packages changed, running all tests."
+            $filter = "..."
+          } else {
             # Build turbo filter from changed packages (use npm package names)
-            FILTER=""
-            for pkg in $CHANGED; do
-              APP=$(basename "$pkg")
-              case "$APP" in
-                games) FILTER="$FILTER --filter=@grove/games" ;;
-                gateway) FILTER="$FILTER --filter=@grove/gateway" ;;
-                grove) FILTER="$FILTER --filter=@grove/grove" ;;
-                homeworks) FILTER="$FILTER --filter=@grove/homeworks" ;;
-                nora) FILTER="$FILTER --filter=nora" ;;
-                orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
-                reminders) FILTER="$FILTER --filter=@grove/reminders" ;;
-                shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
-              esac
-            done
-          fi
+            $filter = ""
+            foreach ($pkg in $changed) {
+              $app = Split-Path $pkg -Leaf
+              switch ($app) {
+                "games"        { $filter = "$filter --filter=@grove/games" }
+                "gateway"      { $filter = "$filter --filter=@grove/gateway" }
+                "grove"        { $filter = "$filter --filter=@grove/grove" }
+                "homeworks"    { $filter = "$filter --filter=@grove/homeworks" }
+                "nora"         { $filter = "$filter --filter=nora" }
+                "orchestrator" { $filter = "$filter --filter=@grove/orchestrator" }
+                "reminders"    { $filter = "$filter --filter=@grove/reminders" }
+                "shopping-list"{ $filter = "$filter --filter=@grove/shopping-list" }
+              }
+            }
+          }
 
           # Default to all packages if nothing changed and no filter set
-          FILTER="${FILTER:-...}"
+          if (-not $filter) { $filter = "..." }
 
-          echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
-          echo "TURBO_FILTER=$FILTER" >> "$GITHUB_ENV"
+          Write-Host "filter=$filter"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "filter=$filter"
+          Add-Content -Path $env:GITHUB_ENV -Value "TURBO_FILTER=$filter"
 
       - name: Test affected packages
         run: yarn turbo test $TURBO_FILTER
