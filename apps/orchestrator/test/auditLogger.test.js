@@ -2,11 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 
-import { createAuditEvent, logAuditEvent } from '../src/auditLogger.js'
+import { createAuditEvent, logAuditEvent, resetAuditLogger } from '../src/auditLogger.js'
 
 const testLogPath = '/tmp/grove-orchestrator-audit-test.log'
 
 test.beforeEach(() => {
+  resetAuditLogger()
   process.env.ORCHESTRATOR_AUDIT_LOG = testLogPath
   if (existsSync(testLogPath)) {
     rmSync(testLogPath)

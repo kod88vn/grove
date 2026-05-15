@@ -1,4 +1,4 @@
-import { appendFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 
 const DEFAULT_AUDIT_LOG = '/tmp/grove-orchestrator-audit.log'
 let firstWriteDone = false
@@ -20,9 +20,25 @@ export function createAuditEvent(event = {}) {
   }
 }
 
+export function resetAuditLogger() {
+  firstWriteDone = false
+}
+
+function ensureLogDirectory(logPath) {
+  const dir = logPath.split('/').slice(0, -1).join('/') || '/'
+  if (dir && !existsSync(dir)) {
+    mkdirSync(dir, { recursive: true })
+  }
+}
+
+// Also export existsSync and mkdirSync for use in ensureLogDirectory if needed
+export { existsSync, mkdirSync }
+
 export function logAuditEvent(event) {
   const logPath = process.env.ORCHESTRATOR_AUDIT_LOG || DEFAULT_AUDIT_LOG
   const line = `${JSON.stringify(event)}\n`
+
+  ensureLogDirectory(logPath)
 
   if (!firstWriteDone) {
     writeFileSync(logPath, line)

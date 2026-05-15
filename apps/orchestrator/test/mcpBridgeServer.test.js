@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { createMcpBridgeServer, startMcpBridgeServer } from '../src/mcpBridgeServer.js'
 
 test('GET /health returns mcp bridge health status', async () => {
-  const server = await startMcpBridgeServer(0)
+  const server = createMcpBridgeServer()
+  await new Promise((resolve) => server.listen(0, resolve))
   const address = server.address()
   const res = await fetch(`http://127.0.0.1:${address.port}/health`)
   const body = await res.json()

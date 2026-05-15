@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { createServer, startServer } from '../src/server.js'
+import { resetAuditLogger } from '../src/auditLogger.js'
+
+const testLogPath = '/tmp/grove-orchestrator-audit-server-test.log'
 
 let server
 let baseUrl
@@ -24,6 +27,8 @@ const stubClassifier = async ({ message }) => {
 }
 
 test.before(async () => {
+  resetAuditLogger()
+  process.env.ORCHESTRATOR_AUDIT_LOG = testLogPath
   server = await startServer(0, { intentClassifier: stubClassifier })
   const address = server.address()
   baseUrl = `http://127.0.0.1:${address.port}`
@@ -31,6 +36,7 @@ test.before(async () => {
 
 test.after(async () => {
   await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())))
+  delete process.env.ORCHESTRATOR_AUDIT_LOG
 })
 
 test('GET /health returns service health', async () => {
