@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2   # needed for turbo --filter=[HEAD^1]
+          fetch-depth: 0   # full history needed for turbo diff detection
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -19,11 +19,53 @@ jobs:
       - name: Rebuild native modules
         run: npm rebuild better-sqlite3
 
+      # Detect which packages changed since the last commit on this branch
+      - name: Detect changed packages
+        id: changed
+        shell: bash
+        run: |
+          # For pushes to master, compare against the previous commit on the branch
+          BASE=$(git rev-parse HEAD~1)
+          HEAD=$(git rev-parse HEAD)
+
+          # Get list of changed package directories
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" \
+            | grep -E '^apps/' \
+            | cut -d/ -f1-2 \
+            | sort -u)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No app packages changed, running all tests."
+            FILTER="..."
+          else
+            # Build turbo filter from changed packages (use npm package names)
+            FILTER=""
+            for pkg in $CHANGED; do
+              APP=$(basename "$pkg")
+              case "$APP" in
+                games) FILTER="$FILTER --filter=@grove/games" ;;
+                gateway) FILTER="$FILTER --filter=@grove/gateway" ;;
+                grove) FILTER="$FILTER --filter=@grove/grove" ;;
+                homeworks) FILTER="$FILTER --filter=@grove/homeworks" ;;
+                nora) FILTER="$FILTER --filter=nora" ;;
+                orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
+                reminders) FILTER="$FILTER --filter=@grove/reminders" ;;
+                shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
+              esac
+            done
+          fi
+
+          # Default to all packages if nothing changed and no filter set
+          FILTER="${FILTER:-...}"
+
+          echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
+          echo "TURBO_FILTER=$FILTER" >> "$GITHUB_ENV"
+
       - name: Test affected packages
-        run: yarn turbo test --filter=...[HEAD^1]
+        run: yarn turbo test $TURBO_FILTER
 
       - name: Build affected packages
-        run: yarn turbo build --filter=...[HEAD^1]
+        run: yarn turbo build $TURBO_FILTER
 
       - name: Build and tag Docker image
         shell: powershell
