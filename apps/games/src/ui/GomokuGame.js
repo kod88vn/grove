@@ -39,6 +39,7 @@ export default function GomokuGame() {
   const [lastHumanMove, setLastHumanMove] = useState(null)
   const [lastAiMove, setLastAiMove] = useState({ x: 0, y: 0 })
   const [score, setScore] = useState({ human: 0, ai: 0 })
+  const scoreRef = useRef({ human: 0, ai: 0 })
   const [lastLoser, setLastLoser] = useState(null)
   const [message, setMessage] = useState('AI played the first stone at the center. Your turn!')
   const [winner, setWinner] = useState(null)
@@ -49,6 +50,11 @@ export default function GomokuGame() {
   const workerRef = useRef(null)
   const pendingJobIdRef = useRef(0)
   const pendingBoardRef = useRef(null)
+
+  // Keep score ref in sync so worker onmessage always reads current value
+  useEffect(() => {
+    scoreRef.current = score
+  }, [score])
 
   const handleSymbolSelect = (selectedEmoji) => {
     setHumanSymbol(selectedEmoji)
@@ -76,6 +82,13 @@ export default function GomokuGame() {
 
     const worker = createWorker(window.location.pathname)
     workerRef.current = worker
+
+    // Add error handler to surface worker loading failures in production
+    worker.onerror = (error) => {
+      console.error('[Gomoku] Worker error:', error)
+      setAiThinking(false)
+      setMessage('AI worker failed to load. Using fallback mode.')
+    }
 
     worker.onmessage = (event) => {
       const payload = event.data || {}
@@ -109,12 +122,13 @@ export default function GomokuGame() {
       setAiThinking(false)
 
       if (aiWinner) {
-        const nextScore = score.ai + 1
+        const currentScore = scoreRef.current
+        const nextScore = currentScore.ai + 1
         setWinner('ai')
         setLastLoser('human')
         setScore((s) => ({ ...s, ai: nextScore }))
 
-        if (nextScore === 5 && score.human === 5) {
+        if (nextScore === 5 && currentScore.human === 5) {
           setMessage('⚽ Penalty Shootout Draw! Both reached 5. Unbelievable!')
         } else if (nextScore === 5) {
           setMessage('🏆 AI WINS THE TOURNAMENT! (5 points)')
@@ -130,7 +144,7 @@ export default function GomokuGame() {
       worker.terminate()
       workerRef.current = null
     }
-  }, [score])
+  }, [])
 
   const points = useMemo(() => Object.keys(stones).map((key) => {
     const [x, y] = key.split(',').map(Number)
