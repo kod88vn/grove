@@ -391,73 +391,108 @@ test('POST /orchestrate promotes factual classification to persistent cache when
   assert.equal(promoted?.intent?.route, 'factual_tool')
 })
 
-test('POST /nightly-digest/test returns 404 when SMS test page feature is disabled', async () => {
-  const previousValue = process.env.ENABLE_SMS_TEST_PAGE
-  process.env.ENABLE_SMS_TEST_PAGE = 'false'
+test('GET /nightly-digest/in-app returns stored digest when cron job has run', async () => {
+  const previousValue = process.env.ENABLE_NIGHTLY_DIGEST
+  process.env.ENABLE_NIGHTLY_DIGEST = 'true'
+
+  const storedPayload = {
+    ok: true,
+    generatedAt: '2026-05-15T06:30:00.000Z',
+    sections: {
+      reminders: [{ id: 'stored-1', title: 'Stored reminder' }],
+      shoppingList: ['Stored item'],
+      weather: { temperatureF: 68 },
+      market: [],
+      news: [],
+    },
+  }
+
+  const routeServer = createServer({
+    digestBuilder: async () => storedPayload,
+  })
+
+  await new Promise((resolve) => routeServer.listen(0, resolve))
+  const address = routeServer.address()
+  const url = `http://127.0.0.1:${address.port}/nightly-digest/in-app`
+  const res = await fetch(url)
+  const body = await res.json()
+
+  await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
+  if (typeof previousValue === 'undefined') {
+    delete process.env.ENABLE_NIGHTLY_DIGEST
+  } else {
+    process.env.ENABLE_NIGHTLY_DIGEST = previousValue
+  }
+
+  assert.equal(res.status, 200)
+  assert.equal(body.ok, true)
+  assert.equal(body.sections.reminders[0].title, 'Stored reminder')
+})
+
+test('GET /nightly-digest/in-app returns 404 when nightly digest is disabled', async () => {
+  const previousNodeEnv = process.env.NODE_ENV
+  const previousDigestValue = process.env.ENABLE_NIGHTLY_DIGEST
+  delete process.env.ENABLE_NIGHTLY_DIGEST
+  process.env.NODE_ENV = 'production'
 
   const routeServer = createServer()
 
   await new Promise((resolve) => routeServer.listen(0, resolve))
   const address = routeServer.address()
-  const url = `http://127.0.0.1:${address.port}/nightly-digest/test`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phoneNumber: '7705551234', carrier: 'att' }),
-  })
+  const url = `http://127.0.0.1:${address.port}/nightly-digest/in-app`
+  const res = await fetch(url)
   const body = await res.json()
 
   await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
-  if (typeof previousValue === 'undefined') {
-    delete process.env.ENABLE_SMS_TEST_PAGE
+  if (typeof previousNodeEnv === 'undefined') {
+    delete process.env.NODE_ENV
   } else {
-    process.env.ENABLE_SMS_TEST_PAGE = previousValue
+    process.env.NODE_ENV = previousNodeEnv
+  }
+  if (typeof previousDigestValue === 'undefined') {
+    delete process.env.ENABLE_NIGHTLY_DIGEST
+  } else {
+    process.env.ENABLE_NIGHTLY_DIGEST = previousDigestValue
   }
 
   assert.equal(res.status, 404)
-  assert.equal(body.error, 'Not found')
+  assert.equal(body.error, 'Nightly digest not enabled')
 })
 
-test('POST /nightly-digest/test runs nightly digest in dry-run mode when feature is enabled', async () => {
-  const previousValue = process.env.ENABLE_SMS_TEST_PAGE
-  process.env.ENABLE_SMS_TEST_PAGE = 'true'
+test('POST /nightly-digest/in-app accepts custom location', async () => {
+  const previousValue = process.env.ENABLE_NIGHTLY_DIGEST
+  process.env.ENABLE_NIGHTLY_DIGEST = 'true'
 
+  let receivedLocation = null
   const routeServer = createServer({
-    nightlyDigestRunner: async (options) => {
-      assert.equal(options.phoneNumber, '7705551234')
-      assert.equal(options.carrier, 'att')
-      assert.equal(options.env.DIGEST_DRY_RUN, 'true')
+    digestBuilder: async (options) => {
+      receivedLocation = options.location
       return {
-        requestId: 'req-test-1',
-        delivery: { ok: true, id: 'dry-run' },
-        payload: {
-          generatedAt: '2026-05-13T06:30:00.000Z',
-          delivery: { channel: 'email_to_sms', address: '7705551234@txt.att.net' },
-          sections: { reminders: [], shoppingList: [], weather: {}, market: [], news: [] },
-        },
+        ok: true,
+        generatedAt: '2026-05-15T06:30:00.000Z',
+        sections: { reminders: [], shoppingList: [], weather: {}, market: [], news: [] },
       }
     },
   })
 
   await new Promise((resolve) => routeServer.listen(0, resolve))
   const address = routeServer.address()
-  const url = `http://127.0.0.1:${address.port}/nightly-digest/test`
+  const url = `http://127.0.0.1:${address.port}/nightly-digest/in-app`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phoneNumber: '7705551234', carrier: 'att', dryRun: true }),
+    body: JSON.stringify({ location: 'Miami, FL' }),
   })
   const body = await res.json()
 
   await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
   if (typeof previousValue === 'undefined') {
-    delete process.env.ENABLE_SMS_TEST_PAGE
+    delete process.env.ENABLE_NIGHTLY_DIGEST
   } else {
-    process.env.ENABLE_SMS_TEST_PAGE = previousValue
+    process.env.ENABLE_NIGHTLY_DIGEST = previousValue
   }
 
   assert.equal(res.status, 200)
   assert.equal(body.ok, true)
-  assert.equal(body.delivery.id, 'dry-run')
-  assert.equal(body.payload.delivery.address, '7705551234@txt.att.net')
 })
+

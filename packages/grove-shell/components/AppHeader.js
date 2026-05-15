@@ -1,9 +1,46 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { getNavItems, isActiveNavPath } from '../navigation.js'
 
 const NAV_ITEMS = getNavItems()
+
+function UserAvatar() {
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then(setUser)
+      .catch(() => {})
+  }, [])
+
+  if (!user?.name) return null
+
+  return (
+    <div className="flex items-center gap-2">
+      {user.pic ? (
+        <img
+          src={user.pic}
+          alt={user.name}
+          className="h-7 w-7 rounded-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+          {user.name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()}
+        </div>
+      )}
+      <span className="hidden text-sm text-slate-600 md:block">{user.name}</span>
+    </div>
+  )
+}
 
 export function AppHeader({ trailingContent = null }) {
   const pathname = usePathname() ?? '/'
@@ -34,7 +71,9 @@ export function AppHeader({ trailingContent = null }) {
           })}
         </div>
 
-        {trailingContent ? <div className="flex items-center gap-2">{trailingContent}</div> : null}
+        <div className="flex items-center gap-2">
+          {trailingContent ? <>{trailingContent}</> : <UserAvatar />}
+        </div>
       </div>
     </header>
   )

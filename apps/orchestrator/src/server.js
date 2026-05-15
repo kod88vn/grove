@@ -7,7 +7,9 @@ import { buildExecutionPlan, buildExecutionPlanWithClassifier } from './intentRo
 import { buildSkillPromptPack } from './skillRegistry.js'
 import { executeLocalTool } from './localTools.js'
 import { createOllamaClassifier } from './ollamaClassifier.js'
-import { runNightlyDigestJob } from './nightlyDigestWorker.js'
+import { buildNightlyDigest } from './nightlyDigest.js'
+import { formatNightlyDigestMessage } from './nightlyDigestSender.js'
+import { runNightlyDigestJob, loadStoredDigest } from './nightlyDigestWorker.js'
 import { validateResponse } from './responseValidator.js'
 import { executeToolPlan } from './toolRegistry.js'
 import { getWeatherPayload } from './weatherService.js'
@@ -44,6 +46,7 @@ export function createServer(options = {}) {
   const mcpEndpoint = options.mcpEndpoint || process.env.ORCHESTRATOR_MCP_EXECUTE_URL || ''
   const intentClassifier = options.intentClassifier
   const nightlyDigestRunner = options.nightlyDigestRunner || runNightlyDigestJob
+  const digestBuilder = options.digestBuilder || buildNightlyDigest
   const ownedClassificationCache = options.classificationCache
     ? null
     : createClassificationCache({
@@ -168,47 +171,6 @@ export function createServer(options = {}) {
         )
         json(res, 502, {
           error: 'Unable to load dashboard data',
-          detail: error instanceof Error ? error.message : 'unknown_error',
-        })
-      }
-      return
-    }
-
-    if (req.method === 'POST' && requestUrl.pathname === '/nightly-digest/test') {
-      const enabledInDev = process.env.NODE_ENV !== 'production' && process.env.ENABLE_SMS_TEST_PAGE !== 'false'
-      if (!enabledInDev) {
-        json(res, 404, { error: 'Not found' })
-        return
-      }
-
-      const body = await readJsonBody(req)
-      if (!body) {
-        json(res, 400, { error: 'Invalid JSON payload' })
-        return
-      }
-
-      try {
-        const result = await nightlyDigestRunner({
-          location: body.location,
-          phoneNumber: body.phoneNumber,
-          carrier: body.carrier,
-          maxLength: body.maxLength,
-          env: {
-            ...process.env,
-            DIGEST_DRY_RUN: body.dryRun === false ? 'false' : 'true',
-          },
-        })
-
-        json(res, 200, {
-          ok: true,
-          requestId: result.requestId,
-          delivery: result.delivery,
-          payload: result.payload,
-        })
-      } catch (error) {
-        json(res, 502, {
-          ok: false,
-          error: 'Nightly digest send failed',
           detail: error instanceof Error ? error.message : 'unknown_error',
         })
       }
@@ -390,6 +352,70 @@ export function createServer(options = {}) {
             code: 'TOOL_EXECUTION_FAILED',
             message: error instanceof Error ? error.message : 'unknown_error',
           },
+        })
+      }
+      return
+    }
+
+    // In-app nightly digest endpoint — returns stored digest from cron job, or builds fresh if not available
+    if (req.method === 'GET' && requestUrl.pathname === '/nightly-digest/in-app') {
+      const enabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_NIGHTLY_DIGEST === 'true'
+      if (!enabled) {
+        json(res, 404, { error: 'Nightly digest not enabled' })
+        return
+      }
+
+      try {
+        const stored = loadStoredDigest()
+        if (stored && stored.payload) {
+          json(res, 200, stored.payload)
+          return
+        }
+
+        const payload = await digestBuilder({
+          weatherProvider,
+        })
+
+        json(res, 200, payload)
+      } catch (error) {
+        json(res, 502, {
+          error: 'Nightly digest generation failed',
+          detail: error instanceof Error ? error.message : 'unknown_error',
+        })
+      }
+      return
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/nightly-digest/in-app') {
+      const enabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_NIGHTLY_DIGEST === 'true'
+      if (!enabled) {
+        json(res, 404, { error: 'Nightly digest not enabled' })
+        return
+      }
+
+      const body = await readJsonBody(req)
+      if (!body) {
+        json(res, 400, { error: 'Invalid JSON payload' })
+        return
+      }
+
+      try {
+        const stored = loadStoredDigest()
+        if (stored && stored.payload) {
+          json(res, 200, stored.payload)
+          return
+        }
+
+        const payload = await digestBuilder({
+          location: body.location,
+          weatherProvider,
+        })
+
+        json(res, 200, payload)
+      } catch (error) {
+        json(res, 502, {
+          error: 'Nightly digest generation failed',
+          detail: error instanceof Error ? error.message : 'unknown_error',
         })
       }
       return

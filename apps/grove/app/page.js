@@ -41,31 +41,21 @@ const APPS = [
   },
 ]
 
-const DEV_APPS = [
-  {
-    href: '/dev/sms-test',
-    label: 'SMS Test',
-    emoji: '📲',
-    description: 'Development-only page for testing nightly digest SMS sends.',
-    accent: 'border-slate-300 hover:border-slate-500',
-    badge: 'bg-slate-100 text-slate-700',
-  },
-]
+import NightlyDigestBanner from './NightlyDigestBanner'
 
 export default function LandingPage() {
-  const showDevApps = process.env.NODE_ENV !== 'production' && process.env.ENABLE_SMS_TEST_PAGE !== 'false'
-  const appCards = showDevApps ? [...APPS, ...DEV_APPS] : APPS
-
   return (
-    <main className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-4 py-16">
+    <main className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-start px-4 py-8">
       <div className="w-full max-w-2xl">
-        <div className="mb-10 text-center">
+        <NightlyDigestBanner />
+
+        <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900">Grove</h1>
-          <p className="mt-3 text-base text-slate-500">Your family&apos;s home hub. Pick an app to get started.</p>
+          <p className="mt-3 text-base text-slate-500">Your family's home hub. Pick an app to get started.</p>
         </div>
 
         <ul className="grid gap-4 sm:grid-cols-2">
-          {appCards.map(({ href, label, emoji, description, accent, badge }) => (
+          {APPS.map(({ href, label, emoji, description, accent, badge }) => (
             <li key={href}>
               <a
                 href={href}

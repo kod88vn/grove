@@ -1,7 +1,12 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
 import { createAuditEvent, logAuditEvent } from './auditLogger.js'
 import { buildNightlyDigest } from './nightlyDigest.js'
 import { validateResponse } from './responseValidator.js'
-import { sendNightlyDigest } from './nightlyDigestSender.js'
+import { sendNightlyDigest, createEmailSenderFromEnv } from './nightlyDigestSender.js'
+
+const DIGEST_STORE_PATH = process.env.DIGEST_STORE_PATH || path.join(process.cwd(), '.digest-store.json')
 
 function generateRequestId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -54,28 +59,53 @@ export async function runNightlyDigestJob(options = {}) {
       throw new Error(`Nightly digest validation failed: ${validation.errors.join('; ')}`)
     }
 
-    const delivery = await digestSender(payload, {
-      emailSender: options.emailSender,
-      env: options.env,
-      maxLength: options.maxLength,
-      subject: options.subject,
-    })
+    let delivery = null
 
-    logEvent(
-      makeAuditEvent({
-        requestId,
-        route: '/nightly-digest',
-        method: 'SCHEDULED',
-        plan,
-        outcome: 'success',
-        metadata: {
-          channel: payload.delivery.channel,
-          address: payload.delivery.address,
-          generatedAt: payload.generatedAt,
-          deliveryId: delivery?.id || null,
-        },
+    if (digestSender) {
+      delivery = await digestSender(payload, {
+        emailSender: options.emailSender,
+        env: options.env,
+        maxLength: options.maxLength,
+        subject: options.subject,
       })
-    )
+
+      logEvent(
+        makeAuditEvent({
+          requestId,
+          route: '/nightly-digest',
+          method: 'SCHEDULED',
+          plan,
+          outcome: 'success',
+          metadata: {
+            channel: payload.delivery.channel,
+            address: payload.delivery.address,
+            generatedAt: payload.generatedAt,
+            deliveryId: delivery?.id || null,
+          },
+        })
+      )
+    } else {
+      const storeDir = path.dirname(DIGEST_STORE_PATH)
+      fs.mkdirSync(storeDir, { recursive: true })
+      const storeData = { ok: true, payload, delivery: null, requestId, storedAt: new Date().toISOString() }
+      fs.writeFileSync(DIGEST_STORE_PATH, JSON.stringify(storeData, null, 2))
+
+      logEvent(
+        makeAuditEvent({
+          requestId,
+          route: '/nightly-digest',
+          method: 'SCHEDULED',
+          plan,
+          outcome: 'success',
+          metadata: {
+            channel: payload.delivery.channel,
+            address: payload.delivery.address,
+            generatedAt: payload.generatedAt,
+            deliveryId: 'file_store',
+          },
+        })
+      )
+    }
 
     return {
       ok: true,
@@ -132,9 +162,17 @@ export function startNightlyDigestWorker(options = {}) {
     log.info?.(`[nightly-digest] next run at ${nextRunAt.toISOString()}`)
   }
 
+  const env = options.env || process.env
+  const emailSender = createEmailSenderFromEnv(env)
+
+  const workerOptions = { ...options, env }
+  if (emailSender) {
+    workerOptions.emailSender = emailSender
+  }
+
   const runOnStart = Boolean(options.runOnStart)
   if (runOnStart) {
-    runNightlyDigestJob(options)
+    runNightlyDigestJob(workerOptions)
       .catch((error) => {
         log.error?.(`[nightly-digest] startup run failed: ${error instanceof Error ? error.message : 'unknown_error'}`)
       })
@@ -155,6 +193,16 @@ export function startNightlyDigestWorker(options = {}) {
     getNextRunAt() {
       return nextRunAt
     },
+  }
+}
+
+export function loadStoredDigest() {
+  try {
+    if (!fs.existsSync(DIGEST_STORE_PATH)) return null
+    const raw = fs.readFileSync(DIGEST_STORE_PATH, 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return null
   }
 }
 
