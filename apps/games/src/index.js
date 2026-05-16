@@ -608,8 +608,20 @@ export function getGomokuWinner(stones, lastMove) {
     }
 
     for (const [dx, dy] of DIRECTIONS) {
-      const line = lineLengthThrough(stones, point.x, point.y, player, dx, dy)
-      if (line >= 5) {
+      const countForward = countDirection(stones, point.x, point.y, dx, dy, player)
+      const countBackward = countDirection(stones, point.x, point.y, -dx, -dy, player)
+      const total = 1 + countForward + countBackward
+
+      if (total >= 5) {
+        // Strict win: the line must NOT be bounded on both sides by opponent stones.
+        // If both ends are blocked by opponent pieces, it's not a valid win.
+        const forwardBlocked = !!stones[coordKey(point.x + dx * (countForward + 1), point.y + dy * (countForward + 1))]
+        const backwardBlocked = !!stones[coordKey(point.x - dx * (countBackward + 1), point.y - dy * (countBackward + 1))]
+
+        if (forwardBlocked && backwardBlocked) {
+          continue
+        }
+
         return player
       }
     }

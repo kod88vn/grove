@@ -74,4 +74,76 @@ describe('Gomoku Expert AI', () => {
     assert(move !== null)
     assert(isGomokuMoveLegal(stones, move.x, move.y))
   })
+
+  it('should NOT declare winner when 5-in-a-row is bounded on both sides by opponent', () => {
+    // AI has 5 in a row but both ends are blocked by human stones
+    const stones = {
+      [coordKey(-1, 0)]: 'human', // Block left end
+      [coordKey(0, 0)]: 'ai',
+      [coordKey(1, 0)]: 'ai',
+      [coordKey(2, 0)]: 'ai',
+      [coordKey(3, 0)]: 'ai',
+      [coordKey(4, 0)]: 'ai',
+      [coordKey(5, 0)]: 'human', // Block right end
+    }
+    const winner = getGomokuWinner(stones, { x: 4, y: 0 })
+    assert.equal(winner, null, 'Bounded 5-in-a-row should NOT be a win')
+  })
+
+  it('should declare winner when 5-in-a-row has at least one open end', () => {
+    // AI has 5 in a row with right end open (no human stone at position 6)
+    const stones = {
+      [coordKey(-1, 0)]: 'human', // Block left end only
+      [coordKey(0, 0)]: 'ai',
+      [coordKey(1, 0)]: 'ai',
+      [coordKey(2, 0)]: 'ai',
+      [coordKey(3, 0)]: 'ai',
+      [coordKey(4, 0)]: 'ai',
+    }
+    const winner = getGomokuWinner(stones, { x: 4, y: 0 })
+    assert.equal(winner, 'ai', '5-in-a-row with one open end IS a win')
+  })
+
+  it('should declare winner when 5-in-a-row has no blockers at all', () => {
+    // AI has 5 in a row with both ends open (no opponent stones nearby)
+    const stones = {
+      [coordKey(0, 0)]: 'ai',
+      [coordKey(1, 0)]: 'ai',
+      [coordKey(2, 0)]: 'ai',
+      [coordKey(3, 0)]: 'ai',
+      [coordKey(4, 0)]: 'ai',
+    }
+    const winner = getGomokuWinner(stones, { x: 4, y: 0 })
+    assert.equal(winner, 'ai', '5-in-a-row with both ends open IS a win')
+  })
+
+  it('should NOT declare winner for bounded 5-in-a-row in vertical direction', () => {
+    // AI has 5 in a row vertically but both ends blocked
+    const stones = {
+      [coordKey(0, -1)]: 'human', // Block bottom
+      [coordKey(0, 0)]: 'ai',
+      [coordKey(0, 1)]: 'ai',
+      [coordKey(0, 2)]: 'ai',
+      [coordKey(0, 3)]: 'ai',
+      [coordKey(0, 4)]: 'ai',
+      [coordKey(0, 5)]: 'human', // Block top
+    }
+    const winner = getGomokuWinner(stones, { x: 0, y: 4 })
+    assert.equal(winner, null, 'Bounded vertical 5-in-a-row should NOT be a win')
+  })
+
+  it('should declare winner for bounded 5-in-a-row that is actually 6+ (overline still wins)', () => {
+    // When there are 6+ in a row, the extra stones mean at least one subset of 5 is open
+    // This tests that we correctly identify the winning line even with extra stones
+    const stones = {
+      [coordKey(0, 0)]: 'ai',
+      [coordKey(1, 0)]: 'ai',
+      [coordKey(2, 0)]: 'ai',
+      [coordKey(3, 0)]: 'ai',
+      [coordKey(4, 0)]: 'ai',
+      [coordKey(5, 0)]: 'ai', // 6 in a row - the first 5 are open on the right
+    }
+    const winner = getGomokuWinner(stones, { x: 5, y: 0 })
+    assert.equal(winner, 'ai', '6-in-a-row IS a win (subset of 5 is open)')
+  })
 })

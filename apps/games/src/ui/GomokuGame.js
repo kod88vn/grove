@@ -50,6 +50,7 @@ export default function GomokuGame() {
   const workerRef = useRef(null)
   const pendingJobIdRef = useRef(0)
   const pendingBoardRef = useRef(null)
+  const roundIdRef = useRef(0)
 
   // Keep score ref in sync so worker onmessage always reads current value
   useEffect(() => {
@@ -98,7 +99,8 @@ export default function GomokuGame() {
     worker.onmessage = (event) => {
       const payload = event.data || {}
 
-      if (payload.jobId !== pendingJobIdRef.current) {
+      // Double-check: round ID must match AND job ID must match
+      if (payload.roundId !== roundIdRef.current || payload.jobId !== pendingJobIdRef.current) {
         return
       }
 
@@ -254,6 +256,7 @@ export default function GomokuGame() {
       try {
         workerRef.current.postMessage({
           jobId,
+          roundId: roundIdRef.current,
           stones: afterHuman,
           config: aiConfig,
           difficulty: currentDifficulty,
@@ -265,8 +268,12 @@ export default function GomokuGame() {
     }
 
     // Fallback path - worker not available
-    setTimeout(() => {
-      if (jobId !== pendingJobIdRef.current) {
+    // Capture the round ID at call time so stale timeouts can be invalidated
+    const fallbackRoundId = roundIdRef.current
+
+      setTimeout(() => {
+      // Double-check: round ID and job ID must match
+      if (jobId !== pendingJobIdRef.current || fallbackRoundId !== roundIdRef.current) {
         return
       }
 
@@ -316,16 +323,20 @@ export default function GomokuGame() {
   }
 
   const reset = () => {
+    // Bump round ID and job ID to invalidate ALL pending worker responses from previous rounds
+    roundIdRef.current += 1
     pendingJobIdRef.current += 1
     pendingBoardRef.current = null
 
     if (lastLoser === 'human') {
+      // Human lost, so human goes first. Board starts empty.
       setStones({})
       setLastHumanMove(null)
       setLastAiMove(null)
       setAiThinking(false)
       setMessage('You lost, so you go first! Place your stone anywhere.')
     } else {
+      // AI lost or first round: AI starts at center.
       setStones({ [coordKey(0, 0)]: 'ai' })
       setLastHumanMove(null)
       setLastAiMove({ x: 0, y: 0 })
