@@ -57,9 +57,11 @@ export default function GomokuGame() {
   }, [score])
 
   const handleSymbolSelect = (selectedEmoji) => {
+    console.log('[Gomoku] Symbol selected:', selectedEmoji)
     setHumanSymbol(selectedEmoji)
     const aiSym = getRandomAiSymbol(selectedEmoji)
     setAiSymbol(aiSym.emoji)
+    console.log('[Gomoku] AI symbol chosen:', aiSym.emoji)
     setSymbolSelectionMode(false)
     // Show difficulty selection in dev mode
     if (process.env.NODE_ENV === 'development') {
@@ -76,41 +78,78 @@ export default function GomokuGame() {
   }
 
   useEffect(() => {
+    console.log('[Gomoku] === Worker setup effect running ===')
+    console.log('[Gomoku] window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A (SSR)')
+    console.log('[Gomoku] typeof Worker:', typeof Worker)
+
     if (typeof Worker === 'undefined') {
+      console.warn('[Gomoku] Worker API not available in this environment (Node.js/ssr)')
       return undefined
     }
 
     const worker = createWorker(window.location.pathname)
+    console.log('[Gomoku] Worker created:', !!worker, 'type:', worker?.constructor?.name)
+    console.log('[Gomoku] Worker state after create:', worker?.readyState)
+
+    if (!worker) {
+      console.error('[Gomoku] FATAL: createWorker returned null/undefined!')
+      setMessage('AI worker could not be initialized. Game may not function.')
+      return undefined
+    }
+
     workerRef.current = worker
 
     // Add error handler to surface worker loading failures in production
     worker.onerror = (error) => {
-      console.error('[Gomoku] Worker error:', error)
+      console.error('[Gomoku] ═══════════════════════════════════════')
+      console.error('[Gomoku] !!! WORKER ERROR EVENT CAPTURED !!!')
+      console.error('[Gomoku] ═══════════════════════════════════════')
+      console.error('[Gomoku] error.type:', error.type)
+      console.error('[Gomoku] error.filename:', error.filename)
+      console.error('[Gomoku] error.lineno:', error.lineno)
+      console.error('[Gomoku] error.colno:', error.colno)
+      console.error('[Gomoku] error.message:', error.message)
+      console.error('[Gomoku] error.full:', error)
       setAiThinking(false)
       setMessage('AI worker failed to load. Using fallback mode.')
     }
 
+    console.log('[Gomoku] onerror handler attached')
+
     worker.onmessage = (event) => {
+      console.log('[Gomoku] ═══════════════════════════════════════')
+      console.log('[Gomoku] !!! WORKER onmessage RECEIVED !!!')
+      console.log('[Gomoku] ═══════════════════════════════════════')
+      console.log('[Gomoku] event.data exists:', !!event.data)
+      console.log('[Gomoku] event.data keys:', event.data ? Object.keys(event.data) : 'N/A')
+
       const payload = event.data || {}
+      console.log('[Gomoku] payload.jobId:', payload.jobId, 'pendingJobIdRef.current:', pendingJobIdRef.current)
+
       if (payload.jobId !== pendingJobIdRef.current) {
+        console.log('[Gomoku] Job ID mismatch - ignoring stale response')
         return
       }
 
       const baseBoard = pendingBoardRef.current
+      console.log('[Gomoku] pendingBoardRef.current:', !!baseBoard, 'keys:', baseBoard ? Object.keys(baseBoard) : 'N/A')
       pendingBoardRef.current = null
 
       if (!baseBoard || payload.error) {
+        console.warn('[Gomoku] Early exit from onmessage:', { hasBaseBoard: !!baseBoard, error: payload.error })
         setAiThinking(false)
         setMessage('AI got confused for a moment. Your turn!')
         return
       }
 
       if (!payload.move) {
+        console.log('[Gomoku] No move in payload')
         setAiThinking(false)
         setMessage('No legal moves left. It is a draw!')
         return
       }
 
+      console.log('[Gomoku] AI move received from worker:', payload.move)
       const afterAI = {
         ...baseBoard,
         [coordKey(payload.move.x, payload.move.y)]: 'ai',
@@ -138,9 +177,15 @@ export default function GomokuGame() {
       } else {
         setMessage('Your turn. Remember: max distance is 3 cells from existing stones.')
       }
+
+      console.log('[Gomoku] ═══════════════════════════════════════')
     }
 
+    console.log('[Gomoku] onmessage handler attached')
+    console.log('[Gomoku] === Worker setup complete ===')
+
     return () => {
+      console.log('[Gomoku] Worker cleanup: terminating')
       worker.terminate()
       workerRef.current = null
     }
@@ -189,11 +234,20 @@ export default function GomokuGame() {
   }
 
   const playHumanMove = (x, y) => {
+    console.log('[Gomoku] ═══════════════════════════════════════')
+    console.log('[Gomoku] playHumanMove called:', { x, y })
+    console.log('[Gomoku] State at move time:', { winner: !!winner, aiThinking, stonesCount: Object.keys(stones).length })
+
     if (winner || aiThinking) {
+      console.log('[Gomoku] Move blocked: winner or AI thinking')
       return
     }
 
-    if (!isGomokuMoveLegal(stones, x, y)) {
+    const legal = isGomokuMoveLegal(stones, x, y)
+    console.log('[Gomoku] Move legality check:', legal)
+
+    if (!legal) {
+      console.log('[Gomoku] Move rejected: illegal at', x, y)
       setMessage('Move blocked: place within 3 cells of the nearest stone.')
       return
     }
@@ -204,6 +258,7 @@ export default function GomokuGame() {
     }
 
     const humanWinner = getGomokuWinner(afterHuman, { x, y })
+    console.log('[Gomoku] Human winner check:', !!humanWinner)
     setStones(afterHuman)
     setLastHumanMove({ x, y })
 
@@ -227,9 +282,12 @@ export default function GomokuGame() {
       } else {
         setMessage('🏆 You made five! Loser (AI) starts the next round.')
       }
+      console.log('[Gomoku] Human won this round')
       return
     }
 
+    // AI's turn - trigger worker or fallback
+    console.log('[Gomoku] Setting AI thinking state')
     setAiThinking(true)
     setMessage('🤖 AI is thinking hard...')
 
@@ -241,32 +299,51 @@ export default function GomokuGame() {
     const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
     const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
 
+    console.log('[Gomoku] AI config:', { jobId, difficulty: currentDifficulty, stonesCount: Object.keys(afterHuman).length })
+    console.log('[Gomoku] workerRef.current exists:', !!workerRef.current)
+
     if (workerRef.current) {
-      workerRef.current.postMessage({
-        jobId,
-        stones: afterHuman,
-        config: aiConfig,
-        difficulty: currentDifficulty,
-      })
+      console.log('[Gomoku] Posting message to worker...')
+      try {
+        workerRef.current.postMessage({
+          jobId,
+          stones: afterHuman,
+          config: aiConfig,
+          difficulty: currentDifficulty,
+        })
+        console.log('[Gomoku] Message posted to worker successfully')
+      } catch (postError) {
+        console.error('[Gomoku] FAILED to post message to worker:', postError)
+        console.error('[Gomoku] Worker state:', { readyState: workerRef.current.readyState, exists: !!workerRef.current })
+        // Fall through to fallback
+      }
+      console.log('[Gomoku] ═══════════════════════════════════════')
       return
     }
 
-    // Fallback path
+    // Fallback path - worker not available
+    console.log('[Gomoku] No worker available, using fallback setTimeout path')
     setTimeout(() => {
+      console.log('[Gomoku] Fallback setTimeout fired, job check:', { jobId, currentJobId: pendingJobIdRef.current })
       if (jobId !== pendingJobIdRef.current) {
+        console.log('[Gomoku] Fallback: stale job, skipping')
         return
       }
 
       const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
       const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
 
+      console.log('[Gomoku] Fallback: calling AI with difficulty:', currentDifficulty)
       let aiMove
       if (currentDifficulty === 'expert') {
+        console.log('[Gomoku] Fallback: using expert AI')
         aiMove = chooseGomokuAIMoveExpert(afterHuman, aiConfig)
       } else {
+        console.log('[Gomoku] Fallback: using intermediate AI')
         aiMove = chooseGomokuAIMove(afterHuman, aiConfig)
       }
 
+      console.log('[Gomoku] Fallback: AI move result:', aiMove)
       if (!aiMove) {
         setAiThinking(false)
         setMessage('No legal moves left. It is a draw!')
@@ -299,6 +376,8 @@ export default function GomokuGame() {
       } else {
         setMessage('Your turn. Remember: max distance is 3 cells from existing stones.')
       }
+
+      console.log('[Gomoku] ═══════════════════════════════════════')
     }, 0)
   }
 
