@@ -47,12 +47,12 @@ export default function GomokuGame() {
   const [winsForExpertUnlocked, setWinsForExpertUnlocked] = useState(0)
   const [manualDifficultyOverride, setManualDifficultyOverride] = useState(null)
 
-  // Unlock thresholds: beginner=0, intermediate=1, expert=3, master=5
+  // Unlock thresholds: easy=0, medium=1, hard=3, expert=5
   const getUnlockedDifficulty = () => {
-    if (winsForExpertUnlocked >= 5) return 'master'
-    if (winsForExpertUnlocked >= 3) return 'expert'
-    if (winsForExpertUnlocked >= 1) return 'intermediate'
-    return 'beginner'
+    if (winsForExpertUnlocked >= 5) return 'expert'
+    if (winsForExpertUnlocked >= 3) return 'hard'
+    if (winsForExpertUnlocked >= 1) return 'medium'
+    return 'easy'
   }
 
   const unlockedDifficulty = getUnlockedDifficulty()
@@ -243,11 +243,11 @@ export default function GomokuGame() {
         const newWins = winsForExpertUnlocked + 1
         let unlockMsg = ''
         if (newWins === 1) {
-          unlockMsg = '🎓 Intermediate level unlocked!'
+          unlockMsg = '🎓 Medium level unlocked!'
         } else if (newWins === 3) {
-          unlockMsg = '🎓 Expert level unlocked!'
+          unlockMsg = '🎓 Hard level unlocked!'
         } else if (newWins === 5) {
-          unlockMsg = '🎓 Master level unlocked!'
+          unlockMsg = '🎓 Expert level unlocked!'
         }
         if (unlockMsg) {
           setMessage(`🏆 You made five! Loser (AI) starts the next round.\n${unlockMsg}`)
@@ -298,8 +298,12 @@ export default function GomokuGame() {
       const currentDifficulty = manualDifficultyOverride || unlockedDifficulty
       const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
 
+      // Legacy name mapping for backward compatibility
+      const _LEGACY_MAP = { beginner: 'easy', intermediate: 'medium', master: 'expert' }
+      const resolvedDifficulty = _LEGACY_MAP[currentDifficulty] || currentDifficulty
+
       let aiMove
-      if (currentDifficulty === 'expert') {
+      if (resolvedDifficulty === 'expert') {
         aiMove = chooseGomokuAIMoveExpert(afterHuman, aiConfig)
       } else {
         aiMove = chooseGomokuAIMove(afterHuman, aiConfig)
@@ -402,10 +406,10 @@ export default function GomokuGame() {
   // Difficulty selection screen (development mode only)
   if (difficultySelectionMode) {
     const difficultyOptions = [
-      { key: 'beginner', emoji: '🌱', label: 'Beginner', styles: { border: 'border-green-300', bg: 'bg-green-50', hoverBorder: 'hover:border-green-400', hoverBg: 'hover:bg-green-100', text: 'text-green-900' } },
-      { key: 'intermediate', emoji: '⚡', label: 'Intermediate', styles: { border: 'border-blue-300', bg: 'bg-blue-50', hoverBorder: 'hover:border-blue-400', hoverBg: 'hover:bg-blue-100', text: 'text-blue-900' } },
-      { key: 'expert', emoji: '🏆', label: 'Expert', styles: { border: 'border-red-300', bg: 'bg-red-50', hoverBorder: 'hover:border-red-400', hoverBg: 'hover:bg-red-100', text: 'text-red-900' } },
-      { key: 'master', emoji: '👑', label: 'Master', styles: { border: 'border-purple-300', bg: 'bg-purple-50', hoverBorder: 'hover:border-purple-400', hoverBg: 'hover:bg-purple-100', text: 'text-purple-900' } },
+      { key: 'easy', emoji: '🌱', label: 'Easy (Depth 2)', styles: { border: 'border-green-300', bg: 'bg-green-50', hoverBorder: 'hover:border-green-400', hoverBg: 'hover:bg-green-100', text: 'text-green-900' } },
+      { key: 'medium', emoji: '⚡', label: 'Medium (Depth 3)', styles: { border: 'border-blue-300', bg: 'bg-blue-50', hoverBorder: 'hover:border-blue-400', hoverBg: 'hover:bg-blue-100', text: 'text-blue-900' } },
+      { key: 'hard', emoji: '🔥', label: 'Hard (Depth 4)', styles: { border: 'border-orange-300', bg: 'bg-orange-50', hoverBorder: 'hover:border-orange-400', hoverBg: 'hover:bg-orange-100', text: 'text-orange-900' } },
+      { key: 'expert', emoji: '👑', label: 'Expert (Depth 5)', styles: { border: 'border-purple-300', bg: 'bg-purple-50', hoverBorder: 'hover:border-purple-400', hoverBg: 'hover:bg-purple-100', text: 'text-purple-900' } },
     ]
 
     return (
@@ -486,19 +490,19 @@ export default function GomokuGame() {
         </button>
       </div>
 
-      <p className="mt-2 text-xs font-medium text-slate-500">
-        You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{
-          manualDifficultyOverride
-            ? { beginner: '🌱 Beginner', intermediate: '⚡ Intermediate', expert: '🏆 Expert', master: '👑 Master' }[manualDifficultyOverride]
-            : { beginner: '🌱 Beginner', intermediate: '⚡ Intermediate', expert: '🏆 Expert', master: '👑 Master' }[unlockedDifficulty]
-        }</span>
-        {manualDifficultyOverride && <span className="ml-2 text-orange-600">(🧪 Dev Override)</span>}
-      </p>
+        <p className="mt-2 text-xs font-medium text-slate-500">
+          You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{
+            manualDifficultyOverride
+              ? { easy: '🌱 Easy (2)', medium: '⚡ Medium (3)', hard: '🔥 Hard (4)', expert: '👑 Expert (5)' }[manualDifficultyOverride]
+              : { easy: '🌱 Easy (2)', medium: '⚡ Medium (3)', hard: '🔥 Hard (4)', expert: '👑 Expert (5)' }[unlockedDifficulty]
+          }</span>
+          {manualDifficultyOverride && <span className="ml-2 text-orange-600">(🧪 Dev Override)</span>}
+        </p>
 
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-4 flex flex-wrap gap-2 rounded-lg border-2 border-orange-300 bg-orange-50 p-3">
           <span className="text-xs font-semibold text-orange-700 w-full mb-1">🧪 Dev Mode:</span>
-          {['beginner', 'intermediate', 'expert', 'master'].map((level) => (
+          {['easy', 'medium', 'hard', 'expert'].map((level) => (
             <button
               key={level}
               onClick={() => setManualDifficultyOverride(level)}
@@ -508,7 +512,7 @@ export default function GomokuGame() {
                   : 'bg-white text-orange-600 border border-orange-300 hover:bg-orange-50'
               }`}
             >
-              {{ beginner: '🌱', intermediate: '⚡', expert: '🏆', master: '👑' }[level]} {level.charAt(0).toUpperCase() + level.slice(1)}
+              {{ easy: '🌱', medium: '⚡', hard: '🔥', expert: '👑' }[level]} {level.charAt(0).toUpperCase() + level.slice(1)}
             </button>
           ))}
           <button

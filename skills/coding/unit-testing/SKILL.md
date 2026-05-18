@@ -32,13 +32,26 @@ argument-hint: 'File to test, failing test case, or feature description'
 
 ## Groove-Specific Notes
 
-- Tests live alongside source: `__tests__/` or `*.test.js` next to the module.
-- Jest config: `apps/<app>/jest.config.cjs` (CJS mode).
+- **Tests live side by side with source code ONLY.** `*.test.js` next to the module they test.
+- **NEVER use `__tests__/` or `test/` directories.** This contradicts the side-by-side testing rule.
+- Jest config: `apps/<app>/jest.config.cjs` (CJS mode). Configure to discover `**/*.test.js` and `**/*.spec.js`.
 - Playwright E2E: `apps/nora/playwright.config.js` for browser tests.
 - Ollama calls must be mocked — never hit the real endpoint in CI.
 
+## BDD Bug Reproduction (Mandatory)
+
+When fixing ANY bug or regression:
+
+1. **Write a failing test FIRST** — The test must fail before your fix. This proves the test is valid.
+2. **Fix the code** — Minimal change to make the failing test pass.
+3. **Run full suite** — No regressions allowed.
+4. **Build** — `npx next build` to catch build-time issues.
+
+If you cannot write a test for the bug (e.g., purely visual/UI), document reproduction steps as a comment next to the relevant component.
+
 ## Output Format
 
+For new tests:
 ```
 ### Tests Added/Updated
 - [file](path): <what is tested>
@@ -46,3 +59,23 @@ argument-hint: 'File to test, failing test case, or feature description'
 ### Test Command
 ```bash
 cd apps/<app> && yarn test
+```
+
+For bug fixes (BDD):
+```
+### Bug Fix: <issue title>
+
+#### Failing Test (Before Fix)
+- [file](path): test that reproduced the bug — <description>
+
+#### Root Cause
+<what was wrong>
+
+#### Fix
+- [file](path): <what changed and why>
+
+### Verification
+- [ ] Failing test now passes
+- [ ] Full test suite passes
+- [ ] `npx next build` succeeds
+```

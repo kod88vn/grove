@@ -50,9 +50,28 @@ Use the `terse-communication` skill by default in `full` mode:
 ## Workspace Standards (from AGENTS.md)
 
 1. **Verify via Build**: Run `npx next build` after completing tasks to catch syntax/type/layout errors.
-2. **Test-First Triage**: Follow BDD-style triage — reproduce bugs in failing tests before fixing.
+2. **Test-First Triage (BDD)**: Follow BDD-style triage — reproduce bugs in failing tests before fixing. See [BDD Bug Reproduction Policy](../AGENTS.md#bdd-bug-reproduction-policy) below.
 3. **Keep Nora Thin**: Avoid bloating `apps/nora`. Place major capabilities in sibling apps.
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
+5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values.
+
+## BDD Bug Reproduction Policy (Non-Negotiable)
+
+When ANY bug, regression, or unexpected behavior is reported:
+
+1. **Write a failing test FIRST** — Before any code change, write a test that reproduces the bug. The test MUST fail initially (proving it actually catches the issue).
+2. **Fix the code** — Make the minimal change to make the failing test pass.
+3. **Verify all tests pass** — Run the full test suite to ensure no regressions.
+4. **Run full build** — `npx next build` to catch any build-time issues.
+
+**Rules:**
+- DO NOT fix a bug without a failing test first (unless it's a UI-only change with no logic).
+- DO NOT skip the failing-first step. If your test passes immediately, it's not a valid reproduction.
+- DO NOT patch symptoms. Find and fix the root cause.
+- For UI bugs without logic: document reproduction steps in a comment next to the relevant component, then fix.
+- For non-deterministic bugs (race conditions, flaky tests): log to a gitignored audit file AND add targeted guards.
+
+**Reference**: See also [`skills/coding/debugging/SKILL.md`](../skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](../skills/coding/unit-testing/SKILL.md).
 
 ## Ollama / AI Access Pattern
 
@@ -67,6 +86,14 @@ Use the `terse-communication` skill by default in `full` mode:
 - For content generation failures, fix the prompt contract and request parameters first.
 - Add diagnostics (logs, traces, tests) to identify why the model response failed.
 - **Do not** implement fallback content that masks model errors.
+
+
+## Side-by-Side Testing Rule
+
+Test files MUST live side by side with the production code they test, never in a separate `test/` directory.
+
+- Naming convention: `<module>.test.js` next to `<module>.js`, or `<module>.spec.js` for spec-style tests.
+- **No `test/`, `__tests__/`, or any other flat test directory is allowed.**
 
 ## Repository Defaults
 

@@ -5,9 +5,43 @@ This document defines the roles and responsibilities of AI agents working within
 ## Core Directives
 
 1. **Verify via Build**: Always run a full production build (`npx next build` or equivalent) after completing a task to catch syntax errors, type mismatches, or layout breakage that unit tests might miss.
-2. **Test-First Triage**: Follow BDD-style triage. Reproduce bugs in failing tests before fixing.
+2. **Test-First Triage (BDD)**: Follow BDD-style triage. Reproduce bugs in failing tests before fixing. See [BDD Bug Reproduction Policy](#bdd-bug-reproduction-policy) below.
 3. **Keep Nora Thin**: Avoid bloating `apps/nora`. Place major capabilities in sibling apps and keep Nora as a thin consumer.
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
+5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values. Surface problems clearly so they get fixed at the source.
+
+
+## BDD Bug Reproduction Policy (Non-Negotiable)
+
+When ANY bug, regression, or unexpected behavior is reported:
+
+1. **Write a failing test FIRST** — Before any code change, write a test that reproduces the bug. The test MUST fail initially (proving it actually catches the issue).
+2. **Fix the code** — Make the minimal change to make the failing test pass.
+3. **Verify all tests pass** — Run the full test suite to ensure no regressions.
+4. **Run full build** — `npx next build` to catch any build-time issues.
+
+**Rules:**
+- DO NOT fix a bug without a failing test first (unless it's a UI-only change with no logic).
+- DO NOT skip the failing-first step. If your test passes immediately, it's not a valid reproduction.
+- DO NOT patch symptoms. Find and fix the root cause.
+- For UI bugs without logic: document reproduction steps in a comment next to the relevant component, then fix.
+- For non-deterministic bugs (race conditions, flaky tests): log to a gitignored audit file AND add targeted guards.
+
+**Reference**: See also [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md).
+
+## AI Skill Reference
+
+The following canonical skills define AI behavior. Each skill has detailed procedures in its own file:
+
+| Skill | Location | Purpose |
+|-------|----------|---------|
+| **Code Review** | [`skills/coding/code-review/SKILL.md`](skills/coding/code-review/SKILL.md) | PR reviews, bug/security detection, quality checks |
+| **Debugging** | [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) | Bug reproduction, root cause analysis, fix verification |
+| **Unit Testing** | [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md) | Jest/Playwright tests, BDD triage, TDD workflows |
+| **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
+| **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
+
+When performing any of these activities, follow the procedure in the corresponding skill file.
 
 ## Ollama / AI Access Pattern
 

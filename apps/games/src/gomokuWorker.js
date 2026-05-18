@@ -391,29 +391,29 @@ function minimax(stones, depth, alpha, beta, isMaximizing) {
 // ─── Difficulty Configuration ─────────────────────────────────────────────────
 
 const GOMOKU_AI_CONFIGS = {
-  beginner: {
+  easy: {
     searchDepth: 2,
-    candidateLimit: 8,
-    errorRate: 0.30,
-    patternScope: 'basic',
+    candidateLimit: null,
+    errorRate: 0.15,
+    patternScope: 'full',
     doubleThreatDetection: false,
   },
-  intermediate: {
-    searchDepth: 4,
-    candidateLimit: 20,
+  medium: {
+    searchDepth: 3,
+    candidateLimit: null,
     errorRate: 0.05,
     patternScope: 'full',
     doubleThreatDetection: false,
   },
-  expert: {
-    searchDepth: 6,
+  hard: {
+    searchDepth: 4,
     candidateLimit: null,
     errorRate: 0.0,
     patternScope: 'full',
     doubleThreatDetection: true,
   },
-  master: {
-    searchDepth: 8,
+  expert: {
+    searchDepth: 5,
     candidateLimit: null,
     errorRate: 0.0,
     patternScope: 'full',
@@ -476,6 +476,10 @@ function basicEvaluateMove(stones, x, y, player) {
 function chooseGomokuAIMove(stones, options) {
   const difficulty = (options && options.difficulty) || 'expert'
   const config = GOMOKU_AI_CONFIGS[difficulty] || GOMOKU_AI_CONFIGS.expert
+  // Map legacy difficulty names to new ones for backward compatibility
+  const _LEGACY_MAP = { beginner: 'easy', intermediate: 'medium', master: 'expert' }
+  const resolved = _LEGACY_MAP[difficulty] || difficulty
+  const resolvedConfig = GOMOKU_AI_CONFIGS[resolved] || GOMOKU_AI_CONFIGS[difficulty] || GOMOKU_AI_CONFIGS.expert
   const timeBudgetMs = (options && options.timeBudgetMs) || 2000
 
   // Empty board: play center
@@ -483,7 +487,7 @@ function chooseGomokuAIMove(stones, options) {
     return { x: 0, y: 0 }
   }
 
-  // Opening book (master level)
+  // Opening book (expert level)
   if (config.openingBook) {
     const openingMove = getOpeningMove(stones)
     if (openingMove) return openingMove
@@ -492,8 +496,8 @@ function chooseGomokuAIMove(stones, options) {
   const candidates = getThreatMoves(stones)
   if (!candidates.length) return null
 
-  // Beginner: basic line-length scoring, no search
-  if (config.patternScope === 'basic') {
+  // Basic pattern scope is no longer used; all levels use full minimax search now.
+  if (false) {
     // Check for immediate win first — prefer positive direction
     const aiWinCandidates = [...candidates].sort((a, b) => {
       const aPositive = (a.x > 0 || a.y > 0) ? 1 : 0
@@ -582,9 +586,7 @@ function chooseGomokuAIMove(stones, options) {
   const scored = scoreCandidatesHeuristic(stones, candidates, 'ai')
   scored.sort((a, b) => b.score - a.score)
 
-  const limited = config.candidateLimit
-    ? scored.slice(0, config.candidateLimit)
-    : scored
+  const limited = scored
 
   for (const { move } of limited) {
     if (Date.now() >= deadline) break
@@ -629,8 +631,12 @@ function chooseGomokuAIMove(stones, options) {
 self.onmessage = (event) => {
   const payload = event.data || {}
   try {
-    // Accept both { difficulty: 'beginner' } and { config: { searchDepth, ... }, difficulty: 'beginner' }
+    // Accept both { difficulty: 'easy' } and { config: { searchDepth, ... }, difficulty: 'easy' }
     let difficulty = payload.difficulty || 'expert'
+
+    // Map legacy difficulty names to new ones for backward compatibility
+    const _LEGACY_MAP = { beginner: 'easy', intermediate: 'medium', master: 'expert' }
+    if (_LEGACY_MAP[difficulty]) difficulty = _LEGACY_MAP[difficulty]
     const configOverride = payload.config
 
     if (configOverride && typeof configOverride === 'object') {

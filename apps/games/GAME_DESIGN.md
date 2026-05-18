@@ -228,63 +228,62 @@ Multiple themed emoji sets in `src/wordbanks/memory.js`:
 ## 8. Gomoku
 
 ### Current state
-AI already runs via a Web Worker with MCTS.
-AI config (`timeBudgetMs`, `maxPlayouts`, etc.) is configurable in the component.
-Board is always 15×15 (Gomoku standard), win condition is 5 in a row.
+AI runs via a Web Worker (`gomokuWorker.js`) using minimax with alpha-beta pruning.
+Board is 15×15 (Gomoku standard), win condition is 5 in a row.
 Players select their animal symbol at game start.
 
 ### Implemented features
 
-#### Symbol selection (completed)
-Players now select their animal symbol at the start of the game from a pool of 10 available symbols:
+#### Symbol selection
+Players choose their animal symbol at the start of the game from 10 available options:
 - 🦊 Fox, 🐼 Panda, 🐰 Bunny, 🦁 Lion, 🐯 Tiger, 🐻 Bear, 🐺 Wolf, 🦅 Eagle, 🐢 Turtle, 🦗 Cricket
 
-Once the player selects their symbol, the AI automatically gets assigned a different random symbol from the remaining 9.
+The AI automatically gets assigned a different random symbol from the remaining 9.
 
-#### Difficulty levels (completed)
+#### Infinity Board
+Dynamic board that adjusts to the game state with a max distance of 3 cells from existing stones for legal moves.
 
-Two difficulty levels are now implemented with automatic progression:
+#### Series Play
+Track wins across multiple rounds with the "Series Score" display.
 
-**Intermediate (Default)**
-- Uses Monte Carlo Tree Search (MCTS) algorithm
-- Config: `timeBudgetMs: 2200, maxPlayouts: 9000, maxRolloutDepth: 14, candidateLimit: 24`
-- AI starts at Intermediate level
+### AI Difficulty Levels
 
-**Expert (Unlocked after first AI loss)**
-- Uses a reward-based algorithm based on connection potential
-- Scores moves by evaluating:
-  - Direct connections and their potential for extension
-  - Open-ended vs. blocked sides (open sides worth much more)
-  - Future extension potential and flexibility
-  - Centralization (preference for moves near existing stones)
-- Strategically prioritizes:
-  1. Immediate winning moves
-  2. Blocking user's winning moves
-  3. Defending against user's open 3-in-a-row and 4-in-a-row with 1 blocked side
-  4. Building own strong threats
-  5. Opportunistic moves based on connection potential
-- Automatically activated once the AI loses at least once
-- Same computational budget as Intermediate level
+The Gomoku AI uses a pattern-matching minimax engine with alpha-beta pruning. Four difficulty levels are available:
 
-The UI displays the current AI level at the bottom of the game ("⚡ Intermediate" or "🏆 Expert").
+| Level | Search Depth | Error Rate | Key Features |
+|-------|-------------|------------|--------------|
+| 🌱 Beginner | 2 (heuristic only) | 30% | Basic line-length scoring, no search tree. Makes mistakes and plays randomly sometimes. Good for young children. |
+| ⚡ Intermediate | 4 | 5% | Minimax with alpha-beta pruning. Good for learning and casual play. Recognizes threats but misses combos. |
+| 🏆 Expert | 6 | 0% | Full pattern-matching evaluation (live4, sleep3, etc.). Detects double threats (four-three, double-four). Strategic play with strong offense and defense. |
+| 👑 Master | 8 | 0% | Deeper search with opening book (first 12 moves from pre-defined book) and endgame solver when <30 stones remain. |
 
-**Development Mode**
-In development (`NODE_ENV === 'development'`), an additional dev control panel appears below the game allowing:
-- Manual selection of Intermediate or Expert difficulty for testing
-- "Auto" button to switch back to automatic progression
-- Visual indicator showing when a manual override is active
-- Difficulty selection screen appears after symbol selection for initial level choice
+**Progressive Unlock**: In production, difficulty auto-unlocks as the player wins:
+- 0 wins → Beginner
+- 1 win → Intermediate unlocked
+- 3 wins → Expert unlocked
+- 5 wins → Master unlocked
 
-### Previous target state (difficulty variations)
+### AI Algorithm Architecture (`src/gomokuAI.js`)
 
-| Difficulty | timeBudgetMs | maxPlayouts | maxRolloutDepth | candidateLimit |
-|------------|-------------|-------------|-----------------|----------------|
-| Easy       | 400          | 800         | 6               | 10             |
-| Normal     | 1200         | 3500        | 10              | 18             |
-| Hard       | 2200         | 9000        | 14              | 24             |
-| Champion   | 4000         | 20000       | 18              | 32             |
+1. **Pattern Library** — Classifies connected lines into threat categories: `live4`, `sleep4`, `live3`, `sleep3`, etc. with open/blocked end detection
+2. **Threat Classifier** — Scans the board for all active threats per player across 4 directions
+3. **Double-Threat Detector** (Expert+) — Identifies unblockable combos: four-three, double-four, triple-three
+4. **Minimax Engine** — Alpha-beta pruning with threat-move candidate generation (radius-2 adjacency)
+5. **Opening Book** (Master) — Standard center-first opening moves for the first 12 plies
+6. **Error Injection** — Controlled suboptimal move probability for lower difficulties
 
-This target is deferred in favor of the current Expert system which is more engaging.
+### Tuning knobs (`GOMOKU_AI_CONFIGS`)
+
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `searchDepth` | 2, 4, 6, 8 | Minimax tree depth |
+| `errorRate` | 0.30, 0.05, 0.0 | Probability of playing a suboptimal move |
+| `patternScope` | `'basic'`, `'full'` | Line-length only vs. all patterns scored |
+| `doubleThreatDetection` | Boolean | four-three / double-four detection |
+| `openingBook` / `endgameSolver` | Boolean | Master-level features |
+
+### Worker integration
+The AI runs in a dedicated Web Worker (`gomokuWorker.js`) via Blob URL to avoid blocking the UI thread. The worker delegates to `chooseGomokuAIMove()` from `gomokuAI.js`.
 
 ---
 
