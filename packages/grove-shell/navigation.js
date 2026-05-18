@@ -1,8 +1,9 @@
 export const NAV_ITEMS = [
   { href: '/chat', label: 'Nora' },
   { href: '/games', label: 'Games' },
-  { href: '/shopping-list', label: 'Shopping List' },
-  { href: '/reminders', label: 'Reminders' },
+  // TODO: re-enable when ready
+  // { href: '/shopping-list', label: 'Shopping List' },
+  // { href: '/reminders', label: 'Reminders' },
   { href: '/homeworks', label: 'Homeworks' },
 ]
 
