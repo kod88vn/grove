@@ -506,32 +506,32 @@ function doubleThreatBonus(moveThreat) {
 
 // ─── Difficulty Configuration ─────────────────────────────────────────────────
 
-export const GOMOKU_DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'expert', 'master']
+export const GOMOKU_DIFFICULTY_LEVELS = ['easy', 'medium', 'hard', 'expert']
 
 export const GOMOKU_AI_CONFIGS = {
-  beginner: {
+  easy: {
     searchDepth: 2,
-    candidateLimit: 8,
-    errorRate: 0.30,
-    patternScope: 'basic',       // only counts line length, no open/blocked distinction
+    candidateLimit: null,
+    errorRate: 0.15,
+    patternScope: 'full',
     doubleThreatDetection: false,
   },
-  intermediate: {
-    searchDepth: 4,
-    candidateLimit: 20,
+  medium: {
+    searchDepth: 3,
+    candidateLimit: null,
     errorRate: 0.05,
-    patternScope: 'full',        // all patterns scored
-    doubleThreatDetection: false, // scores threats but doesn't detect combos
+    patternScope: 'full',
+    doubleThreatDetection: false,
   },
-  expert: {
-    searchDepth: 6,
-    candidateLimit: null,        // threat-move filtered + alpha-beta pruned
+  hard: {
+    searchDepth: 4,
+    candidateLimit: null,
     errorRate: 0.0,
     patternScope: 'full',
-    doubleThreatDetection: true, // four-three, double-four detection
+    doubleThreatDetection: true,
   },
-  master: {
-    searchDepth: 8,
+  expert: {
+    searchDepth: 5,
     candidateLimit: null,
     errorRate: 0.0,
     patternScope: 'full',
@@ -561,7 +561,11 @@ function getOpeningMove(stones) {
 
   const idx = Math.floor(count / 2)
   if (idx < OPENING_BOOK.length) {
-    return { ...OPENING_BOOK[idx] }
+    const candidate = OPENING_BOOK[idx]
+    // Only return if the position is actually empty and legal
+    if (!stones[coordKey(candidate.x, candidate.y)] && isGomokuMoveLegal(stones, candidate.x, candidate.y)) {
+      return { ...candidate }
+    }
   }
   return null
 }
@@ -604,7 +608,7 @@ function basicEvaluateMove(stones, x, y, player) {
  *
  * @param {Record<string, string>} stones — map of "x,y" → 'ai' | 'human'
  * @param {object} [options]
- * @param {'beginner'|'intermediate'|'expert'|'master'} [options.difficulty='expert']
+ * @param {'easy'|'medium'|'hard'|'expert'} [options.difficulty='expert']
  * @param {number} [options.timeBudgetMs=2000] — max time for computation
  * @returns {{x: number, y: number} | null}
  */
@@ -616,12 +620,6 @@ export function chooseGomokuAIMove(stones, options = {}) {
   // Empty board: play center
   if (!Object.keys(stones).length) {
     return { x: 0, y: 0 }
-  }
-
-  // Opening book (master level)
-  if (config.openingBook) {
-    const openingMove = getOpeningMove(stones)
-    if (openingMove) return openingMove
   }
 
   const candidates = getThreatMoves(stones)
@@ -709,6 +707,12 @@ export function chooseGomokuAIMove(stones, options = {}) {
   for (const move of humanCandidates) {
     const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
     if (getGomokuWinner(next, move)) return { ...move }
+  }
+
+  // Opening book (expert level) — only if no tactical move found
+  if (config.openingBook) {
+    const openingMove = getOpeningMove(stones)
+    if (openingMove) return openingMove
   }
 
   // Minimax search (intermediate+)

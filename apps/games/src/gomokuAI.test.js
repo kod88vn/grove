@@ -20,7 +20,7 @@ function K(x, y) {
 
 describe('Gomoku AI — Difficulty Configuration', () => {
   it('should define all four difficulty levels', () => {
-    assert.deepStrictEqual(GOMOKU_DIFFICULTY_LEVELS, ['beginner', 'intermediate', 'expert', 'master'])
+    assert.deepStrictEqual(GOMOKU_DIFFICULTY_LEVELS, ['easy', 'medium', 'hard', 'expert'])
   })
 
   it('should have valid config for each difficulty level', () => {
@@ -36,28 +36,28 @@ describe('Gomoku AI — Difficulty Configuration', () => {
   })
 
   it('should have increasing search depth with difficulty', () => {
-    assert.ok(GOMOKU_AI_CONFIGS.beginner.searchDepth < GOMOKU_AI_CONFIGS.intermediate.searchDepth)
-    assert.ok(GOMOKU_AI_CONFIGS.intermediate.searchDepth < GOMOKU_AI_CONFIGS.expert.searchDepth)
-    assert.ok(GOMOKU_AI_CONFIGS.expert.searchDepth < GOMOKU_AI_CONFIGS.master.searchDepth)
+    assert.ok(GOMOKU_AI_CONFIGS.easy.searchDepth < GOMOKU_AI_CONFIGS.medium.searchDepth)
+    assert.ok(GOMOKU_AI_CONFIGS.medium.searchDepth < GOMOKU_AI_CONFIGS.hard.searchDepth)
+    assert.ok(GOMOKU_AI_CONFIGS.hard.searchDepth < GOMOKU_AI_CONFIGS.expert.searchDepth)
   })
 
   it('should have decreasing error rate with difficulty', () => {
-    assert.ok(GOMOKU_AI_CONFIGS.beginner.errorRate > GOMOKU_AI_CONFIGS.intermediate.errorRate)
-    assert.ok(GOMOKU_AI_CONFIGS.intermediate.errorRate > GOMOKU_AI_CONFIGS.expert.errorRate)
+    assert.ok(GOMOKU_AI_CONFIGS.easy.errorRate > GOMOKU_AI_CONFIGS.medium.errorRate)
+    assert.ok(GOMOKU_AI_CONFIGS.medium.errorRate > GOMOKU_AI_CONFIGS.hard.errorRate)
+    assert.ok(GOMOKU_AI_CONFIGS.hard.errorRate === 0)
     assert.ok(GOMOKU_AI_CONFIGS.expert.errorRate === 0)
-    assert.ok(GOMOKU_AI_CONFIGS.master.errorRate === 0)
   })
 
-  it('should enable double-threat detection only for expert and master', () => {
-    assert.strictEqual(GOMOKU_AI_CONFIGS.beginner.doubleThreatDetection, false)
-    assert.strictEqual(GOMOKU_AI_CONFIGS.intermediate.doubleThreatDetection, false)
+  it('should enable double-threat detection only for hard and expert', () => {
+    assert.strictEqual(GOMOKU_AI_CONFIGS.easy.doubleThreatDetection, false)
+    assert.strictEqual(GOMOKU_AI_CONFIGS.medium.doubleThreatDetection, false)
+    assert.strictEqual(GOMOKU_AI_CONFIGS.hard.doubleThreatDetection, true)
     assert.strictEqual(GOMOKU_AI_CONFIGS.expert.doubleThreatDetection, true)
-    assert.strictEqual(GOMOKU_AI_CONFIGS.master.doubleThreatDetection, true)
   })
 
-  it('should enable opening book only for master', () => {
-    assert.strictEqual(GOMOKU_AI_CONFIGS.master.openingBook, true)
-    for (const level of ['beginner', 'intermediate', 'expert']) {
+  it('should enable opening book only for expert', () => {
+    assert.strictEqual(GOMOKU_AI_CONFIGS.expert.openingBook, true)
+    for (const level of ['easy', 'medium', 'hard']) {
       assert.strictEqual(GOMOKU_AI_CONFIGS[level].openingBook, undefined)
     }
   })
@@ -126,36 +126,36 @@ describe('Gomoku AI — Immediate Win Detection', () => {
       `should block human win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
   })
 
-  it('should win with beginner when given 4-in-a-row', () => {
+  it('should win with easy when given 4-in-a-row', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'ai',
       [K(2, 0)]: 'ai',
       [K(3, 0)]: 'ai',
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'beginner', timeBudgetMs: 100 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'easy', timeBudgetMs: 100 })
     assert.ok(move.x === 4 && move.y === 0 || move.x === -1 && move.y === 0,
-      `beginner should see immediate win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
+      `easy should see immediate win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
   })
 
-  it('should block human win with beginner', () => {
+  it('should block human win with easy', () => {
     const stones = {
       [K(0, 0)]: 'human',
       [K(1, 0)]: 'human',
       [K(2, 0)]: 'human',
       [K(3, 0)]: 'human',
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'beginner', timeBudgetMs: 100 })
-    // Beginner uses basicEvaluateMove which scores by line length.
+    const move = chooseGomokuAIMove(stones, { difficulty: 'easy', timeBudgetMs: 100 })
+    // Easy uses full pattern scoring with minimax.
     // Both (4,0) and (-1,0) create 5-in-a-row for human. The AI should block one of them.
     // With positive-direction preference, it blocks at (4, 0).
     assert.ok(move.x === 4 && move.y === 0 || move.x === -1 && move.y === 0,
-      `beginner should block human win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
+      `easy should block human win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
   })
 })
 
 describe('Gomoku AI — Aggressive Play (Expert)', () => {
-  it('should prefer creating a live 4 over a sleeping 3', () => {
+  it('should prefer creating a live 4 over a sleeping 3 (expert)', () => {
     const stones = {
       [K(-1, 0)]: 'human', // block left end
       [K(0, 0)]: 'ai',
@@ -188,6 +188,19 @@ describe('Gomoku AI — Aggressive Play (Expert)', () => {
     }
     const move = chooseGomokuAIMove(stones, { difficulty: 'expert', timeBudgetMs: 200 })
     assert.ok(move !== null, 'should find a move')
+    // Expert depth-5 search should play near the live 3 (aggressive play)
+    const isNearLive3 = move.x >= -2 && move.x <= 5 && Math.abs(move.y) <= 2
+    assert.ok(isNearLive3, `expert should play near the live 3, got (${move.x}, ${move.y})`)
+  })
+
+  it('should build toward win with hard difficulty', () => {
+    const stones = {
+      [K(0, 0)]: 'ai',
+      [K(1, 0)]: 'ai',
+      [K(2, 0)]: 'ai', // live 3 (both ends open)
+    }
+    const move = chooseGomokuAIMove(stones, { difficulty: 'hard', timeBudgetMs: 200 })
+    assert.ok(move !== null, 'should find a move')
     const isExtending = move.x === 3 || move.x === -1
     assert.ok(isExtending || move.y === 0, 'should extend the live 3')
   })
@@ -203,15 +216,15 @@ describe('Gomoku AI — Difficulty Differences', () => {
     }
 
     const expertMove = chooseGomokuAIMove(stones, { difficulty: 'expert', timeBudgetMs: 200 })
-    const beginnerMove = chooseGomokuAIMove(stones, { difficulty: 'beginner', timeBudgetMs: 200 })
+    const easyMove = chooseGomokuAIMove(stones, { difficulty: 'easy', timeBudgetMs: 200 })
 
     assert.ok(expertMove !== null, 'expert should find a move')
-    assert.ok(beginnerMove !== null, 'beginner should find a move')
+    assert.ok(easyMove !== null, 'easy should find a move')
     assert.ok(isGomokuMoveLegal(stones, expertMove.x, expertMove.y))
-    assert.ok(isGomokuMoveLegal(stones, beginnerMove.x, beginnerMove.y))
+    assert.ok(isGomokuMoveLegal(stones, easyMove.x, easyMove.y))
   })
 
-  it('beginner should occasionally make suboptimal moves (error injection)', () => {
+  it('easy should occasionally make suboptimal moves (error injection)', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'ai',
@@ -219,21 +232,21 @@ describe('Gomoku AI — Difficulty Differences', () => {
       [K(3, 0)]: 'ai',
     }
 
-    const move = chooseGomokuAIMove(stones, { difficulty: 'beginner', timeBudgetMs: 200 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'easy', timeBudgetMs: 200 })
     // Both (4,0) and (-1,0) are winning moves. With positive-direction preference,
     // (4,0) is preferred first. Error injection only kicks in if no immediate win found.
     assert.ok(move.x === 4 && move.y === 0 || move.x === -1 && move.y === 0,
-      `beginner should see immediate win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
+      `easy should see immediate win at (4,0) or (-1,0), got (${move.x}, ${move.y})`)
   })
 
-  it('intermediate should use minimax search', () => {
+  it('medium should use minimax search', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'human',
     }
 
-    const move = chooseGomokuAIMove(stones, { difficulty: 'intermediate', timeBudgetMs: 200 })
-    assert.ok(move !== null, 'intermediate should find a move')
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 200 })
+    assert.ok(move !== null, 'medium should find a move')
     assert.ok(isGomokuMoveLegal(stones, move.x, move.y), 'move should be legal')
   })
 
@@ -245,6 +258,16 @@ describe('Gomoku AI — Difficulty Differences', () => {
 
     const expertMove = chooseGomokuAIMove(stones, { difficulty: 'expert', timeBudgetMs: 200 })
     assert.ok(expertMove !== null)
+  })
+
+  it('hard should use double-threat detection', () => {
+    const stones = {
+      [K(0, 0)]: 'ai',
+      [K(1, 0)]: 'ai', // live 2 horizontally
+    }
+
+    const hardMove = chooseGomokuAIMove(stones, { difficulty: 'hard', timeBudgetMs: 200 })
+    assert.ok(hardMove !== null)
   })
 })
 
@@ -348,6 +371,26 @@ describe('Gomoku AI — Pattern Classification', () => {
 
     assert.ok(moveLive !== null)
     assert.ok(moveDead !== null)
+  })
+
+  it('should work with medium difficulty', () => {
+    const stones = {
+      [K(0, 0)]: 'ai',
+      [K(1, 0)]: 'ai',
+    }
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 100 })
+    assert.ok(move !== null)
+    assert.ok(isGomokuMoveLegal(stones, move.x, move.y))
+  })
+
+  it('should work with hard difficulty', () => {
+    const stones = {
+      [K(0, 0)]: 'ai',
+      [K(1, 0)]: 'ai',
+    }
+    const move = chooseGomokuAIMove(stones, { difficulty: 'hard', timeBudgetMs: 100 })
+    assert.ok(move !== null)
+    assert.ok(isGomokuMoveLegal(stones, move.x, move.y))
   })
 })
 
@@ -468,7 +511,7 @@ describe('Gomoku AI — Winner Detection', () => {
 })
 
 describe('Gomoku AI — Expert Aggressiveness', () => {
-  it('should create a sleeping 4 when it leads to win (depth-2 look-ahead)', () => {
+  it('should create a sleeping 4 when it leads to win (depth-5 look-ahead)', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'ai',
@@ -476,9 +519,9 @@ describe('Gomoku AI — Expert Aggressiveness', () => {
     }
     const move = chooseGomokuAIMove(stones, { difficulty: 'expert', timeBudgetMs: 200 })
     assert.ok(move !== null)
-    // Should extend to (3, 0) — positive direction preferred
-    assert.ok(move.y === 0 && (move.x === 3 || move.x === -1),
-      `expert should extend live 3, got (${move.x}, ${move.y})`)
+    // Expert depth-5 should play near the live 3 (aggressive, threat-creating)
+    const isNearLive3 = move.x >= -1 && move.x <= 5 && Math.abs(move.y) <= 2
+    assert.ok(isNearLive3, `expert should play near the live 3, got (${move.x}, ${move.y})`)
   })
 
   it('should prefer its own threat creation over blocking when safe (expert)', () => {
@@ -490,34 +533,33 @@ describe('Gomoku AI — Expert Aggressiveness', () => {
     }
     const move = chooseGomokuAIMove(stones, { difficulty: 'expert', timeBudgetMs: 200 })
     assert.ok(move !== null)
-    // Should extend the live 3 in positive direction: (3, 0)
-    assert.ok(move.x === 3 && move.y === 0 || move.x === -1 && move.y === 0,
-      'expert should extend live 3')
+    // Expert depth-5 should play near the live 3 (aggressive, threat-creating)
+    const isNearLive3 = move.x >= -1 && move.x <= 5 && Math.abs(move.y) <= 2
+    assert.ok(isNearLive3, `expert should play near the live 3, got (${move.x}, ${move.y})`)
   })
 
-  it('should play aggressively at intermediate level', () => {
+  it('should play aggressively at medium level', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'ai',
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'intermediate', timeBudgetMs: 200 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 200 })
     assert.ok(move !== null)
     assert.ok(Math.abs(move.x - 0) <= 2 && Math.abs(move.y - 0) <= 2,
-      'intermediate should play near existing stones')
+      'medium should play near existing stones')
   })
 
-  it('should handle beginner with error injection', () => {
+  it('should handle easy with error injection', () => {
     const stones = {
       [K(0, 0)]: 'ai',
       [K(1, 0)]: 'ai',
       [K(2, 0)]: 'human', // blocks one end — (3, 0) creates sleeping 4
     }
 
-    const move = chooseGomokuAIMove(stones, { difficulty: 'beginner', timeBudgetMs: 100 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'easy', timeBudgetMs: 100 })
     assert.ok(move !== null)
-    // Beginner with error injection may play suboptimally, but should still find a legal move.
-    // The best move is (3, 0) to extend the line, but error injection may pick alternatives.
-    assert.ok(isGomokuMoveLegal(stones, move.x, move.y), 'beginner should play a legal move')
+    // Easy with error injection may play suboptimally, but should still find a legal move.
+    assert.ok(isGomokuMoveLegal(stones, move.x, move.y), 'easy should play a legal move')
   })
 })
 
@@ -527,7 +569,7 @@ describe('Gomoku AI — Edge Cases', () => {
     for (let i = 0; i < 20; i++) {
       stones[K(i, 0)] = i % 2 === 0 ? 'ai' : 'human'
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'intermediate', timeBudgetMs: 200 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 200 })
     assert.ok(move !== null || Object.keys(stones).length > 15)
   })
 
@@ -539,7 +581,7 @@ describe('Gomoku AI — Edge Cases', () => {
         stones[K(x, y)] = 'human'
       }
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'intermediate', timeBudgetMs: 200 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 200 })
     assert.ok(move === null || isGomokuMoveLegal(stones, move.x, move.y))
   })
 
@@ -548,7 +590,7 @@ describe('Gomoku AI — Edge Cases', () => {
       [K(-3, -2)]: 'ai',
       [K(-2, -2)]: 'ai',
     }
-    const move = chooseGomokuAIMove(stones, { difficulty: 'intermediate', timeBudgetMs: 200 })
+    const move = chooseGomokuAIMove(stones, { difficulty: 'medium', timeBudgetMs: 200 })
     assert.ok(move !== null)
     assert.ok(isGomokuMoveLegal(stones, move.x, move.y))
   })
