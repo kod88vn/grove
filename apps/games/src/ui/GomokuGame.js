@@ -38,14 +38,20 @@ export default function GomokuGame() {
   const [stones, setStones] = useState({ [coordKey(0, 0)]: 'ai' })
   const [lastHumanMove, setLastHumanMove] = useState(null)
   const [lastAiMove, setLastAiMove] = useState({ x: 0, y: 0 })
-  const [score, setScore] = useState({ human: 0, ai: 0 })
-  const scoreRef = useRef({ human: 0, ai: 0 })
   const [lastLoser, setLastLoser] = useState(null)
   const [message, setMessage] = useState('AI played the first stone at the center. Your turn!')
   const [winner, setWinner] = useState(null)
   const [aiThinking, setAiThinking] = useState(false)
   const [winsForExpertUnlocked, setWinsForExpertUnlocked] = useState(0)
   const [manualDifficultyOverride, setManualDifficultyOverride] = useState(null)
+  const [score, setScore] = useState({ human: 0, ai: 0 })
+  const scoreRef = useRef({ human: 0, ai: 0 })
+  const lastLoserRef = useRef(null)
+
+  // Keep lastLoser ref in sync so reset() always reads current value
+  useEffect(() => {
+    lastLoserRef.current = lastLoser
+  }, [lastLoser])
 
   // Unlock thresholds: easy=0, medium=1, hard=3, expert=5
   const getUnlockedDifficulty = () => {
@@ -65,6 +71,7 @@ export default function GomokuGame() {
   useEffect(() => {
     scoreRef.current = score
   }, [score])
+
 
   const handleSymbolSelect = (selectedEmoji) => {
     setHumanSymbol(selectedEmoji)
@@ -206,10 +213,13 @@ export default function GomokuGame() {
   }
 
   const playHumanMove = (x, y) => {
+    // Block if round is over or AI is thinking — this IS the move lock.
+    // No separate lock state needed: aiThinking already prevents human from moving while AI computes.
     if (winner || aiThinking) {
       return
     }
 
+    // Use the actual stones state to compute the move — never use a stale ref
     const legal = isGomokuMoveLegal(stones, x, y)
 
     if (!legal) {
@@ -350,7 +360,11 @@ export default function GomokuGame() {
     pendingJobIdRef.current += 1
     pendingBoardRef.current = null
 
-    if (lastLoser === 'human') {
+    // Use ref to always read the freshest lastLoser value, avoiding stale closure bug
+    // where reset() would see an outdated lastLoser from a previous render.
+    const currentLastLoser = lastLoserRef.current
+
+    if (currentLastLoser === 'human') {
       // Human lost, so human goes first. Board starts empty.
       setStones({})
       setLastHumanMove(null)
@@ -364,7 +378,7 @@ export default function GomokuGame() {
       setLastAiMove({ x: 0, y: 0 })
       setAiThinking(false)
       setMessage(
-        lastLoser === 'ai' ? 'AI lost, so it starts center. Your turn!' : 'AI starts the first round. Your turn!'
+        currentLastLoser === 'ai' ? 'AI lost, so it starts center. Your turn!' : 'AI starts the first round. Your turn!'
       )
     }
 
@@ -455,7 +469,7 @@ export default function GomokuGame() {
               <button
                 key={coordKey(cell.x, cell.y)}
                 type="button"
-                disabled={occupied || winner || aiThinking}
+                disabled={occupied || aiThinking || winner}
                 onClick={() => playHumanMove(cell.x, cell.y)}
                 className={`flex h-8 w-8 items-center justify-center rounded border text-sm transition ${
                   occupied
