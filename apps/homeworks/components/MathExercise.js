@@ -524,7 +524,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
                 : answers[originalProblem.id]
 
             try {
-              await fetch('/api/nora-homework/library', {
+              const libraryRes = await fetch('/homeworks/api/nora-homework/library', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -543,8 +543,12 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
                   maxScore: 1,
                 }),
               })
+
+              if (!libraryRes.ok) {
+                throw new Error(`library save failed: ${libraryRes.status} ${libraryRes.statusText}`)
+              }
             } catch (error) {
-              console.log('Error saving to library:', error)
+              throw new Error(`Failed to save problem to library: ${error.message}`)
             }
           }
         }
@@ -552,7 +556,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
 
       onSubmit?.(result)
     } catch (error) {
-      console.log('Failed to submit: ' + error.message)
+      throw new Error(`Failed to submit problems: ${error.message}`)
     } finally {
       setLoading_(false)
     }

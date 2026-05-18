@@ -278,6 +278,104 @@ function classifyMoveThreat(stones, x, y, player) {
   }
 }
 
+// ─── Threat Scanner: find all positions where a player has 4+ in a row or live 3 ──
+//
+// These are "game-ending" threats that must be responded to immediately.
+
+/**
+ * Scan the board and return all positions where `player` has an active threat line.
+ * Returns { live4Positions, sleep4Positions, live3Positions } — arrays of {x, y}.
+ *
+ * Key insight: classifyLine returns openStart/openEnd relative to the ENTIRE line segment,
+ * not just adjacent to the current stone. We must compute endpoints from the full line extent.
+ */
+function scanBoardThreats(stones, player) {
+  const live4Positions = []
+  const sleep4Positions = []
+  const live3Positions = []
+
+  for (const key of Object.keys(stones)) {
+    const { x, y } = parseCoordKey(key)
+    if (!Number.isInteger(x) || !Number.isInteger(y)) continue
+    if (stones[key] !== player) continue
+
+    for (const [dx, dy] of DIRECTIONS) {
+      const line = classifyLine(stones, x, y, player, dx, dy)
+      const pattern = classifyPattern(line.connected, line.openStart, line.openEnd)
+
+      if (pattern === 'live4' || pattern === 'sleep4') {
+        // Found a 4-in-a-row threat — compute the actual endpoints of the line segment.
+        // The line extends `fwdCount` forward and `bwdCount` backward from (x,y).
+        // We need to re-count to find the true endpoints.
+        let fwdCount = 0, fx = x + dx, fy = y + dy
+        while (stones[coordKey(fx, fy)] === player) { fwdCount += 1; fx += dx; fy += dy }
+        let bwdCount = 0, bx = x - dx, by = y - dy
+        while (stones[coordKey(bx, by)] === player) { bwdCount += 1; bx -= dx; by -= dy }
+
+        // True endpoints: (bx,by) is the first empty before, (fx,fy) is the first empty after
+        if (line.openStart) {
+          const ep = { x: bx, y: by }
+          const exists = [...live4Positions, ...sleep4Positions].some(
+            (p) => p.x === ep.x && p.y === ep.y
+          )
+          if (!exists) {
+            if (pattern === 'live4') live4Positions.push(ep)
+            else sleep4Positions.push(ep)
+          }
+        }
+        if (line.openEnd) {
+          const ep = { x: fx, y: fy }
+          const exists = [...live4Positions, ...sleep4Positions].some(
+            (p) => p.x === ep.x && p.y === ep.y
+          )
+          if (!exists) {
+            if (pattern === 'live4') live4Positions.push(ep)
+            else sleep4Positions.push(ep)
+          }
+        }
+      }
+
+      if (pattern === 'live3') {
+        // Found a live 3 — compute the actual endpoints of the line segment.
+        let fwdCount = 0, fx = x + dx, fy = y + dy
+        while (stones[coordKey(fx, fy)] === player) { fwdCount += 1; fx += dx; fy += dy }
+        let bwdCount = 0, bx = x - dx, by = y - dy
+        while (stones[coordKey(bx, by)] === player) { bwdCount += 1; bx -= dx; by -= dy }
+
+        // True endpoints: (bx,by) is the first empty before, (fx,fy) is the first empty after
+        if (line.openStart) {
+          const ep = { x: bx, y: by }
+          const exists = live3Positions.some((p) => p.x === ep.x && p.y === ep.y)
+          if (!exists) live3Positions.push(ep)
+        }
+        if (line.openEnd) {
+          const ep = { x: fx, y: fy }
+          const exists = live3Positions.some((p) => p.x === ep.x && p.y === ep.y)
+          if (!exists) live3Positions.push(ep)
+        }
+      }
+    }
+  }
+
+  return { live4Positions, sleep4Positions, live3Positions }
+}
+
+/**
+ * Check if a specific position creates an immediate threat for `player`.
+ * Returns the highest-threat pattern type found, or null.
+ */
+function positionCreatesThreat(stones, x, y, player) {
+  const next = { ...stones, [coordKey(x, y)]: player }
+  for (const [dx, dy] of DIRECTIONS) {
+    const line = classifyLine(next, x, y, player, dx, dy)
+    const pattern = classifyPattern(line.connected, line.openStart, line.openEnd)
+    if (pattern === 'live4' || pattern === 'sleep4' || pattern === 'live3') {
+      return pattern
+    }
+  }
+  return null
+}
+
 // ─── Double-Threat Detector ───────────────────────────────────────────────────
 //
 // A move that creates TWO or more threats simultaneously is often unblockable.
@@ -702,17 +800,44 @@ export function chooseGomokuAIMove(stones, options = {}) {
     if (getGomokuWinner(next, move)) return { ...move }
   }
 
+  // ── Check for human threats that must be blocked (all levels) ──
+  // Priority: live4 > sleep4 > live3 (these are game-ending threats)
+
+  const humanThreats = scanBoardThreats(stones, 'human')
+
+  // Block live 4 first (unblockable if not blocked)
+  for (const threatPos of humanThreats.live4Positions) {
+    const next = { ...stones, [coordKey(threatPos.x, threatPos.y)]: 'human' }
+    // Verify this position would create 5-in-a-row or live4 (must block)
+    const threat = positionCreatesThreat(stones, threatPos.x, threatPos.y, 'human')
+    if (threat === 'live4' || threat === 'sleep4' || getGomokuWinner(next, threatPos)) {
+      return { ...threatPos }
+    }
+  }
+
+  // Block sleeping 4 (one end open → AI must block that end)
+  for (const threatPos of humanThreats.sleep4Positions) {
+    const next = { ...stones, [coordKey(threatPos.x, threatPos.y)]: 'human' }
+    const threat = positionCreatesThreat(stones, threatPos.x, threatPos.y, 'human')
+    if (threat === 'live4' || threat === 'sleep4' || getGomokuWinner(next, threatPos)) {
+      return { ...threatPos }
+    }
+  }
+
+  // Block live 3 (becomes unblockable live 4 if not blocked)
+  for (const threatPos of humanThreats.live3Positions) {
+    const next = { ...stones, [coordKey(threatPos.x, threatPos.y)]: 'human' }
+    const threat = positionCreatesThreat(stones, threatPos.x, threatPos.y, 'human')
+    if (threat === 'live3' || getGomokuWinner(next, threatPos)) {
+      return { ...threatPos }
+    }
+  }
+
   // Check for forced block (all levels) — prefer positive direction
   const humanCandidates = getThreatMoves(stones)
   for (const move of humanCandidates) {
     const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
     if (getGomokuWinner(next, move)) return { ...move }
-  }
-
-  // Opening book (expert level) — only if no tactical move found
-  if (config.openingBook) {
-    const openingMove = getOpeningMove(stones)
-    if (openingMove) return openingMove
   }
 
   // Minimax search (intermediate+)
