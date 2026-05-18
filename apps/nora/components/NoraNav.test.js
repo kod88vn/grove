@@ -29,8 +29,7 @@ describe('NoraNav', () => {
     expect(screen.getByRole('link', { name: 'Grove' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Nora' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Games' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Shopping List' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Reminders' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Homeworks' })).toBeInTheDocument()
   })
 
   it('wires nav links to the expected zone paths', async () => {
@@ -40,8 +39,7 @@ describe('NoraNav', () => {
     expect(screen.getByRole('link', { name: 'Grove' })).toHaveAttribute('href', '/')
     expect(screen.getByRole('link', { name: 'Nora' })).toHaveAttribute('href', '/chat')
     expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('href', '/games')
-    expect(screen.getByRole('link', { name: 'Shopping List' })).toHaveAttribute('href', '/shopping-list')
-    expect(screen.getByRole('link', { name: 'Reminders' })).toHaveAttribute('href', '/reminders')
+    expect(screen.getByRole('link', { name: 'Homeworks' })).toHaveAttribute('href', '/homeworks')
   })
 
   it('gives Nora the active style on /chat route', async () => {
