@@ -297,6 +297,11 @@ describe('exercise resubmission flow', () => {
           feedback: 'Good job',
         }),
       })
+      // Mock for library save after grading
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'lib-1', success: true }),
+      })
 
     render(<MathExercise />)
 
