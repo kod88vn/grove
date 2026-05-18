@@ -54,6 +54,20 @@ Use the `terse-communication` skill by default in `full` mode:
 3. **Keep Nora Thin**: Avoid bloating `apps/nora`. Place major capabilities in sibling apps.
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
 5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values.
+6. **No Direct Pushes to Master**: Never push directly to `master`. All changes go through pull requests. See [Push Safety Policy](../AGENTS.md#push-safety-policy) below.
+
+## Push Safety Policy (Non-Negotiable)
+
+AI agents MUST NEVER push directly to `master`. All code changes go through pull requests.
+
+**Required workflow:**
+1. **Create a feature branch**: `git checkout -b fix/<short-description>` (or `ai/pr-<number>`)
+2. **Make changes, commit, and push the branch**: `git push origin <branch-name>`
+3. **Create a pull request** targeting `master` via GitHub (via the API or web UI)
+4. **CI must pass** — tests + build on affected packages, Docker build + health check
+5. **Merge the PR** — only then is `master` updated with verified code
+
+The pre-push hook ([`.husky/pre-push`](.husky/pre-push)) runs affected tests + builds before every push. If any test or build fails, the push is rejected.
 
 ## BDD Bug Reproduction Policy (Non-Negotiable)
 

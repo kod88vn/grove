@@ -9,7 +9,26 @@ This document defines the roles and responsibilities of AI agents working within
 3. **Keep Nora Thin**: Avoid bloating `apps/nora`. Place major capabilities in sibling apps and keep Nora as a thin consumer.
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
 5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values. Surface problems clearly so they get fixed at the source.
+6. **No Direct Pushes to Master**: Never push directly to `master`. All changes MUST go through pull requests. See [Push Safety Policy](#push-safety-policy) below.
 
+## Push Safety Policy (Non-Negotiable)
+
+AI agents MUST NEVER push directly to `master`. All code changes go through pull requests.
+
+**Why**: Direct pushes bypass:
+- The pre-push hook (local guard) that runs affected tests + builds before `git push`
+- The CI/CD pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) that validates tests, builds, Docker image, and health checks
+
+**Required workflow:**
+1. **Create a feature branch**: `git checkout -b fix/<short-description>` (or `ai/pr-<number>`)
+2. **Make changes, commit, and push the branch**: `git push origin <branch-name>`
+3. **Create a pull request** targeting `master` via GitHub (via the API or web UI)
+4. **CI must pass** — tests + build on affected packages, Docker build + health check
+5. **Merge the PR** — only then is `master` updated with verified code
+
+**Pre-push hook**: The `.husky/pre-push` hook ([`.husky/pre-push`](.husky/pre-push)) automatically runs affected tests + builds before every push. If any test or build fails, the push is rejected with a clear error message.
+
+**Developer/agent responsibility**: Always use `git push origin <branch-name>` instead of `git push origin master`. The pre-push hook will catch broken code before it ever reaches the remote.
 
 ## BDD Bug Reproduction Policy (Non-Negotiable)
 

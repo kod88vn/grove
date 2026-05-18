@@ -1,4 +1,7 @@
 #!/usr/bin/env sh
+# Pre-push hook: verify that the affected build passes before allowing a push.
+# This prevents AI agents (and humans) from pushing broken builds to origin.
+
 # Ensure Node is available when Git hooks are run from GUI apps (e.g. Sourcetree).
 for p in "$HOME/.volta/bin" "/opt/homebrew/bin" "/usr/local/bin"; do
 	case ":$PATH:" in
@@ -19,8 +22,57 @@ export PATH
 
 if ! command -v node >/dev/null 2>&1; then
 	echo "husky - node not found in PATH: $PATH"
-	echo "husky - install Node or expose it to GUI apps (Sourcetree)"
 	exit 127
 fi
 
-yarn test
+echo "husky - running pre-push validation (affected test + full build)..."
+
+# Detect which packages changed since the previous commit on this branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+REMOTE="${1:-}"
+REFS="${2:-}"
+
+# Get the list of changed app directories since HEAD~1
+CHANGED=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | \
+  grep -E '^apps/[^/]+' | \
+  cut -d'/' -f1-2 | \
+  sort -u)
+
+if [ -z "$CHANGED" ]; then
+	echo "husky - no app packages changed, skipping affected build check."
+	exit 0
+fi
+
+echo "husky - detected changed packages:"
+echo "$CHANGED" | sed 's/^/    /'
+
+# Build turbo filter from changed packages
+FILTER=""
+while IFS= read -r pkg; do
+  app=$(basename "$pkg")
+  case "$app" in
+    games)        FILTER="$FILTER --filter=@grove/games" ;;
+    gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
+    grove)        FILTER="$FILTER --filter=@grove/grove" ;;
+    homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
+    nora)         FILTER="$FILTER --filter=nora" ;;
+    orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
+    reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
+    shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
+  esac
+done <<< "$CHANGED"
+
+# Run tests for changed packages
+echo "husky - running affected tests..."
+yarn turbo test $FILTER || { echo "husky - FAILED: Tests did not pass for affected packages."; exit 1; }
+
+# Run build for changed packages (fast check)
+echo "husky - running affected build..."
+yarn turbo build $FILTER || { echo "husky - FAILED: Build did not pass for affected packages."; exit 1; }
+
+# Run full production build (catches cross-app issues that affected builds might miss)
+echo "husky - running full production build (yarn build)..."
+yarn build || { echo "husky - FAILED: Full production build did not pass. Fix all broken apps before pushing."; exit 1; }
+
+echo "husky - pre-push validation passed!"
+exit 0
