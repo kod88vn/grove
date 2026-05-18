@@ -44,9 +44,18 @@ export default function GomokuGame() {
   const [message, setMessage] = useState('AI played the first stone at the center. Your turn!')
   const [winner, setWinner] = useState(null)
   const [aiThinking, setAiThinking] = useState(false)
-  const [aiDifficulty, setAiDifficulty] = useState('intermediate')
-  const [expertUnlocked, setExpertUnlocked] = useState(false)
+  const [winsForExpertUnlocked, setWinsForExpertUnlocked] = useState(0)
   const [manualDifficultyOverride, setManualDifficultyOverride] = useState(null)
+
+  // Unlock thresholds: beginner=0, intermediate=1, expert=3, master=5
+  const getUnlockedDifficulty = () => {
+    if (winsForExpertUnlocked >= 5) return 'master'
+    if (winsForExpertUnlocked >= 3) return 'expert'
+    if (winsForExpertUnlocked >= 1) return 'intermediate'
+    return 'beginner'
+  }
+
+  const unlockedDifficulty = getUnlockedDifficulty()
   const workerRef = useRef(null)
   const pendingJobIdRef = useRef(0)
   const pendingBoardRef = useRef(null)
@@ -223,19 +232,28 @@ export default function GomokuGame() {
       setLastLoser('ai')
       setScore((s) => ({ ...s, human: nextScore }))
 
-      // Unlock expert difficulty when AI loses
-      if (!expertUnlocked) {
-        setExpertUnlocked(true)
-      }
+      // Track wins for progressive difficulty unlock
+      setWinsForExpertUnlocked((w) => w + 1)
 
       if (nextScore === 5 && score.ai === 5) {
         setMessage('⚽ Penalty Shootout Draw! Both reached 5. Unbelievable!')
       } else if (nextScore === 5) {
         setMessage('🏆 YOU WIN THE TOURNAMENT! (5 points)')
-      } else if (!expertUnlocked) {
-        setMessage('🏆 You made five! Loser (AI) starts the next round.\n🎓 Expert level unlocked!')
       } else {
-        setMessage('🏆 You made five! Loser (AI) starts the next round.')
+        const newWins = winsForExpertUnlocked + 1
+        let unlockMsg = ''
+        if (newWins === 1) {
+          unlockMsg = '🎓 Intermediate level unlocked!'
+        } else if (newWins === 3) {
+          unlockMsg = '🎓 Expert level unlocked!'
+        } else if (newWins === 5) {
+          unlockMsg = '🎓 Master level unlocked!'
+        }
+        if (unlockMsg) {
+          setMessage(`🏆 You made five! Loser (AI) starts the next round.\n${unlockMsg}`)
+        } else {
+          setMessage('🏆 You made five! Loser (AI) starts the next round.')
+        }
       }
       return
     }
@@ -248,8 +266,8 @@ export default function GomokuGame() {
     pendingJobIdRef.current = jobId
     pendingBoardRef.current = afterHuman
 
-    // Select difficulty level: use manual override if set, otherwise auto-unlock expert after first AI loss
-    const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
+    // Select difficulty level: use manual override if set, otherwise auto-unlock based on wins
+    const currentDifficulty = manualDifficultyOverride || unlockedDifficulty
     const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
 
     if (workerRef.current) {
@@ -277,7 +295,7 @@ export default function GomokuGame() {
         return
       }
 
-      const currentDifficulty = manualDifficultyOverride || (expertUnlocked ? 'expert' : 'intermediate')
+      const currentDifficulty = manualDifficultyOverride || unlockedDifficulty
       const aiConfig = GOMOKU_AI_CONFIGS[currentDifficulty]
 
       let aiMove
@@ -383,30 +401,30 @@ export default function GomokuGame() {
 
   // Difficulty selection screen (development mode only)
   if (difficultySelectionMode) {
+    const difficultyOptions = [
+      { key: 'beginner', emoji: '🌱', label: 'Beginner', styles: { border: 'border-green-300', bg: 'bg-green-50', hoverBorder: 'hover:border-green-400', hoverBg: 'hover:bg-green-100', text: 'text-green-900' } },
+      { key: 'intermediate', emoji: '⚡', label: 'Intermediate', styles: { border: 'border-blue-300', bg: 'bg-blue-50', hoverBorder: 'hover:border-blue-400', hoverBg: 'hover:bg-blue-100', text: 'text-blue-900' } },
+      { key: 'expert', emoji: '🏆', label: 'Expert', styles: { border: 'border-red-300', bg: 'bg-red-50', hoverBorder: 'hover:border-red-400', hoverBg: 'hover:bg-red-100', text: 'text-red-900' } },
+      { key: 'master', emoji: '👑', label: 'Master', styles: { border: 'border-purple-300', bg: 'bg-purple-50', hoverBorder: 'hover:border-purple-400', hoverBg: 'hover:bg-purple-100', text: 'text-purple-900' } },
+    ]
+
     return (
       <section>
         <div className="rounded-2xl border-2 border-lime-300 bg-lime-50 p-8">
           <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose AI Difficulty</h2>
-          <p className="mb-6 text-center text-sm text-lime-700">Select the AI difficulty level for testing.</p>
+          <p className="mb-6 text-center text-sm text-lime-700">Select the AI difficulty level for testing. See README.md for full details.</p>
           
           <div className="flex flex-col gap-4">
-            <button
-              onClick={() => handleDifficultySelect('intermediate')}
-              className="rounded-lg border-2 border-blue-300 bg-blue-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-100 active:scale-95"
-            >
-              <div className="text-3xl mb-2">⚡</div>
-              <h3 className="text-lg font-bold text-blue-900">Intermediate</h3>
-              <p className="text-sm text-blue-700 mt-2">Standard MCTS algorithm. Good for learning and casual play.</p>
-            </button>
-            
-            <button
-              onClick={() => handleDifficultySelect('expert')}
-              className="rounded-lg border-2 border-red-300 bg-red-50 p-6 text-center transition hover:border-red-400 hover:bg-red-100 active:scale-95"
-            >
-              <div className="text-3xl mb-2">🏆</div>
-              <h3 className="text-lg font-bold text-red-900">Expert</h3>
-              <p className="text-sm text-red-700 mt-2">Reward-based AI. Strategic play with strong defense and connection building.</p>
-            </button>
+            {difficultyOptions.map(({ key, emoji, label, styles }) => (
+              <button
+                key={key}
+                onClick={() => handleDifficultySelect(key)}
+                className={`rounded-lg border-2 ${styles.border} ${styles.bg} transition ${styles.hoverBorder} ${styles.hoverBg} active:scale-95 p-6 text-center`}
+              >
+                <div className="text-3xl mb-2">{emoji}</div>
+                <h3 className={`text-lg font-bold ${styles.text}`}>{label}</h3>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -469,33 +487,30 @@ export default function GomokuGame() {
       </div>
 
       <p className="mt-2 text-xs font-medium text-slate-500">
-        You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{manualDifficultyOverride || (expertUnlocked ? '🏆 Expert' : '⚡ Intermediate')}</span>
+        You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{
+          manualDifficultyOverride
+            ? { beginner: '🌱 Beginner', intermediate: '⚡ Intermediate', expert: '🏆 Expert', master: '👑 Master' }[manualDifficultyOverride]
+            : { beginner: '🌱 Beginner', intermediate: '⚡ Intermediate', expert: '🏆 Expert', master: '👑 Master' }[unlockedDifficulty]
+        }</span>
         {manualDifficultyOverride && <span className="ml-2 text-orange-600">(🧪 Dev Override)</span>}
       </p>
 
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 flex gap-2 rounded-lg border-2 border-orange-300 bg-orange-50 p-3">
-          <span className="text-xs font-semibold text-orange-700">🧪 Dev Mode:</span>
-          <button
-            onClick={() => setManualDifficultyOverride('intermediate')}
-            className={`rounded px-2 py-1 text-xs font-semibold transition ${
-              manualDifficultyOverride === 'intermediate'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
-            }`}
-          >
-            ⚡ Intermediate
-          </button>
-          <button
-            onClick={() => setManualDifficultyOverride('expert')}
-            className={`rounded px-2 py-1 text-xs font-semibold transition ${
-              manualDifficultyOverride === 'expert'
-                ? 'bg-red-500 text-white'
-                : 'bg-white text-red-600 border border-red-300 hover:bg-red-50'
-            }`}
-          >
-            🏆 Expert
-          </button>
+        <div className="mt-4 flex flex-wrap gap-2 rounded-lg border-2 border-orange-300 bg-orange-50 p-3">
+          <span className="text-xs font-semibold text-orange-700 w-full mb-1">🧪 Dev Mode:</span>
+          {['beginner', 'intermediate', 'expert', 'master'].map((level) => (
+            <button
+              key={level}
+              onClick={() => setManualDifficultyOverride(level)}
+              className={`rounded px-2 py-1 text-xs font-semibold transition ${
+                manualDifficultyOverride === level
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white text-orange-600 border border-orange-300 hover:bg-orange-50'
+              }`}
+            >
+              {{ beginner: '🌱', intermediate: '⚡', expert: '🏆', master: '👑' }[level]} {level.charAt(0).toUpperCase() + level.slice(1)}
+            </button>
+          ))}
           <button
             onClick={() => setManualDifficultyOverride(null)}
             className={`rounded px-2 py-1 text-xs font-semibold transition ${
@@ -504,7 +519,7 @@ export default function GomokuGame() {
                 : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
             }`}
           >
-            ⚙️ Auto
+            ⚙️ Auto ({unlockedDifficulty})
           </button>
         </div>
       )}

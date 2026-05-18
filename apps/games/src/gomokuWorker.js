@@ -1,579 +1,651 @@
-// Inline Gomoku AI worker using Blob URL to avoid all path/proxy issues.
-// Next.js with basePath: '/games' serves public/ files at the root of its server,
-// not under basePath. This makes worker loading unreliable behind the gateway proxy.
-// By inlining the worker code and creating a Blob URL, we avoid all path resolution issues.
+// Dedicated Gomoku AI worker — inlined AI engine to avoid Blob URL import issues.
+// Runs time-bounded minimax search off the main UI thread via Blob URL.
 
 const WORKER_CODE = `
-// Dedicated Gomoku AI worker.
-// Runs time-bounded Monte Carlo style search off the main UI thread.
+// ─── Direction vectors ────────────────────────────────────────────────────────
 
 const DIRECTIONS = [
-  [1, 0],
-  [0, 1],
-  [1, 1],
-  [1, -1],
+  [1, 0],   // horizontal
+  [0, 1],   // vertical
+  [1, 1],   // diagonal down-right
+  [1, -1],  // diagonal up-right
 ]
 
+// ─── Coordinate helpers ───────────────────────────────────────────────────────
+
 function coordKey(x, y) {
-  return \`\${x},\${y}\`
+  return x + ',' + y
 }
 
-function parseCoordKey(key) {
-  const [x, y] = String(key)
-    .split(',')
-    .map((part) => Number(part))
-  return { x, y }
-}
+// ─── Board primitives ─────────────────────────────────────────────────────────
 
 function countDirection(stones, x, y, dx, dy, player) {
   let count = 0
-  let cursorX = x + dx
-  let cursorY = y + dy
-
-  while (stones[coordKey(cursorX, cursorY)] === player) {
+  let cx = x + dx
+  let cy = y + dy
+  while (stones[coordKey(cx, cy)] === player) {
     count += 1
-    cursorX += dx
-    cursorY += dy
+    cx += dx
+    cy += dy
   }
-
   return count
 }
 
 function lineLengthThrough(stones, x, y, player, dx, dy) {
-  return 1 + countDirection(stones, x, y, dx, dy, player) + countDirection(stones, x, y, -dx, -dy, player)
-}
-
-function longestLineAfterMove(stones, x, y, player) {
-  const next = {
-    ...stones,
-    [coordKey(x, y)]: player,
-  }
-
-  return Math.max(...DIRECTIONS.map(([dx, dy]) => lineLengthThrough(next, x, y, player, dx, dy)))
+  return 1 + countDirection(stones, x, y, dx, dy, player)
+    + countDirection(stones, x, y, -dx, -dy, player)
 }
 
 function getClosestChebyshevDistance(stones, x, y) {
   const entries = Object.keys(stones)
-  if (!entries.length) {
-    return 0
-  }
-
+  if (!entries.length) return 0
   let best = Number.POSITIVE_INFINITY
   for (const key of entries) {
-    const point = parseCoordKey(key)
-    if (!Number.isInteger(point.x) || !Number.isInteger(point.y)) {
-      continue
-    }
-    const distance = Math.max(Math.abs(point.x - x), Math.abs(point.y - y))
-    if (distance < best) {
-      best = distance
-    }
+    const parts = key.split(',')
+    const p = { x: Number(parts[0]), y: Number(parts[1]) }
+    if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) continue
+    const d = Math.max(Math.abs(p.x - x), Math.abs(p.y - y))
+    if (d < best) best = d
   }
-
   return best
 }
 
 function isGomokuMoveLegal(stones, x, y) {
-  if (!Number.isInteger(x) || !Number.isInteger(y)) {
-    return false
-  }
-
-  if (stones[coordKey(x, y)]) {
-    return false
-  }
-
-  if (!Object.keys(stones).length) {
-    return true
-  }
-
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return false
+  if (stones[coordKey(x, y)]) return false
+  if (!Object.keys(stones).length) return true
   return getClosestChebyshevDistance(stones, x, y) <= 3
 }
 
 function getGomokuWinner(stones, lastMove) {
-  if (!Object.keys(stones).length) {
-    return null
-  }
+  if (!Object.keys(stones).length) return null
 
-  const pointsToCheck = lastMove ? [lastMove] : Object.keys(stones).map(parseCoordKey)
+  const pointsToCheck = lastMove ? [lastMove] : Object.keys(stones).map(k => {
+    const parts = k.split(',')
+    return { x: Number(parts[0]), y: Number(parts[1]) }
+  })
 
   for (const point of pointsToCheck) {
     const player = stones[coordKey(point.x, point.y)]
-    if (!player) {
-      continue
-    }
+    if (!player) continue
 
     for (const [dx, dy] of DIRECTIONS) {
-      const countForward = countDirection(stones, point.x, point.y, dx, dy, player)
-      const countBackward = countDirection(stones, point.x, point.y, -dx, -dy, player)
-      const total = 1 + countForward + countBackward
+      const fwd = countDirection(stones, point.x, point.y, dx, dy, player)
+      const bwd = countDirection(stones, point.x, point.y, -dx, -dy, player)
+      const total = 1 + fwd + bwd
 
       if (total >= 5) {
-        // Strict win: the line must NOT be bounded on both sides by opponent stones.
-        // If both ends are blocked by opponent pieces, it's not a valid win.
-        const forwardBlocked = !!stones[coordKey(point.x + dx * (countForward + 1), point.y + dy * (countForward + 1))]
-        const backwardBlocked = !!stones[coordKey(point.x - dx * (countBackward + 1), point.y - dy * (countBackward + 1))]
-
-        if (forwardBlocked && backwardBlocked) {
-          continue
-        }
-
+        const forwardBlocked = !!stones[coordKey(point.x + dx * (fwd + 1), point.y + dy * (fwd + 1))]
+        const backwardBlocked = !!stones[coordKey(point.x - dx * (bwd + 1), point.y - dy * (bwd + 1))]
+        if (forwardBlocked && backwardBlocked) continue
         return player
       }
     }
   }
-
   return null
 }
 
+// ─── Candidate move generation ────────────────────────────────────────────────
+
 function getCandidateMoves(stones, radius) {
   if (radius === undefined) radius = 1
-  if (!Object.keys(stones).length) {
-    return [{ x: 0, y: 0 }]
-  }
+  if (!Object.keys(stones).length) return [{ x: 0, y: 0 }]
 
   const candidates = new Set()
-
   for (const key of Object.keys(stones)) {
-    const { x, y } = parseCoordKey(key)
-    if (!Number.isInteger(x) || !Number.isInteger(y)) {
-      continue
-    }
+    const parts = key.split(',')
+    const x = Number(parts[0])
+    const y = Number(parts[1])
+    if (!Number.isInteger(x) || !Number.isInteger(y)) continue
 
     for (let dx = -radius; dx <= radius; dx += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
-        if (dx === 0 && dy === 0) {
-          continue
-        }
-
-        const nextX = x + dx
-        const nextY = y + dy
-        if (isGomokuMoveLegal(stones, nextX, nextY)) {
-          candidates.add(coordKey(nextX, nextY))
+        if (dx === 0 && dy === 0) continue
+        const nx = x + dx
+        const ny = y + dy
+        if (isGomokuMoveLegal(stones, nx, ny)) {
+          candidates.add(coordKey(nx, ny))
         }
       }
     }
   }
-
-  return Array.from(candidates).map(parseCoordKey)
+  return Array.from(candidates).map(k => {
+    const parts = k.split(',')
+    return { x: Number(parts[0]), y: Number(parts[1]) }
+  })
 }
+
+function getThreatMoves(stones) {
+  return getCandidateMoves(stones, 2)
+}
+
+// ─── Pattern Library ──────────────────────────────────────────────────────────
+
+function classifyLine(stones, x, y, player, dx, dy) {
+  let fwdCount = 0
+  let fx = x + dx, fy = y + dy
+  while (stones[coordKey(fx, fy)] === player) {
+    fwdCount += 1
+    fx += dx
+    fy += dy
+  }
+
+  let bwdCount = 0
+  let bx = x - dx, by = y - dy
+  while (stones[coordKey(bx, by)] === player) {
+    bwdCount += 1
+    bx -= dx
+    by -= dy
+  }
+
+  const connected = 1 + fwdCount + bwdCount
+  const openEnd = !stones[coordKey(fx, fy)]
+  const openStart = !stones[coordKey(bx, by)]
+
+  return { connected, openStart, openEnd }
+}
+
+function classifyPattern(connected, openStart, openEnd) {
+  if (connected >= 5) return 'win'
+
+  const openSides = (openStart ? 1 : 0) + (openEnd ? 1 : 0)
+
+  if (connected === 4) {
+    if (openSides === 2) return 'live4'
+    if (openSides === 1) return 'sleep4'
+    return 'dead4'
+  }
+
+  if (connected === 3) {
+    if (openSides === 2) return 'live3'
+    if (openSides === 1) return 'sleep3'
+    return 'dead3'
+  }
+
+  if (connected === 2) {
+    if (openSides === 2) return 'live2'
+    if (openSides === 1) return 'sleep2'
+    return 'dead2'
+  }
+
+  if (connected === 1) {
+    if (openSides === 2) return 'live1'
+    if (openSides === 1) return 'sleep1'
+    return 'dead1'
+  }
+
+  return 'empty'
+}
+
+const PATTERN_SCORES = {
+  win:       100000,
+  live4:     50000,
+  sleep4:    5000,
+  live3:     1000,
+  sleep3:    200,
+  live2:     50,
+  sleep2:    10,
+  dead4:     5,
+  dead3:     2,
+  live1:     3,
+  sleep1:    1,
+  dead2:     0,
+  dead1:     0,
+  empty:     0,
+}
+
+function getPatternsAt(stones, x, y, player) {
+  return DIRECTIONS.map(([dx, dy]) => {
+    const line = classifyLine(stones, x, y, player, dx, dy)
+    return classifyPattern(line.connected, line.openStart, line.openEnd)
+  })
+}
+
+function countPatterns(patterns, type) {
+  return patterns.filter((p) => p === type).length
+}
+
+function classifyMoveThreat(stones, x, y, player) {
+  const patterns = getPatternsAt(stones, x, y, player)
+  return {
+    patterns,
+    live4: countPatterns(patterns, 'live4'),
+    sleep4: countPatterns(patterns, 'sleep4'),
+    live3: countPatterns(patterns, 'live3'),
+    sleep3: countPatterns(patterns, 'sleep3'),
+    isWinningMove: patterns.includes('win'),
+  }
+}
+
+function detectDoubleThreat(moveThreat) {
+  const { live4, sleep4, live3, sleep3 } = moveThreat
+
+  const hasFour = live4 + sleep4 > 0
+  const hasThree = live3 + sleep3 > 0
+
+  const totalFours = live4 + sleep4
+  const totalThrees = live3 + sleep3
+
+  return {
+    fourThree: hasFour && hasThree,
+    doubleFour: totalFours >= 2,
+    tripleThree: totalThrees >= 3,
+    threatCount: totalFours + totalThrees,
+  }
+}
+
+// ─── Board Evaluation ─────────────────────────────────────────────────────────
+
+function evaluateBoard(stones, playerToEval) {
+  const opponent = playerToEval === 'ai' ? 'human' : 'ai'
+
+  let aiScore = 0
+  let humanScore = 0
+
+  for (const key of Object.keys(stones)) {
+    const parts = key.split(',')
+    const x = Number(parts[0])
+    const y = Number(parts[1])
+    if (!Number.isInteger(x) || !Number.isInteger(y)) continue
+
+    const player = stones[key]
+    const patterns = getPatternsAt(stones, x, y, player)
+
+    for (const pattern of patterns) {
+      const score = PATTERN_SCORES[pattern] || 0
+      if (player === 'ai') {
+        aiScore += score
+      } else {
+        humanScore += score
+      }
+    }
+  }
+
+  if (playerToEval === 'ai') {
+    return aiScore - humanScore
+  }
+  return humanScore - aiScore
+}
+
+// ─── Candidate Scoring Heuristic ──────────────────────────────────────────────
 
 function adjacencyScore(stones, x, y, player) {
   let score = 0
   for (let dx = -1; dx <= 1; dx += 1) {
     for (let dy = -1; dy <= 1; dy += 1) {
-      if (dx === 0 && dy === 0) {
-        continue
-      }
-
+      if (dx === 0 && dy === 0) continue
       const occupant = stones[coordKey(x + dx, y + dy)]
-      if (occupant === player) {
-        score += 2
-      } else if (occupant) {
-        score += 1
-      }
+      if (occupant === player) score += 2
+      else if (occupant) score += 1
     }
   }
-
   return score
 }
 
-function maxCurrentLine(stones, player) {
-  let best = 0
-
-  for (const key of Object.keys(stones)) {
-    if (stones[key] !== player) {
-      continue
-    }
-
-    const { x, y } = parseCoordKey(key)
-    if (!Number.isInteger(x) || !Number.isInteger(y)) {
-      continue
-    }
-
-    for (const [dx, dy] of DIRECTIONS) {
-      best = Math.max(best, lineLengthThrough(stones, x, y, player, dx, dy))
-    }
-  }
-
-  return best
-}
-
-function moveUrgencyScore(stones, move, player) {
+function scoreCandidatesHeuristic(stones, moves, player) {
   const opponent = player === 'ai' ? 'human' : 'ai'
-  const ownLine = longestLineAfterMove(stones, move.x, move.y, player)
-  const blockLine = longestLineAfterMove(stones, move.x, move.y, opponent)
-  const adjacency = adjacencyScore(stones, move.x, move.y, player)
 
-  return ownLine * 14 + blockLine * 10 + adjacency
+  return moves.map((move) => {
+    const offThreat = classifyMoveThreat(stones, move.x, move.y, player)
+    let offScore = 0
+    for (const p of offThreat.patterns) {
+      offScore += PATTERN_SCORES[p] || 0
+    }
+
+    const defThreat = classifyMoveThreat(stones, move.x, move.y, opponent)
+    let defScore = 0
+    for (const p of defThreat.patterns) {
+      defScore += PATTERN_SCORES[p] || 0
+    }
+
+    const adjacency = adjacencyScore(stones, move.x, move.y, player)
+    const total = offScore * 1.2 + defScore * 0.5 + adjacency * 3
+
+    return { move, score: total }
+  })
 }
 
-function countOpenEndedThreeDirections(stones, x, y, player) {
-  const next = {
-    ...stones,
-    [coordKey(x, y)]: player,
+// ─── Double-Threat Bonus ──────────────────────────────────────────────────────
+
+function doubleThreatBonus(moveThreat) {
+  const dt = detectDoubleThreat(moveThreat)
+  let bonus = 0
+
+  if (dt.fourThree) bonus += 25000
+  if (dt.doubleFour) bonus += 50000
+  if (dt.tripleThree) bonus += 30000
+
+  return bonus
+}
+
+// ─── Minimax with Alpha-Beta Pruning ──────────────────────────────────────────
+
+function minimax(stones, depth, alpha, beta, isMaximizing) {
+  if (depth === 0) {
+    const score = isMaximizing ? evaluateBoard(stones, 'ai') : -evaluateBoard(stones, 'human')
+    return { score, bestMove: null }
   }
 
-  let total = 0
+  const candidates = getThreatMoves(stones)
+  if (!candidates.length) {
+    return { score: 0, bestMove: null }
+  }
+
+  // Quick tactical check: immediate win or block?
+  for (const move of candidates) {
+    const next = { ...stones, [coordKey(move.x, move.y)]: 'ai' }
+    if (getGomokuWinner(next, move)) {
+      return { score: Number.POSITIVE_INFINITY, bestMove: move }
+    }
+  }
+  for (const move of candidates) {
+    const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
+    if (getGomokuWinner(next, move)) {
+      return { score: Number.NEGATIVE_INFINITY, bestMove: move }
+    }
+  }
+
+  if (isMaximizing) {
+    let bestScore = Number.NEGATIVE_INFINITY
+    let bestMove = null
+
+    const scored = scoreCandidatesHeuristic(stones, candidates, 'ai')
+    scored.sort((a, b) => b.score - a.score)
+
+    for (const move of scored.map((s) => s.move)) {
+      const next = { ...stones, [coordKey(move.x, move.y)]: 'ai' }
+      const result = minimax(next, depth - 1, alpha, beta, false)
+
+      if (result.score > bestScore) {
+        bestScore = result.score
+        bestMove = move
+      }
+      alpha = Math.max(alpha, bestScore)
+      if (beta <= alpha) break
+    }
+
+    return { score: bestScore, bestMove }
+  } else {
+    let bestScore = Number.POSITIVE_INFINITY
+    let bestMove = null
+
+    const scored = scoreCandidatesHeuristic(stones, candidates, 'human')
+    scored.sort((a, b) => a.score - b.score)
+
+    for (const move of scored.map((s) => s.move)) {
+      const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
+      const result = minimax(next, depth - 1, alpha, beta, true)
+
+      if (result.score < bestScore) {
+        bestScore = result.score
+        bestMove = move
+      }
+      beta = Math.min(beta, bestScore)
+      if (beta <= alpha) break
+    }
+
+    return { score: bestScore, bestMove }
+  }
+}
+
+// ─── Difficulty Configuration ─────────────────────────────────────────────────
+
+const GOMOKU_AI_CONFIGS = {
+  beginner: {
+    searchDepth: 2,
+    candidateLimit: 8,
+    errorRate: 0.30,
+    patternScope: 'basic',
+    doubleThreatDetection: false,
+  },
+  intermediate: {
+    searchDepth: 4,
+    candidateLimit: 20,
+    errorRate: 0.05,
+    patternScope: 'full',
+    doubleThreatDetection: false,
+  },
+  expert: {
+    searchDepth: 6,
+    candidateLimit: null,
+    errorRate: 0.0,
+    patternScope: 'full',
+    doubleThreatDetection: true,
+  },
+  master: {
+    searchDepth: 8,
+    candidateLimit: null,
+    errorRate: 0.0,
+    patternScope: 'full',
+    doubleThreatDetection: true,
+    openingBook: true,
+    endgameSolver: true,
+  },
+}
+
+// ─── Opening Book ─────────────────────────────────────────────────────────────
+
+const OPENING_BOOK = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
+  { x: 2, y: 1 },
+  { x: 1, y: 2 },
+]
+
+function getOpeningMove(stones) {
+  const count = Object.keys(stones).length
+  if (count >= OPENING_BOOK.length * 2) return null
+
+  const idx = Math.floor(count / 2)
+  if (idx < OPENING_BOOK.length) {
+    return { ...OPENING_BOOK[idx] }
+  }
+  return null
+}
+
+// ─── Error Injection ──────────────────────────────────────────────────────────
+
+function maybeInjectError(bestMove, candidates, errorRate) {
+  if (errorRate <= 0 || !bestMove) return bestMove
+
+  if (Math.random() < errorRate && candidates.length > 1) {
+    const poolSize = Math.min(5, candidates.length)
+    const topCandidates = candidates.slice(0, poolSize)
+    return topCandidates[Math.floor(Math.random() * poolSize)]
+  }
+
+  return bestMove
+}
+
+// ─── Basic Pattern Scope (Beginner) ──────────────────────────────────────────
+
+function basicEvaluateMove(stones, x, y, player) {
+  const next = { ...stones, [coordKey(x, y)]: player }
+  let bestLine = 0
 
   for (const [dx, dy] of DIRECTIONS) {
-    const lineLength = lineLengthThrough(next, x, y, player, dx, dy)
-    if (lineLength < 3) {
-      continue
-    }
-
-    let startX = x
-    let startY = y
-    while (next[coordKey(startX - dx, startY - dy)] === player) {
-      startX -= dx
-      startY -= dy
-    }
-
-    let endX = x
-    let endY = y
-    while (next[coordKey(endX + dx, endY + dy)] === player) {
-      endX += dx
-      endY += dy
-    }
-
-    const openStart = !next[coordKey(startX - dx, startY - dy)]
-    const openEnd = !next[coordKey(endX + dx, endY + dy)]
-    if (openStart || openEnd) {
-      total += 1
-    }
+    const line = lineLengthThrough(next, x, y, player, dx, dy)
+    if (line > bestLine) bestLine = line
   }
 
-  return total
+  return bestLine
 }
 
-function createsDoubleThreeThreat(stones, move, player) {
-  return countOpenEndedThreeDirections(stones, move.x, move.y, player) >= 2
-}
+// ─── Main AI Entry Point ──────────────────────────────────────────────────────
 
-function getImmediateThreatMoves(stones, attacker) {
-  const candidates = getCandidateMoves(stones, 2)
-  const winningMoves = []
-  const strongThreatMoves = []
+function chooseGomokuAIMove(stones, options) {
+  const difficulty = (options && options.difficulty) || 'expert'
+  const config = GOMOKU_AI_CONFIGS[difficulty] || GOMOKU_AI_CONFIGS.expert
+  const timeBudgetMs = (options && options.timeBudgetMs) || 2000
 
-  for (const candidate of candidates) {
-    const lineLength = longestLineAfterMove(stones, candidate.x, candidate.y, attacker)
-    if (lineLength >= 5) {
-      winningMoves.push(candidate)
-      continue
-    }
-
-    if (lineLength >= 4 || createsDoubleThreeThreat(stones, candidate, attacker)) {
-      strongThreatMoves.push(candidate)
-    }
+  // Empty board: play center
+  if (!Object.keys(stones).length) {
+    return { x: 0, y: 0 }
   }
 
-  return {
-    winningMoves,
-    strongThreatMoves,
+  // Opening book (master level)
+  if (config.openingBook) {
+    const openingMove = getOpeningMove(stones)
+    if (openingMove) return openingMove
   }
-}
 
-function pickBestTacticalMove(stones, moves, player) {
-  const ranked = rankMoves(stones, moves, player)
-  return ranked.length ? { x: ranked[0].x, y: ranked[0].y } : null
-}
+  const candidates = getThreatMoves(stones)
+  if (!candidates.length) return null
 
-function rankMoves(stones, moves, player) {
-  return moves
-    .map((move) => ({
-      ...move,
-      score: moveUrgencyScore(stones, move, player),
+  // Beginner: basic line-length scoring, no search
+  if (config.patternScope === 'basic') {
+    // Check for immediate win first — prefer positive direction
+    const aiWinCandidates = [...candidates].sort((a, b) => {
+      const aPositive = (a.x > 0 || a.y > 0) ? 1 : 0
+      const bPositive = (b.x > 0 || b.y > 0) ? 1 : 0
+      if (aPositive !== bPositive) return bPositive - aPositive
+      const da = Math.max(Math.abs(a.x), Math.abs(a.y))
+      const db = Math.max(Math.abs(b.x), Math.abs(b.y))
+      if (da !== db) return da - db
+      if (a.x !== b.x) return a.x - b.x
+      return a.y - b.y
+    })
+
+    for (const move of aiWinCandidates) {
+      const next = { ...stones, [coordKey(move.x, move.y)]: 'ai' }
+      if (getGomokuWinner(next, move)) return { ...move }
+    }
+
+    // Check for human win to block — prefer positive direction
+    const humanCandidates = getThreatMoves(stones)
+    const sortedHumanCands = [...humanCandidates].sort((a, b) => {
+      const aPositive = (a.x > 0 || a.y > 0) ? 1 : 0
+      const bPositive = (b.x > 0 || b.y > 0) ? 1 : 0
+      if (aPositive !== bPositive) return bPositive - aPositive
+      const da = Math.max(Math.abs(a.x), Math.abs(a.y))
+      const db = Math.max(Math.abs(b.x), Math.abs(b.y))
+      if (da !== db) return da - db
+      if (a.x !== b.x) return a.x - b.x
+      return a.y - b.y
+    })
+
+    for (const move of sortedHumanCands) {
+      const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
+      if (getGomokuWinner(next, move)) return { ...move }
+    }
+
+    const scored = candidates.map((move) => ({
+      move,
+      score: basicEvaluateMove(stones, move.x, move.y, 'ai'),
     }))
-    .sort((left, right) => right.score - left.score || left.y - right.y || left.x - right.x)
-}
 
-function weightedRandomMove(rankedMoves) {
-  if (!rankedMoves.length) {
-    return null
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      const aPositive = (a.move.x > 0 || a.move.y > 0) ? 1 : 0
+      const bPositive = (b.move.x > 0 || b.move.y > 0) ? 1 : 0
+      if (aPositive !== bPositive) return bPositive - aPositive
+      const da = Math.max(Math.abs(a.move.x), Math.abs(a.move.y))
+      const db = Math.max(Math.abs(b.move.x), Math.abs(b.move.y))
+      if (da !== db) return da - db
+      if (a.move.x !== b.move.x) return a.move.x - b.move.x
+      return a.move.y - b.move.y
+    })
+
+    const best = scored[0] || candidates[0]
+    return maybeInjectError({ ...best.move }, candidates, config.errorRate)
   }
 
-  const weights = rankedMoves.map((move) => Math.max(1, move.score + 1) ** 1.35)
-  const total = weights.reduce((sum, value) => sum + value, 0)
-  const roll = Math.random() * total
-
-  let cumulative = 0
-  for (let i = 0; i < rankedMoves.length; i += 1) {
-    cumulative += weights[i]
-    if (roll <= cumulative) {
-      return rankedMoves[i]
-    }
-  }
-
-  return rankedMoves[rankedMoves.length - 1]
-}
-
-function evaluateBoard(stones) {
-  const aiLine = maxCurrentLine(stones, 'ai')
-  const humanLine = maxCurrentLine(stones, 'human')
-  const normalized = (aiLine - humanLine) / 10
-  const clamped = Math.max(-0.45, Math.min(0.45, normalized))
-  return 0.5 + clamped
-}
-
-function rollout(stones, playerToMove, options) {
-  const board = { ...stones }
-  let player = playerToMove
-  const opponent = (value) => (value === 'ai' ? 'human' : 'ai')
-
-  for (let depth = 0; depth < options.maxRolloutDepth; depth += 1) {
-    if (Date.now() >= options.deadlineTs) {
-      break
-    }
-
-    const candidates = getCandidateMoves(board, 2)
-    if (!candidates.length) {
-      return 0.5
-    }
-
-    const ranked = rankMoves(board, candidates, player).slice(0, options.rolloutCandidateLimit)
-    const chosen = weightedRandomMove(ranked)
-    if (!chosen) {
-      return 0.5
-    }
-
-    board[coordKey(chosen.x, chosen.y)] = player
-    const winner = getGomokuWinner(board, chosen)
-    if (winner) {
-      return winner === 'ai' ? 1 : 0
-    }
-
-    player = opponent(player)
-  }
-
-  return evaluateBoard(board)
-}
-
-function chooseGomokuAIMove(stones, config) {
-  if (config === undefined) config = {}
-  const options = {
-    timeBudgetMs: 2200,
-    maxPlayouts: 9000,
-    maxRolloutDepth: 14,
-    candidateLimit: 24,
-    rolloutCandidateLimit: 10,
-    explorationConstant: 1.25,
-    ...config,
-  }
-
-  const deadlineTs = Date.now() + Math.max(8, options.timeBudgetMs)
-  const candidates = getCandidateMoves(stones, 2)
-  if (!candidates.length) {
-    return null
-  }
-
-  const aiThreats = getImmediateThreatMoves(stones, 'ai')
-  if (aiThreats.winningMoves.length) {
-    return pickBestTacticalMove(stones, aiThreats.winningMoves, 'ai')
-  }
-
-  const humanThreats = getImmediateThreatMoves(stones, 'human')
-  if (humanThreats.winningMoves.length) {
-    return pickBestTacticalMove(stones, humanThreats.winningMoves, 'ai')
-  }
-
-  if (humanThreats.strongThreatMoves.length) {
-    return pickBestTacticalMove(stones, humanThreats.strongThreatMoves, 'ai')
-  }
-
-  if (aiThreats.strongThreatMoves.length) {
-    return pickBestTacticalMove(stones, aiThreats.strongThreatMoves, 'ai')
-  }
-
-  const rankedRoots = rankMoves(stones, candidates, 'ai').slice(0, options.candidateLimit)
-  if (!rankedRoots.length) {
-    return null
-  }
-
-  if (rankedRoots.length === 1) {
-    return { x: rankedRoots[0].x, y: rankedRoots[0].y }
-  }
-
-  const rootStats = rankedRoots.map((move) => ({
-    x: move.x,
-    y: move.y,
-    baseScore: move.score,
-    visits: 0,
-    value: 0,
-  }))
-
-  let totalPlayouts = 0
-  while (Date.now() < deadlineTs && totalPlayouts < options.maxPlayouts) {
-    let selected = rootStats[0]
-    let bestUct = Number.NEGATIVE_INFINITY
-    const logVisits = Math.log(totalPlayouts + 2)
-
-    for (const root of rootStats) {
-      const exploration =
-        root.visits === 0
-          ? Number.POSITIVE_INFINITY
-          : options.explorationConstant * Math.sqrt(logVisits / root.visits)
-      const exploitation = root.visits === 0 ? 0 : root.value / root.visits
-      const uct = exploitation + exploration + root.baseScore * 0.0005
-
-      if (uct > bestUct) {
-        selected = root
-        bestUct = uct
-      }
-    }
-
-    const trialBoard = {
-      ...stones,
-      [coordKey(selected.x, selected.y)]: 'ai',
-    }
-
-    const immediate = getGomokuWinner(trialBoard, selected)
-    const score = immediate
-      ? 1
-      : rollout(trialBoard, 'human', {
-          deadlineTs,
-          maxRolloutDepth: options.maxRolloutDepth,
-          rolloutCandidateLimit: options.rolloutCandidateLimit,
-        })
-
-    selected.visits += 1
-    selected.value += score
-    totalPlayouts += 1
-  }
-
-  rootStats.sort((left, right) => {
-    const leftAvg = left.visits ? left.value / left.visits : 0
-    const rightAvg = right.visits ? right.value / right.visits : 0
-    const leftRobust = left.visits / (totalPlayouts || 1)
-    const rightRobust = right.visits / (totalPlayouts || 1)
-    const leftScore = leftAvg * 0.8 + leftRobust * 0.2
-    const rightScore = rightAvg * 0.8 + rightRobust * 0.2
-    return rightScore - leftScore || right.baseScore - left.baseScore
+  // Check for immediate win (all levels) — prefer positive direction when both ends open
+  const sortedCandidates = [...candidates].sort((a, b) => {
+    const aPositive = (a.x > 0 || a.y > 0) ? 1 : 0
+    const bPositive = (b.x > 0 || b.y > 0) ? 1 : 0
+    if (aPositive !== bPositive) return bPositive - aPositive
+    const da = Math.max(Math.abs(a.x), Math.abs(a.y))
+    const db = Math.max(Math.abs(b.x), Math.abs(b.y))
+    if (da !== db) return da - db
+    if (a.x !== b.x) return a.x - b.x
+    return a.y - b.y
   })
 
-  return { x: rootStats[0].x, y: rootStats[0].y }
-}
+  for (const move of sortedCandidates) {
+    const next = { ...stones, [coordKey(move.x, move.y)]: 'ai' }
+    if (getGomokuWinner(next, move)) return { ...move }
+  }
 
-// Expert AI using reward/points algorithm based on connection potential
-function lineThreatScore(stones, x, y, player, dx, dy) {
-  let sameCount = 0
-  let opponentCount = 0
-  let openEnds = 0
+  // Check for forced block (all levels) — prefer positive direction
+  const humanCandidates = getThreatMoves(stones)
+  for (const move of humanCandidates) {
+    const next = { ...stones, [coordKey(move.x, move.y)]: 'human' }
+    if (getGomokuWinner(next, move)) return { ...move }
+  }
 
-  for (let i = 1; i <= 5; i += 1) {
-    const nx = x + dx * i
-    const ny = y + dy * i
-    const occupant = stones[coordKey(nx, ny)]
-    if (occupant === player) {
-      sameCount += 1
-    } else if (occupant) {
-      opponentCount += 1
+  // Minimax search (intermediate+)
+  const deadline = Date.now() + timeBudgetMs
+  let bestMove = null
+  let bestScore = Number.NEGATIVE_INFINITY
+
+  const scored = scoreCandidatesHeuristic(stones, candidates, 'ai')
+  scored.sort((a, b) => b.score - a.score)
+
+  const limited = config.candidateLimit
+    ? scored.slice(0, config.candidateLimit)
+    : scored
+
+  for (const { move } of limited) {
+    if (Date.now() >= deadline) break
+
+    const next = { ...stones, [coordKey(move.x, move.y)]: 'ai' }
+
+    if (getGomokuWinner(next, move)) {
+      bestMove = move
+      bestScore = Number.POSITIVE_INFINITY
       break
-    } else if (i === 1 && isGomokuMoveLegal(stones, nx, ny)) {
-      openEnds += 1
+    }
+
+    const result = minimax(next, config.searchDepth - 1, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY, false)
+
+    let score = result.score
+
+    if (config.doubleThreatDetection) {
+      const threat = classifyMoveThreat(stones, move.x, move.y, 'ai')
+      score += doubleThreatBonus(threat) * 0.5
+    }
+
+    if (score > bestScore) {
+      bestScore = score
+      bestMove = move
     }
   }
 
-  let backSameCount = 0
-  let backOpponentCount = 0
-  let backOpenEnd = 0
-  for (let i = 1; i <= 5; i += 1) {
-    const nx = x - dx * i
-    const ny = y - dy * i
-    const occupant = stones[coordKey(nx, ny)]
-    if (occupant === player) {
-      backSameCount += 1
-    } else if (occupant) {
-      backOpponentCount += 1
-      break
-    } else if (i === 1 && isGomokuMoveLegal(stones, nx, ny)) {
-      backOpenEnd += 1
-    }
+  if (!bestMove && limited.length > 0) {
+    bestMove = limited[0].move
   }
 
-  const totalConnected = sameCount + backSameCount + 1
-  const blocked = (opponentCount > 0 ? 1 : 0) + (backOpponentCount > 0 ? 1 : 0)
-  const openSides = 2 - blocked
-  const isOpenThreats = openSides === 2
-
-  let score = 0
-  if (totalConnected >= 5) {
-    score = 10000
-  } else if (totalConnected === 4) {
-    score = isOpenThreats ? 5000 : 2500
-  } else if (totalConnected === 3) {
-    score = isOpenThreats ? 1000 : 200
-  } else if (totalConnected === 2) {
-    score = isOpenThreats ? 100 : 20
-  } else if (totalConnected === 1) {
-    score = isOpenThreats ? 10 : 2
+  if (config.errorRate > 0 && bestMove) {
+    const ranked = scored.slice(0, Math.min(5, scored.length))
+    return maybeInjectError(bestMove, ranked.map((r) => r.move), config.errorRate)
   }
 
-  if (!isOpenThreats) {
-    score = Math.floor(score * 0.4)
-  }
-
-  return score
+  return bestMove ? { ...bestMove } : null
 }
 
-function chooseGomokuAIMoveExpert(stones, config) {
-  if (config === undefined) config = {}
-  const candidates = getCandidateMoves(stones, 2)
-  if (!candidates.length) {
-    return null
-  }
-
-  const aiThreats = getImmediateThreatMoves(stones, 'ai')
-  if (aiThreats.winningMoves.length) {
-    return pickBestTacticalMove(stones, aiThreats.winningMoves, 'ai')
-  }
-
-  const humanThreats = getImmediateThreatMoves(stones, 'human')
-  if (humanThreats.winningMoves.length) {
-    return pickBestTacticalMove(stones, humanThreats.winningMoves, 'ai')
-  }
-
-  if (humanThreats.strongThreatMoves.length) {
-    return pickBestTacticalMove(stones, humanThreats.strongThreatMoves, 'ai')
-  }
-
-  if (aiThreats.strongThreatMoves.length) {
-    return pickBestTacticalMove(stones, aiThreats.strongThreatMoves, 'ai')
-  }
-
-  const scoredMoves = candidates.map((move) => {
-    let score = 0
-
-    for (const [dx, dy] of DIRECTIONS) {
-      const aiScore = lineThreatScore(stones, move.x, move.y, 'ai', dx, dy)
-      const humanScore = lineThreatScore(stones, move.x, move.y, 'human', dx, dy)
-
-      score += aiScore * 1.2
-      score += humanScore * 0.3
-    }
-
-    score += adjacencyScore(stones, move.x, move.y, 'ai') * 5
-
-    return { x: move.x, y: move.y, score }
-  })
-
-  scoredMoves.sort((a, b) => b.score - a.score)
-
-  if (scoredMoves.length === 0) {
-    return null
-  }
-
-  return { x: scoredMoves[0].x, y: scoredMoves[0].y }
-}
+// ─── Worker entry point ──────────────────────────────────────────────────────
 
 self.onmessage = (event) => {
   const payload = event.data || {}
   try {
-    const difficulty = payload.difficulty || 'intermediate'
-    let move
-    if (difficulty === 'expert') {
-      move = chooseGomokuAIMoveExpert(payload.stones || {}, payload.config || {})
-    } else {
-      move = chooseGomokuAIMove(payload.stones || {}, payload.config || {})
+    // Accept both { difficulty: 'beginner' } and { config: { searchDepth, ... }, difficulty: 'beginner' }
+    let difficulty = payload.difficulty || 'expert'
+    const configOverride = payload.config
+
+    if (configOverride && typeof configOverride === 'object') {
+      // Merge config into GOMOKU_AI_CONFIGS for this difficulty
+      if (!GOMOKU_AI_CONFIGS[difficulty]) {
+        GOMOKU_AI_CONFIGS[difficulty] = {}
+      }
+      Object.assign(GOMOKU_AI_CONFIGS[difficulty], configOverride)
     }
+
+    const move = chooseGomokuAIMove(payload.stones || {}, {
+      difficulty,
+      timeBudgetMs: payload.timeBudgetMs || 2000,
+    })
+
     self.postMessage({
       jobId: payload.jobId,
       roundId: payload.roundId,
@@ -601,5 +673,5 @@ export function createWorker(pathname) {
 
   const blob = new Blob([WORKER_CODE], { type: 'application/javascript' })
   const workerUrl = URL.createObjectURL(blob)
-  return new Worker(workerUrl)
+  return new Worker(workerUrl, { type: 'classic' })
 }

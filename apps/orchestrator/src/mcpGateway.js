@@ -1,5 +1,32 @@
 const DEFAULT_MCP_EXECUTE_URL = process.env.ORCHESTRATOR_MCP_EXECUTE_URL || ''
 
+async function parseJsonResponse(res) {
+  const rawBody = typeof res.text === 'function' ? await res.text() : ''
+  const body = rawBody.trim()
+
+  if (!body) {
+    return {
+      ok: false,
+      error: {
+        code: 'MCP_TOOL_EMPTY_RESPONSE',
+        message: 'MCP endpoint returned an empty response body',
+      },
+    }
+  }
+
+  try {
+    return { ok: true, payload: JSON.parse(body) }
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: 'MCP_TOOL_INVALID_RESPONSE',
+        message: 'MCP endpoint returned invalid JSON',
+      },
+    }
+  }
+}
+
 export async function executeMcpTool(call, options = {}) {
   const toolName = call?.name
   const toolArguments = call?.arguments || {}
@@ -59,7 +86,17 @@ export async function executeMcpTool(call, options = {}) {
         }
       }
 
-      const payload = await res.json()
+      const parsed = await parseJsonResponse(res)
+      if (!parsed.ok) {
+        return {
+          ok: false,
+          kind: 'mcp_tool',
+          toolName,
+          error: parsed.error,
+        }
+      }
+
+      const payload = parsed.payload
       if (payload?.ok === false) {
         return {
           ok: false,

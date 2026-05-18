@@ -36,7 +36,7 @@ test('Given HTTP endpoint mode, when endpoint returns ok payload, then payload i
 
   global.fetch = async () => ({
     ok: true,
-    json: async () => ({ ok: true, payload: { results: [{ title: 'A' }] } }),
+    text: async () => JSON.stringify({ ok: true, payload: { results: [{ title: 'A' }] } }),
   })
 
   const result = await executeMcpTool(
@@ -63,4 +63,44 @@ test('Given HTTP endpoint mode, when endpoint returns non-200, then typed http e
 
   assert.equal(result.ok, false)
   assert.equal(result.error.code, 'MCP_TOOL_HTTP_ERROR')
+})
+
+test('Given HTTP endpoint mode, when endpoint returns empty body, then typed empty response error is returned', async (t) => {
+  const originalFetch = global.fetch
+  t.after(() => {
+    global.fetch = originalFetch
+  })
+
+  global.fetch = async () => ({
+    ok: true,
+    text: async () => '   ',
+  })
+
+  const result = await executeMcpTool(
+    { name: 'web_search', arguments: { query: 'latest chip news' } },
+    { endpoint: 'http://127.0.0.1:4020/execute' }
+  )
+
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'MCP_TOOL_EMPTY_RESPONSE')
+})
+
+test('Given HTTP endpoint mode, when endpoint returns invalid JSON, then typed invalid response error is returned', async (t) => {
+  const originalFetch = global.fetch
+  t.after(() => {
+    global.fetch = originalFetch
+  })
+
+  global.fetch = async () => ({
+    ok: true,
+    text: async () => '{not json',
+  })
+
+  const result = await executeMcpTool(
+    { name: 'web_search', arguments: { query: 'latest chip news' } },
+    { endpoint: 'http://127.0.0.1:4020/execute' }
+  )
+
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'MCP_TOOL_INVALID_RESPONSE')
 })

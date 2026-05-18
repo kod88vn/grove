@@ -33,3 +33,5 @@ watt.log
 
 # orchestrator runtime caches
 apps/orchestrator/data/
+
+test-results/
