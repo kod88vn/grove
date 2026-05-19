@@ -64,6 +64,10 @@ describe('exercise resubmission flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start Reading Exercise' }))
 
+    // Modal appears on top; select Random to proceed
+    await screen.findByText('Choose a Reading Topic')
+    fireEvent.click(screen.getByText('🎲 Random (Surprise me!)'))
+
     await screen.findByText('Comprehension Questions')
 
     const answerInput = screen.getByPlaceholderText('Type your answer here...')
@@ -86,10 +90,11 @@ describe('exercise resubmission flow', () => {
 
     await screen.findByText('Exercise Graded!')
 
-    await waitFor(() => {
-      // 1 topics + 1 exercise + 1 grade + 1 history save (first) + 1 grade (revise) + 1 history save (revise) = 6
-      expect(global.fetch).toHaveBeenCalledTimes(6)
-    })
+     await waitFor(() => {
+       // 1 topics + 1 exercise + 1 grade + 1 history save (first) + 1 grade (revise) + 1 history save (revise) = 6
+       // Modal selection auto-fetches exercise which triggers another fetch for Random (already counted)
+       expect(global.fetch).toHaveBeenCalledTimes(6)
+     })
   })
 
   it('allows revising and resubmitting math work', async () => {
