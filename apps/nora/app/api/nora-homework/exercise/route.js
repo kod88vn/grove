@@ -106,6 +106,14 @@ const READING_HOOKS = [
   'A simple map reveals a hidden pattern.',
 ]
 
+const LESSON_GATEWAYS = [
+  'Show the concept through a character discovering it firsthand',
+  'Weave the concept into the plot so students infer how it works',
+  'Use a hands-on activity or experiment the narrator participates in',
+  'Frame it as a mystery to solve using this concept',
+  'Tell it through a real-world application the characters experience',
+]
+
 const recentReadingTopics = []
 
 function pickRandom(items) {
@@ -116,19 +124,21 @@ function buildTopicKey(topic) {
   return `${topic.theme}|${topic.domain}|${topic.style}|${topic.setting}`
 }
 
-function buildCandidateProfiles() {
+function buildCandidateProfiles(domains) {
+  const candidateDomains = domains || READING_DOMAINS
   const candidates = []
   const seen = new Set()
 
   while (candidates.length < 10 && seen.size < 200) {
     const candidate = {
       theme: pickRandom(READING_THEMES),
-      domain: pickRandom(READING_DOMAINS),
+      domain: pickRandom(candidateDomains),
       tone: pickRandom(READING_TONES),
       style: pickRandom(READING_STYLES),
       setting: pickRandom(READING_SETTINGS),
       perspective: pickRandom(READING_PERSPECTIVES),
       hook: pickRandom(READING_HOOKS),
+      lessonGateway: pickRandom(LESSON_GATEWAYS),
     }
 
     const key = buildTopicKey(candidate)
@@ -141,12 +151,13 @@ function buildCandidateProfiles() {
   if (candidates.length === 0) {
     candidates.push({
       theme: pickRandom(READING_THEMES),
-      domain: pickRandom(READING_DOMAINS),
+      domain: pickRandom(candidateDomains || READING_DOMAINS),
       tone: pickRandom(READING_TONES),
       style: pickRandom(READING_STYLES),
       setting: pickRandom(READING_SETTINGS),
       perspective: pickRandom(READING_PERSPECTIVES),
       hook: pickRandom(READING_HOOKS),
+      lessonGateway: pickRandom(LESSON_GATEWAYS),
     })
   }
 
@@ -159,7 +170,7 @@ function profileScore(candidate) {
   if (candidate.theme.includes('research') && candidate.style.includes('report')) score += 2
   if (candidate.theme.includes('mystery') && candidate.tone.includes('suspenseful')) score += 2
   if (candidate.domain.includes('history') && candidate.style.includes('news')) score += 1
-  if (candidate.domain.includes('science') && candidate.setting.includes('lab')) score += 1
+  if (candidate.domain.includes('science') && candidate.setting.includes('fair')) score += 1
   if (candidate.domain.includes('music') && candidate.setting.includes('music')) score += 1
   if (candidate.theme.includes('team') && candidate.perspective.includes('we')) score += 1
   if (candidate.theme.includes('discovery') && candidate.hook.includes('discovery')) score += 1
@@ -174,7 +185,7 @@ function selectReadingTopic(candidates) {
 }
 
 function buildReadingPassagePrompt(profile) {
-  return `Write one Grade 5 reading passage and return JSON only.
+  return `Write one Grade 5 reading passage with a meaningful educational lesson and return JSON only.
 
 Use this profile:
 Theme: ${profile.theme}
@@ -184,22 +195,31 @@ Style: ${profile.style}
 Setting: ${profile.setting}
 Perspective: ${profile.perspective}
 Hook: ${profile.hook}
+Lesson Delivery: ${profile.lessonGateway}
+
+Educational requirements:
+- Embed a real, age-appropriate educational concept from the domain (science fact, historical detail, geography insight, etc.)
+- The lesson must be woven naturally into the narrative — not tacked on as a definition dump
+- Include at least one concrete learning takeaway students can identify after reading
+- Use context clues so students can infer meaning of unfamiliar terms
 
 Rules:
-- 110-140 words
-- age-appropriate and engaging
-- concrete details, no generic filler
-- no title, no markdown
+- 120-160 words
+- grade-appropriate vocabulary and concepts
+- concrete details, no generic filler or fluffy intro/outro
+- no title, no markdown formatting
+- the educational lesson should be implicit in the story, not stated as "today we learn..."
 
-Return exactly: {"passage":"..."}`
+Return exactly: {"passage":"...","lessonKeyPoint":"one sentence stating the educational concept students will have learned"}`
 }
 
 const PASSAGE_SCHEMA = {
   type: 'object',
   properties: {
     passage: { type: 'string' },
+    lessonKeyPoint: { type: 'string' },
   },
-  required: ['passage'],
+  required: ['passage', 'lessonKeyPoint'],
   additionalProperties: false,
 }
 
@@ -286,10 +306,12 @@ const MATH_MIXED_SCHEMA = {
 
 const PROMPTS = {
   english: {
-    readingQuestions: `Given the passage below, create exactly 3 Grade 5 comprehension questions:
-1) one multiple-choice with exactly 3 options,
-2) one short-answer,
-3) one creative short-answer.
+    readingQuestions: `You are a Grade 5 teacher creating comprehension questions for an educational reading passage.
+
+Given the passage below, create exactly 3 questions:
+1) One multiple-choice with exactly 3 options (tests literal understanding of the passage content)
+2) One short-answer testing understanding of the educational concept/lesson in the passage  
+3) One inference question that connects the passage lesson to a real-world application
 
 Return JSON only:
 {"questions":[{"id":1,"type":"multiple-choice","question":"...","options":["...","...","..."],"correctAnswer":"..."},{"id":2,"type":"short-answer","question":"...","correctAnswer":"..."},{"id":3,"type":"short-answer","question":"...","correctAnswer":"..."}]}`,
@@ -427,14 +449,20 @@ export async function POST(request) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { subject, type, skillCategory } = body || {}
+  const { subject, type, skillCategory, selectedDomain } = body || {}
   if (!PROMPTS[subject]?.[type] && !(subject === 'english' && type === 'reading')) {
     return Response.json({ error: `Unknown subject/type: ${subject}/${type}` }, { status: 400 })
   }
 
   try {
     if (subject === 'english' && type === 'reading') {
-      const candidateProfiles = buildCandidateProfiles()
+      // Filter domains based on user selection
+      let domainsToUse = READING_DOMAINS
+      if (selectedDomain && selectedDomain !== 'random') {
+        domainsToUse = [selectedDomain]
+      }
+
+      const candidateProfiles = buildCandidateProfiles(domainsToUse)
       const selectedTopic = selectReadingTopic(candidateProfiles)
       const topicKey = buildTopicKey(selectedTopic)
       recentReadingTopics.push(topicKey)
@@ -447,11 +475,11 @@ export async function POST(request) {
           {
             role: 'system',
             content:
-              'You are an expert Grade 5 teacher. Return only JSON that matches the provided schema exactly. No markdown, no prose.',
+              'You are an expert Grade 5 teacher and curriculum designer. Create reading passages that teach real educational concepts woven naturally into engaging stories. Return only JSON that matches the provided schema exactly. No markdown, no prose.',
           },
           { role: 'user', content: buildReadingPassagePrompt(selectedTopic) },
         ],
-        320,
+        400,
         PASSAGE_SCHEMA,
         0.55
       )
@@ -460,6 +488,8 @@ export async function POST(request) {
       if (!passage) {
         return Response.json({ error: 'Failed to generate passage' }, { status: 502 })
       }
+
+      const lessonKeyPoint = passageJson.lessonKeyPoint ? String(passageJson.lessonKeyPoint).trim() : ''
 
       const questionsJson = await askJson(
         [
@@ -470,10 +500,10 @@ export async function POST(request) {
           },
           {
             role: 'user',
-            content: `${PROMPTS.english.readingQuestions}\n\nPassage:\n${passage}`,
+            content: `${PROMPTS.english.readingQuestions}\n\nPassage:\n${passage}${lessonKeyPoint ? `\nEducational lesson in this passage: ${lessonKeyPoint}` : ''}`,
           },
         ],
-        260,
+        300,
         QUESTIONS_SCHEMA
       )
 
@@ -482,7 +512,7 @@ export async function POST(request) {
         return Response.json({ error: 'Failed to generate questions' }, { status: 502 })
       }
 
-      return Response.json({ passage, questions })
+      return Response.json({ passage, questions, lessonKeyPoint })
     }
 
     const prompt =

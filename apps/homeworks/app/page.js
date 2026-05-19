@@ -5,11 +5,13 @@ import { useEffect, useState } from 'react'
 import { EnglishExercise } from '../components/EnglishExercise'
 import { MathExercise } from '../components/MathExercise'
 import { ProgressReview } from '../components/ProgressReview'
+import { ParentView } from '../components/ParentView'
 
 const SECTIONS = {
   english: 'english',
   math: 'math',
   progress: 'progress',
+  parent: 'parent',
 }
 
 export default function HomeworksPage() {
@@ -74,6 +76,17 @@ export default function HomeworksPage() {
         >
           📊 Progress
         </button>
+        <button
+          onClick={() => setActiveSection(SECTIONS.parent)}
+          className={`px-4 py-3 font-medium transition-all ${
+            activeSection === SECTIONS.parent
+              ? 'border-b-2 border-orange-600 text-orange-600'
+              : 'text-slate-600 hover:text-slate-800'
+          }`}
+        >
+          👨‍👩‍👧 Parent
+        </button>
+
         {isSkillsLibraryNavEnabled && (
           <Link
             href="/library"
@@ -137,6 +150,10 @@ export default function HomeworksPage() {
             </p>
             <ProgressReview key={lastSubmission?.submittedAt} />
           </div>
+        )}
+
+        {activeSection === SECTIONS.parent && (
+          <ParentView />
         )}
       </div>
 

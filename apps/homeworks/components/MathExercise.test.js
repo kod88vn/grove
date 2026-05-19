@@ -16,6 +16,12 @@ describe('exercise resubmission flow', () => {
 
   it('allows revising and resubmitting english answers', async () => {
     global.fetch
+      // loadTopics() calls /chat/api/nora-homework/topics
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ topics: [], categories: [] }),
+      })
+      // fetchExercise() calls /homeworks/api/exercises?...
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -27,6 +33,7 @@ describe('exercise resubmission flow', () => {
           },
         }),
       })
+      // First submit grade → /homeworks/api/grade
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -37,6 +44,9 @@ describe('exercise resubmission flow', () => {
           feedback: 'Nice work!',
         }),
       })
+      // First save to reading history → /homeworks/api/reading-history
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'rh-1' }) })
+      // Second submit (revise) grade → /homeworks/api/grade
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -47,6 +57,8 @@ describe('exercise resubmission flow', () => {
           feedback: 'Great revision!',
         }),
       })
+      // Second save to reading history → /homeworks/api/reading-history
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'rh-2' }) })
 
     render(<EnglishExercise />)
 
@@ -75,7 +87,8 @@ describe('exercise resubmission flow', () => {
     await screen.findByText('Exercise Graded!')
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(3)
+      // 1 topics + 1 exercise + 1 grade + 1 history save (first) + 1 grade (revise) + 1 history save (revise) = 6
+      expect(global.fetch).toHaveBeenCalledTimes(6)
     })
   })
 

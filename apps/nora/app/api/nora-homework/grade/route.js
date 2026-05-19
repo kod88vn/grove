@@ -86,15 +86,21 @@ function getGradeSchema(subject, type) {
 
 function buildPrompt(subject, type, exercise, answers) {
   if (subject === 'english' && type === 'reading') {
-    return `You are a Grade 5 teacher grading reading comprehension. 
-      
+    const lessonContext = exercise.lessonKeyPoint ? `\n\nThe educational lesson in this passage is: ${exercise.lessonKeyPoint}. When grading, give extra credit to students who demonstrate they understood this concept.` : ''
+    return `You are a Grade 5 teacher grading reading comprehension for an educational passage.
+
 Exercise: ${JSON.stringify(exercise)}
-Student Answers: ${JSON.stringify(answers)}
+Student Answers: ${JSON.stringify(answers)}${lessonContext}
 
 Grade each answer and provide:
-1. Score for each answer (points)
-2. Feedback explaining what was good/needs improvement
+1. Score for each answer (points) — 1 point for correct/acceptable, 0 for incorrect
+2. Feedback explaining what was good and what needs improvement
 3. Overall score and encouraging comment
+
+Special grading notes:
+- For literal comprehension questions: accept any answer that correctly identifies what was stated in the text
+- For concept/lesson questions: reward answers that show understanding of the educational concept, even if phrased differently than the model answer
+- For inference questions: accept reasonable inferences grounded in the passage content
 
 Format as JSON: { answers: [{id, score, feedback}], totalScore, maxScore, overallFeedback }`
   }

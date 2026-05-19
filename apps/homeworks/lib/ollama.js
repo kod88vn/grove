@@ -33,11 +33,12 @@ async function callNora(path, body) {
 }
 
 export async function generateExercise(type, subject, options = {}) {
-  const { skillCategory } = options
+  const { skillCategory, selectedDomain } = options
   return callNora('/api/nora-homework/exercise', {
     subject,
     type,
     ...(skillCategory ? { skillCategory } : {}),
+    ...(selectedDomain ? { selectedDomain } : {}),
   })
 }
 

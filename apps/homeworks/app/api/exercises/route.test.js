@@ -71,6 +71,7 @@ describe('GET /api/exercises', () => {
     expect(response.status).toBe(200)
     expect(generateExercise).toHaveBeenCalledWith('mixed', 'math', {
       skillCategory: 'division',
+      selectedDomain: null,
     })
   })
 

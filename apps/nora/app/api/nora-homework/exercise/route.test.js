@@ -82,7 +82,7 @@ describe('POST /api/nora-homework/exercise', () => {
         think: false,
         format: expect.objectContaining({
           type: 'object',
-          required: ['passage'],
+          required: ['passage', 'lessonKeyPoint'],
         }),
       })
     )

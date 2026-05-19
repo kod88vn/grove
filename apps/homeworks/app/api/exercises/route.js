@@ -5,6 +5,7 @@ export async function GET(request) {
   const subject = searchParams.get('subject') // 'english' or 'math'
   const type = searchParams.get('type') // e.g., 'reading', 'mixed'
   const skillCategory = searchParams.get('skillCategory')
+  const selectedDomain = searchParams.get('selectedDomain')
 
   if (!subject || !type) {
     return Response.json(
@@ -14,7 +15,7 @@ export async function GET(request) {
   }
 
   try {
-    const exercise = await generateExercise(type, subject, { skillCategory })
+    const exercise = await generateExercise(type, subject, { skillCategory, selectedDomain })
     return Response.json({
       subject,
       type,
