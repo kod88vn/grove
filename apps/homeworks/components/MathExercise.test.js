@@ -16,12 +16,12 @@ describe('exercise resubmission flow', () => {
 
   it('allows revising and resubmitting english answers', async () => {
     global.fetch
-      // loadTopics() calls /chat/api/nora-homework/topics
+      // 1. loadTopics() calls /chat/api/nora-homework/topics
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ topics: [], categories: [] }),
       })
-      // fetchExercise() calls /homeworks/api/exercises?...
+      // 2. fetchExercise() calls /homeworks/api/exercises?... (first exercise)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -33,36 +33,36 @@ describe('exercise resubmission flow', () => {
           },
         }),
       })
-      // First submit grade → /homeworks/api/grade
+      // 3. First submit grade → /homeworks/api/grade
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          gradeResult: { answers: [{ id: 1, score: 1, feedback: 'Good' }] },
-          score: 1,
+          gradeResult: { answers: [{ id: 1, score: 0, feedback: 'Try again' }] },
+          score: 0,
           maxScore: 1,
-          percentage: 100,
-          feedback: 'Nice work!',
+          percentage: 0,
+          feedback: 'Please revise',
         }),
       })
-      // First save to reading history → /homeworks/api/reading-history
+      // 4. First save to reading history → /homeworks/api/reading-history
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'rh-1' }) })
-      // Second submit (revise) grade → /homeworks/api/grade
+      // 5. Second exercise fetch (after "Try Another Exercise") → /homeworks/api/exercises?...
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          gradeResult: { answers: [{ id: 1, score: 1, feedback: 'Good again' }] },
-          score: 1,
-          maxScore: 1,
-          percentage: 100,
-          feedback: 'Great revision!',
+          exercise: {
+            passage: 'A new passage for retry.',
+            questions: [
+              { id: 2, type: 'short-answer', question: 'What happened this time?' },
+            ],
+          },
         }),
       })
-      // Second save to reading history → /homeworks/api/reading-history
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'rh-2' }) })
 
     render(<EnglishExercise />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Reading Exercise' }))
+    // Click "New Exercise" button which opens the topic modal
+    fireEvent.click(screen.getByRole('button', { name: /✏️ New Exercise/ }))
 
     // Modal appears on top; select Random to proceed
     await screen.findByText('Choose a Reading Topic')
@@ -77,38 +77,68 @@ describe('exercise resubmission flow', () => {
 
     await screen.findByText('Exercise Graded!')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revise and Resubmit' }))
+    // No "Revise and Resubmit" button exists anymore.
+    // Clicking "Try Another Exercise" clears everything and goes back to the empty state, then opens modal for new exercise.
+    fireEvent.click(screen.getByRole('button', { name: 'Try Another Exercise' }))
 
-    await screen.findByRole('button', { name: 'Submit Answers' })
-    expect(screen.getByDisplayValue('My first answer')).toBeInTheDocument()
+    // Modal appears again for a new exercise
+    await screen.findByText('Choose a Reading Topic')
+    fireEvent.click(screen.getByText('🎲 Random (Surprise me!)'))
 
-    fireEvent.change(screen.getByDisplayValue('My first answer'), {
-      target: { value: 'Improved answer' },
+    // New exercise loads with fresh answers
+    await screen.findByText('Comprehension Questions')
+
+    // Total fetches: loadTopics + exercise(first) + grade(1st submit) + history save(first) + exercise(new) = 5
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(5)
     })
+
+    // Answer the second exercise and submit again for "revise" flow
+    const answerInput2 = screen.getByPlaceholderText('Type your answer here...')
+    fireEvent.change(answerInput2, { target: { value: 'Improved answer' } })
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          gradeResult: { answers: [{ id: 2, score: 1, feedback: 'Good again' }] },
+          score: 1,
+          maxScore: 1,
+          percentage: 100,
+          feedback: 'Great revision!',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'rh-2' }) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit Answers' }))
 
     await screen.findByText('Exercise Graded!')
 
-     await waitFor(() => {
-       // 1 topics + 1 exercise + 1 grade + 1 history save (first) + 1 grade (revise) + 1 history save (revise) = 6
-       // Modal selection auto-fetches exercise which triggers another fetch for Random (already counted)
-       expect(global.fetch).toHaveBeenCalledTimes(6)
-     })
+    // 5 + grade(2nd) + history save(2nd) = 7
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(7)
+    })
   })
 
   it('allows revising and resubmitting math work', async () => {
     global.fetch
+      // 1. load first exercise
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           exercise: {
-            problems: [
-              { id: 1, problem: '6 + 4', operations: ['add 6 and 4'], skillCategory: 'addition-subtraction', skillName: 'Add Whole Numbers', skillLabel: '➕ Add Whole Numbers' },
-            ],
+            problems: [{
+              id: 1,
+              problem: '2 + 4',
+              operations: ['addition'],
+              skillCategory: 'addition-subtraction',
+              skillName: 'Add Whole Numbers',
+              skillLabel: '➕ Add Whole Numbers',
+            }],
           },
         }),
       })
+      // 2. grade first submission (wrong)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -116,21 +146,30 @@ describe('exercise resubmission flow', () => {
             totalCorrect: 0,
             totalProblems: 1,
             comment: 'Check your arithmetic',
-            problems: [
-              { id: 1, correct: false, workShown: true, feedback: 'Try again' },
-            ],
+            problems: [{ id: 1, correct: false, workShown: true, feedback: 'Try again' }],
           },
-          score: 0,
-          maxScore: 1,
-          percentage: 0,
-          feedback: 'Please revise',
+          score: 0, maxScore: 1, percentage: 0, feedback: 'Please revise',
         }),
       })
-      // Mock for library save after first submission
+      // 3. library save after first submission
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'lib-1', success: true }) })
+      // 4. load second exercise
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ id: 'lib-1', success: true }),
+        json: async () => ({
+          exercise: {
+            problems: [{
+              id: 2,
+              problem: '3 + 6',
+              operations: ['addition'],
+              skillCategory: 'addition-subtraction',
+              skillName: 'Add Whole Numbers',
+              skillLabel: '➕ Add Whole Numbers',
+            }],
+          },
+        }),
       })
+      // 5. grade second submission (correct)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -138,54 +177,51 @@ describe('exercise resubmission flow', () => {
             totalCorrect: 1,
             totalProblems: 1,
             comment: 'Great correction',
-            problems: [
-              { id: 1, correct: true, workShown: true, feedback: 'Well done' },
-            ],
+            problems: [{ id: 2, correct: true, workShown: true, feedback: 'Well done' }],
           },
-          score: 1,
-          maxScore: 1,
-          percentage: 100,
-          feedback: 'Great correction',
+          score: 1, maxScore: 1, percentage: 100, feedback: 'Great correction',
         }),
       })
-      // Mock for library save after second submission
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'lib-2', success: true }),
-      })
+      // 6. library save after second submission
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'lib-2', success: true }) })
 
     render(<MathExercise />)
 
+    // Load first exercise
     fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
-
     await screen.findByText('Problem 1')
 
+    // Fill in and submit (wrong answer)
     fireEvent.change(screen.getByPlaceholderText('Write down your steps here...'), {
       target: { value: '6 + 4 = 10' },
     })
+    fireEvent.change(screen.getByPlaceholderText('Enter your final answer'), {
+      target: { value: '9' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
 
+    // Grade result shows
+    await screen.findByText('Problems Graded!')
+
+    // No "Revise and Resubmit" button exists anymore.
+    fireEvent.click(screen.getByRole('button', { name: 'Try Another Problem Set' }))
+
+    // Back to empty state, load a new exercise
+    await screen.findByRole('button', { name: 'Start Math Problems' })
+    fireEvent.click(screen.getByRole('button', { name: 'Start Math Problems' }))
+    await screen.findByText('Problem 1')
+
+    // Fill in answer for second exercise before submitting
     fireEvent.change(screen.getByPlaceholderText('Enter your final answer'), {
       target: { value: '9' },
     })
 
+    // Submit second exercise (correct answer)
     fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
-
     await screen.findByText('Problems Graded!')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revise and Resubmit' }))
-
-    await screen.findByRole('button', { name: 'Submit Problems' })
-    expect(screen.getByDisplayValue('9')).toBeInTheDocument()
-
-    fireEvent.change(screen.getByDisplayValue('9'), { target: { value: '10' } })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Submit Problems' }))
-
-    await screen.findByText('Problems Graded!')
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(5)
-    })
+    // Verify fetch calls: exercise(1) + grade(2) + library-save(3) + exercise(4) + grade(5) + library-save(6)
+    expect(global.fetch).toHaveBeenCalledTimes(6)
   })
 
   it('renders column method grid and submits multiplication answers', async () => {
