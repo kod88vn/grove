@@ -35,15 +35,16 @@ export async function POST(request) {
       maxScore = gradeResult.totalProblems || 3
     }
 
-    // Record progress
+    // Record progress to SQLite (public access)
+    // Pass the full exercise object so review page can show exercises & answers
     const progress = recordSubmission(
-      'default', // studentId
+      'public',
       subject,
       type,
-      `${subject}-${Date.now()}`,
+      exercise,
       score,
       maxScore,
-      gradeResult
+      { ...gradeResult, studentAnswers: answers }
     )
 
     return Response.json({
