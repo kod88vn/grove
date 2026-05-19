@@ -3,15 +3,21 @@ name: Deploy grove
 on:
   push:
     branches: [master]
+  pull_request:
+    types: [closed]
+    branches: [master]
 
 jobs:
   deploy:
     runs-on: grove
+    # Only deploy when a PR is merged (not just closed)
+    if: github.event_name == 'push' || (github.event.pull_request.merged == true)
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed for turbo diff detection
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
