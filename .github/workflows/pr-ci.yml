@@ -140,7 +140,7 @@ jobs:
     needs: [pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: success() && !contains(github.event.pull_request.labels.*.name, 'do-not-merge')
+    if: success() && !contains(github.event.pull_request.labels.*.name, 'do-not-merge') && github.event.pull_request.author_association == 'OWNER'
     permissions:
       contents: write
       pull-requests: write
@@ -151,6 +151,7 @@ jobs:
       - name: Auto-merge PR (squash)
         run: |
           gh pr merge ${{ github.event.pull_request.number }} \
+            --admin \
             --squash \
             --subject "Squash merge" \
             --delete-branch
