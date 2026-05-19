@@ -148,14 +148,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Auto-merge PR (squash) via REST API
+      - name: Auto-merge PR (squash)
         run: |
-          # GitHub Actions cannot use `gh pr merge`; use the REST API instead
-          curl -f \
-            -X POST \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/kod88vn/grove/pulls/${{ github.event.pull_request.number }}/merge" \
-            -d '{"sha":"${{ github.event.pull_request.head.sha }}","commit_title":"Squash merge","merge_method":"squash"}'
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --squash \
+            --commit-title "Squash merge" \
+            --delete-branch
         env:
           GH_TOKEN: ${{ github.token }}
