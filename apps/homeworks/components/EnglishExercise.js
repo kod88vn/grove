@@ -306,23 +306,17 @@ export function EnglishExercise({ onSubmit, loading }) {
       )
     }
 
-    // Empty state — no exercise loaded, show start button
+    // Empty state — no exercise loaded, prompt to pick a topic via the New Exercise button above
     if (!exercise) {
       return (
         <div className="space-y-4">
           {!selectedDomainId && (
-            <button onClick={openTopicModalForNewExercise} disabled={loading_} className="rounded bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:bg-gray-400">
-              {loading_ ? 'Loading...' : 'Start Reading Exercise'}
-            </button>
+            <p className="text-gray-500">Click "New Exercise" above to choose a topic and start.</p>
           )}
 
           {selectedDomainId && (
             <p className="text-sm text-gray-500">Topic: {getDomainLabel(selectedDomainId)}</p>
           )}
-
-          <button type="button" onClick={switchToHistory} className="text-sm text-blue-600 hover:underline">
-            📚 View Reading History →
-          </button>
         </div>
       )
     }
@@ -349,22 +343,16 @@ export function EnglishExercise({ onSubmit, loading }) {
             </div>
           )}
 
-          <button type="button" onClick={() => setSubmitted(null)} className="rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700">
-            Revise and Resubmit
+          <button type="button" onClick={() => { setExercise(null); setSubmitted(null); setSelectedDomainId(null); openTopicModalForNewExercise() }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+            Try Another Exercise
           </button>
 
-          <div className="flex gap-3">
-            <button type="button" onClick={() => { setExercise(null); setSubmitted(null); setSelectedDomainId(null); openTopicModalForNewExercise() }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-              Try Another Exercise
-            </button>
-          </div>
-
-          <p className="text-blue-600 hover:underline cursor-pointer" onClick={switchToHistory}>📚 View Reading History →</p>
         </div>
       )
     }
 
     // Main exercise view with passage + questions (no topic selector cluttering the UI)
+
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -404,8 +392,6 @@ export function EnglishExercise({ onSubmit, loading }) {
         <button type="submit" disabled={loading_} className="rounded bg-green-600 px-6 py-2 text-white hover:bg-green-700 disabled:bg-gray-400">
           {loading_ ? 'Grading...' : 'Submit Answers'}
         </button>
-
-        <p className="text-blue-600 hover:underline cursor-pointer" onClick={switchToHistory}>📚 View Reading History →</p>
       </form>
     )
   }

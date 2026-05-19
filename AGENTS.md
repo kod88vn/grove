@@ -53,6 +53,7 @@ When ANY bug, regression, or unexpected behavior is reported:
 - DO NOT patch symptoms. Find and fix the root cause.
 - For UI bugs without logic: document reproduction steps in a comment next to the relevant component, then fix.
 - For non-deterministic bugs (race conditions, flaky tests): log to a gitignored audit file AND add targeted guards.
+- Always remember to update tests before implementing a change
 
 **Reference**: See also [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md).
 
