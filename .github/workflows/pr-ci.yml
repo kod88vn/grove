@@ -49,7 +49,7 @@ jobs:
 
           if [ -z "$CHANGED_DIRS" ]; then
             echo "No app packages changed explicitly, running all tests."
-            FILTER="..."
+            FILTER=""
           else
             FILTER=""
             for dir in $CHANGED_DIRS; do
@@ -67,8 +67,7 @@ jobs:
             done
           fi
 
-          # Default to all packages if no filter set
-          [ -z "$FILTER" ] && FILTER="..."
+          # When FILTER is empty, turbo runs the task across all workspace packages
 
           echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
           echo "Changed packages: $CHANGED_DIRS or all ($FILTER)"
