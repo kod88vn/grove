@@ -30,6 +30,14 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 
 **Developer/agent responsibility**: Always use `git push origin <branch-name>` instead of `git push origin master`. The pre-push hook will catch broken code before it ever reaches the remote.
 
+## Branch Workflow (Non-Negotiable)
+
+Before working on any new task or PR:
+1. **Fetch and rebase onto latest master**: `git fetch origin master && git checkout master && git rebase origin/master`
+2. **Create a fresh branch**: `git checkout -b fix/<short-description>` (or `ci/<description>`, `feat/<description>`)
+
+This prevents merge conflicts caused by stale branches based on outdated master state. Always start from the latest master, not from an old branch tip or another feature branch.
+
 ## BDD Bug Reproduction Policy (Non-Negotiable)
 
 When ANY bug, regression, or unexpected behavior is reported:
