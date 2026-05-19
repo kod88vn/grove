@@ -15,6 +15,9 @@ export function EnglishExercise({ onSubmit, loading }) {
   const [readingHistory, setReadingHistory] = useState([])
   const [historyDetail, setHistoryDetail] = useState(null)
 
+  // --- Modal state for topic selection ---
+  const [showTopicModal, setShowTopicModal] = useState(false)
+
   async function loadTopics() {
     try {
       const res = await fetch('/chat/api/nora-homework/topics')
@@ -58,15 +61,6 @@ export function EnglishExercise({ onSubmit, loading }) {
     return topic ? topic.name : domainId
   }
 
-  function getTopicsByCategory(cat) {
-    return categoriesMap[cat] || []
-  }
-
-  function getHistorySummary(reading) {
-    // Extract a short summary from the lesson key point + domain
-    return `${getDomainLabel(reading.domain)} — ${reading.lessonKeyPoint}`
-  }
-
   // --- Fetch exercise when selectedDomainId changes ---
   async function fetchExercise() {
     setLoading_(true)
@@ -89,7 +83,6 @@ export function EnglishExercise({ onSubmit, loading }) {
         setAnswers({})
         setSubmitted(null)
       } else {
-        // Failed to generate exercise
         if (data.error) {
           console.error('Exercise generation failed:', data.error)
         }
@@ -162,6 +155,23 @@ export function EnglishExercise({ onSubmit, loading }) {
     }
   }
 
+  // --- Topic modal functions ---
+  function openTopicModalForNewExercise() {
+    setView('exercise')
+    setExercise(null)
+    setSelectedDomainId(null)
+    setShowTopicModal(true)
+  }
+
+  function selectTopicFromModal(domainId) {
+    setSelectedDomainId(domainId)
+    setShowTopicModal(false)
+    // Auto-fetch exercise for Random selection
+    if (domainId === null || domainId === 'random') {
+      fetchExercise()
+    }
+  }
+
   // --- View switching ---
   function switchToExercise() {
     setView('exercise')
@@ -186,50 +196,54 @@ export function EnglishExercise({ onSubmit, loading }) {
 
   // --- Render helpers ---
 
-  function renderTopicSelector() {
+  function renderTopicModal() {
+    if (!showTopicModal) return null
     return (
-      <div className="mb-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-slate-600 uppercase tracking-wide">
-          Choose a Topic (optional)
-        </h3>
-
-        {/* Random */}
-        <button
-          type="button"
-          onClick={() => { setSelectedDomainId(null); setExercise(null) }}
-          className={`w-full rounded-lg px-4 py-3 text-left transition-all ${
-            selectedDomainId === null
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-600'
-          }`}
-        >
-          <span className="font-medium">🎲 Random (Surprise me!)</span>
-        </button>
-
-        {/* Grouped topics */}
-        {Object.entries(categoriesMap).map(([cat, items]) => (
-          <div key={cat}>
-            <p className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              {cat === 'stem' ? '🔬 STEM & Science' : cat === 'humanities' ? '📜 Humanities' : cat === 'health' ? '💪 Health & Wellness' : cat === 'social' ? '🤝 Social Studies' : cat === 'creative' ? '🎨 Creative Arts' : cat}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {items.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => setSelectedDomainId(topic.id)}
-                  className={`rounded-lg px-3 py-2 text-sm transition-all ${
-                    selectedDomainId === topic.id
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-600'
-                  }`}
-                >
-                  {topic.name}
-                </button>
-              ))}
-            </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowTopicModal(false)}>
+        <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-800">Choose a Reading Topic</h2>
+            <button onClick={() => setShowTopicModal(false)} className="text-gray-400 hover:text-gray-600 text-xl" aria-label="Close">✕</button>
           </div>
-        ))}
+
+          {/* Random */}
+          <button
+            type="button"
+            onClick={() => selectTopicFromModal(null)}
+            className={`mb-3 w-full rounded-lg px-4 py-3 text-left transition-all ${
+              selectedDomainId === null
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-50 text-slate-700 hover:bg-blue-50 hover:text-blue-600'
+            }`}
+          >
+            <span className="font-medium">🎲 Random (Surprise me!)</span>
+          </button>
+
+          {/* Grouped topics */}
+          {Object.entries(categoriesMap).map(([cat, items]) => (
+            <div key={cat} className="mb-4">
+              <p className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                {cat === 'stem' ? '🔬 STEM & Science' : cat === 'humanities' ? '📜 Humanities' : cat === 'health' ? '💪 Health & Wellness' : cat === 'social' ? '🤝 Social Studies' : cat === 'creative' ? '🎨 Creative Arts' : cat}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {items.map((topic) => (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => selectTopicFromModal(topic.id)}
+                    className={`rounded-lg px-3 py-2 text-sm transition-all ${
+                      selectedDomainId === topic.id
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                  >
+                    {topic.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -240,7 +254,7 @@ export function EnglishExercise({ onSubmit, loading }) {
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No reading history yet.</p>
           <p className="text-gray-400 text-sm mt-2">Complete a reading exercise to see it here!</p>
-          <button type="button" onClick={switchToExercise} className="mt-4 rounded bg-blue-600 px-6 py-2 text-white hover:bg-blue-700">
+          <button type="button" onClick={openTopicModalForNewExercise} className="mt-4 rounded bg-blue-600 px-6 py-2 text-white hover:bg-blue-700">
             Start a Reading Exercise
           </button>
         </div>
@@ -287,19 +301,17 @@ export function EnglishExercise({ onSubmit, loading }) {
     if (!exercise && loading_) {
       return (
         <div className="flex items-center gap-4">
-          {renderTopicSelector()}
           <p className="text-gray-500">Loading reading passage...</p>
         </div>
       )
     }
 
-    // Empty state — no exercise loaded, show topic selector + start button
+    // Empty state — no exercise loaded, show start button
     if (!exercise) {
       return (
         <div className="space-y-4">
-          {renderTopicSelector()}
           {!selectedDomainId && (
-            <button onClick={fetchExercise} disabled={loading_} className="rounded bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:bg-gray-400">
+            <button onClick={openTopicModalForNewExercise} disabled={loading_} className="rounded bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:bg-gray-400">
               {loading_ ? 'Loading...' : 'Start Reading Exercise'}
             </button>
           )}
@@ -342,7 +354,7 @@ export function EnglishExercise({ onSubmit, loading }) {
           </button>
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => { setExercise(null); setSubmitted(null); setSelectedDomainId(null) }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+            <button type="button" onClick={() => { setExercise(null); setSubmitted(null); setSelectedDomainId(null); openTopicModalForNewExercise() }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
               Try Another Exercise
             </button>
           </div>
@@ -352,10 +364,9 @@ export function EnglishExercise({ onSubmit, loading }) {
       )
     }
 
-    // Main exercise view with passage + questions
+    // Main exercise view with passage + questions (no topic selector cluttering the UI)
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
-        {renderTopicSelector()}
 
         <div className="rounded border border-slate-300 bg-white p-6">
           {lessonKeyPoint && (
@@ -402,9 +413,12 @@ export function EnglishExercise({ onSubmit, loading }) {
   // --- Main render ---
   return (
     <div>
+      {/* Topic Selection Modal */}
+      {renderTopicModal()}
+
       {/* View Toggle */}
       <div className="mb-4 flex gap-2">
-        <button type="button" onClick={switchToExercise} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'exercise' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
+        <button type="button" onClick={openTopicModalForNewExercise} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'exercise' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
           ✏️ New Exercise
         </button>
         <button type="button" onClick={switchToHistory} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'history' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
