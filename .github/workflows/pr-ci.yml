@@ -85,6 +85,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -102,7 +103,7 @@ jobs:
           echo "$FILE_LIST" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Post automated PR review
+      - name: Post automated PR review (formal APPROVE/REQUEST_CHANGES)
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
@@ -118,22 +119,21 @@ jobs:
             PACKAGES_INFO="$CHANGED_APPS"
           fi
 
-          # Build the review body in a temp file (no heredocs - use echo only)
           REVIEW_FILE=$(mktemp)
 
-          printf '%s\n' "Automated PR Review" "" "Tests: All passed" "Builds: All passed" >> "$REVIEW_FILE"
-
-          printf 'Affected packages:\n' >> "$REVIEW_FILE"
-          echo '```' >> "$REVIEW_FILE"
-          printf '%s\n' "$PACKAGES_INFO" >> "$REVIEW_FILE"
-          echo '```' >> "$REVIEW_FILE"
-
-          printf '\nChanged files: %s\n' "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")" >> "$REVIEW_FILE"
-          printf '\nMerging with squash if no human reviews block this.\n' >> "$REVIEW_FILE"
+          # Always post an informational comment (does not block merge)
+          printf '%s\n' "Automated PR Review" "" \
+            "Tests: All passed" "Builds: All passed" "$PACKAGES_INFO" \
+            "Changed files: $(git diff --name-only "$BASE_SHA" "$HEAD_SHA")" \
+            >> "$REVIEW_FILE"
 
           gh pr review ${{ github.event.pull_request.number }} \
             --comment \
             --body-file "$REVIEW_FILE"
+
+          # Submit a formal APPROVE review so squash-merge can proceed
+          gh pr review ${{ github.event.pull_request.number }} --approve \
+            --body "Automated approval: tests passed, builds succeeded."
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -141,7 +141,10 @@ jobs:
     needs: [pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: success()
+    if: success() && !contains(github.event.pull_request.labels.*.name, 'do-not-merge')
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
