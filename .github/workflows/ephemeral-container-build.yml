@@ -21,7 +21,7 @@ jobs:
           # node_modules and native binaries are created only inside the container
           # and never persisted on the runner host.
           tar -C "$GITHUB_WORKSPACE" -cf - . \
-            | docker run --rm -i node:18-bullseye bash -lc "set -euo pipefail; mkdir -p /workspace; tar -xf - -C /workspace; cd /workspace; npm ci --no-audit --no-fund; npm test"
+            | docker run --rm -i node:22-bullseye bash -lc "set -euo pipefail; mkdir -p /workspace; tar -xf - -C /workspace; cd /workspace; yarn install --frozen-lockfile --ignore-scripts && npm rebuild better-sqlite3 && yarn test"
 
       - name: Upload test results (if any)
         if: always()
