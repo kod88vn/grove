@@ -548,7 +548,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
                 throw new Error(`library save failed: ${libraryRes.status} ${libraryRes.statusText}`)
               }
             } catch (error) {
-              throw new Error(`Failed to save problem to library: ${error.message}`)
+              console.error(`Failed to save problem to library: ${error.message}`)
             }
           }
         }
@@ -613,14 +613,6 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
             ))}
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => setSubmitted(null)}
-          className="rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
-        >
-          Revise and Resubmit
-        </button>
 
         <button
           type="button"
