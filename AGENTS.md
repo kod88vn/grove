@@ -67,6 +67,7 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **Debugging** | [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) | Bug reproduction, root cause analysis, fix verification |
 | **Unit Testing** | [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md) | Jest/Playwright tests, BDD triage, TDD workflows |
 | **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
+| **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
@@ -119,3 +120,43 @@ Grove routing is layered. Do not treat app-local routes as globally reachable un
 	- Gateway proxy mapping (`apps/gateway/platformatic.json`)
 	- Grove dev rewrites (`apps/grove/next.config.js`)
 - In Next.js UI code, use `next/link` (not raw `<a href>` for internal navigation) so `basePath` and app routing are handled correctly.
+
+## Homeworks App — Enterprise-Grade Standards (Non-Negotiable)
+
+The `apps/homeworks` app is a production-grade data persistence system. All changes MUST follow these rules:
+
+### Data Persistence (SQLite Only)
+- **All homework submissions and reading sessions are stored in SQLite** via [`apps/homeworks/lib/db.js`](apps/homeworks/lib/db.js).
+- The database file is at `apps/homeworks/data/homeworks.db` (gitignored).
+- **Never use file-based JSON, in-memory Maps, or any other ad-hoc storage** for homework data.
+- Use `better-sqlite3` with prepared statements, WAL mode, and foreign keys enabled.
+- All API routes (grade, reading-history, review) MUST use the SQLite layer in `lib/db.js` and `lib/progress.js`.
+
+### Public Access (No Auth)
+- All homework data is **public**. No authentication or authorization is needed.
+- The review page at `/homeworks/review` shows all submissions from the last 30 days.
+- Every submission stores `student_id = 'public'`.
+
+### Required Data Model
+- **`submissions` table**: id, student_id, subject (math/english), type (reading/writing/problem-set), exercise_json, answers_json, score, max_score, percentage, feedback, details_json, created_at.
+- **`readings` table**: id, student_id, passage, questions_json, lesson_key_point, domain, score, max_score, percentage, created_at.
+- Both tables have indexes on `(student_id, created_at DESC)` and `created_at`.
+
+### API Contract
+- `POST /homeworks/api/grade` — Grade a submission, saves to SQLite.
+- `POST /homeworks/api/reading-history` — Save a reading session to SQLite.
+- `GET /homeworks/api/review?day=YYYY-MM-DD` — Get submissions + readings for a day (or last 30 days grouped).
+
+### UI Guidelines
+- **Keep it simple.** The review page is the primary interface for reviewing daily submissions.
+- Remove unnecessary complexity: no SkillsLibrary, no complex ParentView state management for data persistence.
+- Components should be clean, readable, and focused on displaying data (exercises, answers, scores).
+
+### Testing & Build
+- All changes to `lib/db.js` and `lib/progress.js` MUST include tests in side-by-side `.test.js` files.
+- Run `npx next build` after any change to catch SQLite initialization or schema issues.
+
+### AGENTS.md Enforcement
+- Every AI agent working on homeworks MUST read this section before making changes.
+- If a change would introduce file-based JSON or in-memory storage for homework data, reject it immediately.
+- If a change adds auth complexity to the review page, reject it — data is public by design.
