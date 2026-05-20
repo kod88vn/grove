@@ -1,15 +1,16 @@
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://127.0.0.1:4010'
 
 function buildFallbackPlan(reason) {
+  const route = process.env.TEST_FALLBACK_ROUTE || 'fast_chat'
   return {
     plan: {
-      route: 'factual_tool',
+      route,
       confidence: 'low',
       reason,
       useModel: true,
-      skipToolPlanning: false,
-      promptProfile: 'factual',
-      requireVerification: true,
+      skipToolPlanning: route === 'fast_chat',
+      promptProfile: route === 'factual_tool' ? 'factual' : 'fast',
+      requireVerification: route === 'factual_tool',
     },
   }
 }

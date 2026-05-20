@@ -11,11 +11,11 @@ describe('getExecutionPlan', () => {
     global.fetch = originalFetch
   })
 
-  it('returns deterministic fallback in test mode', async () => {
+  it('returns fast_chat fallback in test mode', async () => {
     process.env.NODE_ENV = 'test'
     const result = await getExecutionPlan('hello')
 
-    expect(result.plan.route).toBe('factual_tool')
+    expect(result.plan.route).toBe('fast_chat')
     expect(result.plan.reason).toBe('test_mode_default')
   })
 
@@ -38,12 +38,12 @@ describe('getExecutionPlan', () => {
     expect(options.method).toBe('POST')
   })
 
-  it('falls back when orchestrator is unavailable', async () => {
+  it('falls back to fast_chat when orchestrator is unavailable', async () => {
     process.env.NODE_ENV = 'development'
     global.fetch = jest.fn().mockRejectedValue(new Error('offline'))
 
     const result = await getExecutionPlan('what is weather')
-    expect(result.plan.route).toBe('factual_tool')
+    expect(result.plan.route).toBe('fast_chat')
     expect(result.plan.reason).toBe('orchestrator_unreachable')
   })
 
