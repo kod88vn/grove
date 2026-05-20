@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { getNavItems, isActiveNavPath } from '../navigation.js'
+import { apiPath } from '../apiPath.js'
 
 const NAV_ITEMS = getNavItems()
 
@@ -10,7 +11,7 @@ function UserAvatar() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
-    fetch('/api/me')
+    fetch(apiPath('/api/me'))
       .then((r) => r.json())
       .then(setUser)
       .catch(() => {})
