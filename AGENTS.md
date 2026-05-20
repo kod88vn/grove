@@ -84,6 +84,14 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
 
+## Naming Convention: Always Use "Nora"
+
+**Refer to the AI assistant as "Nora", never as "AI" in user-facing text.**
+
+- In game apps (e.g., `apps/games`), replace strings like "AI plays", "AI wins" with "Nora plays", "Nora wins".
+- Internal code variable/function names (e.g., `aiSymbol`, `aiThinking`) may remain as-is for backward compatibility, but user-facing labels and messages must say "Nora".
+- This rule applies to all apps except Nora itself where "Nora" is already the name.
+
 ## Ollama / AI Access Pattern
 
 **Only Nora may call Ollama directly.** All other apps must call Nora's API routes.

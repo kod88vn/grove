@@ -559,6 +559,8 @@ describe('streamResponse integration', () => {
   })
 
   it('answers a current-president question when an official source is available', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {
@@ -630,6 +632,8 @@ describe('streamResponse integration', () => {
   })
 
   it('does not answer definitively when only Wikipedia evidence is found', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     let ollamaCallCount = 0
     let pageReadRequested = false
 
@@ -685,6 +689,8 @@ describe('streamResponse integration', () => {
   })
 
   it('does not trust a model-written final answer after a single Wikipedia result', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {
@@ -732,6 +738,8 @@ describe('streamResponse integration', () => {
   })
 
   it('answers when reliable non-official sources are found', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {
@@ -789,9 +797,13 @@ describe('streamResponse integration', () => {
     expect(text).toContain('[Source: GovTrack]')
     expect(text).toContain('[Source: Congress.gov]')
     expect(text).not.toContain("I can't confidently verify this claim yet")
+
+    delete process.env.TEST_FALLBACK_ROUTE
   })
 
   it('keeps searching official variants before falling back to generic title-query results', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     let ollamaCallCount = 0
 
     global.fetch = jest.fn(async (url) => {

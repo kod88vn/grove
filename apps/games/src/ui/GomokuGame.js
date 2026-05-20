@@ -39,7 +39,7 @@ export default function GomokuGame() {
   const [lastHumanMove, setLastHumanMove] = useState(null)
   const [lastAiMove, setLastAiMove] = useState({ x: 0, y: 0 })
   const [lastLoser, setLastLoser] = useState(null)
-  const [message, setMessage] = useState('AI played the first stone at the center. Your turn!')
+  const [message, setMessage] = useState('Nora played the first stone at the center. Your turn!')
   const [winner, setWinner] = useState(null)
   const [aiThinking, setAiThinking] = useState(false)
   const [winsForExpertUnlocked, setWinsForExpertUnlocked] = useState(0)
@@ -72,7 +72,6 @@ export default function GomokuGame() {
     scoreRef.current = score
   }, [score])
 
-
   const handleSymbolSelect = (selectedEmoji) => {
     setHumanSymbol(selectedEmoji)
     const aiSym = getRandomAiSymbol(selectedEmoji)
@@ -82,14 +81,14 @@ export default function GomokuGame() {
     if (process.env.NODE_ENV === 'development') {
       setDifficultySelectionMode(true)
     } else {
-      setMessage('AI played the first stone at the center. Your turn!')
+      setMessage('Nora played the first stone at the center. Your turn!')
     }
   }
 
   const handleDifficultySelect = (difficulty) => {
     setManualDifficultyOverride(difficulty)
     setDifficultySelectionMode(false)
-    setMessage('AI played the first stone at the center. Your turn!')
+    setMessage('Nora played the first stone at the center. Your turn!')
   }
 
   useEffect(() => {
@@ -100,7 +99,7 @@ export default function GomokuGame() {
     const worker = createWorker(window.location.pathname)
 
     if (!worker) {
-      setMessage('AI worker could not be initialized. Game may not function.')
+      setMessage('Nora worker could not be initialized. Game may not function.')
       return undefined
     }
 
@@ -109,7 +108,7 @@ export default function GomokuGame() {
     // Add error handler to surface worker loading failures in production
     worker.onerror = () => {
       setAiThinking(false)
-      setMessage('AI worker failed to load. Using fallback mode.')
+      setMessage('Nora worker failed to load. Using fallback mode.')
     }
 
     worker.onmessage = (event) => {
@@ -125,7 +124,7 @@ export default function GomokuGame() {
 
       if (!baseBoard || payload.error) {
         setAiThinking(false)
-        setMessage('AI got confused for a moment. Your turn!')
+        setMessage('Nora got confused for a moment. Your turn!')
         return
       }
 
@@ -155,9 +154,9 @@ export default function GomokuGame() {
         if (nextScore === 5 && currentScore.human === 5) {
           setMessage('⚽ Penalty Shootout Draw! Both reached 5. Unbelievable!')
         } else if (nextScore === 5) {
-          setMessage('🏆 AI WINS THE TOURNAMENT! (5 points)')
+          setMessage('🏆 NORA WINS THE TOURNAMENT! (5 points)')
         } else {
-          setMessage('🤖 AI connected five. Loser (You) starts the next round!')
+          setMessage('🤖 Nora connected five. Loser (You) starts the next round!')
         }
       } else {
         setMessage('Your turn. Remember: max distance is 3 cells from existing stones.')
@@ -213,8 +212,8 @@ export default function GomokuGame() {
   }
 
   const playHumanMove = (x, y) => {
-    // Block if round is over or AI is thinking — this IS the move lock.
-    // No separate lock state needed: aiThinking already prevents human from moving while AI computes.
+    // Block if round is over or Nora is thinking — this IS the move lock.
+    // No separate lock state needed: aiThinking already prevents human from moving while Nora computes.
     if (winner || aiThinking) {
       return
     }
@@ -260,17 +259,17 @@ export default function GomokuGame() {
           unlockMsg = '🎓 Expert level unlocked!'
         }
         if (unlockMsg) {
-          setMessage(`🏆 You made five! Loser (AI) starts the next round.\n${unlockMsg}`)
+          setMessage(`🏆 You made five! Loser (Nora) starts the next round.\n${unlockMsg}`)
         } else {
-          setMessage('🏆 You made five! Loser (AI) starts the next round.')
+          setMessage('🏆 You made five! Loser (Nora) starts the next round.')
         }
       }
       return
     }
 
-    // AI's turn - trigger worker or fallback
+    // Nora's turn - trigger worker or fallback
     setAiThinking(true)
-    setMessage('🤖 AI is thinking hard...')
+    setMessage('🤖 Nora is thinking hard...')
 
     const jobId = pendingJobIdRef.current + 1
     pendingJobIdRef.current = jobId
@@ -344,9 +343,9 @@ export default function GomokuGame() {
         if (nextScore === 5 && score.human === 5) {
           setMessage('⚽ Penalty Shootout Draw! Both reached 5. Unbelievable!')
         } else if (nextScore === 5) {
-          setMessage('🏆 AI WINS THE TOURNAMENT! (5 points)')
+          setMessage('🏆 NORA WINS THE TOURNAMENT! (5 points)')
         } else {
-          setMessage('🤖 AI connected five. Loser (You) starts the next round!')
+          setMessage('🤖 Nora connected five. Loser (You) starts the next round!')
         }
       } else {
         setMessage('Your turn. Remember: max distance is 3 cells from existing stones.')
@@ -372,13 +371,13 @@ export default function GomokuGame() {
       setAiThinking(false)
       setMessage('You lost, so you go first! Place your stone anywhere.')
     } else {
-      // AI lost or first round: AI starts at center.
+      // Nora lost or first round: Nora starts at center.
       setStones({ [coordKey(0, 0)]: 'ai' })
       setLastHumanMove(null)
       setLastAiMove({ x: 0, y: 0 })
       setAiThinking(false)
       setMessage(
-        currentLastLoser === 'ai' ? 'AI lost, so it starts center. Your turn!' : 'AI starts the first round. Your turn!'
+        currentLastLoser === 'ai' ? 'Nora lost, so she starts center. Your turn!' : 'Nora starts the first round. Your turn!'
       )
     }
 
@@ -398,7 +397,7 @@ export default function GomokuGame() {
       <section>
         <div className="rounded-2xl border-2 border-lime-300 bg-lime-50 p-8">
           <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose Your Symbol</h2>
-          <p className="mb-6 text-center text-sm text-lime-700">Pick an animal symbol to play with. The AI will choose a different one.</p>
+          <p className="mb-6 text-center text-sm text-lime-700">Pick an animal symbol to play with. Nora will choose a different one.</p>
           
           <div className="grid grid-cols-5 gap-4">
             {AVAILABLE_SYMBOLS.map((symbol) => (
@@ -429,8 +428,8 @@ export default function GomokuGame() {
     return (
       <section>
         <div className="rounded-2xl border-2 border-lime-300 bg-lime-50 p-8">
-          <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose AI Difficulty</h2>
-          <p className="mb-6 text-center text-sm text-lime-700">Select the AI difficulty level for testing. See README.md for full details.</p>
+          <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose Nora's Difficulty</h2>
+          <p className="mb-6 text-center text-sm text-lime-700">Select Nora's difficulty level for testing. See README.md for full details.</p>
           
           <div className="flex flex-col gap-4">
             {difficultyOptions.map(({ key, emoji, label, styles }) => (
@@ -452,7 +451,7 @@ export default function GomokuGame() {
   return (
     <section>
       <p className="mb-3 rounded-xl bg-lime-100 px-4 py-3 text-sm font-semibold text-lime-800">
-        🪨 Gomoku infinity board: make 5 in a row against AI. Legal moves must be within 3 cells of the nearest stone.
+        🪨 Gomoku infinity board: make 5 in a row against Nora. Legal moves must be within 3 cells of the nearest stone.
       </p>
 
       <div className="max-h-[66vh] overflow-auto rounded-2xl border-2 border-lime-300 bg-lime-50 p-3">
@@ -505,7 +504,7 @@ export default function GomokuGame() {
       </div>
 
         <p className="mt-2 text-xs font-medium text-slate-500">
-          You are {humanSymbol} and AI is {aiSymbol}. AI Level: <span className="font-bold">{
+          You are {humanSymbol} and Nora is {aiSymbol}. Level: <span className="font-bold">{
             manualDifficultyOverride
               ? { easy: '🌱 Easy (2)', medium: '⚡ Medium (3)', hard: '🔥 Hard (4)', expert: '👑 Expert (5)' }[manualDifficultyOverride]
               : { easy: '🌱 Easy (2)', medium: '⚡ Medium (3)', hard: '🔥 Hard (4)', expert: '👑 Expert (5)' }[unlockedDifficulty]

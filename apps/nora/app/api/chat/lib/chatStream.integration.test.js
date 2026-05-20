@@ -103,7 +103,7 @@ describe('Source Citation Integration', () => {
     expect(sources).toContain('https://reuters.com/charlie-kirk')
     expect(sources).toContain('https://bbc.com/charlie-kirk')
     expect(report.required).toBe(true)
-    
+
     // Verify system message includes the sources
     expect(message).toContain('reuters.com')
     expect(message).toContain('bbc.com')
@@ -227,6 +227,7 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
   afterEach(() => {
     global.fetch = originalFetch
     process.env.NODE_ENV = originalEnv
+    delete process.env.TEST_FALLBACK_ROUTE
     jest.clearAllMocks()
   })
 
@@ -342,6 +343,9 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
   }
 
   it('completes full flow end-to-end with citations within 5 seconds (typo query)', async () => {
+    const orig = process.env.TEST_FALLBACK_ROUTE
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     makeMockFetch()
 
     const response = streamResponse('gemma4:26b', [
@@ -378,9 +382,13 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
     // 5. Final answer streamed with citations
     expect(text).toMatch(/\[Source:|per /)
     expect(text).toContain('Reuters')
+
+    process.env.TEST_FALLBACK_ROUTE = orig
   }, 15000)
 
   it('completes full flow with proper citations for "what happened to" query', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     makeMockFetch()
 
     const response = streamResponse('gemma4:26b', [
@@ -404,6 +412,9 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
   }, 15000)
 
   it('does not call the slow firstPass planning LLM when verification is forced', async () => {
+    const orig = process.env.TEST_FALLBACK_ROUTE
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     const { mock } = makeMockFetch()
 
     const response = streamResponse('gemma4:26b', [
@@ -418,9 +429,13 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
     // Final answer + maybe 1 verification re-plan if status not 'verified' on first try.
     // Critical: must NOT include the obsolete firstPass + assessVerificationNeed pair.
     expect(ollamaCalls.length).toBeLessThanOrEqual(2)
+
+    process.env.TEST_FALLBACK_ROUTE = orig
   }, 15000)
 
   it('emits status updates promptly (no long Thinking… stall)', async () => {
+    process.env.TEST_FALLBACK_ROUTE = 'factual_tool'
+
     makeMockFetch()
 
     const response = streamResponse('gemma4:26b', [
@@ -434,5 +449,7 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
     const statuses = events.filter((e) => 'status' in e).map((e) => e.status)
     const verifyingIdx = statuses.findIndex((s) => /Verifying/i.test(String(s)))
     expect(verifyingIdx).toBeGreaterThanOrEqual(0)
+
+    delete process.env.TEST_FALLBACK_ROUTE
   }, 15000)
 })
