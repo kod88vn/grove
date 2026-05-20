@@ -9,8 +9,9 @@ import { getSkillDefinition } from './skillRegistry.js'
 const VALID_ROUTES = new Set(['local_tool', 'reasoning', 'factual_tool', 'fast_chat'])
 const VALID_CONFIDENCE = new Set(['low', 'medium', 'high'])
 
-// fast_chat is the safest fallback when the classifier is unavailable,
-// because it avoids unnecessary tool invocation for casual or uncertain input.
+// Model classification is preferred using the small classifier model from
+// OLLAMA_CLASSIFIER_MODEL. If the classifier is unavailable or emits fast_chat
+// for a query clearly asking for current/fresh information, promote it to factual_tool.
 const SAFE_DEFAULT = Object.freeze({
   route: 'fast_chat',
   intent: 'chat',
@@ -18,11 +19,40 @@ const SAFE_DEFAULT = Object.freeze({
   reason: 'no_classifier',
 })
 
+function isCurrentInfoQuery(message) {
+  if (!message) return false
+  const normalized = String(message).toLowerCase()
+  const currentTitleQuestion = /\bwho is the (current|sitting|incumbent|acting|present)\b/.test(normalized)
+  const titleKeyword = /\b(president|prime minister|governor|mayor|ceo|chief executive|chancellor|king|queen|pope|chair|chairperson|secretary|minister|leader)\b/.test(normalized)
+  if (currentTitleQuestion && titleKeyword) return true
+
+  const versionQuestion = /\b(what(?:'s| is) the (?:latest|current|newest) (?:version|release)|current version|latest release|newest release|version of)\b/.test(normalized)
+  if (versionQuestion) return true
+
+  const liveDataQuestion = /\b(what(?:'s| is) the weather|how(?:'s| is) the weather|weather (?:today|tomorrow|tonight|right now)|temperature (?:today|now)|forecast|stock price|stock market|share price|sports score|live score|breaking news|current news|latest news)\b/.test(normalized)
+  if (liveDataQuestion) return true
+
+  const currentCue = /\b(currently|right now|as of now|as of today|today|tonight|tomorrow|latest|newest)\b/.test(normalized)
+  const factualCue = /\b(who|what|when|where|which|is|are|did|does|do|has|have)\b/.test(normalized)
+  const nounCue = /\b(version|release|president|prime minister|weather|temperature|forecast|news|price|score|status|update|result|headline)\b/.test(normalized)
+  return currentCue && factualCue && nounCue
+}
+
 export function classifyIntent(message) {
   const input = String(message || '').trim()
   if (!input) {
     return { route: 'fast_chat', intent: 'chat', confidence: 'low', reason: 'empty_message' }
   }
+
+  if (isCurrentInfoQuery(input)) {
+    return {
+      route: 'factual_tool',
+      intent: 'factual',
+      confidence: 'low',
+      reason: 'fallback_factual_current_info',
+    }
+  }
+
   return { ...SAFE_DEFAULT }
 }
 
@@ -87,7 +117,16 @@ export async function classifyIntentWithModel(message, options = {}) {
       message: input,
       skill: classifierSkill,
     })
-    const normalizedIntent = normalizeModelIntent(modelIntent) || fallback
+    let normalizedIntent = normalizeModelIntent(modelIntent) || fallback
+
+    if ((normalizedIntent.route === 'fast_chat' || normalizedIntent.route === 'reasoning') && isCurrentInfoQuery(input)) {
+      normalizedIntent = {
+        route: 'factual_tool',
+        intent: 'factual',
+        confidence: normalizedIntent.confidence || 'low',
+        reason: 'fallback_factual_current_info',
+      }
+    }
 
     if (classificationCache && typeof classificationCache.rememberFromClassification === 'function') {
       classificationCache.rememberFromClassification({

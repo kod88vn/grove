@@ -8,7 +8,7 @@ import {
   buildExecutionPlanWithClassifier,
 } from './intentRouter.js'
 
-// Sync classifyIntent now only emits a safe default (factual_tool/low) — it
+// Sync classifyIntent now only emits a safe default (fast_chat/low) — it
 // never inspects content. Routing decisions come from classifyIntentWithModel.
 
 test('Given empty message, when classifying intent, then route is fast_chat with low confidence', () => {
@@ -18,10 +18,26 @@ test('Given empty message, when classifying intent, then route is fast_chat with
 })
 
 test('Given any non-empty message, when classifying intent without a model, then safe default fast_chat/low is returned', () => {
-  const result = classifyIntent('what time is it right now')
+  const result = classifyIntent('is iron a metal?')
   assert.equal(result.route, 'fast_chat')
   assert.equal(result.confidence, 'low')
   assert.equal(result.reason, 'no_classifier')
+})
+
+test('Given a current-info question without a model, then classifyIntent falls back to factual_tool', () => {
+  const result = classifyIntent('who is the sitting president?')
+  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.intent, 'factual')
+  assert.equal(result.reason, 'fallback_factual_current_info')
+})
+
+test('Given a model classifier returning fast_chat for a current-info query, then classifyIntentWithModel promotes it to factual_tool', async () => {
+  const result = await classifyIntentWithModel('what is the latest version of nextjs?', {
+    classifyWithModel: async () => ({ route: 'fast_chat', confidence: 'medium' }),
+  })
+  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.intent, 'factual')
+  assert.equal(result.reason, 'fallback_factual_current_info')
 })
 
 test('Given a model classifier returning local_tool, when classifying with model, then route normalizes to local_tool with toolName', async () => {

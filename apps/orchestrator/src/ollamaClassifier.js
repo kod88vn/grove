@@ -14,12 +14,20 @@ const SYSTEM_PROMPT = `You classify a user message into ONE of four routes for a
 Schema: {"route":"<route>","intent":"<intent>","confidence":"low|medium|high","reason":"<short>"}
 
 Routes:
-- local_tool — ONLY when the user is asking for the current local clock time on this device (e.g. "what time is it", "current time"). intent="local_time". Do NOT use this for "best time to visit", "spend time", or any planning question that contains the word time.
-- factual_tool — current events, news, weather, who/what/when/where/why lookups, anything that needs research or fresh information. intent="factual" (or "weather" for weather questions).
-- reasoning — multi-step planning, comparisons, analysis with tradeoffs, recommendations across options. intent="reasoning".
-- fast_chat — casual chat, creative writing, rewrites, jokes, opinions, no facts needed. intent="chat".
+- local_tool — ONLY when the user is asking for the current local clock time or date on this device (e.g. "what time is it", "current time", "what is today's date"). intent="local_time". Do NOT use this for planning questions that merely mention time, travel time, or deadlines.
+- factual_tool — current events, news, weather, live status, stock/price updates, latest versions, people, current status, or anything that requires fresh or potentially changing information. intent="factual" (or "weather" for weather questions).
+- reasoning — multi-step planning, comparisons, analysis with tradeoffs, recommendations across options, or strategy questions. intent="reasoning".
+- fast_chat — casual conversation, creative writing, jokes, rewrites, opinions, explanations of general knowledge that are not tied to current/fresh data, or emotional/social chat. intent="chat".
 
-When uncertain, prefer fast_chat for casual messages (greetings, "how are you?", small talk) and factual_tool only when the user is clearly asking for facts or research.`
+Examples:
+- "who is the sitting president" => factual_tool
+- "what's the latest version of React" => factual_tool
+- "how's the weather tomorrow" => factual_tool
+- "what time is it right now" => local_tool
+- "rewrite this sentence to be friendlier" => fast_chat
+- "what are the pros and cons of electric vs hybrid cars" => reasoning
+
+When uncertain between fast_chat and factual_tool, choose factual_tool. Only choose fast_chat when the user is clearly asking for casual conversation, rewriting, or static general knowledge that does not depend on current information.`
 
 export function createOllamaClassifier(options = {}) {
   const host = options.host || DEFAULT_HOST

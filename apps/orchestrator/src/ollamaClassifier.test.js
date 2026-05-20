@@ -38,6 +38,8 @@ test('createOllamaClassifier sends a chat request and returns parsed JSON intent
   assert.equal(body.stream, false)
   assert.equal(body.format, 'json')
   assert.equal(body.messages[1].content, 'who is the current president')
+  assert.ok(body.messages[0].content.includes('choose factual_tool'))
+  assert.ok(body.messages[0].content.includes('who is the sitting president'))
 
   assert.equal(result.route, 'factual_tool')
   assert.equal(result.intent, 'factual')
