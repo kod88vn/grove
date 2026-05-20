@@ -9,11 +9,11 @@ import { getSkillDefinition } from './skillRegistry.js'
 const VALID_ROUTES = new Set(['local_tool', 'reasoning', 'factual_tool', 'fast_chat'])
 const VALID_CONFIDENCE = new Set(['low', 'medium', 'high'])
 
-// factual_tool is the safest fallback: it triggers research rather than
-// skipping tools (local_tool) or skipping verification (fast_chat).
+// fast_chat is the safest fallback when the classifier is unavailable,
+// because it avoids unnecessary tool invocation for casual or uncertain input.
 const SAFE_DEFAULT = Object.freeze({
-  route: 'factual_tool',
-  intent: 'factual',
+  route: 'fast_chat',
+  intent: 'chat',
   confidence: 'low',
   reason: 'no_classifier',
 })

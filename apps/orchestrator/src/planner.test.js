@@ -36,14 +36,14 @@ test('Given local_tool model intent, when building execution plan, then local_ti
   assert.equal(plan.allowProse, false)
 })
 
-test('Given safe-default sync plan, when building execution plan without classifier, then factual lookup uses executable MCP tool plan', () => {
+test('Given safe-default sync plan, when building execution plan without classifier, then fast_chat is the safe fallback', () => {
   const plan = buildExecutionPlan("who's the current president")
 
-  assert.equal(plan.route, 'factual_tool')
-  assert.deepEqual(plan.skillSet, ['search_and_summarize'])
-  assert.equal(plan.toolPlan[0].type, 'mcp_tool')
-  assert.equal(plan.toolPlan[0].name, 'factual_lookup')
-  assert.equal(plan.toolPlan[0].arguments.query, "who's the current president")
+  // The safe default route is fast_chat when no model classifier is available
+  assert.equal(plan.route, 'fast_chat')
+  assert.equal(plan.intent, 'chat')
+  assert.equal(plan.confidence, 'low')
+  assert.equal(plan.reason, 'no_classifier')
 })
 
 test('Given ambiguous prompt and model classifier result, when building execution plan, then model route is used', async () => {
@@ -61,7 +61,7 @@ test('Given ambiguous prompt and model classifier result, when building executio
   assert.equal(plan.skipToolPlanning, false)
 })
 
-test('Given invalid model classifier result, when building execution plan, then safe default factual_tool is used', async () => {
+test('Given invalid model classifier result, when building execution plan, then safe default fast_chat is used', async () => {
   const plan = await buildExecutionPlanWithClassifier('rewrite this in a friendlier voice', {}, {
     classifyWithModel: async () => ({
       route: 'unknown_route',
@@ -70,7 +70,7 @@ test('Given invalid model classifier result, when building execution plan, then 
     }),
   })
 
-  assert.equal(plan.route, 'factual_tool')
-  assert.deepEqual(plan.skillSet, ['search_and_summarize'])
-  assert.equal(plan.skipToolPlanning, false)
+  // Invalid route fails normalization, so classifyIntentWithModel falls back to safe default (fast_chat)
+  assert.equal(plan.route, 'fast_chat')
+  assert.equal(plan.intent, 'chat')
 })

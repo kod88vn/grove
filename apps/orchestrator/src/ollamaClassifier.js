@@ -19,7 +19,7 @@ Routes:
 - reasoning — multi-step planning, comparisons, analysis with tradeoffs, recommendations across options. intent="reasoning".
 - fast_chat — casual chat, creative writing, rewrites, jokes, opinions, no facts needed. intent="chat".
 
-When uncertain, prefer factual_tool over local_tool, and factual_tool over fast_chat.`
+When uncertain, prefer fast_chat for casual messages (greetings, "how are you?", small talk) and factual_tool only when the user is clearly asking for facts or research.`
 
 export function createOllamaClassifier(options = {}) {
   const host = options.host || DEFAULT_HOST

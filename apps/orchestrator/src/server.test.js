@@ -191,7 +191,7 @@ test('POST /orchestrate returns typed refusal when MCP tool is unavailable', asy
   assert.equal(body.plan.responseMode, 'chat')
 })
 
-test('POST /orchestrate for factual query no longer returns UNKNOWN_TOOL_TYPE', async () => {
+test('POST /orchestrate returns 200 with execution null when no toolPlan is provided', async () => {
   const routeServer = createServer()
 
   await new Promise((resolve) => routeServer.listen(0, resolve))
@@ -209,10 +209,11 @@ test('POST /orchestrate for factual query no longer returns UNKNOWN_TOOL_TYPE', 
 
   await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
 
-  assert.equal(res.status, 503)
-  assert.equal(body.error.code, 'MCP_TOOL_UNAVAILABLE')
-  assert.equal(body.plan.toolPlan[0].type, 'mcp_tool')
-  assert.equal(body.plan.toolPlan[0].name, 'factual_lookup')
+  // When no toolPlan is provided and the safe default classifier returns fast_chat,
+  // the endpoint returns 200 with execution: null (no tool execution attempted)
+  assert.equal(res.status, 200)
+  assert.equal(body.execution, null)
+  assert.equal(body.plan.route, 'fast_chat')
 })
 
 test('POST /orchestrate returns execution payload when MCP adapter succeeds', async () => {

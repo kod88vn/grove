@@ -17,9 +17,9 @@ test('Given empty message, when classifying intent, then route is fast_chat with
   assert.equal(result.confidence, 'low')
 })
 
-test('Given any non-empty message, when classifying intent without a model, then safe default factual_tool/low is returned', () => {
+test('Given any non-empty message, when classifying intent without a model, then safe default fast_chat/low is returned', () => {
   const result = classifyIntent('what time is it right now')
-  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.route, 'fast_chat')
   assert.equal(result.confidence, 'low')
   assert.equal(result.reason, 'no_classifier')
 })
@@ -49,21 +49,21 @@ test('Given a model classifier returning reasoning, when classifying with model,
   assert.equal(result.intent, 'reasoning')
 })
 
-test('Given a model classifier returning an invalid route, when classifying with model, then safe default factual_tool is used', async () => {
+test('Given a model classifier returning an invalid route, when classifying with model, then safe default fast_chat is used', async () => {
   const result = await classifyIntentWithModel('compare two architectures', {
     classifyWithModel: async () => ({ route: 'unknown_route', confidence: 'high' }),
   })
-  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.route, 'fast_chat')
   assert.equal(result.confidence, 'low')
 })
 
-test('Given a model classifier that throws, when classifying with model, then safe default factual_tool is used', async () => {
+test('Given a model classifier that throws, when classifying with model, then safe default fast_chat is used', async () => {
   const result = await classifyIntentWithModel('compare two architectures', {
     classifyWithModel: async () => {
       throw new Error('boom')
     },
   })
-  assert.equal(result.route, 'factual_tool')
+  assert.equal(result.route, 'fast_chat')
   assert.equal(result.confidence, 'low')
 })
 
@@ -93,6 +93,20 @@ test('Given factual model intent, when building plan via classifier, then plan r
   assert.equal(plan.promptProfile, 'factual')
   assert.equal(plan.requireVerification, true)
   assert.equal(plan.skipToolPlanning, false)
+})
+
+test('Given a classifier failure, when building plan via classifier, then plan falls back to fast_chat', async () => {
+  const plan = await buildExecutionPlanWithClassifier('tell me something interesting', {}, {
+    classifyWithModel: async () => {
+      throw new Error('classifier unavailable')
+    },
+  })
+
+  assert.equal(plan.route, 'fast_chat')
+  assert.equal(plan.promptProfile, 'fast')
+  assert.equal(plan.requireVerification, false)
+  assert.equal(plan.skipToolPlanning, true)
+  assert.deepEqual(plan.toolPlan, [])
 })
 
 test('Given weather widget surface, when building sync plan, then weather skill metadata is attached', () => {
