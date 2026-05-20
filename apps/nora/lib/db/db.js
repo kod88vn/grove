@@ -80,7 +80,17 @@ const DB_PATH =
   process.env.NORA_DB_PATH ||
   (process.env.NODE_ENV === 'test'
     ? ':memory:'
-    : path.join(process.cwd(), 'data', 'nora.db'))
+    : (() => {
+        // Use project-local data directory when writable, fall back to /tmp for containers (read-only filesystem)
+        const localPath = path.join(process.cwd(), 'data', 'nora.db')
+        try {
+          mkdirSync(path.join(process.cwd(), 'data'), { recursive: true })
+          return localPath
+        } catch {
+          // Write to /tmp when cwd is read-only (e.g., Docker containers)
+          return '/tmp/nora.db'
+        }
+      })())
 
 // Lazy singleton: only initialize database on first use, not at module load
 // This prevents "database is locked" errors during Next.js build
