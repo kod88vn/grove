@@ -98,7 +98,18 @@ let dbInstance = null
 
 function getDatabase() {
   if (!dbInstance) {
-    dbInstance = createDatabase(DB_PATH)
+    try {
+      console.error(`[nora/db] Initializing SQLite at ${DB_PATH}`)
+      console.error(`[nora/db] NODE_ENV=${process.env.NODE_ENV}, cwd=${process.cwd()}`)
+      console.error(`[nora/db] NORA_DB_PATH env=${process.env.NORA_DB_PATH ?? '(not set)'}`)
+      dbInstance = createDatabase(DB_PATH)
+      console.error(`[nora/db] SQLite database initialized successfully at ${DB_PATH}`)
+    } catch (err) {
+      console.error(`[nora/db] FATAL: Failed to initialize SQLite database at ${DB_PATH}`)
+      console.error(`[nora/db] Error:`, err.message)
+      console.error(`[nora/db] Stack:`, err.stack)
+      throw new Error(`Nora DB initialization failed at ${DB_PATH}: ${err.message}`)
+    }
   }
   return dbInstance
 }
