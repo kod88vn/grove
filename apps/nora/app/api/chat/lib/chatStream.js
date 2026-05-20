@@ -210,10 +210,10 @@ export function streamResponse(model, messages) {
 
         const orchestration = await getExecutionPlan(userMessage)
         const executionPlan = orchestration?.plan || {
-          route: 'factual_tool',
-          promptProfile: 'factual',
-          skipToolPlanning: false,
-          requireVerification: true,
+          route: 'fast_chat',
+          promptProfile: 'fast',
+          skipToolPlanning: true,
+          requireVerification: false,
         }
 
         emit({
