@@ -11,7 +11,7 @@ export function ParentView() {
   async function loadData() {
     setLoading(true)
     try {
-      const res = await fetch('/homeworks/api/parent')
+      const res = await fetch('/api/parent')
       const json = await res.json()
       if (!json.error) {
         setData(json)
@@ -25,7 +25,7 @@ export function ParentView() {
 
   async function loadReadingDetail(readingId) {
     try {
-      const res = await fetch(`/homeworks/api/reading-history/${readingId}`)
+      const res = await fetch(`/api/reading-history/${readingId}`)
       if (!res.ok) return null
       const json = await res.json()
       return json

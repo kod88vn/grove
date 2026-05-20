@@ -1,109 +1,107 @@
-// In-memory progress storage
-// In production, this would be a database
-const progressStore = new Map()
+import {
+  insertSubmission,
+  insertReading,
+  getAllSubmissions,
+  getAllReadings,
+} from './db.js'
 
-function getOrCreateProgress(studentId = 'default') {
-  if (!progressStore.has(studentId)) {
-    progressStore.set(studentId, {
-      studentId,
-      createdAt: new Date(),
-      english: {
-        completed: [],
-        total: 0,
-        averageScore: 0,
-      },
-      math: {
-        completed: [],
-        total: 0,
-        averageScore: 0,
-      },
-      readingHistory: [], // stores full past readings with passage + score
-    })
-  }
-  return progressStore.get(studentId)
-}
+// Record a graded submission to SQLite
+export function recordSubmission(studentId, subject, type, exerciseData, score, maxScore, details) {
+  const id = `${subject}-${Date.now()}`
+  const percentage = maxScore ? Math.round((score / maxScore) * 100) : 0
 
-export function getProgress(studentId = 'default') {
-  return getOrCreateProgress(studentId)
-}
+  // Normalize exerciseData: could be a string (exerciseId), an object, or undefined
+  const exercise = typeof exerciseData === 'string' ? { id: exerciseData, raw: null } : (exerciseData || {})
 
-export function recordSubmission(studentId = 'default', subject, type, exerciseId, score, maxScore, details) {
-  const progress = getOrCreateProgress(studentId)
-  const subjectData = progress[subject]
+  // Extract student's actual answers from details, default to empty array
+  const studentAnswers = (details && details.studentAnswers) || []
 
-  if (!subjectData) {
-    throw new Error(`Unknown subject: ${subject}`)
-  }
-
-  subjectData.completed.push({
-    id: `${subject}-${Date.now()}`,
-    exerciseId,
+  insertSubmission({
+    id,
+    student_id: studentId || 'public',
+    subject,
     type,
-    date: new Date().toISOString(),
+    exercise,
+    answers: studentAnswers,
     score,
-    maxScore,
-    percentage: Math.round((score / maxScore) * 100),
+    max_score: maxScore,
+    percentage,
+    feedback: (details && details.overallFeedback) || '',
     details,
   })
 
-  // Update total and average
-  subjectData.total = subjectData.completed.length
-  const totalScore = subjectData.completed.reduce((sum, item) => sum + item.percentage, 0)
-  subjectData.averageScore = Math.round(totalScore / subjectData.total)
-
-  return subjectData
+  return { id, percentage }
 }
 
-// Store a full reading session (passage + lesson + score) in reading history
-export function recordReading(studentId = 'default', passage, questions, lessonKeyPoint, domain, score, maxScore) {
-  const progress = getOrCreateProgress(studentId)
+// Record a reading session to SQLite
+export function recordReading(studentId, passage, questions, lessonKeyPoint, domain, score, maxScore) {
+  const id = `reading-${Date.now()}`
+  const percentage = maxScore ? Math.round((score / maxScore) * 100) : null
 
-  progress.readingHistory.push({
-    id: `reading-${Date.now()}`,
+  insertReading({
+    id,
+    student_id: studentId || 'public',
     passage,
     questions,
-    lessonKeyPoint,
+    lesson_key_point: lessonKeyPoint,
     domain: domain || 'random',
-    date: new Date().toISOString(),
     score,
-    maxScore,
-    percentage: maxScore ? Math.round((score / maxScore) * 100) : null,
+    max_score: maxScore,
+    percentage,
   })
 
-  // Keep last 50 readings
-  if (progress.readingHistory.length > 50) {
-    progress.readingHistory = progress.readingHistory.slice(-50)
+  return id
+}
+
+// Get all submissions for a given date range (ms timestamps)
+export function getSubmissions(startDateMs, endDateMs) {
+  return getAllSubmissions(startDateMs, endDateMs)
+}
+
+// Get all readings for a given date range (ms timestamps)
+export function getReadings(startDateMs, endDateMs) {
+  return getAllReadings(startDateMs, endDateMs)
+}
+
+// Get submissions for a specific day (date string like "2026-05-19")
+export function getSubmissionsForDay(dayStr) {
+  const date = new Date(dayStr + 'T00:00:00Z')
+  const start = date.getTime()
+  const end = start + 86400 * 1000
+  return getAllSubmissions(start, end)
+}
+
+// Get readings for a specific day
+export function getReadingsForDay(dayStr) {
+  const date = new Date(dayStr + 'T00:00:00Z')
+  const start = date.getTime()
+  const end = start + 86400 * 1000
+  return getAllReadings(start, end)
+}
+
+// Get all submissions (no date filter) - for review page
+export function getAll() {
+  const now = Date.now()
+  // Default: last 30 days
+  const thirtyDaysAgo = now - 30 * 86400 * 1000
+  return getAllSubmissions(thirtyDaysAgo, now)
+}
+
+// Get all readings (no date filter) - for review page
+export function getAllReadingsUnbounded() {
+  const now = Date.now()
+  const thirtyDaysAgo = now - 30 * 86400 * 1000
+  return getAllReadings(thirtyDaysAgo, now)
+}
+
+// Get list of unique days with submissions
+export function getActiveDays() {
+  const now = new Date()
+  const days = []
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().split('T')[0])
   }
-
-  return progress.readingHistory
-}
-
-// Load a specific reading from history by ID
-export function getReadingById(studentId, readingId) {
-  const progress = getOrCreateProgress(studentId)
-  return progress.readingHistory.find((r) => r.id === readingId) || null
-}
-
-// Get all reading history
-export function getReadingHistory(studentId = 'default') {
-  const progress = getOrCreateProgress(studentId)
-  return progress.readingHistory.slice().reverse() // newest first
-}
-
-export function getProgressStats(studentId = 'default') {
-  const progress = getOrCreateProgress(studentId)
-  return {
-    studentId,
-    english: {
-      completed: progress.english.completed.length,
-      averageScore: progress.english.averageScore,
-      recentSubmissions: progress.english.completed.slice(-5).reverse(),
-    },
-    math: {
-      completed: progress.math.completed.length,
-      averageScore: progress.math.averageScore,
-      recentSubmissions: progress.math.completed.slice(-5).reverse(),
-    },
-    readingHistory: getReadingHistory(studentId),
-  }
+  return days
 }
