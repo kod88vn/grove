@@ -45,7 +45,15 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install build tools needed for native module compilation
+RUN apk add --no-cache make g++ python3
+
+# Copy node_modules first (before rebuild, so we can run npm in the right context)
 COPY --from=builder /app/node_modules ./node_modules
+
+# Rebuild native modules (better-sqlite3) for this stage's Alpine environment
+RUN npm rebuild better-sqlite3
+
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/watt.json    ./
 COPY --from=builder /app/packages/grove-shell ./packages/grove-shell
