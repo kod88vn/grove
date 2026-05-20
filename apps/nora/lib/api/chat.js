@@ -1,4 +1,5 @@
 import { parseSseStream } from '@/lib/utils/sseStream'
+import { apiPath } from './path.js'
 
 /**
  * Async generator that streams a DB-backed chat response.
@@ -10,7 +11,7 @@ import { parseSseStream } from '@/lib/utils/sseStream'
  * @yields {object}
  */
 export async function* streamChat(model, chatId, content) {
-  const res = await fetch('/api/chat', {
+  const res = await fetch(apiPath('/api/chat'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, chatId, message: content }),
@@ -33,7 +34,7 @@ export async function* streamChat(model, chatId, content) {
  * @yields {object}
  */
 export async function* streamGreeting(model, greetingName) {
-  const res = await fetch('/api/chat', {
+  const res = await fetch(apiPath('/api/chat'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, mode: 'greeting', greetingName: greetingName || null }),

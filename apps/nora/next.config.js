@@ -20,6 +20,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_COMMIT_HASH: hash,
     NEXT_PUBLIC_COMMIT_DATE: date,
+    NEXT_PUBLIC_BASE_PATH: '/chat',
   },
 }
 

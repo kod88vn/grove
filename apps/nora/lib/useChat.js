@@ -1,5 +1,6 @@
 'use client'
 
+import { apiPath } from './api/path.js'
 import { useCallback, useRef, useEffect } from 'react'
 
 export function useChat() {
@@ -31,7 +32,7 @@ export function useChat() {
       setIsStreaming(true)
 
       try {
-        const response = await fetch('/api/chat', {
+        const response = await fetch(apiPath('/api/chat'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
