@@ -10,39 +10,44 @@ jest.mock('../components/MathExercise.js', () => ({
   MathExercise: () => <div>MathExercise</div>,
 }))
 
-jest.mock('../components/ProgressReview.js', () => ({
-  ProgressReview: () => <div>ProgressReview</div>,
-}))
-
 import HomeworksPage from './page'
 
-describe('skills library routing', () => {
-  const originalFlag = process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV
-
+describe('HomeworksPage', () => {
   afterEach(() => {
-    if (originalFlag === undefined) {
-      delete process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV
-    } else {
-      process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV = originalFlag
-    }
+    jest.clearAllMocks()
   })
 
-  it('does not render navigation link by default', () => {
-    delete process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV
-
+  it('renders the page title', () => {
     render(<HomeworksPage />)
 
-    const libraryLink = screen.queryByRole('link', { name: /skills library/i })
-    expect(libraryLink).not.toBeInTheDocument()
+    expect(screen.getByText('Daily Homeworks')).toBeInTheDocument()
   })
 
-  it('renders navigation link when feature flag is enabled', () => {
-    process.env.NEXT_PUBLIC_ENABLE_SKILLS_LIBRARY_NAV = 'true'
-
+  it('renders English and Math tabs', () => {
     render(<HomeworksPage />)
 
-    const libraryLink = screen.getByRole('link', { name: /skills library/i })
-    expect(libraryLink).toBeInTheDocument()
-    expect(libraryLink).toHaveAttribute('href', '/library')
+    expect(screen.getByText('📚 English')).toBeInTheDocument()
+    expect(screen.getByText('🔢 Math')).toBeInTheDocument()
+  })
+
+  it('renders the Review Submissions link', () => {
+    render(<HomeworksPage />)
+
+    const reviewLink = screen.getByRole('link', { name: /review submissions/i })
+    expect(reviewLink).toBeInTheDocument()
+    expect(reviewLink).toHaveAttribute('href', '/homeworks/review')
+  })
+
+  it('renders English content by default', () => {
+    render(<HomeworksPage />)
+
+    expect(screen.getByText('📚 English - Reading & Comprehension')).toBeInTheDocument()
+    expect(screen.getByText(/Read a short passage/i)).toBeInTheDocument()
+  })
+
+  it('renders Math tips section', () => {
+    render(<HomeworksPage />)
+
+    expect(screen.getByText('💡 Math Tips')).toBeInTheDocument()
   })
 })
