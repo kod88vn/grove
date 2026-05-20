@@ -30,6 +30,8 @@ Skills are the source of truth for AI agent behavior in this workspace.
 | coding | `debugging` | Reproduce bugs, read logs, find root cause, verify fixes |
 | coding | `unit-testing` | Write tests, fix failing tests, TDD workflows (Jest/Playwright) |
 | coding | `component-architecture` | Design React/Next.js components, refactor UI, evaluate boundaries |
+| ci | `monitoring` | Diagnose CI failures, replicate locally, resolve transient issues |
+| ci | `post-deploy-verification` | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
 | workflow | `terse-communication` | Brief, execution-first responses (default mode) |
 
 ### Skill Update Workflow
@@ -86,6 +88,16 @@ When ANY bug, regression, or unexpected behavior is reported:
 - For non-deterministic bugs (race conditions, flaky tests): log to a gitignored audit file AND add targeted guards.
 
 **Reference**: See also [`skills/coding/debugging/SKILL.md`](../skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](../skills/coding/unit-testing/SKILL.md).
+
+## Post-Deploy Verification (Non-Negotiable)
+
+After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Before closing the task, verify the deployment succeeded:
+
+1. **Check deploy workflow status** — Use GitHub MCP `get_commit` to see if the "deploy" check run passed
+2. **Verify container health** — Check `docker logs grove-live --tail 50` for errors
+3. **Confirm changes are live** — Navigate to the relevant route and verify the change is visible
+
+See [`skills/ci/post-deploy-verification/SKILL.md`](../skills/ci/post-deploy-verification/SKILL.md) for the full procedure, output format, and rollback steps.
 
 ## Ollama / AI Access Pattern
 

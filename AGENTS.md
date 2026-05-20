@@ -25,6 +25,7 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 3. **Create a pull request** targeting `master` via GitHub (via the API or web UI)
 4. **CI must pass** — tests + build on affected packages, Docker build + health check
 5. **Merge the PR** — only then is `master` updated with verified code
+6. **Post-Deploy Verification** — after merge, verify the deploy workflow succeeded and the application is healthy. See [Post-Deploy Verification Skill](#post-deploy-verification) below.
 
 **Pre-push hook**: The `.husky/pre-push` hook ([`.husky/pre-push`](.husky/pre-push)) automatically runs affected tests + builds before every push. If any test or build fails, the push is rejected with a clear error message.
 
@@ -57,6 +58,16 @@ When ANY bug, regression, or unexpected behavior is reported:
 
 **Reference**: See also [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md).
 
+## Post-Deploy Verification (Non-Negotiable)
+
+After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Before closing the task, verify the deployment succeeded:
+
+1. **Check deploy workflow status** — Use GitHub MCP `get_commit` to see if the "deploy" check run passed
+2. **Verify container health** — Check `docker logs grove-live --tail 50` for errors
+3. **Confirm changes are live** — Navigate to the relevant route and verify the change is visible
+
+See [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) for the full procedure, output format, and rollback steps.
+
 ## AI Skill Reference
 
 The following canonical skills define AI behavior. Each skill has detailed procedures in its own file:
@@ -68,6 +79,7 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **Unit Testing** | [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md) | Jest/Playwright tests, BDD triage, TDD workflows |
 | **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
 | **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
+| **Post-Deploy Verification** | [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
