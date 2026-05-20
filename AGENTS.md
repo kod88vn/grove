@@ -117,6 +117,12 @@ When performing any of these activities, follow the procedure in the correspondi
 - **Linkification**: When mentioning files in chat, always use markdown links: `[path/to/file.ts](path/to/file.ts)`.
 - **Documentation**: Update `DESIGN.md` and `README.md` immediately after any structural or capability change.
 
+## No Integration Tests for SQLite/DB
+
+**DO NOT write integration tests that test SQLite/Database layer code.** Integration tests for `lib/db/*` files (like `chats.test.js`, `messages.test.js`) are forbidden — they depend on native module compilation (`better-sqlite3`), race conditions with file locks, and environment-specific behavior that makes them unreliable in CI.
+
+The SQLite layer is a well-tested library boundary. Unit tests for app logic (API routes, hooks, components) are sufficient coverage. Do not add new `.test.js` files under `lib/db/`.
+
 ## Side-by-Side Testing Rule
 
 **Test files MUST live side by side with the production code they test, never in a separate `test/` directory.**
@@ -124,7 +130,8 @@ When performing any of these activities, follow the procedure in the correspondi
 - Naming convention: `<module>.test.js` next to `<module>.js`, or `<module>.spec.js` for spec-style tests.
 - For Next.js pages/routes: `app/page.js` → `app/page.test.js`, `app/api/foo/route.js` → `app/api/foo/route.test.js`.
 - For Next.js components: `components/Header.js` → `components/Header.test.js`.
-- For lib utilities: `lib/db/chats.js` → `lib/db/chats.test.js`.
+- For lib utilities: `lib/utils/foo.js` → `lib/utils/foo.test.js`.
+- **Exception**: Do NOT write tests for SQLite/DB layer code (`lib/db/*`) — see "No Integration Tests for SQLite/DB" above.
 - **No `test/`, `__tests__/`, or any other flat test directory is allowed.**
 - Jest/Node test runners must be configured to discover `**/*.test.js` and `**/*.spec.js` files recursively within their app directories.
 - When creating a new production file, create its test file alongside it immediately.
