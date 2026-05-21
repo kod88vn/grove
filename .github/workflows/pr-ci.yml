@@ -79,7 +79,8 @@ jobs:
         run: yarn turbo build ${{ steps.changed.outputs.filter }}
 
   pr-review:
-    needs: [pr-ci]
+    # Run AI review in parallel with tests + build.
+    # Only pr-auto-merge waits for both to finish.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -145,7 +146,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   pr-auto-merge:
-    needs: [pr-review]
+    # Must wait for BOTH pr-ci (build) and pr-review (AI review) to pass.
+    needs: [pr-ci, pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: |
