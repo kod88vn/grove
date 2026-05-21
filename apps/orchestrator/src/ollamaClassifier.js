@@ -1,4 +1,4 @@
-// Nora-proxy classifier. Proxies classification requests to Nora's /api/classify
+// Nora-proxy classifier. Proxies classification requests to Nora's /api/nora-classify
 // endpoint rather than calling Ollama directly. Only apps/nora may call Ollama;
 // orchestrator (and all other sibling apps) route through Nora via PLT_NORA_URL.
 //
@@ -7,6 +7,12 @@
 // fall back to classifier.classifyIntent (safe default = factual_tool/low).
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.OLLAMA_CLASSIFIER_TIMEOUT_MS || 8000)
+
+// DEFAULT_MODEL: intentionally defaults to '' (empty string).
+// When empty, the `model: model || undefined` in line 34 omits the "model"
+// key from the request body entirely, allowing Nora's /api/nora-classify route
+// to pick its own default (DEFAULT_MODEL_NORA).  This decouples the orchestrator's
+// classifier model from Nora's configurable default.
 const DEFAULT_MODEL = process.env.OLLAMA_CLASSIFIER_MODEL || ''
 
 // Resolve the Nora base URL: Platformatic mesh variable in production,

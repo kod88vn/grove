@@ -59,22 +59,25 @@ test('createOllamaClassifier uses default Nora URL when no noraUrl is provided',
 
 test('createOllamaClassifier uses PLT_NORA_URL when set', async () => {
   const prevPlt = process.env.PLT_NORA_URL
-  process.env.PLT_NORA_URL = 'http://mesh-nora:4001'
+  try {
+    process.env.PLT_NORA_URL = 'http://mesh-nora:4001'
 
-  let captured
-  const fakeFetch = async (url, init) => {
-    captured = { url }
-    return { ok: true, async json() { return { route: 'fast_chat' } } }
-  }
+    let captured
+    const fakeFetch = async (url, init) => {
+      captured = { url }
+      return { ok: true, async json() { return { route: 'fast_chat' } } }
+    }
 
-  const classify = createOllamaClassifier({ fetch: fakeFetch })
-  await classify({ message: 'hello' })
+    const classify = createOllamaClassifier({ fetch: fakeFetch })
+    await classify({ message: 'hello' })
 
-  assert.equal(captured.url, 'http://mesh-nora:4001/api/nora-classify')
-
-  if (prevPlt !== undefined) {
-    process.env.PLT_NORA_URL = prevPlt
-  } else {
-    delete process.env.PLT_NORA_URL
+    assert.equal(captured.url, 'http://mesh-nora:4001/api/nora-classify')
+  } finally {
+    // Always restore the original env var state, even if assertions fail.
+    if (prevPlt !== undefined) {
+      process.env.PLT_NORA_URL = prevPlt
+    } else {
+      delete process.env.PLT_NORA_URL
+    }
   }
 })

@@ -24,3 +24,11 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 yarn test
+
+# AI pre-commit review (skippable with SKIP_AI_REVIEW=1)
+if [ "${SKIP_AI_REVIEW:-0}" != "1" ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+	pip install --quiet anthropic 2>/dev/null
+	python3 .github/scripts/ai-precommit.py || exit 1
+elif [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+	echo "husky - ANTHROPIC_API_KEY not set, skipping AI review"
+fi

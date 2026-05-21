@@ -23,6 +23,8 @@ Examples:
 
 When uncertain between fast_chat and factual_tool, choose factual_tool. Only choose fast_chat when the user is clearly asking for casual conversation, rewriting, or static general knowledge that does not depend on current information.`
 
+// DEFAULT_MODEL_NORA: falls back to nora's global DEFAULT_MODEL (typically an Ollama model
+// name like "llama3"). This mirrors the chat route's behaviour.
 const DEFAULT_MODEL_NORA = process.env.OLLAMA_CLASSIFIER_MODEL || DEFAULT_MODEL
 
 export async function POST(request) {

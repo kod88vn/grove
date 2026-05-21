@@ -438,11 +438,13 @@ export function createServer(options = {}) {
 export function startServer(port = Number(process.env.PORT || 4010), options = {}) {
   const resolvedOptions = { ...options }
   // Auto-wire Nora-proxy classifier when PLT_NORA_URL or NORA_URL is set and
-  // the caller didn't supply one. Tests run without these so they get the safe
-  // default classifier (factual_tool/low) unless they inject a stub.
-  const noraAvailable = process.env.PLT_NORA_URL || process.env.NORA_URL || 'http://localhost:3001'
-  if (!resolvedOptions.intentClassifier && noraAvailable) {
-    resolvedOptions.intentClassifier = createOllamaClassifier({ noraUrl: noraAvailable })
+  // the caller didn't supply one. Tests run without these env vars so they get
+  // the safe default classifier (factual_tool/low) unless they inject a stub.
+  // The fallback to localhost is intentional for local dev but must NOT be used
+  // as a truthy guard — wiring only happens when an env var explicitly provides a URL.
+  const noraUrl = process.env.PLT_NORA_URL || process.env.NORA_URL || 'http://localhost:3001'
+  if (!resolvedOptions.intentClassifier && (process.env.PLT_NORA_URL || process.env.NORA_URL)) {
+    resolvedOptions.intentClassifier = createOllamaClassifier({ noraUrl })
   }
   const server = createServer(resolvedOptions)
   return new Promise((resolve) => {
