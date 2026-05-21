@@ -26,10 +26,10 @@ jobs:
         shell: powershell
         run: |
           $sha = ""
-          if ("${{ github.event.pull_request.merge_commit_sha }}" -ne "") {
-            $sha = "${{ github.event.pull_request.merge_commit_sha }}"
-          } elseif ("${{ github.event.pull_requestTarget?.merge_commit_sha }}" -ne "") {
-            $sha = "${{ github.event.pull_requestTarget?.merge_commit_sha }}"
+          # pull_request and pull_request_target both use github.event.pull_request
+          $prSha = "${{ github.event.pull_request.merge_commit_sha }}"
+          if ($prSha -ne "" -and $null -ne $prSha) {
+            $sha = $prSha
           } else {
             $sha = "${{ github.sha }}"
           }
