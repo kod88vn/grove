@@ -113,17 +113,48 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
-      - name: Clean up previous AI review comments
+      - name: Clean up previous AI review comments and threads
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Use process substitution so a gh api failure doesn't kill the step (pipefail-safe).
-          while read -r review_id; do
-            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/$review_id \
-              -X DELETE > /dev/null 2>&1 || true
-          done < <(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
-            --paginate --jq '( .[] | select((.body // "") | startswith("## AI Code Review")) ) | .id' \
-            2>/dev/null || true)
+          PR_NUM=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # Collect all old review IDs into an array so we don't delete the one
+          # we are about to post (the current step runs BEFORE posting).
+          mapfile -t review_ids < <(
+            gh api repos/$REPO/pulls/$PR_NUM/reviews \
+              --paginate --jq '.[] | select((.body // "") | startswith("## AI Code Review")) | .id' \
+              2>/dev/null || true
+          )
+
+          # Delete each old top-level review (APPROVE/REQUEST_CHANGES).
+          for rid in "${review_ids[@]}"; do
+            [ -z "$rid" ] && continue
+            gh api repos/$REPO/pulls/$PR_NUM/reviews/$rid -X DELETE > /dev/null 2>&1 || true
+            echo "Deleted old review #$rid"
+          done
+
+          # Collect all individual line-comment IDs.
+          mapfile -t comment_ids < <(
+            gh api repos/$REPO/pulls/$PR_NUM/comments \
+              --paginate --jq '.[] | select((.body // "") | startswith("## AI Code Review")) | .id' \
+              2>/dev/null || true
+          )
+
+          # Delete each old individual line comment.
+          for cid in "${comment_ids[@]}"; do
+            [ -z "$cid" ] && continue
+            gh api repos/$REPO/pulls/comments/$cid -X DELETE > /dev/null 2>&1 || true
+            echo "Deleted old comment #$cid"
+          done
+
+          if [ ${#review_ids[@]} -eq 0 ] && [ ${#comment_ids[@]} -eq 0 ]; then
+            echo "No previous AI review comments to clean up."
+          else
+            echo "Cleaned up ${#review_ids[@]} review(s) and ${#comment_ids[@]} line comment(s)."
+          fi
 
       - name: Post approval review
         if: steps.ai-review.outputs.verdict == 'APPROVE'
