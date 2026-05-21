@@ -1,66 +1,90 @@
-// Single-call Ollama classifier. Used by the orchestrator to decide which
-// route a user message should follow before any tool/research kicks in.
+// Nora-proxy classifier. Proxies classification requests to Nora's /api/nora-classify
+// endpoint rather than calling Ollama directly. Only apps/nora may call Ollama;
+// orchestrator (and all other sibling apps) route through Nora via PLT_NORA_URL.
 //
 // Contract: returns { route, intent, confidence, reason } compatible with
 // classifier.normalizeModelIntent. On any error or timeout the caller will
 // fall back to classifier.classifyIntent (safe default = factual_tool/low).
+//
+// MIGRATION NOTICE (July 2025): The old OLLAMA_HOST env var no longer auto-wires
+// this classifier. Routing now requires PLT_NORA_URL or NORA_URL to be set. If you
+// previously relied on OLLAMA_HOST to enable AI classification, update your deploy
+// config to set PLT_NORA_URL (production Platformatic mesh) or NORA_URL (direct dev
+// server at http://localhost:3001). Without one of these variables the classifier
+// falls back to safe-default (factual_tool/low). To restore AI classification:
+//   export PLT_NORA_URL=http://localhost:3001   # local dev
+//   # or in production, ensure PLT_NORA_URL resolves via Platformatic service mesh.
 
-const DEFAULT_MODEL = process.env.OLLAMA_CLASSIFIER_MODEL || 'qwen2.5:1.5b'
-const DEFAULT_HOST = process.env.OLLAMA_HOST || 'http://grove:11434'
-const DEFAULT_TIMEOUT_MS = Number(process.env.OLLAMA_CLASSIFIER_TIMEOUT_MS || 3000)
+const DEFAULT_TIMEOUT_MS = Number(process.env.OLLAMA_CLASSIFIER_TIMEOUT_MS || 8000)
 
-const SYSTEM_PROMPT = `You classify a user message into ONE of four routes for a family AI assistant. Reply with strict JSON only — no prose, no code fences.
+// DEFAULT_MODEL: intentionally defaults to '' (empty string).
+// When empty, the `model: model || undefined` in line 34 omits the "model"
+// key from the request body entirely, allowing Nora's /api/nora-classify route
+// to pick its own default (DEFAULT_MODEL_NORA).  This decouples the orchestrator's
+// classifier model from Nora's configurable default.
+const DEFAULT_MODEL = process.env.OLLAMA_CLASSIFIER_MODEL || ''
 
-Schema: {"route":"<route>","intent":"<intent>","confidence":"low|medium|high","reason":"<short>"}
-
-Routes:
-- local_tool — ONLY when the user is asking for the current local clock time or date on this device (e.g. "what time is it", "current time", "what is today's date"). intent="local_time". Do NOT use this for planning questions that merely mention time, travel time, or deadlines.
-- factual_tool — current events, news, weather, live status, stock/price updates, latest versions, people, current status, or anything that requires fresh or potentially changing information. intent="factual" (or "weather" for weather questions).
-- reasoning — multi-step planning, comparisons, analysis with tradeoffs, recommendations across options, or strategy questions. intent="reasoning".
-- fast_chat — casual conversation, creative writing, jokes, rewrites, opinions, explanations of general knowledge that are not tied to current/fresh data, or emotional/social chat. intent="chat".
-
-Examples:
-- "who is the sitting president" => factual_tool
-- "what's the latest version of React" => factual_tool
-- "how's the weather tomorrow" => factual_tool
-- "what time is it right now" => local_tool
-- "rewrite this sentence to be friendlier" => fast_chat
-- "what are the pros and cons of electric vs hybrid cars" => reasoning
-
-When uncertain between fast_chat and factual_tool, choose factual_tool. Only choose fast_chat when the user is clearly asking for casual conversation, rewriting, or static general knowledge that does not depend on current information.`
+// Resolve the Nora base URL: Platformatic mesh variable in production,
+// localhost port in local dev.
+function resolveNoraUrl() {
+  const pltx = process.env.PLT_NORA_URL || ''
+  if (pltx) {
+    return pltx.replace(/\/+$/, '')
+  }
+  // Fallback to direct Nora dev server URL.
+  const direct = process.env.NORA_URL || 'http://localhost:3001'
+  return direct.replace(/\/+$/, '')
+}
 
 export function createOllamaClassifier(options = {}) {
-  const host = options.host || DEFAULT_HOST
+  const noraUrl = options.noraUrl || resolveNoraUrl()
   const model = options.model || DEFAULT_MODEL
   const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS)
   const fetchImpl = options.fetch || globalThis.fetch
+
+  // Emit a one-time deprecation warning when OLLAMA_HOST is set but PLT_NORA_URL / NORA_URL are not.
+  // NOTE: createOllamaClassifier._warned is intentionally NOT reset here — it persists within
+  // a single process. Callers that need test isolation should delete this flag between tests:
+  //   delete createOllamaClassifier._warned
+  if (process.env.OLLAMA_HOST && !process.env.PLT_NORA_URL && !process.env.NORA_URL) {
+    if (!createOllamaClassifier._warned) {
+      createOllamaClassifier._warned = true
+      process.stderr.write(
+        'orchestrator/ollamaClassifier: OLLAMA_HOST is set but no longer auto-wires the ' +
+          'Nora-proxy classifier. Set PLT_NORA_URL or NORA_URL to restore AI classification, ' +
+          'or accept the safe-default fallback (factual_tool/low).\n'
+      )
+    }
+  }
 
   return async function classifyWithOllama({ message }) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const res = await fetchImpl(`${host}/api/chat`, {
+      const body = JSON.stringify({ message, model: model || undefined })
+
+      // Set an AbortSignal for the fetch itself so Nora-side timeouts also work.
+      const res = await fetchImpl(`${noraUrl}/api/nora-classify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          stream: false,
-          format: 'json',
-          options: { temperature: 0, num_predict: 80 },
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: String(message || '') },
-          ],
-        }),
+        body,
         signal: controller.signal,
       })
-      if (!res.ok) throw new Error(`ollama_status_${res.status}`)
-      const body = await res.json()
-      const content = body && body.message && body.message.content
-      if (!content) throw new Error('ollama_empty_content')
-      return JSON.parse(content)
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        throw new Error(`nora_classifier_status_${res.status}: ${errBody}`)
+      }
+
+      return await res.json()
     } finally {
       clearTimeout(timer)
     }
   }
+}
+
+// Reset the _warned flag for test isolation. Call this in afterEach:
+//   createOllamaClassifier.resetTestState()
+createOllamaClassifier.resetTestState = function () {
+  delete createOllamaClassifier._warned
 }

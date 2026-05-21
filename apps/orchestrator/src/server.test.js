@@ -192,7 +192,9 @@ test('POST /orchestrate returns typed refusal when MCP tool is unavailable', asy
 })
 
 test('POST /orchestrate returns 200 with execution null when no toolPlan is provided', async () => {
-  const routeServer = createServer()
+  const routeServer = createServer({
+    intentClassifier: async () => ({ route: 'fast_chat', confidence: 'high', reason: 'casual_chat' }),
+  })
 
   await new Promise((resolve) => routeServer.listen(0, resolve))
   const address = routeServer.address()
@@ -201,7 +203,7 @@ test('POST /orchestrate returns 200 with execution null when no toolPlan is prov
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: "who's the current president",
+      message: 'tell me a joke',
       surface: 'chat',
     }),
   })
@@ -209,7 +211,7 @@ test('POST /orchestrate returns 200 with execution null when no toolPlan is prov
 
   await new Promise((resolve, reject) => routeServer.close((err) => (err ? reject(err) : resolve())))
 
-  // When no toolPlan is provided and the safe default classifier returns fast_chat,
+  // When the classifier returns fast_chat and no toolPlan is provided,
   // the endpoint returns 200 with execution: null (no tool execution attempted)
   assert.equal(res.status, 200)
   assert.equal(body.execution, null)
