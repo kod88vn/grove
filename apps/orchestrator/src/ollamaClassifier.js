@@ -43,6 +43,9 @@ export function createOllamaClassifier(options = {}) {
   const fetchImpl = options.fetch || globalThis.fetch
 
   // Emit a one-time deprecation warning when OLLAMA_HOST is set but PLT_NORA_URL / NORA_URL are not.
+  // NOTE: createOllamaClassifier._warned is intentionally NOT reset here — it persists within
+  // a single process. Callers that need test isolation should delete this flag between tests:
+  //   delete createOllamaClassifier._warned
   if (process.env.OLLAMA_HOST && !process.env.PLT_NORA_URL && !process.env.NORA_URL) {
     if (!createOllamaClassifier._warned) {
       createOllamaClassifier._warned = true
@@ -78,4 +81,10 @@ export function createOllamaClassifier(options = {}) {
       clearTimeout(timer)
     }
   }
+}
+
+// Reset the _warned flag for test isolation. Call this in afterEach:
+//   createOllamaClassifier.resetTestState()
+createOllamaClassifier.resetTestState = function () {
+  delete createOllamaClassifier._warned
 }

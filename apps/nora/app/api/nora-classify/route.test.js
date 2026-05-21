@@ -168,10 +168,17 @@ describe('POST /api/nora-classify', () => {
   })
 
   test('returns 504 on timeout', async () => {
-    const controller = { signal: {} }
-    global.fetch = jest.fn().mockRejectedValue(new Error('AbortError'))
+    const abortError = new Error('timeout')
+    abortError.name = 'AbortError'
+    global.fetch = jest.fn().mockRejectedValue(abortError)
 
-    const res = await makeRequest({ message: 'hello' }, okResponse({}))
-    expect(res.status).toBe(502)
+    const res = await POST({
+      json: jest.fn().mockResolvedValue({ message: 'hello' }),
+    })
+
+    expect(res.status).toBe(504)
+
+    const data = await res.json()
+    expect(data.error).toBe('classifier_timeout')
   })
 })
