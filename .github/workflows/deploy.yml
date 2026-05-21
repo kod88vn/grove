@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [master]
     types: [closed]
-  pull_request_target:
-    branches: [master]
-    types: [closed]
   workflow_dispatch:
 
 jobs:
@@ -16,24 +13,14 @@ jobs:
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
-      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true)
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: grove
 
     steps:
-      - name: Determine commit SHA for checkout
-        id: shainfo
-        shell: powershell
-        run: |
-          $sha = "${{ github.event.pull_request.merge_commit_sha }}"
-          if ($sha -eq "") { $sha = "${{ github.sha }}" }
-          Write-Host "sha=$sha"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "sha=$sha"
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed for turbo diff detection
-          ref: ${{ steps.shainfo.outputs.sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -94,7 +81,7 @@ jobs:
       - name: Build and tag Docker image
         shell: powershell
         run: |
-          $sha = "${{ steps.shainfo.outputs.sha }}".Substring(0, 7)
+          $sha = "${{ github.event.pull_request.merge_commit_sha || github.sha }}".Substring(0, 7)
           Write-Host "Building image grove:$sha"
           docker build `
             --build-arg COMMIT_HASH=$sha `
