@@ -115,15 +115,15 @@ def write_fallback_result(result: dict):
 def main():
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY not set — cannot run AI review", file=sys.stderr)
+        print("WARNING: ANTHROPIC_API_KEY not set — cannot run AI review, posting REQUEST_CHANGES", file=sys.stderr)
         write_fallback_result({
-            "verdict": "APPROVE",
+            "verdict": "REQUEST_CHANGES",
             "summary": "AI review skipped — ANTHROPIC_API_KEY not configured in this environment",
             "issues": [
                 {
-                    "severity": "warning",
+                    "severity": "blocking",
                     "file": ".github/workflows/pr-ci.yml",
-                    "description": "ANTHROPIC_API_KEY secret is not set in repository settings. Without it, the AI review bot cannot run. Add the secret to your GitHub repo settings for this workflow.",
+                    "description": "ANTHROPIC_API_KEY secret is not set in repository settings. Without it, the AI review bot cannot run and auto-merge will be blocked until this is fixed. Add the secret to your GitHub repo settings for this workflow.",
                 }
             ],
         })
@@ -183,15 +183,15 @@ def main():
 
         response_text = message.content[0].text.strip()
     except Exception as e:
-        print(f"ERROR: AI review API call failed: {e}", file=sys.stderr)
+        print(f"WARNING: AI review API call failed: {e}, posting REQUEST_CHANGES", file=sys.stderr)
         write_fallback_result({
-            "verdict": "APPROVE",
+            "verdict": "REQUEST_CHANGES",
             "summary": f"AI review failed — API error: {e}",
             "issues": [
                 {
-                    "severity": "warning",
+                    "severity": "blocking",
                     "file": ".github/scripts/ai-review.py",
-                    "description": f"AI review could not reach the Anthropic API. Error: {e}. Please check ANTHROPIC_API_KEY validity and network connectivity.",
+                    "description": f"AI review could not reach the Anthropic API. Error: {e}. Auto-merge is blocked until a valid review completes. Check ANTHROPIC_API_KEY validity and network connectivity.",
                 }
             ],
         })
@@ -212,13 +212,13 @@ def main():
 
     if result is None:
         result = {
-            "verdict": "APPROVE",
-            "summary": "AI review could not parse response — no blocking issues flagged; human review recommended",
+            "verdict": "REQUEST_CHANGES",
+            "summary": "AI review could not parse response — blocking issue, human review required before merge",
             "issues": [
                 {
-                    "severity": "warning",
-                    "file": "N/A",
-                    "description": f"Malformed AI response (first 300 chars): {response_text[:300]}",
+                    "severity": "blocking",
+                    "file": ".github/scripts/ai-review.py",
+                    "description": f"Malformed AI response from model (first 300 chars): {response_text[:300]}. Auto-merge is blocked until the prompt or model produces a valid response.",
                 }
             ],
         }

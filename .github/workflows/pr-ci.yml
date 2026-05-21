@@ -115,17 +115,17 @@ jobs:
 
       - name: Clean up previous AI review comments
         run: |
-          # Delete any existing AI-generated reviews to keep PR clean
-          # Use --paginate to fetch all reviews (default page size is 30)
-          # Use // "" as fallback for null/missing body to avoid jq errors
-          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
-            --paginate --jq '.[] | select((.body // "") | startswith("## AI Code Review")) | .id' 2>/dev/null || echo "")
-          if [ -n "$REVIEWS" ]; then
-            for review_id in $REVIEWS; do
+          # Delete any existing AI-generated reviews to keep PR clean.
+          # Must delete old reviews BEFORE posting a new one, because GitHub
+          # allows only one REVIEW per user on a PR (APPROVE/REQUEST_CHANGES).
+          # Use --paginate to fetch all reviews (default page size is 30).
+          # Use // "" as fallback for null/missing body to avoid jq errors.
+          # Write each review ID on a separate line for safe bash iteration.
+          gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+            --paginate --jq '( .[] | select((.body // "") | startswith("## AI Code Review")) ) | .id' \
+            2>/dev/null | while read -r review_id; do
               gh api repos/${{ github.repository }}/pulls/reviews/$review_id -X DELETE > /dev/null 2>&1 || true
-            done
-            echo "Cleaned up $REVIEWS | wc -w | xargs old AI reviews"
-          fi
+          done
 
       - name: Post approval review
         if: steps.ai-review.outputs.verdict == 'APPROVE'
