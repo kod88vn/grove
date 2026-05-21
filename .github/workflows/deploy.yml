@@ -103,15 +103,19 @@ jobs:
           # Ensure persistent data volume exists for OpenObserve logs
           docker volume create openobserve_openobserve-data 2>$null | Out-Null
 
-          cd ops/openobserve
+          Set-Location ops/openobserve
 
-          # Pull latest images (non-erroring if already up-to-date)
-          docker compose pull 2>$null
-          Write-Host "Note: OpenObserve image pull (may be first deploy or image already current)"
+          # Caddy basicauth requires a bcrypt hash, not plaintext.
+          # Hash on the fly if the stored value doesn't look like a bcrypt hash already.
+          if ($env:CADDY_BASIC_AUTH_PASSWORD -and -not $env:CADDY_BASIC_AUTH_PASSWORD.StartsWith('$2')) {
+            Write-Host "Hashing Caddy password (plaintext detected)..."
+            $env:CADDY_BASIC_AUTH_PASSWORD = docker run --rm caddy:2.8.4-alpine caddy hash-password --plaintext $env:CADDY_BASIC_AUTH_PASSWORD
+          }
 
-          # Stop any existing containers, then start
+          # Stop any existing containers, then start.
+          # --pull missing: only pull images not already cached locally (avoids slow ECR re-pulls on every deploy)
           docker compose down 2>$null | Out-Null
-          docker compose up -d
+          docker compose up -d --pull missing
 
       - name: Swap Grove container
         shell: powershell
@@ -175,6 +179,7 @@ jobs:
             Write-Host "Warning: OpenObserve did not become healthy (check GitHub env vars are set)"
           } else {
             Write-Host "OpenObserve health check OK"
+          }
 
       - name: Prune old images
         shell: powershell
