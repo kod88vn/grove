@@ -1,5 +1,3 @@
-version: '3.8'
-
 # OpenObserve + Caddy reverse proxy for Grove production logging.
 # Credentials are injected via environment variables:
 #   - GitHub Actions: set in repository Settings → Secrets and Variables → Actions

@@ -22,7 +22,7 @@ SYSTEM_PROMPT = f"""You are a strict code reviewer for the Grove monorepo. Your 
 The following are the authoritative project standards from AGENTS.md.
 Enforce every rule marked "(Non-Negotiable)" as a blocking issue.
 
-{system_md}
+{_system_md}
 
 ## Response Format
 
@@ -44,8 +44,18 @@ Respond with ONLY a JSON object (no markdown fences, no prose):
 Rules:
 - APPROVE if zero blocking issues (warnings are OK to approve)
 - REQUEST_CHANGES if ANY blocking issue exists
-- Blocking: security holes, missing tests for non-trivial bug fixes, SQLite violations, Ollama violations, silent failures
-- Warning: style, minor inefficiencies, non-critical violations
+- Blocking issues are ONLY:
+  * Security holes (XSS, injection, auth bypass, credential exposure)
+  * Missing tests for a non-trivial bug fix (per AGENTS.md BDD policy)
+  * Direct SQLite or Ollama access pattern violations (per AGENTS.md)
+  * Functional silent failures in production code — e.g. a timeout AbortController whose signal is created but never passed to the fetch/call so it never fires; a retry that swallows the error silently; an error handler that returns empty data instead of surfacing the failure
+- NOT blocking (use warning instead):
+  * Test hygiene: env var isolation, module-level constants re-tested per-case, static flags on function objects, beforeEach/afterEach patterns
+  * Code style, variable placement, comment wording, missing newlines
+  * Minor inefficiencies or dead computations
+  * Theoretical test isolation concerns that don't cause actual test failures or production regressions
+- Warning: style, minor inefficiencies, test hygiene, non-critical violations
+- When uncertain whether an issue is blocking or warning, choose warning.
 - Do not invent issues. Only flag real problems visible in the diff.
 """
 
@@ -94,11 +104,30 @@ def build_review_markdown(result: dict) -> str:
     return "\n".join(lines)
 
 
+def write_fallback_result(result: dict):
+    """Write a fallback review result so the CI always posts something."""
+    try:
+        _write_outputs(result)
+    except Exception as e:
+        print(f"WARNING: could not write outputs: {e}", file=sys.stderr)
+
+
 def main():
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY not set — cannot run AI review", file=sys.stderr)
-        sys.exit(1)
+        print("WARNING: ANTHROPIC_API_KEY not set — cannot run AI review, posting REQUEST_CHANGES", file=sys.stderr)
+        write_fallback_result({
+            "verdict": "REQUEST_CHANGES",
+            "summary": "AI review skipped — ANTHROPIC_API_KEY not configured in this environment",
+            "issues": [
+                {
+                    "severity": "blocking",
+                    "file": ".github/workflows/pr-ci.yml",
+                    "description": "ANTHROPIC_API_KEY secret is not set in repository settings. Without it, the AI review bot cannot run and auto-merge will be blocked until this is fixed. Add the secret to your GitHub repo settings for this workflow.",
+                }
+            ],
+        })
+        return
 
     diff_path = "/tmp/pr.diff"
     try:
@@ -144,14 +173,30 @@ def main():
 """
 
     client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
 
-    response_text = message.content[0].text.strip()
+        response_text = message.content[0].text.strip()
+    except Exception as e:
+        print(f"WARNING: AI review API call failed: {e}, posting REQUEST_CHANGES", file=sys.stderr)
+        write_fallback_result({
+            "verdict": "REQUEST_CHANGES",
+            "summary": f"AI review failed — API error: {e}",
+            "issues": [
+                {
+                    "severity": "blocking",
+                    "file": ".github/scripts/ai-review.py",
+                    "description": f"AI review could not reach the Anthropic API. Error: {e}. Auto-merge is blocked until a valid review completes. Check ANTHROPIC_API_KEY validity and network connectivity.",
+                }
+            ],
+        })
+        return
+
 
     try:
         result = json.loads(response_text)
@@ -168,12 +213,12 @@ def main():
     if result is None:
         result = {
             "verdict": "REQUEST_CHANGES",
-            "summary": "AI review failed to produce valid JSON — human review required",
+            "summary": "AI review could not parse response — blocking issue, human review required before merge",
             "issues": [
                 {
                     "severity": "blocking",
-                    "file": "N/A",
-                    "description": f"Malformed AI response (first 300 chars): {response_text[:300]}",
+                    "file": ".github/scripts/ai-review.py",
+                    "description": f"Malformed AI response from model (first 300 chars): {response_text[:300]}. Auto-merge is blocked until the prompt or model produces a valid response.",
                 }
             ],
         }

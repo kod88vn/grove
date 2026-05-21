@@ -79,7 +79,8 @@ jobs:
         run: yarn turbo build ${{ steps.changed.outputs.filter }}
 
   pr-review:
-    needs: [pr-ci]
+    # Run AI review in parallel with tests + build.
+    # Only pr-auto-merge waits for both to finish.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -112,6 +113,20 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
+      - name: Clean up previous AI review comments
+        run: |
+          # Delete any existing AI-generated reviews to keep PR clean.
+          # Must delete old reviews BEFORE posting a new one, because GitHub
+          # allows only one REVIEW per user on a PR (APPROVE/REQUEST_CHANGES).
+          # Use --paginate to fetch all reviews (default page size is 30).
+          # Use // "" as fallback for null/missing body to avoid jq errors.
+          # Write each review ID on a separate line for safe bash iteration.
+          gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+            --paginate --jq '( .[] | select((.body // "") | startswith("## AI Code Review")) ) | .id' \
+            2>/dev/null | while read -r review_id; do
+              gh api repos/${{ github.repository }}/pulls/reviews/$review_id -X DELETE > /dev/null 2>&1 || true
+          done
+
       - name: Post approval review
         if: steps.ai-review.outputs.verdict == 'APPROVE'
         run: |
@@ -134,7 +149,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   pr-auto-merge:
-    needs: [pr-review]
+    # Must wait for BOTH pr-ci (build) and pr-review (AI review) to pass.
+    needs: [pr-ci, pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: |
