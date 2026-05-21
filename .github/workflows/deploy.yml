@@ -101,7 +101,7 @@ jobs:
           cd ops/openobserve
 
           # Pull latest images (non-erroring if already up-to-date)
-          docker compose --env-file .env pull || Write-Host "Note: OpenObserve image not yet available (first deploy)"
+          docker compose --env-file .env pull 2>$null; Write-Host "Note: OpenObserve image not yet available (first deploy)"
 
           # Stop any existing containers, then start
           docker compose --env-file .env down | Out-Null
@@ -166,8 +166,7 @@ jobs:
           }
 
           if (-not $healthy) {
-            docker compose --env-file ops/openobserve/.env logs openobserve | Out-Null
-            Write-Host "Warning: OpenObserve did not become healthy (logs may be empty on first deploy)"
+            Write-Host "Warning: OpenObserve did not become healthy (may need .env file on first deploy)"
           } else {
             Write-Host "OpenObserve health check OK"
 

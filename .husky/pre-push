@@ -20,6 +20,21 @@ fi
 
 export PATH
 
+# Block direct pushes to master. Only humans with grove.human-override=true in
+# their git config are permitted. AI agents must use a feature branch + PR.
+# One-time human setup: git config --global grove.human-override true
+_CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [ "$_CURRENT_BRANCH" = "master" ]; then
+	_OVERRIDE=$(git config --type=bool --get grove.human-override 2>/dev/null)
+	if [ "$_OVERRIDE" != "true" ]; then
+		echo "husky - BLOCKED: Direct push to 'master' is not allowed."
+		echo "husky - AI agents must create a feature branch and open a pull request."
+		echo "husky - Human override: git config --global grove.human-override true"
+		echo "husky - See AGENTS.md: Push Safety Policy."
+		exit 1
+	fi
+fi
+
 if ! command -v node >/dev/null 2>&1; then
 	echo "husky - node not found in PATH: $PATH"
 	exit 127
