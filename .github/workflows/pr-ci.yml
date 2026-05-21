@@ -99,8 +99,8 @@ jobs:
             "${{ github.event.pull_request.head.sha }}" \
             > /tmp/pr.diff
 
-      - name: Install Anthropic SDK
-        run: pip install --quiet anthropic
+      - name: Check Anthropic SDK availability
+        run: python3 -c "import anthropic" || (echo "ERROR: anthropic package not installed. Run: pip3 install anthropic" && exit 1)
 
       - name: Run AI code review
         id: ai-review
@@ -110,6 +110,17 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+
+      - name: Clean up previous AI review comments
+        run: |
+          # Delete any existing AI-generated reviews to keep PR clean
+          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+            --jq '.[] | select(.body != null and (.body | startswith("## AI Code Review"))) | .id' 2>/dev/null || echo "")
+          if [ -n "$REVIEWS" ]; then
+            for review_id in $REVIEWS; do
+              gh api repos/${{ github.repository }}/pulls/reviews/$review_id -X DELETE > /dev/null 2>&1 || true
+            done
+          fi
 
       - name: Post approval review
         if: steps.ai-review.outputs.verdict == 'APPROVE'
