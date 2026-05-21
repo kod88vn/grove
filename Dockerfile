@@ -31,6 +31,12 @@ COPY . .
 ARG COMMIT_HASH=dev
 RUN printf "NEXT_PUBLIC_COMMIT_HASH=%s\n" "${COMMIT_HASH}" > apps/nora/.env.local
 
+# Disable Turbopack for nora: Turbopack generates hash-based native module IDs
+# (e.g. better-sqlite3-<hash>) that are architecture-specific. Since node_modules
+# are compiled for Alpine here but may differ from the build host, the hash won't
+# resolve at runtime. Webpack handles serverExternalPackages correctly.
+ENV TURBOPACK=0
+
 # Build all zone apps
 RUN yarn workspace @grove/grove build && \
     yarn workspace nora build && \
