@@ -1,8 +1,9 @@
 version: '3.8'
 
 # OpenObserve + Caddy reverse proxy for Grove production logging.
-# Start with: docker compose --env-file .env up -d
-# Restart with: docker compose --env-file .env restart
+# Credentials are injected via environment variables:
+#   - GitHub Actions: set in repository Settings → Secrets and Variables → Actions
+#   - Manual on host: export before running docker compose
 
 services:
   # ─── OpenObserve — log storage, search, dashboards ──────────────────────────

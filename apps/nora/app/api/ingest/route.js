@@ -9,6 +9,12 @@
 const OPENOBSERVE_URL = process.env.OPENOBSERVE_URL || 'http://openobserve:5080'
 const OPENOBSERVE_ORG = 'default'
 const OPENOBSERVE_STREAM = 'grove_all_logs'
+const OPENOBSERVE_USER = process.env.OPENOBSERVE_UI_USER || 'admin@grove.local'
+const OPENOBSERVE_PASS = process.env.OPENOBSERVE_UI_PASSWORD || ''
+
+function basicAuthHeader() {
+  return `Basic ${Buffer.from(`${OPENOBSERVE_USER}:${OPENOBSERVE_PASS}`).toString('base64')}`
+}
 
 export async function POST(request) {
   // Accept single entry or array
@@ -48,6 +54,7 @@ export async function POST(request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: basicAuthHeader(),
       },
       body: JSON.stringify(logs),
     })

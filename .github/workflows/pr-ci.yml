@@ -81,58 +81,55 @@ jobs:
   pr-review:
     needs: [pr-ci]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
-      checks: write
+    outputs:
+      verdict: ${{ steps.ai-review.outputs.verdict }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Gather changed files info
-        id: files
+      - name: Generate diff
         run: |
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          git diff \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            > /tmp/pr.diff
 
-          FILE_LIST=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          echo "file_list<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$FILE_LIST" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Install Anthropic SDK
+        run: pip install --quiet anthropic
 
-      - name: Approve and comment on PR
+      - name: Run AI code review
+        id: ai-review
+        run: python3 .github/scripts/ai-review.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+
+      - name: Post approval review
+        if: steps.ai-review.outputs.verdict == 'APPROVE'
         run: |
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          CHANGED_APPS=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
-            | grep '^apps/[^/]' \
-            | cut -d'/' -f1-2 \
-            | sort -u)
-
-          if [ -z "$CHANGED_APPS" ]; then
-            PACKAGES_INFO="No specific app packages changed (infra/docs/config only)"
-          else
-            PACKAGES_INFO="$CHANGED_APPS"
-          fi
-
-          REVIEW_FILE=$(mktemp)
-
-          printf '%s\n' "Automated PR Review" "" \
-            "Tests: All passed" "Builds: All passed" "$PACKAGES_INFO" \
-            "Changed files: $(git diff --name-only "$BASE_SHA" "$HEAD_SHA")" \
-            >> "$REVIEW_FILE"
-
-          # Approve the PR and post a comment
           gh pr review ${{ github.event.pull_request.number }} \
             --approve \
-            --body-file "$REVIEW_FILE" || \
+            --body-file /tmp/review_body.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Post request-changes review
+        if: steps.ai-review.outputs.verdict != 'APPROVE'
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} \
+            --request-changes \
+            --body-file /tmp/review_body.md || \
           gh pr review ${{ github.event.pull_request.number }} \
             --comment \
-            --body-file "$REVIEW_FILE"
+            --body-file /tmp/review_body.md
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -140,7 +137,11 @@ jobs:
     needs: [pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: success() && !contains(github.event.pull_request.labels.*.name, 'do-not-merge') && github.event.pull_request.author_association == 'OWNER'
+    if: |
+      success() &&
+      needs.pr-review.outputs.verdict == 'APPROVE' &&
+      !contains(github.event.pull_request.labels.*.name, 'do-not-merge') &&
+      github.event.pull_request.author_association == 'OWNER'
     permissions:
       contents: write
       pull-requests: write

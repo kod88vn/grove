@@ -1,199 +1,70 @@
-# OpenObserve — Production Machine Setup Guide
+# OpenObserve Setup Guide — Production Machine
 
-## Overview
+## First-Time Setup (Windows machine)
 
-OpenObserve provides centralized log collection, search, and dashboards for all Grove apps.
-Accessible at `http://grove:5081` (basic auth required) via Tailscale.
-
-**Containers**: OpenObserve (log storage) + Caddy reverse proxy (basic auth, port 5081)
-**Log retention**: 90 days (configurable in environment)
-**Access**: Tailscale internal network only — not exposed to the internet
-
----
-
-## First-Time Setup (Windows Machine)
-
-### 1. Install Docker
-
-Ensure Docker Desktop is installed and running on the Windows machine.
-
-### 2. Clone / Pull Latest Code
-
-```bash
-cd C:\path\to\grove
-git pull origin master
-```
-
-### 3. Create Environment File
-
-Create `ops/openobserve/.env` on the machine (never committed to git):
-
-```
-OPENOBSERVE_ROOT_USER_EMAIL=admin@grove.local
-OPENOBSERVE_ROOT_USER_PASSWORD=grove-password
-CADDY_BASIC_AUTH_USERNAME=grove-admin
-CADDY_BASIC_AUTH_PASSWORD=grove-password
-```
-
-### 4. Start OpenObserve Containers
-
-From the `ops/openobserve/` directory:
+Run these commands on the production Windows machine:
 
 ```powershell
-docker compose --env-file .env up -d
+# 1. Set environment variables for OpenObserve credentials (persistent across sessions)
+[Environment]::SetEnvironmentVariable('OPENOBSERVE_ROOT_USER_EMAIL', 'admin@grove.local', 'User')
+[Environment]::SetEnvironmentVariable('OPENOBSERVE_ROOT_USER_PASSWORD', 'grove-password', 'User')
+[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_USERNAME', 'grove-admin', 'User')
+[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_PASSWORD', 'grove-password', 'User')
+
+# 2. Create persistent Docker volume for log data
+docker volume create openobserve_openobserve-data
+
+# 3. Start the stack (reads credentials from environment variables)
+cd ops\openobserve
+docker compose up -d
+
+# 4. Verify running
+docker compose ps
 ```
 
-### 5. Verify It's Running
+**Dashboard:** `http://grove:5081` — user: `grove-admin`, password: `grove-password`
 
-```powershell
-docker compose --env-file .env ps
-# Should show both openobserve-live and openobserve-caddy running
+## GitHub Actions Variables Setup
 
-docker compose --env-file .env logs --tail 20
-# Should show OpenObserve initializing successfully
-```
+Add these 4 variables to your GitHub repository:
+**Settings → Secrets and Variables → Actions → Variables**
 
-### 6. Access the Dashboard
+| Variable Name | Value |
+|---|---|
+| `OPENOBSERVE_ROOT_USER_EMAIL` | `admin@grove.local` |
+| `OPENOBSERVE_ROOT_USER_PASSWORD` | your-secure-password |
+| `CADDY_BASIC_AUTH_USERNAME` | `grove-admin` |
+| `CADDY_BASIC_AUTH_PASSWORD` | your-secure-password |
 
-Open a browser on any machine on your Tailscale network:
-- Navigate to `http://grove:5081`
-- Login with username: `grove-admin`, password: `grove-password`
-
-### 7. Create Default Organization & Stream
-
-After logging in via the web UI:
-1. Go to **Settings → Organizations** — ensure default org exists (it's created automatically)
-2. Go to **Streams** — the first log write will auto-create the `grove_all_logs` stream
-3. Optional: Set up dashboard queries for common patterns
-
----
+The deploy workflow reads these from `${{ vars.VAR_NAME }}` and passes them to `docker compose`.
 
 ## Daily Operations
 
-### Check Status
-
 ```powershell
-docker compose --env-file .env ps
+# Restart the stack
+cd ops\openobserve && docker compose restart
+
+# Check logs
+docker compose --no-TTY logs -f openobserve
+
+# Stop the stack
+cd ops\openobserve && docker compose down
+
+# Update to latest OpenObserve image
+docker compose pull && docker compose up -d
 ```
 
-### View Logs
+## How Credentials Work
 
-```powershell
-# All container logs
-docker compose --env-file .env logs
+No files needed. Everything uses environment variables:
 
-# OpenObserve only
-docker compose --env-file .env logs openobserve
-
-# Caddy proxy only
-docker compose --env-file .env logs caddy
-```
-
-### Restart OpenObserve
-
-```powershell
-docker compose --env-file .env restart openobserve
-```
-
-### Restart Caddy (e.g., after Caddyfile changes)
-
-```powershell
-docker compose --env-file .env restart caddy
-```
-
-### Stop All
-
-```powershell
-docker compose --env-file .env down
-```
-
-### Update to Latest OpenObserve Image
-
-```powershell
-docker compose --env-file .env pull
-docker compose --env-file .env up -d openobserve
-```
-
----
-
-## Disk Space Monitoring
-
-OpenObserve stores logs in `openobserve-data` volume. Monitor disk usage:
-
-```powershell
-docker volume inspect openobserve_openobserve-data --format '{{.Mountpoint}}'
-# Then check the actual disk usage of that path on Windows
-
-# Or use Docker stats:
-docker stats openobserve-live --no-stream
-```
-
-Default retention is 90 days. To change: edit `ops/openobserve/.env` and add:
-```
-ZO_MAX_NODE_DISK_USAGE=90
-ZO_TOO_MANY_REQUESTS=429
-```
-
----
-
-## CI/CD Integration
-
-The GitHub Actions deploy workflow (`.github/workflows/deploy.yml`) automatically:
-1. Creates the `openobserve-data` volume (if not exists)
-2. Starts both containers on each deploy
-
-No manual intervention needed after first-time setup.
-
----
+- **docker-compose.yml** references `${VAR:-default}` syntax in `environment:` blocks
+- **GitHub Actions** passes them via the `env:` block on the deploy step → `docker compose` inherits them
+- **Local machine** sets them via `[Environment]::SetEnvironmentVariable()` so they persist across terminal sessions
 
 ## Troubleshooting
 
-### Container won't start
-
-```powershell
-docker compose --env-file .env logs
-# Look for error messages
-docker compose --env-file .env down && docker compose --env-file .env up -d
-```
-
-### Can't access dashboard at :5081
-
-- Verify Tailscale is connected and you can reach `grove`
-- Check Windows Firewall isn't blocking port 5081
-- Verify Caddy container is running: `docker compose --env-file .env ps`
-
-### OpenObserve shows "No data" for logs
-
-- Verify apps are sending logs to the ingestion endpoint
-- Check that `grove_all_logs` stream exists in OpenObserve UI
-- Test with: `curl -u grove-admin:grove-password http://grove:5081/api/default/logs/_json`
-
-### High disk usage
-
-- Reduce retention period in `.env`
-- Manually delete old data via OpenObserve UI → Settings → Data Retention
-
----
-
-## Backup & Recovery
-
-### Backup Log Data
-
-```powershell
-# Stop OpenObserve first (data integrity)
-docker compose --env-file .env stop openobserve
-
-# Copy the volume data to a backup location
-$volumePath = docker volume inspect openobserve_openobserve-data --format '{{.Mountpoint}}'
-Copy-Item -Path $volumePath -Destination "C:\backup\openobserve-backup-$((Get-Date).ToString('yyyyMMdd'))" -Recurse
-
-# Restart OpenObserve
-docker compose --env-file .env start openobserve
-```
-
-### Restore from Backup
-
-```powershell
-docker compose --env-file .env stop openobserve
-# Replace the volume data with your backup
-# Then start: docker compose --env-file .env start openobserve
+If OpenObserve fails to start on deploy:
+1. Check the env vars are set (local): `echo $env:OPENOBSERVE_ROOT_USER_EMAIL`
+2. Check container logs: `docker compose --no-TTY logs openobserve`
+3. Verify GitHub vars exist in Settings → Secrets and Variables → Actions
