@@ -25,19 +25,19 @@ Enforce every rule marked "(Non-Negotiable)" as a blocking issue.
 ## Response Format
 
 Respond with ONLY a JSON object (no markdown fences, no prose):
-{
+{{
   "verdict": "APPROVE" | "REQUEST_CHANGES",
   "summary": "One sentence describing what this PR does",
   "issues": [
-    {
+    {{
       "severity": "blocking" | "warning",
       "file": "path/to/file.js",
       "line": 42,
       "description": "Clear description of the problem and how to fix it"
-    }
+    }}
   ],
   "praise": "One sentence on what was done well (optional, omit if nothing notable)"
-}
+}}
 
 Rules:
 - APPROVE if zero blocking issues (warnings are OK to approve)
