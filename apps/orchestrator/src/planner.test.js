@@ -36,12 +36,12 @@ test('Given local_tool model intent, when building execution plan, then local_ti
   assert.equal(plan.allowProse, false)
 })
 
-test('Given safe-default sync plan, when building execution plan without classifier, then fast_chat is the safe fallback', () => {
+test('Given safe-default sync plan, when building execution plan without classifier, then factual_tool is the safe fallback', () => {
   const plan = buildExecutionPlan("who's the current president")
 
-  // The safe default route is fast_chat when no model classifier is available
-  assert.equal(plan.route, 'fast_chat')
-  assert.equal(plan.intent, 'chat')
+  // Safe default is factual_tool — prefer search over hallucination when model is unavailable
+  assert.equal(plan.route, 'factual_tool')
+  assert.equal(plan.intent, 'factual')
   assert.equal(plan.confidence, 'low')
   assert.equal(plan.reason, 'no_classifier')
 })
@@ -61,7 +61,7 @@ test('Given ambiguous prompt and model classifier result, when building executio
   assert.equal(plan.skipToolPlanning, false)
 })
 
-test('Given invalid model classifier result, when building execution plan, then safe default fast_chat is used', async () => {
+test('Given invalid model classifier result, when building execution plan, then safe default factual_tool is used', async () => {
   const plan = await buildExecutionPlanWithClassifier('rewrite this in a friendlier voice', {}, {
     classifyWithModel: async () => ({
       route: 'unknown_route',
@@ -70,7 +70,7 @@ test('Given invalid model classifier result, when building execution plan, then 
     }),
   })
 
-  // Invalid route fails normalization, so classifyIntentWithModel falls back to safe default (fast_chat)
-  assert.equal(plan.route, 'fast_chat')
-  assert.equal(plan.intent, 'chat')
+  // Invalid route fails normalization, so classifyIntentWithModel falls back to safe default (factual_tool)
+  assert.equal(plan.route, 'factual_tool')
+  assert.equal(plan.intent, 'factual')
 })

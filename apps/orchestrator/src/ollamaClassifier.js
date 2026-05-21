@@ -7,7 +7,7 @@
 
 const DEFAULT_MODEL = process.env.OLLAMA_CLASSIFIER_MODEL || 'qwen2.5:1.5b'
 const DEFAULT_HOST = process.env.OLLAMA_HOST || 'http://grove:11434'
-const DEFAULT_TIMEOUT_MS = Number(process.env.OLLAMA_CLASSIFIER_TIMEOUT_MS || 3000)
+const DEFAULT_TIMEOUT_MS = Number(process.env.OLLAMA_CLASSIFIER_TIMEOUT_MS || 8000)
 
 const SYSTEM_PROMPT = `You classify a user message into ONE of four routes for a family AI assistant. Reply with strict JSON only — no prose, no code fences.
 
@@ -46,7 +46,7 @@ export function createOllamaClassifier(options = {}) {
           model,
           stream: false,
           format: 'json',
-          options: { temperature: 0, num_predict: 80 },
+          options: { temperature: 0, num_predict: 120 },
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: String(message || '') },

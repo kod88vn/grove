@@ -13,8 +13,8 @@ const VALID_CONFIDENCE = new Set(['low', 'medium', 'high'])
 // OLLAMA_CLASSIFIER_MODEL. If the classifier is unavailable or emits fast_chat
 // for a query clearly asking for current/fresh information, promote it to factual_tool.
 const SAFE_DEFAULT = Object.freeze({
-  route: 'fast_chat',
-  intent: 'chat',
+  route: 'factual_tool',
+  intent: 'factual',
   confidence: 'low',
   reason: 'no_classifier',
 })
@@ -137,7 +137,8 @@ export async function classifyIntentWithModel(message, options = {}) {
     }
 
     return normalizedIntent
-  } catch {
+  } catch (err) {
+    console.error('[intent_classifier] model classification failed:', err?.message ?? err)
     return fallback
   }
 }
