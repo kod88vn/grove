@@ -79,6 +79,8 @@ jobs:
         run: yarn turbo build ${{ steps.changed.outputs.filter }}
 
   pr-review:
+    # Run AI review in parallel with tests + build.
+    # Only pr-auto-merge waits for both to finish.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -99,8 +101,8 @@ jobs:
             "${{ github.event.pull_request.head.sha }}" \
             > /tmp/pr.diff
 
-      - name: Check Anthropic SDK availability
-        run: python3 -c "import anthropic" || (echo "ERROR: anthropic package not installed. Run: pip3 install anthropic" && exit 1)
+      - name: Install Anthropic SDK
+        run: pip install --quiet anthropic
 
       - name: Run AI code review
         id: ai-review
@@ -112,15 +114,16 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
       - name: Clean up previous AI review comments
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Delete any existing AI-generated reviews to keep PR clean
-          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
-            --jq '.[] | select(.body != null and (.body | startswith("## AI Code Review"))) | .id' 2>/dev/null || echo "")
-          if [ -n "$REVIEWS" ]; then
-            for review_id in $REVIEWS; do
-              gh api repos/${{ github.repository }}/pulls/reviews/$review_id -X DELETE > /dev/null 2>&1 || true
-            done
-          fi
+          # Use process substitution so a gh api failure doesn't kill the step (pipefail-safe).
+          while read -r review_id; do
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/$review_id \
+              -X DELETE > /dev/null 2>&1 || true
+          done < <(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+            --paginate --jq '( .[] | select((.body // "") | startswith("## AI Code Review")) ) | .id' \
+            2>/dev/null || true)
 
       - name: Post approval review
         if: steps.ai-review.outputs.verdict == 'APPROVE'
@@ -144,6 +147,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   pr-auto-merge:
+    # Must wait for BOTH pr-ci (build) and pr-review (AI review) to pass.
     needs: [pr-ci, pr-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -1,4 +1,3 @@
-import { callOllama } from '@/app/api/chat/lib/ollama'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 
 const CLASSIFIER_TIMEOUT_MS = Number(process.env.NORA_CLASSIFY_TIMEOUT_MS || 8000)
@@ -23,60 +22,60 @@ Examples:
 
 When uncertain between fast_chat and factual_tool, choose factual_tool. Only choose fast_chat when the user is clearly asking for casual conversation, rewriting, or static general knowledge that does not depend on current information.`
 
-// DEFAULT_MODEL_NORA: falls back to nora's global DEFAULT_MODEL (typically an Ollama model
-// name like "llama3"). This mirrors the chat route's behaviour.
-const DEFAULT_MODEL_NORA = process.env.OLLAMA_CLASSIFIER_MODEL || DEFAULT_MODEL
-
 export async function POST(request) {
-  const { message, model } = await request.json()
-
-  if (!message || typeof message !== 'string') {
-    return Response.json(
-      { error: 'Missing or invalid message' },
-      { status: 400 }
-    )
+  let message
+  try {
+    const body = await request.json()
+    message = body?.message
+  } catch {
+    return Response.json({ error: 'invalid_request' }, { status: 400 })
   }
 
-  const modelName = model || DEFAULT_MODEL_NORA
-  const timeoutMs = CLASSIFIER_TIMEOUT_MS
+  if (!message) {
+    return Response.json({ error: 'message_required' }, { status: 400 })
+  }
+
+  const ollamaHost = String(process.env.OLLAMA_HOST || 'http://grove:11434').trim().replace(/\/+$/, '')
+  const model = process.env.OLLAMA_CLASSIFIER_MODEL || DEFAULT_MODEL
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), CLASSIFIER_TIMEOUT_MS)
 
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-    try {
-      const res = await callOllama({
-        model: modelName,
+    const res = await fetch(`${ollamaHost}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
         stream: false,
         format: 'json',
-        options: { temperature: 0, num_predict: 120 },
+        options: { temperature: 0, num_predict: 80 },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: message },
+          { role: 'user', content: String(message) },
         ],
-      })
+      }),
+      signal: controller.signal,
+    })
 
-      if (!res.ok) {
-        throw new Error(`ollama_status_${res.status}`)
-      }
-
-      const body = await res.json()
-      const content = body && body.message && body.message.content
-
-      if (!content) {
-        throw new Error('ollama_empty_content')
-      }
-
-      const classification = JSON.parse(content)
-      return Response.json(classification)
-    } finally {
-      clearTimeout(timer)
+    if (!res.ok) {
+      return Response.json({ error: `ollama_status_${res.status}` }, { status: 502 })
     }
+
+    const json = await res.json()
+    const content = json?.message?.content
+    if (!content) {
+      return Response.json({ error: 'ollama_empty_content' }, { status: 502 })
+    }
+
+    const classification = JSON.parse(content)
+    return Response.json(classification)
   } catch (err) {
-    console.error('[nora-classify] Ollama classification failed:', err?.message ?? err)
-    return Response.json(
-      { error: 'Classification failed', detail: err?.message ?? String(err) },
-      { status: 502 }
-    )
+    if (err.name === 'AbortError') {
+      return Response.json({ error: 'classifier_timeout' }, { status: 504 })
+    }
+    return Response.json({ error: 'classifier_error' }, { status: 502 })
+  } finally {
+    clearTimeout(timer)
   }
 }

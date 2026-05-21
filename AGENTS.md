@@ -36,7 +36,7 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 Before working on any new task or PR:
 1. **Fetch and rebase onto latest master**: `git fetch origin master && git checkout master && git rebase origin/master`
 2. **Create a fresh branch**: `git checkout -b fix/<short-description>` (or `ci/<description>`, `feat/<description>`)
-3. **To address AI code review, it's OK to commit and push to the same branch
+3. **To address AI code review**, it's OK to commit and push to the same branch
 
 This prevents merge conflicts caused by stale branches based on outdated master state. Always start from the latest master, not from an old branch tip or another feature branch.
 

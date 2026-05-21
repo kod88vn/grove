@@ -1,23 +1,18 @@
 name: Deploy grove
 
 on:
-  workflow_run:
-    workflows: ["PR CI"]
-    types: [completed]
   push:
     branches: [master]
 
 jobs:
   deploy:
     runs-on: grove
-    # Deploy on: real push to master, OR when PR CI job succeeded (workflow_run)
-    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed for turbo diff detection
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -31,9 +26,6 @@ jobs:
         id: changed
         shell: powershell
         run: |
-          # When triggered by workflow_run (PR CI completed), we already know
-          # tests+builds passed in CI, so just filter against HEAD~1 for safety.
-          # When triggered by push, compare against the previous commit on the branch.
           $base = git rev-parse HEAD~1 2>$null
           if ($LASTEXITCODE -ne 0) { $base = "HEAD" }
           $head = git rev-parse HEAD
@@ -72,9 +64,7 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "filter=$filter"
           Add-Content -Path $env:GITHUB_ENV -Value "TURBO_FILTER=$filter"
 
-      # workflow_run means PR CI already tested+built; skip redundant test step
-      - name: Test affected packages (push-only)
-        if: github.event_name == 'push'
+      - name: Test affected packages
         run: yarn turbo test $TURBO_FILTER
 
       - name: Build affected packages
