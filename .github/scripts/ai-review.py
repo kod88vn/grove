@@ -7,42 +7,39 @@ import sys
 
 import anthropic
 
-SYSTEM_PROMPT = """You are a strict code reviewer for the Grove monorepo. Your job is to catch real problems.
+try:
+    with open("AGENTS.md") as f:
+        _agents_md = f.read()
+except FileNotFoundError:
+    raise RuntimeError("AGENTS.md not found — cannot run review without project standards")
 
-## Grove Project Standards (enforce these)
+_system_md = _agents_md
 
-1. **BDD Bug Fixes** — bug fixes MUST include a failing test written first; no test = blocking issue
-2. **Side-by-Side Tests** — test files live next to production code (`foo.js` → `foo.test.js`)
-   - NO `test/`, `__tests__/`, or separate test directories
-   - EXCEPTION: never write tests for `lib/db/*` (SQLite native module — unreliable in CI)
-3. **No Silent Failures** — never suppress errors, return empty fallbacks, or mask failures
-4. **Ollama Access Pattern** — ONLY `apps/nora` may call `http://grove:11434` directly
-   - Other apps must call Nora's API routes via `PLT_NORA_URL`
-   - `OLLAMA_HOST`, `OLLAMA_BASE_URL`, or direct Ollama fetches in non-Nora apps = blocking
-5. **Homeworks Data Persistence** — SQLite ONLY via `apps/homeworks/lib/db.js`
-   - File-based JSON, in-memory Maps, or ad-hoc storage = blocking
-6. **Security** — no XSS, SQL injection, command injection, eval() on user input, or hardcoded secrets
-7. **User-facing text** — say "Nora", never "AI" in UI strings
-8. **Keep Nora Thin** — major features belong in sibling apps, not `apps/nora`
-9. **No unnecessary comments** — only WHY comments when non-obvious; no docblocks explaining WHAT
-10. **Routing changes** — new top-level routes need updates in BOTH gateway config AND grove dev rewrites
+SYSTEM_PROMPT = f"""You are a strict code reviewer for the Grove monorepo. Your job is to catch real problems.
+
+## Grove Project Standards
+
+The following are the authoritative project standards from AGENTS.md.
+Enforce every rule marked "(Non-Negotiable)" as a blocking issue.
+
+{system_md}
 
 ## Response Format
 
 Respond with ONLY a JSON object (no markdown fences, no prose):
-{
+{{
   "verdict": "APPROVE" | "REQUEST_CHANGES",
   "summary": "One sentence describing what this PR does",
   "issues": [
-    {
+    {{
       "severity": "blocking" | "warning",
       "file": "path/to/file.js",
       "line": 42,
       "description": "Clear description of the problem and how to fix it"
-    }
+    }}
   ],
   "praise": "One sentence on what was done well (optional, omit if nothing notable)"
-}
+}}
 
 Rules:
 - APPROVE if zero blocking issues (warnings are OK to approve)
