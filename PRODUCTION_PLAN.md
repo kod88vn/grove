@@ -249,3 +249,76 @@ When grove has grown to multiple apps and the Markdown-in-repo workflow becomes 
 - [ ] Decide migration timing from PM2 to Watt + routing on port 80
 - [ ] HTTPS: Tailscale can issue certs via `tailscale cert` for `grove.tailnet-name.ts.net` if needed later
 - [ ] Outline: evaluate MinIO vs local filesystem for storage backend when the time comes
+
+---
+
+## Observability: OpenObserve Logging Stack
+
+Grove runs an **OpenObserve** logging stack on the same Windows machine for centralized log collection, search, and dashboards.
+
+### Architecture
+
+```
+All Grove Apps (nora, games, homeworks, etc.)
+  → POST /chat/api/ingest (Nora API route)
+    → HTTP POST to OpenObserve Caddy proxy (:5081)
+      → OpenObserve container :5080 (log storage, search UI)
+```
+
+### Key Details
+
+| Setting | Value |
+|---------|-------|
+| Dashboard URL | `http://grove:5081` (Tailscale, basic auth) |
+| Basic auth user | `grove-admin` (password in `ops/openobserve/.env`) |
+| API endpoint | `http://grove:5081/api/default/` (same auth) |
+| Log stream | `grove_all_logs` (all apps, single stream) |
+| Retention | 90 days |
+| Container: OpenObserve | `public.ecr.aws/zinclabs/openobserve:latest` (port 5080, no public mapping) |
+| Container: Caddy proxy | `caddy:2.8.4-alpine` (port 5081, exposed on Tailscale) |
+| Log ingestion API | `POST /chat/api/ingest` (Nora route) |
+| AI log query API | `GET /chat/api/nora/logs/query?service=X&level=error&limit=50` |
+| Shared logger lib | `apps/nora/lib/logger.js` (works in browser + Node) |
+
+### Setup Commands
+
+```bash
+# Start the logging stack (first time or restart)
+cd ops/openobserve && docker compose --env-file .env up -d
+
+# Check status
+docker compose --env-file .env ps
+
+# View logs
+docker compose --env-file .env logs
+
+# Stop
+docker compose --env-file .env down
+```
+
+### Deployment (CI/CD)
+
+The deploy workflow (`.github/workflows/deploy.yml`) automatically starts the OpenObserve stack on every deployment.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| [ops/openobserve/](ops/openobserve/) | Logging stack config & docs root |
+| [ops/openobserve/docker-compose.yml](ops/openobserve/docker-compose.yml) | Container definitions, resource limits |
+| [ops/openobserve/Caddyfile](ops/openobserve/Caddyfile) | Reverse proxy with basic auth |
+| [ops/openobserve/SETUP.md](ops/openobserve/SETUP.md) | Machine setup guide (Windows-specific) |
+| [ops/openobserve/DESIGN.md](ops/openobserve/DESIGN.md) | Technical design doc (architecture, schemas) |
+| [skills/observability/openobserve/SKILL.md](skills/observability/openobserve/SKILL.md) | AI agent canonical reference for troubleshooting |
+| [apps/nora/lib/logger.js](apps/nora/lib/logger.js) | Shared logger client used by all apps |
+| [apps/nora/app/api/ingest/route.js](apps/nora/app/api/ingest/route.js) | Central log ingestion endpoint |
+| [apps/nora/app/api/nora/logs/query/route.js](apps/nora/app/api/nora/logs/query/route.js) | AI-friendly log query endpoint |
+
+### AI Troubleshooting Workflow
+
+1. Query logs first: `GET /chat/api/nora/logs/query?level=error&limit=100&since_minutes=60`
+2. Group errors by message — identify the most frequent error signature
+3. Check service, route, and durationMs metadata for patterns
+4. Apply fix, deploy, re-query to confirm errors stopped
+
+See [skills/observability/openobserve/SKILL.md](skills/observability/openobserve/SKILL.md) for detailed procedures.

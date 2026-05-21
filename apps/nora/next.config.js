@@ -22,6 +22,17 @@ const nextConfig = {
     NEXT_PUBLIC_COMMIT_DATE: date,
     NEXT_PUBLIC_BASE_PATH: '/chat',
   },
+  // Dev-time rewrite: forward /ingest to OpenObserve Caddy proxy so browser logs reach production
+  async rewrites() {
+    return [
+      {
+        source: '/ingest',
+        destination: process.env.OPENOBSERVE_URL
+          ? `${process.env.OPENOBSERVE_URL}/api/default/grove_all_logs/_json`
+          : '/chat/api/ingest', // fallback: local ingest endpoint (no-op in dev)
+      },
+    ]
+  },
 }
 
 export default nextConfig

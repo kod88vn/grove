@@ -1,0 +1,17 @@
+# Caddy reverse proxy for OpenObserve with basic auth.
+# Caddy v2.7+ supports {env.VAR_NAME} interpolation natively.
+
+{
+    # No auto-HTTPS since we're on Tailscale internal network
+    auto_https off
+}
+
+:5081 {
+    # Basic auth protection (credentials from environment)
+    basicauth /* {
+        {env.CADDY_BASIC_AUTH_USERNAME} {env.CADDY_BASIC_AUTH_PASSWORD}
+    }
+
+    # Reverse proxy to OpenObserve
+    reverse_proxy openobserve:5080
+}

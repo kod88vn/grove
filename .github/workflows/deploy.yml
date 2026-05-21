@@ -92,7 +92,22 @@ jobs:
             .
           echo "IMAGE_TAG=$sha" >> $env:GITHUB_ENV
 
-      - name: Swap container
+      - name: Start OpenObserve logging stack
+        shell: powershell
+        run: |
+          # Ensure persistent data volume exists for OpenObserve logs
+          docker volume create openobserve_openobserve-data | Out-Null
+
+          cd ops/openobserve
+
+          # Pull latest images (non-erroring if already up-to-date)
+          docker compose --env-file .env pull || Write-Host "Note: OpenObserve image not yet available (first deploy)"
+
+          # Stop any existing containers, then start
+          docker compose --env-file .env down | Out-Null
+          docker compose --env-file .env up -d
+
+      - name: Swap Grove container
         shell: powershell
         run: |
           $tag = $env:IMAGE_TAG
@@ -116,7 +131,7 @@ jobs:
             -v nora-data:/data `
             grove:$tag
 
-      - name: Verify Nora is reachable
+      - name: Verify services are reachable
         shell: powershell
         run: |
           $healthy = $false
@@ -134,6 +149,27 @@ jobs:
           }
 
           Write-Host "Nora health check OK"
+
+      - name: Verify OpenObserve is reachable
+        shell: powershell
+        run: |
+          $healthy = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            try {
+              # OpenObserve health endpoint (redirects to login, so accept 301/302 too)
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5081/" -UseBasicParsing -TimeoutSec 10
+              $statusCode = [int]$resp.StatusCode
+              if ($statusCode -ge 300 -and $statusCode -lt 500) { $healthy = $true; break }
+              if ($statusCode -ge 200 -and $statusCode -lt 300) { $healthy = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 3
+          }
+
+          if (-not $healthy) {
+            docker compose --env-file ops/openobserve/.env logs openobserve | Out-Null
+            Write-Host "Warning: OpenObserve did not become healthy (logs may be empty on first deploy)"
+          } else {
+            Write-Host "OpenObserve health check OK"
 
       - name: Prune old images
         shell: powershell

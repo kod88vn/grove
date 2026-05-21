@@ -97,7 +97,26 @@ Configured in `.vscode/mcp.json`. Reload VS Code to activate.
 
 ## Skills
 
-Available under `.github/skills/`. Copilot will discover them automatically.
+Available under [`.github/skills/`](.github/skills/). Copilot will discover them automatically.
+
+## Observability: OpenObserve Logging Stack
+
+Grove runs [OpenObserve](https://openobserve.ai) on the production machine for centralized log collection, search, and dashboards. All apps write to a single `grove_all_logs` stream via Nora's `POST /chat/api/ingest` endpoint.
+
+| Resource | URL |
+|----------|-----|
+| Dashboard (basic auth) | `http://grove:5081` via Tailscale |
+| AI log query API | `GET /chat/api/nora/logs/query?level=error&limit=50` |
+| Setup guide | [ops/openobserve/SETUP.md](ops/openobserve/SETUP.md) |
+| Technical design | [ops/openobserve/DESIGN.md](ops/openobserve/DESIGN.md) |
+| AI troubleshooting skill | [skills/observability/openobserve/SKILL.md](skills/observability/openobserve/SKILL.md) |
+| Docker compose | [ops/openobserve/docker-compose.yml](ops/openobserve/docker-compose.yml) |
+
+**Quick start:**
+```powershell
+cd ops/openobserve && docker compose --env-file .env up -d
+# Dashboard at http://grove:5081, user: grove-admin
+```
 
 ## Runner cleanup (Windows self-hosted)
 
@@ -120,3 +139,18 @@ if (Test-Path $workspace) {
 ```
 
 Also included in this repo is an example GitHub Actions workflow: `.github/workflows/cleanup-runner-example.yml`. It demonstrates a `cleanup-runner` job that you can integrate into your main workflow by adding `needs: cleanup-runner` to your build jobs.
+
+## AI Skill Reference
+
+The following canonical skills define AI behavior. Each skill has detailed procedures in its own file:
+
+| Skill | Location | Purpose |
+|-------|----------|---------|
+| **Code Review** | [`skills/coding/code-review/SKILL.md`](skills/coding/code-review/SKILL.md) | PR reviews, bug/security detection, quality checks |
+| **Debugging** | [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) | Bug reproduction, root cause analysis, fix verification |
+| **Unit Testing** | [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md) | Jest/Playwright tests, BDD triage, TDD workflows |
+| **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
+| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors
+| **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
+
+When performing any of these activities, follow the procedure in the corresponding skill file.

@@ -63,8 +63,9 @@ When ANY bug, regression, or unexpected behavior is reported:
 After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Before closing the task, verify the deployment succeeded:
 
 1. **Check deploy workflow status** — Use GitHub MCP `get_commit` to see if the "deploy" check run passed
-2. **Verify container health** — Check `docker logs grove-live --tail 50` for errors
-3. **Confirm changes are live** — Navigate to the relevant route and verify the change is visible
+2. **Verify Nora container health** — Check `docker logs grove-live --tail 50` for errors
+3. **Verify OpenObserve logging stack** — Check `docker compose --env-file ops/openobserve/.env ps` for both containers running
+4. **Confirm changes are live** — Navigate to the relevant route and verify the change is visible
 
 See [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) for the full procedure, output format, and rollback steps.
 
@@ -80,6 +81,7 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
 | **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
 | **Post-Deploy Verification** | [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
+| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.

@@ -1,0 +1,60 @@
+version: '3.8'
+
+# OpenObserve + Caddy reverse proxy for Grove production logging.
+# Start with: docker compose --env-file .env up -d
+# Restart with: docker compose --env-file .env restart
+
+services:
+  # ─── OpenObserve — log storage, search, dashboards ──────────────────────────
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: openobserve-live
+    restart: always
+    # No public ports — only accessible via Caddy reverse proxy on the bridge network
+    environment:
+      - ZO_ROOT_USER_EMAIL=${OPENOBSERVE_ROOT_USER_EMAIL:-admin@grove.local}
+      - ZO_ROOT_USER_PASSWORD=${OPENOBSERVE_ROOT_USER_PASSWORD:-grove-password}
+      - ZO_DATA_DIR=/data
+      # 90-day log retention (in hours)
+      - ZO_FILE_STORE_TYPE=local
+    volumes:
+      - openobserve-data:/data
+    networks:
+      - logging-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+
+  # ─── Caddy — reverse proxy + basic auth ─────────────────────────────────────
+  caddy:
+    image: caddy:2.8.4-alpine
+    container_name: openobserve-caddy
+    restart: always
+    ports:
+      - "5081:5081"
+    environment:
+      - CADDY_BASIC_AUTH_USERNAME=${CADDY_BASIC_AUTH_USERNAME:-grove-admin}
+      - CADDY_BASIC_AUTH_PASSWORD=${CADDY_BASIC_AUTH_PASSWORD:-grove-password}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - logging-net
+    depends_on:
+      - openobserve
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+
+volumes:
+  openobserve-data:
+    driver: local
+
+networks:
+  logging-net:
+    driver: bridge
