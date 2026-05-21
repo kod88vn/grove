@@ -25,14 +25,8 @@ jobs:
         id: shainfo
         shell: powershell
         run: |
-          $sha = ""
-          if ("${{ github.event.pull_request.merge_commit_sha }}" -ne "") {
-            $sha = "${{ github.event.pull_request.merge_commit_sha }}"
-          } elseif ("${{ github.event.pull_requestTarget?.merge_commit_sha }}" -ne "") {
-            $sha = "${{ github.event.pull_requestTarget?.merge_commit_sha }}"
-          } else {
-            $sha = "${{ github.sha }}"
-          }
+          $sha = "${{ github.event.pull_request.merge_commit_sha }}"
+          if ($sha -eq "") { $sha = "${{ github.sha }}" }
           Write-Host "sha=$sha"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "sha=$sha"
 
