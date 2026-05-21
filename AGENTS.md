@@ -33,12 +33,21 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 
 ## Branch Workflow (Non-Negotiable)
 
-Before working on any new task or PR:
+**First, check whether an open PR already exists for the current task.**
+
+### Case A — No open PR (new task)
 1. **Fetch and rebase onto latest master**: `git fetch origin master && git checkout master && git rebase origin/master`
 2. **Create a fresh branch**: `git checkout -b fix/<short-description>` (or `ci/<description>`, `feat/<description>`)
-3. **To address AI code review**, it's OK to commit and push to the same branch
+3. **Push the branch and open a PR** targeting `master`.
 
 This prevents merge conflicts caused by stale branches based on outdated master state. Always start from the latest master, not from an old branch tip or another feature branch.
+
+### Case B — Open PR already exists (fixing a broken PR)
+1. **Check out the existing branch**: `git checkout <existing-branch>`
+2. **Rebase onto latest master if needed**: `git fetch origin master && git rebase origin/master`
+3. **Commit the fix and push**: `git push origin <existing-branch>`
+
+The open PR auto-updates — do NOT create a new branch or a new PR. Creating a new PR for a fix that belongs to an existing one fragments review history and leaves the original PR dangling.
 
 ## BDD Bug Reproduction Policy (Non-Negotiable)
 
