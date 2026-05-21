@@ -96,8 +96,15 @@ def main():
         result = json.loads(match.group()) if match else None
 
     if result is None:
-        print("ai-precommit: malformed response from Claude — skipping", file=sys.stderr)
-        sys.exit(0)
+        print(
+            "ai-precommit: ERROR — malformed response from Claude; commit gate FAILS.",
+            file=sys.stderr,
+        )
+        print(
+            "ai-precommit: Set SKIP_AI_REVIEW=1 to bypass, or ensure your API key is valid.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     blocking = [i for i in result.get("issues", []) if i.get("severity") == "blocking"]
 
