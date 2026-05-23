@@ -47,6 +47,25 @@ describe('getExecutionPlan', () => {
     expect(result.plan.reason).toBe('orchestrator_unreachable')
   })
 
+  it('TEST_FALLBACK_ROUTE is respected in test mode even for factual-query messages (test isolation)', async () => {
+    // Regression: buildFallbackPlan calls isCurrentInfoQuery(message) before checking
+    // TEST_FALLBACK_ROUTE. When the message matches a factual-query pattern (e.g.,
+    // "current stock price"), isCurrentInfoQuery returns true and the route becomes
+    // 'factual_tool' regardless of TEST_FALLBACK_ROUTE. This silently changes test
+    // behaviour depending on the message string, breaking test isolation.
+    // The orchestrator's decision (or explicit TEST_FALLBACK_ROUTE) must be the sole
+    // override mechanism in test mode — NOT a heuristic that inspects the message.
+    process.env.NODE_ENV = 'test'
+    process.env.TEST_FALLBACK_ROUTE = 'fast_chat'
+
+    // "current stock price" matches isCurrentInfoQuery (version/live-data patterns),
+    // so the buggy code returns factual_tool instead of the expected 'fast_chat'.
+    const result = await getExecutionPlan('current stock price')
+
+    expect(result.plan.route).toBe('fast_chat')
+    expect(result.plan.reason).toBe('test_mode_default')
+  })
+
   it('retains orchestrator plan from non-OK responses when payload includes plan', async () => {
     process.env.NODE_ENV = 'development'
     global.fetch = jest.fn().mockResolvedValue({
