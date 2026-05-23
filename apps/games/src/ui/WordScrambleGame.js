@@ -164,27 +164,27 @@ export default function WordScrambleGame() {
         <div className="text-2xl font-black text-slate-800">Score: {score}</div>
       </div>
 
-      <div className="mb-6 rounded-3xl bg-slate-50 border-4 border-dashed border-slate-200 p-8 text-center w-full max-w-sm">
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Scrambled</p>
-        <p className="text-5xl font-black tracking-widest text-indigo-600 font-mono">{scrambled}</p>
+      <div className="mb-6 rounded-3xl bg-slate-50 border-4 border-dashed border-slate-200 p-6 sm:p-8 text-center w-full max-w-xs sm:max-w-sm">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Scrambled</p>
+        <p className="text-3xl sm:text-5xl font-black tracking-widest text-indigo-600 font-mono truncate">{scrambled}</p>
       </div>
 
-      <p className="mb-8 text-slate-500 font-bold italic">
-        <span className="text-2xl mr-2">{current.mascot}</span>
+      <p className="mb-6 sm:mb-8 text-slate-500 font-bold italic text-sm sm:text-base px-2 truncate">
+        <span className="text-xl sm:text-2xl mr-1 sm:mr-2">{current.mascot}</span>
         💡 Hint: {current.hint}
       </p>
 
       {gameState === 'playing' ? (
-        <div className="flex w-full max-w-sm gap-2">
+        <div className="flex w-full gap-2 max-w-xs sm:max-w-sm">
           <input
             autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && check()}
-            className="flex-1 rounded-2xl border-4 border-slate-200 p-4 text-center text-2xl font-black uppercase outline-none focus:border-rose-400"
+            className="flex-[2] rounded-2xl border-4 border-slate-200 px-3 py-2 sm:p-4 text-center text-lg sm:text-2xl font-black uppercase outline-none focus:border-rose-400 min-w-0"
             placeholder="???"
           />
-          <button onClick={check} className="rounded-2xl bg-rose-500 px-6 font-bold text-white">Go</button>
+          <button onClick={check} className="rounded-2xl bg-rose-500 px-4 py-2 sm:px-6 font-bold text-sm sm:text-base text-white flex-shrink-0">Go</button>
         </div>
       ) : (
         <div className="text-center">

@@ -106,10 +106,11 @@ export default function SudokuGame() {
       </p>
 
       <div className="mx-auto w-fit">
-        <div
-          className="grid gap-1 rounded-2xl bg-slate-900 p-2"
-          style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
-        >
+        <div className="game-grid overflow-x-auto">
+          <div
+            className="grid gap-1 rounded-2xl bg-slate-900 p-2 mx-auto"
+            style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+          >
           {board.map((row, rowIndex) =>
             row.map((value, colIndex) => {
               const locked = puzzle.board[rowIndex][colIndex] !== 0
@@ -138,6 +139,7 @@ export default function SudokuGame() {
               )
             })
           )}
+        </div>
         </div>
       </div>
 

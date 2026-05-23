@@ -45,7 +45,7 @@ function HangmanVisual({ wrongCount }) {
 
   return (
     <div className="flex justify-center p-2">
-      <svg width="200" height="220" viewBox="0 0 200 220" className="text-slate-800">
+      <svg width="200" height="220" viewBox="0 0 200 220" className="text-slate-800 w-full max-w-[180px] sm:max-w-none h-auto">
         {/* Gallows */}
         <line x1="20" y1="200" x2="100" y2="200" className="stroke-current" strokeWidth="4" />
         <line x1="60" y1="200" x2="60" y2="20" className="stroke-current" strokeWidth="4" />
@@ -138,8 +138,8 @@ export default function HangmanGame() {
   return (
     <section>
       {showLevelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border-2 border-amber-200 bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4">
+          <div className="game-modal-content w-full max-w-xs sm:max-w-md rounded-2xl border-2 border-amber-200 bg-white p-4 sm:p-6 shadow-xl">
             <h2 className="mb-2 text-xl font-bold text-slate-800">Choose difficulty</h2>
             <p className="mb-5 text-sm text-slate-500">Nora will pick a word for the level you choose.</p>
             <div className="grid gap-3">
@@ -173,13 +173,13 @@ export default function HangmanGame() {
       )}
 
       {!loading && round && (
-      <div className="flex flex-col gap-6 md:flex-row">
-        <div className="flex-1 rounded-2xl border-2 border-amber-200 bg-amber-50 p-6 flex flex-col justify-center shadow-inner">
-          <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-amber-800">
-            <span className="text-xl">{round.mascot}</span> Hint: {round.hint}
+      <div className="flex flex-col gap-4 sm:gap-6 md:flex-row">
+        <div className="flex-1 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 sm:p-6 flex flex-col justify-center shadow-inner">
+          <p className="inline-flex items-center gap-1 sm:gap-2 text-[10px] sm:text-sm font-bold uppercase tracking-wider text-amber-800">
+            <span className="text-sm sm:text-xl">{round.mascot}</span> Hint: {round.hint}
           </p>
-          <div className="my-8 flex justify-center">
-            <p className="break-words font-mono text-4xl font-black tracking-[0.4em] text-slate-800 transition-all">
+          <div className="my-4 sm:my-8 flex justify-center overflow-x-auto">
+            <p className="break-words font-mono text-xl sm:text-4xl font-black tracking-[0.3em] sm:tracking-[0.4em] text-slate-800 transition-all truncate">
               {maskedWord}
             </p>
           </div>
@@ -191,8 +191,10 @@ export default function HangmanGame() {
           </div>
         </div>
 
-        <div className="w-full md:w-48 flex-shrink-0 rounded-2xl border-2 border-slate-200 bg-white shadow-sm flex items-center justify-center p-2">
-          <HangmanVisual wrongCount={wrongCount} />
+        <div className="w-full md:w-48 flex-shrink-0 rounded-2xl border-2 border-slate-200 bg-white shadow-sm flex items-center justify-center p-1 sm:p-2">
+          <div className="w-full max-w-[180px] sm:max-w-none">
+            <HangmanVisual wrongCount={wrongCount} />
+          </div>
         </div>
       </div>
       )}
@@ -204,7 +206,7 @@ export default function HangmanGame() {
         </div>
       )}
 
-      <div className="mt-8 grid grid-cols-7 gap-2 sm:grid-cols-9 md:grid-cols-13">
+      <div className="mt-8 grid grid-cols-7 gap-[3px] sm:gap-1 md:grid-cols-13">
         {HANGMAN_ALPHABET.map((letter) => {
           const disabled = loading || !round || guessed.has(letter) || isWon || isLost
           return (
@@ -213,7 +215,7 @@ export default function HangmanGame() {
               type="button"
               onClick={() => onGuess(letter)}
               disabled={disabled}
-              className="rounded-xl border border-slate-300 bg-white px-2 py-2 text-sm font-bold text-slate-700 transition hover:scale-105 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl border border-slate-300 bg-white px-1 py-1 sm:px-2 sm:py-2 text-xs sm:text-sm font-bold text-slate-700 transition hover:scale-105 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {letter}
             </button>

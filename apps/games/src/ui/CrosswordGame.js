@@ -202,48 +202,50 @@ export default function CrosswordGame() {
       </div>
 
       {/* Grid */}
-      <div className="relative rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 shadow-inner">
+      <div className="relative rounded-2xl border-2 border-amber-200 bg-amber-50 p-3 sm:p-4 shadow-inner">
         {puzzle ? (
-          <div
-            className="mx-auto inline-grid gap-[1px] rounded-md border-2 border-slate-700 bg-slate-700 p-[1px]"
-            style={{
-              gridTemplateColumns: `repeat(${puzzle.dimensions.cols}, minmax(1.75rem, 2.25rem))`,
-              width: 'fit-content',
-            }}
-          >
-            {Array.from({ length: puzzle.dimensions.rows }).flatMap((_, row) =>
-              Array.from({ length: puzzle.dimensions.cols }).map((__, col) => {
-                const key = cellKey(row, col)
-                const active = activeCells.has(key)
+          <div className="game-scroll-box overflow-x-auto">
+            <div
+              className="mx-auto inline-grid gap-[1px] rounded-md border-2 border-slate-700 bg-slate-700 p-[1px]"
+              style={{
+                gridTemplateColumns: `repeat(${puzzle.dimensions.cols}, minmax(1.5rem, 2rem))`,
+                width: 'fit-content',
+              }}
+            >
+              {Array.from({ length: puzzle.dimensions.rows }).flatMap((_, row) =>
+                Array.from({ length: puzzle.dimensions.cols }).map((__, col) => {
+                  const key = cellKey(row, col)
+                  const active = activeCells.has(key)
 
-                if (!active) {
-                  return <div key={key} className="h-7 w-7 bg-slate-700 sm:h-9 sm:w-9" />
-                }
+                  if (!active) {
+                    return <div key={key} className="h-7 w-7 bg-slate-700 sm:h-9 sm:w-9" />
+                  }
 
-                const startEntry = puzzle.entries.find((e) => e.row === row && e.col === col)
+                  const startEntry = puzzle.entries.find((e) => e.row === row && e.col === col)
 
-                return (
-                  <div key={key} className="relative h-7 w-7 bg-white sm:h-9 sm:w-9">
-                    {startEntry && (
-                      <span className="absolute left-0.5 top-0.5 z-10 text-[9px] font-bold leading-none text-slate-500 sm:text-[10px]">
-                        {startEntry.number ?? startEntry.id}
-                      </span>
-                    )}
-                    <input
-                      value={cells[key] || ''}
-                      onChange={(event) => applyCellValue(row, col, event.target.value)}
-                      disabled={loading}
-                      autoComplete="off"
-                      className="absolute inset-0 h-full w-full bg-transparent text-center text-sm font-bold uppercase text-slate-800 focus:bg-cyan-100 focus:outline-none sm:text-lg"
-                      maxLength={1}
-                    />
-                  </div>
-                )
-              })
-            )}
+                  return (
+                    <div key={key} className="relative h-7 w-7 bg-white sm:h-9 sm:w-9">
+                      {startEntry && (
+                        <span className="absolute left-0.5 top-0.5 z-10 text-[9px] font-bold leading-none text-slate-500 sm:text-[10px]">
+                          {startEntry.number ?? startEntry.id}
+                        </span>
+                      )}
+                      <input
+                        value={cells[key] || ''}
+                        onChange={(event) => applyCellValue(row, col, event.target.value)}
+                        disabled={loading}
+                        autoComplete="off"
+                        className="absolute inset-0 h-full w-full bg-transparent text-center text-sm font-bold uppercase text-slate-800 focus:bg-cyan-100 focus:outline-none sm:text-lg"
+                        maxLength={1}
+                      />
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center p-12 text-sm text-slate-400">
+          <div className="flex items-center justify-center p-8 sm:p-12 text-xs sm:text-sm text-slate-400">
             Pick a difficulty to begin.
           </div>
         )}

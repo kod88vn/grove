@@ -399,15 +399,15 @@ export default function GomokuGame() {
           <h2 className="mb-6 text-center text-2xl font-bold text-lime-900">Choose Your Symbol</h2>
           <p className="mb-6 text-center text-sm text-lime-700">Pick an animal symbol to play with. Nora will choose a different one.</p>
           
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-5 gap-3 sm:gap-4">
             {AVAILABLE_SYMBOLS.map((symbol) => (
               <button
                 key={symbol.emoji}
                 onClick={() => handleSymbolSelect(symbol.emoji)}
-                className="flex flex-col items-center gap-2 rounded-lg border-2 border-lime-200 bg-white p-4 transition hover:border-lime-400 hover:bg-lime-100 active:scale-95"
+                className="flex flex-col items-center gap-1 sm:gap-2 rounded-lg border-2 border-lime-200 bg-white px-1 py-3 sm:p-4 transition hover:border-lime-400 hover:bg-lime-100 active:scale-95"
               >
-                <span className="text-5xl">{symbol.emoji}</span>
-                <span className="text-xs font-semibold text-slate-600">{symbol.name}</span>
+                <span className="text-4xl sm:text-5xl">{symbol.emoji}</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-600 truncate w-full text-center">{symbol.name}</span>
               </button>
             ))}
           </div>
@@ -454,35 +454,37 @@ export default function GomokuGame() {
         🪨 Gomoku infinity board: make 5 in a row against Nora. Legal moves must be within 3 cells of the nearest stone.
       </p>
 
-      <div className="max-h-[66vh] overflow-auto rounded-2xl border-2 border-lime-300 bg-lime-50 p-3">
-        <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 2.1rem))` }}>
-          {cells.map((cell) => {
-            const marker = cell.stone === 'human' ? humanSymbol : cell.stone === 'ai' ? aiSymbol : ''
-            const occupied = Boolean(cell.stone)
-            const legal = isGomokuMoveLegal(stones, cell.x, cell.y)
-            const isLastMove =
-              (lastHumanMove && lastHumanMove.x === cell.x && lastHumanMove.y === cell.y) ||
-              (lastAiMove && lastAiMove.x === cell.x && lastAiMove.y === cell.y)
+      <div className="max-h-[66vh] overflow-auto rounded-2xl border-2 border-lime-300 bg-lime-50 p-2 sm:p-3">
+        <div className="game-grid overflow-x-auto">
+          <div className="inline-grid gap-[3px] sm:gap-1" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, clamp(0.65rem, 3vw, 2.1rem)))` }}>
+            {cells.map((cell) => {
+              const marker = cell.stone === 'human' ? humanSymbol : cell.stone === 'ai' ? aiSymbol : ''
+              const occupied = Boolean(cell.stone)
+              const legal = isGomokuMoveLegal(stones, cell.x, cell.y)
+              const isLastMove =
+                (lastHumanMove && lastHumanMove.x === cell.x && lastHumanMove.y === cell.y) ||
+                (lastAiMove && lastAiMove.x === cell.x && lastAiMove.y === cell.y)
 
-            return (
-              <button
-                key={coordKey(cell.x, cell.y)}
-                type="button"
-                disabled={occupied || aiThinking || winner}
-                onClick={() => playHumanMove(cell.x, cell.y)}
-                className={`flex h-8 w-8 items-center justify-center rounded border text-sm transition ${
-                  occupied
-                    ? `border-slate-300 bg-white ${isLastMove ? 'ring-2 ring-lime-400 ring-offset-1' : ''}`
-                    : legal
-                    ? 'border-lime-300 bg-white hover:scale-105 hover:bg-lime-100'
-                    : 'border-slate-200 bg-slate-100 text-slate-300 hover:cursor-not-allowed'
-                }`}
-                title={`(${cell.x}, ${cell.y}) ${isLastMove ? '[Last Move]' : ''}`}
-              >
-                {marker}
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={coordKey(cell.x, cell.y)}
+                  type="button"
+                  disabled={occupied || aiThinking || winner}
+                  onClick={() => playHumanMove(cell.x, cell.y)}
+                  className={`flex aspect-square items-center justify-center rounded border text-[10px] sm:text-sm transition ${
+                    occupied
+                      ? `border-slate-300 bg-white ${isLastMove ? 'ring-2 ring-lime-400 ring-offset-1' : ''}`
+                      : legal
+                      ? 'border-lime-300 bg-white hover:scale-105 hover:bg-lime-100'
+                      : 'border-slate-200 bg-slate-100 text-slate-300 hover:cursor-not-allowed'
+                  }`}
+                  title={`(${cell.x}, ${cell.y}) ${isLastMove ? '[Last Move]' : ''}`}
+                >
+                  {marker}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

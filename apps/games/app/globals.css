@@ -6,3 +6,38 @@ html, body {
   height: 100%;
   width: 100%;
 }
+
+/* Prevent game content from overflowing the viewport on mobile */
+.game-wrapper {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.game-scroll-box {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure all game grids respect their container width */
+.game-grid {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Responsive cell sizing for crossword grids */
+@media (max-width: 480px) {
+  .crossword-cell {
+    min-width: 1.5rem !important;
+    max-width: 2rem !important;
+    width: 1.75rem !important;
+    height: 1.5rem !important;
+  }
+}
+
+/* Keep modals from overflowing on very small screens */
+@media (max-width: 360px) {
+  .game-modal-content {
+    padding: 1rem !important;
+  }
+}
