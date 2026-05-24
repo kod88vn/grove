@@ -20,7 +20,8 @@ import { deepResearch } from './research'
 import { getExecutionPlan } from './orchestratorClient'
 import { dedupeSourceUrls, readWebpage, webSearch } from './web'
 import { isLowConfidenceSource, isTrustedNewsSource } from './sources'
-import { requiresPreciseValue } from './intent'
+// NOTE: requiresPreciseValue/RequiresLiveData/requiresFactVerification removed.
+// All intent classification is now LLM-based via classifyIntent() in planTools.js.
 import { buildDatedQuery, buildTrustedOutletQueries } from './queries'
 import { safeJsonParse } from './llmCalls'
 import {
@@ -29,6 +30,7 @@ import {
 } from './verification'
 import { planTools } from './planTools'
 import { streamFinalAnswer } from './streamAnswer'
+import { IntentClassifierError } from './intent'
 
 const isUnverifiedStatus = (status) =>
   status === 'unverified' || status === 'weak' || status === 'low_confidence'
@@ -158,11 +160,14 @@ async function escalateRound3(userMessage, followupMessages, sourceUrls, emit) {
   }
 }
 
-// If we have evidence for a precise-value question but the planner skipped
-// read_webpage, fetch the top reliable URL and pin its content as a system
-// message so the model can't fall back to training data.
+// If we have evidence but the planner skipped read_webpage, fetch the top
+// reliable URL and pin its content as a system message so the model can't
+// fall back to training data.
+//
+// KEY CHANGE: This function now unconditionally reads the top reliable URL whenever
+// called (since the caller already guards for needsPreciseValue via requireVerification).
+// Replaces keyword-based requiresPreciseValue() check — LLM determines verification need.
 async function ensurePreciseValuePageRead(userMessage, followupMessages, sourceUrls, emit) {
-  if (!requiresPreciseValue(userMessage)) return
 
   const alreadyRead = followupMessages.some(
     (m) => m.tool_name === 'read_webpage' || m.tool_calls?.some((c) => c.function?.name === 'read_webpage'),
@@ -341,7 +346,15 @@ export function streamResponse(model, messages) {
         log.error(error)
         emit({ searching: false })
         emit({ thinkingDone: true })
-        emit({ word: `Error: ${error.message || 'Request failed'}` })
+
+        // Surface IntentClassifierError clearly so the user knows classification
+        // failed (per "No Silent Failures" policy — not silently masking errors).
+        if (error instanceof IntentClassifierError) {
+          emit({ word: `I couldn't reach my intent classifier (LLM service unavailable). I'll do my best with a general response. Error: ${error.message?.slice(0, 120) || 'unknown'}` })
+        } else {
+          emit({ word: `Error: ${error.message || 'Request failed'}` })
+        }
+
         controller.enqueue(enc.encode('data: [DONE]\n\n'))
         controller.close()
       }
@@ -354,7 +367,8 @@ export function streamResponse(model, messages) {
 }
 
 // ---- Public re-exports (consumed by tests + route.js) -----------------------
-export { requiresFactVerification, requiresLiveData, requiresPreciseValue } from './intent'
+// NOTE: requiresFactVerification, requiresLiveData, requiresPreciseValue removed.
+// All intent classification is now LLM-based via classifyIntent() in planTools.js.
 export {
   countHighConfidenceSources,
   countReliableSources,

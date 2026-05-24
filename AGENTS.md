@@ -35,6 +35,8 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 
 **First, check whether an open PR already exists for the current task.**
 
+See [Branch-PR Check Skill](#branch-pr-check-skill) for detailed procedure.
+
 ### Case A — No open PR (new task)
 1. **Fetch and rebase onto latest master**: `git fetch origin master && git checkout master && git rebase origin/master`
 2. **Create a fresh branch**: `git checkout -b fix/<short-description>` (or `ci/<description>`, `feat/<description>`)
@@ -42,12 +44,15 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 
 This prevents merge conflicts caused by stale branches based on outdated master state. Always start from the latest master, not from an old branch tip or another feature branch.
 
-### Case B — Open PR already exists (fixing a broken PR)
-1. **Check out the existing branch**: `git checkout <existing-branch>`
-2. **Rebase onto latest master if needed**: `git fetch origin master && git rebase origin/master`
-3. **Commit the fix and push**: `git push origin <existing-branch>`
+### Case B — Open PR already exists (fixing a broken PR or addressing code review)
+1. **Run Branch-PR Check** — Use the [Branch-PR Check Skill](#branch-pr-check-skill) to verify the open PR is still active
+2. **Check out the existing branch**: `git checkout <existing-branch>`
+3. **Rebase onto latest master if needed**: `git fetch origin master && git rebase origin/master`
+4. **Commit the fix/changes and push**: `git push origin <existing-branch>`
 
 The open PR auto-updates — do NOT create a new branch or a new PR. Creating a new PR for a fix that belongs to an existing one fragments review history and leaves the original PR dangling.
+
+**Important**: If the Branch-PR Check finds no open PR, switch to Case A workflow instead.
 
 ## BDD Bug Reproduction Policy (Non-Negotiable)
 
@@ -92,6 +97,7 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
 | **Post-Deploy Verification** | [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
 | **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors
+| **Branch-PR Check** | [`skills/workflow/branch-pr-check/SKILL.md`](skills/workflow/branch-pr-check/SKILL.md) | Verify current branch has open PR before proceeding |
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.

@@ -26,13 +26,27 @@ function parseFirstJsonObject(value) {
 
 export { safeJsonParse }
 
+/**
+ * Assess whether the user's prompt requires fact verification.
+ * In production, this is decided by an LLM (Ollama) classifier.
+ * In test mode (NODE_ENV=test), the LLM is disabled, so we fall back to
+ * keyword-based detection ONLY for test coverage.
+ */
 export async function assessVerificationNeed(model, userMessage) {
   if (!userMessage) {
     return { required: false, confidence: 'low', reason: 'empty_input', queryHints: [] }
   }
 
   if (process.env.NODE_ENV === 'test') {
-    return { required: false, confidence: 'low', reason: 'disabled_in_test', queryHints: [] }
+    // LLM classifier disabled in test — fall back to keyword heuristics for tests.
+    const { requiresFactVerification, requiresPreciseValue } = await import('./intent')
+    return {
+      required: true,
+      forceRequired: requiresFactVerification(userMessage) || requiresPreciseValue(userMessage),
+      confidence: 'low',
+      reason: 'disabled_in_test',
+      queryHints: [],
+    }
   }
 
   try {

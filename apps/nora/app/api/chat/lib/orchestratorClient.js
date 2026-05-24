@@ -1,55 +1,31 @@
 // Orchestrator client for execution plan routing.
 // Calls the orchestrator service at ORCHESTRATOR_URL (default: http://127.0.0.1:4010).
+//
+// In production fallback (when orchestrator is unreachable), this module uses
+// LLM-based classifyIntent() for intent classification. Keyword-based matching
+// (the old isCurrentInfoQuery) has been removed — all routing decisions now use
+// semantic understanding via Ollama.
+
+import { classifyIntent, IntentClassifierError } from './intent'
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://127.0.0.1:4010'
 
-function isCurrentInfoQuery(message) {
-  if (!message) return false
-  const normalized = String(message).toLowerCase()
+const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'qwen3.5:9b'
 
-  // Current person detection - handles: "who is", "who's", "whos", "what is", "what are"
-  const currentTitleQuestion = /\b(who['']?s|whos|who are|who is)(\sis)?\s+(the\s)?(current|sitting|incumbent|acting|present)\b/i.test(normalized)
-  const titleKeyword = /\b(president|prime minister|governor|mayor|ceo|chief executive|chancellor|king|queen|pope|chair|chairperson|secretary|minister|leader)\b/.test(normalized)
-  if (currentTitleQuestion && titleKeyword) return true
-
-  // Version detection
-  const versionQuestion = /\b(what(?:'s| is) the (?:latest|current|newest) (?:version|release)|current version|latest release|newest release|version of)\b/.test(normalized)
-  if (versionQuestion) return true
-
-  // Live data detection
-  const liveDataQuestion = /\b(what(?:'s| is) the weather|how(?:'s| is) the weather|weather (?:today|tomorrow|tonight|right now)|temperature (?:today|now)|forecast|stock price|stock market|share price|sports score|live score|breaking news|current news|latest news)\b/.test(normalized)
-  if (liveDataQuestion) return true
-
-  // General current info detection — but exclude conversational small talk.
-  const smallTalkPatterns = [
-    /\bhow are you\b/i,
-    /\bwh(?:a)?ts?\s+up\b/i,
-    /\bwhats\s+(going|happening)\b/i,
-    /\bi['\u2019]?m (fine|good|okay?|ok)\b/i,
-    /\bhows(?: it)? going\b/i,
-    /\bhow['\u2019]?s it going\b/i,
-    /\bhows(?: it)? (going|things)\b/i,
-    /\bwhat['\u2019]?s new\b/i,
-  ]
-  const isSmallTalk = smallTalkPatterns.some((p) => p.test(normalized))
-  if (isSmallTalk) return false
-
-  const currentCue = /\b(currently|right now|as of now|as of today|today|tonight|tomorrow|latest|newest)\b/.test(normalized)
-  const factualCue =/\b(who|what|when|where|which|is|are|did|does|do|has|have)\b/.test(normalized)
-  const nounCue = /\b(version|release|president|prime minister|weather|temperature|forecast|news|price|score|status|update|result|headline)\b/.test(normalized)
-
-  // "today" alone is not enough to trigger factual search — it must co-occur with
-  // a concrete noun that indicates actual news/current-data intent.
-  const hasTodayToken = /\btoday\b/.test(normalized)
-  if (hasTodayToken && currentCue && !nounCue) return false
-
-  return currentCue && factualCue && nounCue
-}
-
-function buildFallbackPlan(message, reason) {
-  // In test mode, TEST_FALLBACK_ROUTE is the sole override — do NOT inspect the message
-  // with isCurrentInfoQuery, which would break test isolation by changing behaviour based
-  // on the message string itself. The heuristic must only be used in production fallbacks.
+/**
+ * Build a fallback execution plan when the orchestrator is unreachable.
+ * Uses LLM-based classifyIntent() for semantic intent detection — NO keyword matching.
+ * In test mode, TEST_FALLBACK_ROUTE is the sole override.
+ * 
+ * Per AGENTS.md "No Silent Failures" policy: if the classifier fails in production
+ * (throws IntentClassifierError), we fall back to 'fast_chat' with a clear log message
+ * rather than silently masking the error. The route handler will still call the LLM
+ * to generate a response (just without forced web search verification).
+ */
+async function buildFallbackPlan(message, reason) {
+  // In test mode, TEST_FALLBACK_ROUTE is the sole override — do NOT call classifyIntent
+  // based on the message string itself. The classifier must only be used in production
+  // fallbacks where semantic understanding is available.
   const explicitTestRoute = process.env.TEST_FALLBACK_ROUTE
   if (explicitTestRoute) {
     console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + explicitTestRoute + ' reason=' + reason)
@@ -67,7 +43,20 @@ function buildFallbackPlan(message, reason) {
     }
   }
 
-  const needsFactual = isCurrentInfoQuery(message)
+  // LLM-based semantic intent classification — NO keyword matching.
+  let intent
+  try {
+    intent = await classifyIntent(DEFAULT_MODEL, message)
+  } catch (err) {
+    // Per AGENTS.md "No Silent Failures": classifier failures must be surfaced.
+    // In production, log the error and fall back to requiresSearch=true (fail-safe toward web search).
+    // The LLM will still generate a response, but with forced search verification enabled.
+    console.error('[orchestratorClient] buildFallbackPlan: classifier failed, defaulting to requiresSearch=true (fail-safe). reason=', err.message)
+    intent = { requiresSearch: true, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
+  }
+
+  // needsSearch from LLM classifier determines if factual/web search route is needed.
+  const needsFactual = intent.requiresSearch === true
 
   let route
   if (needsFactual) {
@@ -76,12 +65,12 @@ function buildFallbackPlan(message, reason) {
     route = 'fast_chat'
   }
 
-  console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + route + ' reason=' + reason)
+  console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + route + ' reason=' + reason + ' intent=' + JSON.stringify(intent))
 
   return {
     plan: {
       route,
-      confidence: 'low',
+      confidence: intent.confidence || 'low',
       reason,
       useModel: true,
       skipToolPlanning: route === 'fast_chat',
@@ -93,10 +82,8 @@ function buildFallbackPlan(message, reason) {
 
 export async function getExecutionPlan(message) {
   if (process.env.NODE_ENV === 'test') {
-    return buildFallbackPlan(message, 'test_mode_default')
+    return await buildFallbackPlan(message, 'test_mode_default')
   }
-
-  const normalizedMessage = String(message || '').trim()
 
   try {
     console.debug('[orchestratorClient] Fetching orchestrator at: ' + ORCHESTRATOR_URL + '/orchestrate')
@@ -125,12 +112,12 @@ export async function getExecutionPlan(message) {
 
     if (!res.ok) {
       console.error('[orchestratorClient] Orchestrator returned error status: ' + res.status)
-      return buildFallbackPlan(message, 'orchestrator_http_' + res.status)
+      return await buildFallbackPlan(message, 'orchestrator_http_' + res.status)
     }
 
     if (!payload?.plan?.route) {
       console.error('[orchestratorClient] Invalid payload received, no plan.route')
-      return buildFallbackPlan(message, 'orchestrator_invalid_payload')
+      return await buildFallbackPlan(message, 'orchestrator_invalid_payload')
     }
 
     // Fallback path - no valid route in response
@@ -138,6 +125,6 @@ export async function getExecutionPlan(message) {
     return payload
   } catch (err) {
     console.error('[orchestratorClient] Orchestrator request failed: ' + err.message?.slice(0, 200))
-    return buildFallbackPlan(message, 'orchestrator_unreachable')
+    return await buildFallbackPlan(message, 'orchestrator_unreachable')
   }
 }

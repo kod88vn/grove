@@ -5,9 +5,11 @@ import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from '
 import {
   buildVerificationReport,
   buildVerificationSystemMessage,
-  requiresFactVerification,
   streamResponse,
 } from './chatStream'
+// Keyword-based classification functions still exist in intent.js for reference/back-compat,
+// but are no longer used by planTools/chatStream — intent classification is now LLM-based.
+import { requiresFactVerification, requiresPreciseValue } from './intent'
 
 // Polyfills
 const originalReadableStream = global.ReadableStream
@@ -57,7 +59,9 @@ describe('Source Citation Integration', () => {
     global.TextDecoder = originalTextDecoder
   })
 
-  it('recognizes "what happened" questions as requiring verification', () => {
+  it('recognizes "what happened" questions as requiring verification (keyword-based reference only)', () => {
+    // NOTE: This test verifies the deprecated keyword-based function for back-compat.
+    // In production, classification is LLM-only via classifyIntent().
     const result = requiresFactVerification('what happened to charlie kirk')
     expect(result).toBe(true)
   })
@@ -80,8 +84,10 @@ describe('Source Citation Integration', () => {
   })
 
   it('builds verification report with source counts from real sources', () => {
+    // NOTE: buildVerificationReport now requires forceRequired to be true (LLM classifier
+    // decides whether verification is needed). In production, the orchestrator sets this.
     const sources = ['https://reuters.com', 'https://bbc.com', 'https://apnews.com']
-    const report = buildVerificationReport('what happened to charlie kirk', sources)
+    const report = buildVerificationReport('what happened to charlie kirk', sources, { forceRequired: true })
 
     expect(report.required).toBe(true)
     expect(report.sourceCount).toBeGreaterThanOrEqual(1)
@@ -95,9 +101,10 @@ describe('Source Citation Integration', () => {
       { title: 'Update', url: 'https://bbc.com/charlie-kirk', snippet: 'Another source' },
     ]
 
-    // The key test: verify that sources from search are collected and used
+    // The key test: verify that sources from search are collected and used.
+    // forceRequired is true because in production the orchestrator/LLM classifier sets it.
     const sources = searchResults.map((r) => r.url)
-    const report = buildVerificationReport('what happened to charlie kirk', sources)
+    const report = buildVerificationReport('what happened to charlie kirk', sources, { forceRequired: true })
     const message = buildVerificationSystemMessage(report, 'what happened to charlie kirk', sources)
 
     expect(sources).toContain('https://reuters.com/charlie-kirk')
@@ -159,12 +166,14 @@ describe('Source Citation Integration', () => {
     expect(message).toContain('3. https://apnews.com')
   })
 
-  it('forceRequired option overrides regex-only requiresFactVerification (typo case)', () => {
-    // Typo "happed" defeats the regex; orchestrator still says verify.
+  it('forceRequired option forces verification regardless of deprecated keyword regex', () => {
+    // Typo "happed" defeats the deprecated regex; orchestrator still says verify.
     const userMessage = 'what happed to charlie kirk'
+    // NOTE: requiresFactVerification is deprecated — keyword-based only.
     expect(requiresFactVerification(userMessage)).toBe(false)
 
     const sources = ['https://reuters.com/article', 'https://bbc.com/story']
+    // forceRequired=true is what the LLM classifier/orchestrator sets in production.
     const report = buildVerificationReport(userMessage, sources, { forceRequired: true })
 
     expect(report.required).toBe(true)
