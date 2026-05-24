@@ -20,7 +20,8 @@ import { deepResearch } from './research'
 import { getExecutionPlan } from './orchestratorClient'
 import { dedupeSourceUrls, readWebpage, webSearch } from './web'
 import { isLowConfidenceSource, isTrustedNewsSource } from './sources'
-import { requiresPreciseValue } from './intent'
+// NOTE: requiresPreciseValue/RequiresLiveData/requiresFactVerification removed.
+// All intent classification is now LLM-based via classifyIntent() in planTools.js.
 import { buildDatedQuery, buildTrustedOutletQueries } from './queries'
 import { safeJsonParse } from './llmCalls'
 import {
@@ -158,11 +159,11 @@ async function escalateRound3(userMessage, followupMessages, sourceUrls, emit) {
   }
 }
 
-// If we have evidence for a precise-value question but the planner skipped
-// read_webpage, fetch the top reliable URL and pin its content as a system
-// message so the model can't fall back to training data.
+// If we have evidence but the planner skipped read_webpage, fetch the top
+// reliable URL and pin its content as a system message so the model can't
+// fall back to training data. Replaces keyword-based requiresPreciseValue() check —
+// now always reads top source when verification is required (LLM determines need).
 async function ensurePreciseValuePageRead(userMessage, followupMessages, sourceUrls, emit) {
-  if (!requiresPreciseValue(userMessage)) return
 
   const alreadyRead = followupMessages.some(
     (m) => m.tool_name === 'read_webpage' || m.tool_calls?.some((c) => c.function?.name === 'read_webpage'),
@@ -354,7 +355,8 @@ export function streamResponse(model, messages) {
 }
 
 // ---- Public re-exports (consumed by tests + route.js) -----------------------
-export { requiresFactVerification, requiresLiveData, requiresPreciseValue } from './intent'
+// NOTE: requiresFactVerification, requiresLiveData, requiresPreciseValue removed.
+// All intent classification is now LLM-based via classifyIntent() in planTools.js.
 export {
   countHighConfidenceSources,
   countReliableSources,

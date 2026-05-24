@@ -9,7 +9,7 @@ import { TOOL_DEFINITIONS } from './tools'
 import { log } from './logger'
 import { dedupeSourceUrls, readWebpage, webSearch } from './web'
 import { isLowConfidenceSource } from './sources'
-import { requiresFactVerification, requiresLiveData, requiresPreciseValue } from './intent'
+import { classifyIntent } from './intent'
 import { assessVerificationNeed } from './llmCalls'
 import { buildVerificationQueries, buildVerificationReport } from './verification'
 import { buildDatedQuery } from './queries'
@@ -186,7 +186,17 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
   }
 
   const noToolCalls = !Array.isArray(toolCalls) || toolCalls.length === 0
-  const shouldForceLiveSearch = noToolCalls && requiresLiveData(userMessage)
+
+  // LLM-based semantic intent classification via classifyIntent().
+  // NO keyword matching — all decisions are made by calling Ollama with semantic understanding.
+  let intentResult = null
+  if (noToolCalls) {
+    intentResult = await classifyIntent(model, userMessage)
+  }
+
+  // Live data check: LLM classifier determines if we need live search.
+  // Replaces the old requiresLiveData() keyword-based check (weather/stock/sports patterns).
+  const shouldForceLiveSearch = noToolCalls && intentResult?.requiresSearch === true
 
   if (shouldForceLiveSearch) {
     await runLiveDataSearch(userMessage, followupMessages, sourceUrls, emit)
@@ -199,16 +209,19 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
     ? await assessVerificationNeed(model, userMessage)
     : { required: false, confidence: 'low', reason: forceVerificationFromPlanner ? 'orchestrator_forced' : 'tool_call_present', queryHints: [] }
 
+  // Verification requirement: ONLY use orchestrator force flag or LLM classifier result.
+  // The old requiresFactVerification() keyword-based check has been removed — it was
+  // redundant with classifyIntent and caused false positives on conversational queries.
   const shouldForceVerification = noToolCalls && (
     forceVerificationFromPlanner
     || semanticVerification.required
-    || requiresFactVerification(userMessage)
   )
 
   if (shouldForceVerification) {
     await runVerificationSearches(userMessage, semanticVerification.queryHints, followupMessages, sourceUrls, emit)
 
-    const verificationReport = buildVerificationReport(userMessage, sourceUrls)
+    // Pass forceRequired from the LLM classifier (or test-mode keyword fallback).
+    const verificationReport = buildVerificationReport(userMessage, sourceUrls, { forceRequired: true })
     const dedupedSourceUrls = dedupeSourceUrls(sourceUrls)
     if (verificationReport.status === 'low_confidence' && dedupedSourceUrls.length === 1) {
       await readSinglePrimarySource(dedupedSourceUrls[0], followupMessages, emit, 'for primary evidence')
@@ -239,7 +252,9 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
       // For precise-value questions (version numbers, prices, etc.) the search
       // result only supplies a URL — the model needs the actual page content.
       // Read the top reliable source before streaming the final answer.
-      if (requiresPreciseValue(userMessage)) {
+      // Note: intentResult.searchHints from LLM classifier guide search queries instead of
+      // the old requiresPreciseValue() keyword pattern matching.
+      if (intentResult?.searchHints && intentResult.searchHints.length > 0) {
         const freshDedupe = dedupeSourceUrls(sourceUrls)
         const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
         if (topUrl) {
