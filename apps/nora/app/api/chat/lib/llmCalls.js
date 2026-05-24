@@ -44,11 +44,12 @@ export async function assessVerificationNeed(model, userMessage) {
         {
           role: 'system',
           content:
-            'Classify whether a user query requires external factual verification before answering. ' +
-            'Use semantic intent, not keywords. ' +
+            'You are Nora\'s verification classifier. Analyze the user query and determine whether it requires external factual verification before answering. Use semantic intent understanding, not keyword matching. ' +
+            'Mark required=true for claims likely to change over time (current events, news, weather, stock prices, sports scores), numerical/price/performance claims that need current data, market recommendations with live pricing, rankings, current office holders, or health/safety/legal sensitive claims. ' +
+            'Mark required=false for casual conversation, general knowledge explanations that are timeless, creative writing, opinions, rewrites, or emotional/social chat. ' +
+            'When in doubt between verification and no-verification, choose required=true.' +
             'Return ONLY JSON with this shape: ' +
-            '{"required":boolean,"confidence":"low|medium|high","reason":string,"queryHints":string[]}. ' +
-            'Mark required=true for claims likely to change over time, numerical/price/performance claims, market recommendations, rankings, current events, or health/safety/legal sensitive claims.',
+            '{"required":boolean,"confidence":"low|medium|high","reason":string,"queryHints":string[]}.',
         },
         { role: 'user', content: userMessage },
       ],
