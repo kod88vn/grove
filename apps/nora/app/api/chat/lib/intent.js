@@ -1,6 +1,6 @@
-// Intent detection: deprecated keyword-based classification.
+// Intent detection: LLM-based classification only.
 //
-// ⚠️ DEPRECATED — All intent classification decisions (whether to web-search
+// ⚠️ All intent classification decisions (whether to web-search
 // or treat as fast-chat) are now made exclusively by the LLM-based
 // classifyIntent() function in this same file.
 //
@@ -12,6 +12,11 @@
 //
 // The LLM classifier is in classifyIntent() — it calls Ollama with a prompt that
 // instructs the model to use semantic understanding, not keyword matching.
+//
+// PER AGENTS.md "No Silent Failures" rule: classifyIntent() throws on classifier
+// failures. Callers must handle the error to decide how to proceed. A failed
+// classifier does NOT silently default to requiresSearch=false — it throws so the
+// caller can surface or handle the failure appropriately.
 
 const CURRENT_TITLE_KEYWORDS = [
   'president',
@@ -229,13 +234,34 @@ Examples:
 - "how are you doing" => requiresSearch: false, reason: "casual greeting", confidence: high`;
 
 /**
+ * Error thrown when the LLM intent classifier fails in production.
+ * Per AGENTS.md "No Silent Failures" rule — classifier failures must be surfaced,
+ * not silently masked with a default requiresSearch=false value.
+ */
+export class IntentClassifierError extends Error {
+  constructor(message, details = {}) {
+    super(message)
+    this.name = 'IntentClassifierError'
+    this.details = details
+  }
+}
+
+/**
  * Classify a user message using an LLM to determine if web search is needed.
  * This is the ONLY intent classification function — no keyword matching is used.
- * Used by planTools.js and orchestratorClient.js for routing decisions.
+ * Used by planTools.js, orchestratorClient.js, and chatStream.js for routing decisions.
+ *
+ * In production (NODE_ENV !== 'test'): throws on classifier failure to prevent silent
+ * degradation. Callers that cannot handle the error should catch IntentClassifierError
+ * and decide whether to require search (fail-safe: default to requiresSearch=true on error).
+ *
+ * In test mode (NODE_ENV === 'test'): returns a mock result. Callers must set
+ * TEST_FALLBACK_ROUTE to exercise the actual routing code path under test.
  *
  * @param {string} model - Ollama model to use for classification
  * @param {string} userMessage - The user's message text
  * @returns {Promise<{requiresSearch: boolean, reason: string, searchHints: string[], confidence: string}>}
+ * @throws {IntentClassifierError} When the classifier fails in production.
  */
 export async function classifyIntent(model, userMessage) {
   if (!userMessage || !String(userMessage).trim()) {
@@ -246,6 +272,8 @@ export async function classifyIntent(model, userMessage) {
     return { requiresSearch: false, reason: 'disabled_in_test', searchHints: [], confidence: 'low' }
   }
 
+  const trimmedMessage = String(userMessage).trim()
+
   try {
     const res = await callOllama({
       model,
@@ -253,27 +281,52 @@ export async function classifyIntent(model, userMessage) {
       options: { num_predict: 120, think: false },
       messages: [
         { role: 'system', content: CLASSIFIER_SYSTEM_PROMPT },
-        { role: 'user', content: String(userMessage) },
+        { role: 'user', content: trimmedMessage },
       ],
     })
 
     if (!res.ok) {
-      return { requiresSearch: false, reason: 'classifier_request_failed', searchHints: [], confidence: 'low' }
+      const status = res.status || 'unknown'
+      throw new IntentClassifierError(
+        `LLM intent classifier request failed with status ${status}`,
+        { reason: 'classifier_request_failed', statusCode: status, userMessage: trimmedMessage.slice(0, 200) }
+      )
     }
 
     const json = await res.json()
     const content = json?.message?.content
     if (!content) {
-      return { requiresSearch: false, reason: 'classifier_empty_response', searchHints: [], confidence: 'low' }
+      throw new IntentClassifierError(
+        'LLM intent classifier returned empty response body',
+        { reason: 'classifier_empty_response', userMessage: trimmedMessage.slice(0, 200) }
+      )
     }
 
     // Extract JSON from response (handle potential code fences or extra text)
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      return { requiresSearch: false, reason: 'classifier_parse_failed', searchHints: [], confidence: 'low' }
+      throw new IntentClassifierError(
+        `LLM intent classifier returned non-JSON response: ${content.slice(0, 100)}`,
+        { reason: 'classifier_parse_failed', rawResponse: content.slice(0, 200), userMessage: trimmedMessage.slice(0, 200) }
+      )
     }
 
-    const parsed = JSON.parse(jsonMatch[0])
+    let parsed
+    try {
+      parsed = JSON.parse(jsonMatch[0])
+    } catch (parseErr) {
+      throw new IntentClassifierError(
+        `LLM intent classifier JSON parse error: ${parseErr.message}`,
+        { reason: 'classifier_parse_failed', rawResponse: content.slice(0, 200), userMessage: trimmedMessage.slice(0, 200) }
+      )
+    }
+
+    if (typeof parsed.requiresSearch !== 'boolean') {
+      throw new IntentClassifierError(
+        `LLM intent classifier missing requiresSearch boolean: ${JSON.stringify(parsed).slice(0, 100)}`,
+        { reason: 'classifier_parse_failed', parsedFragment: JSON.stringify(parsed).slice(0, 100), userMessage: trimmedMessage.slice(0, 200) }
+      )
+    }
 
     return {
       requiresSearch: Boolean(parsed.requiresSearch),
@@ -283,9 +336,46 @@ export async function classifyIntent(model, userMessage) {
         : [],
       confidence: ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'low',
     }
-  } catch {
-    return { requiresSearch: false, reason: 'classifier_exception', searchHints: [], confidence: 'low' }
+  } catch (err) {
+    // Don't wrap IntentClassifierError again
+    if (err instanceof IntentClassifierError) {
+      throw err
+    }
+    // Re-throw any non-application errors (network, etc.)
+    throw new IntentClassifierError(
+      `LLM intent classifier exception: ${err.message}`,
+      { reason: 'classifier_exception', error: err?.message || String(err), userMessage: trimmedMessage.slice(0, 200) }
+    )
   }
 }
 
 import { callOllama } from './ollama'
+
+// ============================================================================
+// Test-mode helpers (NOT used in production)
+// ============================================================================
+
+/**
+ * Mock classifyIntent for tests that want to exercise the LLM classifier code path.
+ * Use this instead of TEST_FALLBACK_ROUTE when you need to verify that classifyIntent()
+  correctly drives routing decisions in planTools or orchestratorClient.
+ *
+ * Example:
+ *   import { classifyIntent, _setClassifierMock } from './intent'
+ *   _setClassifierMock({ requiresSearch: true, reason: 'mock', searchHints: [], confidence: 'high' })
+ */
+let _mockResult = null
+
+export function _setClassifierMock(mock) {
+  _mockResult = mock
+}
+
+export async function classifyIntentWithOverride(model, userMessage) {
+  // In test mode with a mock set, use the mock result to exercise actual routing code.
+  if (process.env.NODE_ENV === 'test' && _mockResult) {
+    return { ..._mockResult, reason: 'mock_classifier' }
+  }
+  // Otherwise delegate to the real classifier (which throws in production on failure).
+  return classifyIntent(model, userMessage)
+}
+

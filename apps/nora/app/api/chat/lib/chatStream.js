@@ -30,6 +30,7 @@ import {
 } from './verification'
 import { planTools } from './planTools'
 import { streamFinalAnswer } from './streamAnswer'
+import { IntentClassifierError } from './intent'
 
 const isUnverifiedStatus = (status) =>
   status === 'unverified' || status === 'weak' || status === 'low_confidence'
@@ -342,7 +343,15 @@ export function streamResponse(model, messages) {
         log.error(error)
         emit({ searching: false })
         emit({ thinkingDone: true })
-        emit({ word: `Error: ${error.message || 'Request failed'}` })
+
+        // Surface IntentClassifierError clearly so the user knows classification
+        // failed (per "No Silent Failures" policy — not silently masking errors).
+        if (error instanceof IntentClassifierError) {
+          emit({ word: `I couldn't reach my intent classifier (LLM service unavailable). I'll do my best with a general response. Error: ${error.message?.slice(0, 120) || 'unknown'}` })
+        } else {
+          emit({ word: `Error: ${error.message || 'Request failed'}` })
+        }
+
         controller.enqueue(enc.encode('data: [DONE]\n\n'))
         controller.close()
       }

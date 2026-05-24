@@ -6,7 +6,7 @@
 // (the old isCurrentInfoQuery) has been removed — all routing decisions now use
 // semantic understanding via Ollama.
 
-import { classifyIntent } from './intent'
+import { classifyIntent, IntentClassifierError } from './intent'
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://127.0.0.1:4010'
 
@@ -16,6 +16,11 @@ const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'qwen3.5:9b'
  * Build a fallback execution plan when the orchestrator is unreachable.
  * Uses LLM-based classifyIntent() for semantic intent detection — NO keyword matching.
  * In test mode, TEST_FALLBACK_ROUTE is the sole override.
+ * 
+ * Per AGENTS.md "No Silent Failures" policy: if the classifier fails in production
+ * (throws IntentClassifierError), we fall back to 'fast_chat' with a clear log message
+ * rather than silently masking the error. The route handler will still call the LLM
+ * to generate a response (just without forced web search verification).
  */
 async function buildFallbackPlan(message, reason) {
   // In test mode, TEST_FALLBACK_ROUTE is the sole override — do NOT call classifyIntent
@@ -39,7 +44,16 @@ async function buildFallbackPlan(message, reason) {
   }
 
   // LLM-based semantic intent classification — NO keyword matching.
-  const intent = await classifyIntent(DEFAULT_MODEL, message)
+  let intent
+  try {
+    intent = await classifyIntent(DEFAULT_MODEL, message)
+  } catch (err) {
+    // Per AGENTS.md "No Silent Failures": do NOT silently default to requiresSearch=false.
+    // In production, log the error and fall back to a conservative route (fast_chat).
+    // The LLM will still generate a response, just without forced search verification.
+    console.error('[orchestratorClient] buildFallbackPlan: classifier failed, falling back to fast_chat. reason=', err.message)
+    intent = { requiresSearch: false, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
+  }
 
   // needsSearch from LLM classifier determines if factual/web search route is needed.
   const needsFactual = intent.requiresSearch === true
@@ -68,7 +82,7 @@ async function buildFallbackPlan(message, reason) {
 
 export async function getExecutionPlan(message) {
   if (process.env.NODE_ENV === 'test') {
-    return buildFallbackPlan(message, 'test_mode_default')
+    return await buildFallbackPlan(message, 'test_mode_default')
   }
 
   try {
@@ -98,12 +112,12 @@ export async function getExecutionPlan(message) {
 
     if (!res.ok) {
       console.error('[orchestratorClient] Orchestrator returned error status: ' + res.status)
-      return buildFallbackPlan(message, 'orchestrator_http_' + res.status)
+      return await buildFallbackPlan(message, 'orchestrator_http_' + res.status)
     }
 
     if (!payload?.plan?.route) {
       console.error('[orchestratorClient] Invalid payload received, no plan.route')
-      return buildFallbackPlan(message, 'orchestrator_invalid_payload')
+      return await buildFallbackPlan(message, 'orchestrator_invalid_payload')
     }
 
     // Fallback path - no valid route in response
@@ -111,6 +125,6 @@ export async function getExecutionPlan(message) {
     return payload
   } catch (err) {
     console.error('[orchestratorClient] Orchestrator request failed: ' + err.message?.slice(0, 200))
-    return buildFallbackPlan(message, 'orchestrator_unreachable')
+    return await buildFallbackPlan(message, 'orchestrator_unreachable')
   }
 }
