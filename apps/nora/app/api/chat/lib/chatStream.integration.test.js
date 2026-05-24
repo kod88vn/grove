@@ -5,7 +5,6 @@ import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from '
 import {
   buildVerificationReport,
   buildVerificationSystemMessage,
-  requiresFactVerification,
   streamResponse,
 } from './chatStream'
 
@@ -57,10 +56,9 @@ describe('Source Citation Integration', () => {
     global.TextDecoder = originalTextDecoder
   })
 
-  it('recognizes "what happened" questions as requiring verification', () => {
-    const result = requiresFactVerification('what happened to charlie kirk')
-    expect(result).toBe(true)
-  })
+  // NOTE: Keyword-based requiresFactVerification test removed. All intent
+  // classification now uses the LLM classifier (classifyIntent in lib/intent.js)
+  // which performs semantic understanding instead of regex/keyword matching.
 
   it('builds verification system message with available sources', () => {
     const report = {
@@ -81,7 +79,9 @@ describe('Source Citation Integration', () => {
 
   it('builds verification report with source counts from real sources', () => {
     const sources = ['https://reuters.com', 'https://bbc.com', 'https://apnews.com']
-    const report = buildVerificationReport('what happened to charlie kirk', sources)
+    // forceRequired: true simulates what the orchestrator does when classifyIntent
+    // determines this prompt needs web search (LLM-based, not keyword matching).
+    const report = buildVerificationReport('what happened to charlie kirk', sources, { forceRequired: true })
 
     expect(report.required).toBe(true)
     expect(report.sourceCount).toBeGreaterThanOrEqual(1)
@@ -95,19 +95,30 @@ describe('Source Citation Integration', () => {
       { title: 'Update', url: 'https://bbc.com/charlie-kirk', snippet: 'Another source' },
     ]
 
-    // The key test: verify that sources from search are collected and used
+    // The key test: verify that sources from search are collected and used.
+    // forceRequired: true simulates what the orchestrator does when classifyIntent
+    // determines this prompt needs web search (LLM-based, not keyword matching).
     const sources = searchResults.map((r) => r.url)
-    const report = buildVerificationReport('what happened to charlie kirk', sources)
+    const report = buildVerificationReport('what happened to charlie kirk', sources, { forceRequired: true })
     const message = buildVerificationSystemMessage(report, 'what happened to charlie kirk', sources)
 
     expect(sources).toContain('https://reuters.com/charlie-kirk')
     expect(sources).toContain('https://bbc.com/charlie-kirk')
     expect(report.required).toBe(true)
-
-    // Verify system message includes the sources
     expect(message).toContain('reuters.com')
     expect(message).toContain('bbc.com')
     expect(message).toContain('AVAILABLE SOURCES')
+  })
+
+  it('builds verification report with official sources as verified', () => {
+    // forceRequired: true simulates what the orchestrator does when classifyIntent
+    // determines this prompt needs web search (LLM-based, not keyword matching).
+    const sources = ['https://www.whitehouse.gov/administration/president-donald-j-trump/']
+    const report = buildVerificationReport('who is the current US president?', sources, { forceRequired: true })
+
+    expect(report.required).toBe(true)
+    expect(report.status).toBe('verified')
+    expect(report.highConfidenceSourceCount).toBe(1)
   })
 
   it('source list in verification message is numbered', () => {
@@ -159,10 +170,11 @@ describe('Source Citation Integration', () => {
     expect(message).toContain('3. https://apnews.com')
   })
 
-  it('forceRequired option overrides regex-only requiresFactVerification (typo case)', () => {
-    // Typo "happed" defeats the regex; orchestrator still says verify.
+  it('forceRequired option overrides prompts that LLM classifier marked as needing verification', () => {
+    // NOTE: All intent classification now uses the LLM classifier (classifyIntent in lib/intent.js)
+    // which performs semantic understanding instead of regex/keyword matching.
+    // forceRequired is set by the orchestrator when classifyIntent determines search is needed.
     const userMessage = 'what happed to charlie kirk'
-    expect(requiresFactVerification(userMessage)).toBe(false)
 
     const sources = ['https://reuters.com/article', 'https://bbc.com/story']
     const report = buildVerificationReport(userMessage, sources, { forceRequired: true })
@@ -374,7 +386,7 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
     expect(sourcesEvent.sources.length).toBeGreaterThanOrEqual(1)
 
     // 4. Verification report emitted with required: true (forced by orchestrator even though
-    //    the typo defeats requiresFactVerification regex)
+    //    the typo defeats keyword-based regex heuristics)
     const verificationEvent = events.find((e) => e.verification)
     expect(verificationEvent).toBeDefined()
     expect(verificationEvent.verification.required).toBe(true)

@@ -2,7 +2,6 @@
 // or runtime payloads used by tool calls.
 
 import { normalizeQuery } from './toolCalls'
-import { isMarketRecommendationQuestion, isSensitivePersonStatusClaim } from './intent'
 
 export function buildCurrentTimePayload() {
   const now = new Date()
@@ -32,24 +31,15 @@ export function buildTrustedOutletQueries(userMessage) {
   const base = normalizeQuery(userMessage)
   if (!base) return []
 
+  // Build trusted outlet queries without keyword-based routing.
+  // The LLM classifier (classifyIntent) determines if search is needed upstream.
+
   const queries = [
     `${base} site:reuters.com`,
     `${base} site:apnews.com`,
     `${base} Reuters`,
     `${base} AP News`,
   ]
-
-  if (isMarketRecommendationQuestion(base)) {
-    queries.push(`${base} site:tomshardware.com`)
-    queries.push(`${base} site:techpowerup.com`)
-    queries.push(`${base} site:anandtech.com`)
-    queries.push(`${base} benchmark`)
-    queries.push(`${base} msrp price`)
-  }
-
-  if (isSensitivePersonStatusClaim(base)) {
-    queries.push(`${base} confirmed report`)
-  }
 
   return [...new Set(queries)]
 }

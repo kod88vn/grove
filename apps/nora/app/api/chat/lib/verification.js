@@ -1,15 +1,9 @@
 // Verification report + system message builder. Decides whether evidence is
 // sufficient and translates the verdict into model-facing instructions.
+// Uses LLM-based classification (classifyIntent) instead of keyword matching.
 
 import { normalizeQuery } from './toolCalls'
 import { dedupeSourceUrls } from './web'
-import {
-  isCurrentTitleQuestion,
-  isMarketRecommendationQuestion,
-  isSensitivePersonStatusClaim,
-  requiresFactVerification,
-  requiresPreciseValue,
-} from './intent'
 import {
   countHighConfidenceSources,
   countReliableSources,
@@ -24,48 +18,37 @@ export function buildVerificationQueries(userMessage) {
   const base = normalizeQuery(userMessage)
   if (!base) return []
 
-  const variants = []
-
-  if (isCurrentTitleQuestion(base)) {
-    variants.push(`${base} official source`)
-    if (/\bpresident\b/i.test(base)) {
-      variants.push(`${base} site:whitehouse.gov`)
-    }
-    variants.push(base)
-  } else {
-    variants.push(base)
-    variants.push(`${base} latest news`)
-    variants.push(`${base} official source`)
-  }
-
-  variants.push(`${base} Reuters`)
-  variants.push(`${base} AP News`)
+  // Build verification queries without keyword-based routing — the LLM classifier
+  // determines if search is needed upstream. Here we just generate good queries.
+  const variants = [
+    base,
+    `${base} latest news`,
+    `${base} official source`,
+    `${base} Reuters`,
+    `${base} AP News`,
+  ]
 
   return [...new Set(variants)]
 }
 
-function suppressWikipediaForCurrentTitle(userMessage, urls) {
-  if (!isCurrentTitleQuestion(userMessage)) return urls
-  return urls.filter((url) => {
-    const parsed = parseSourceUrl(url)
-    if (!parsed) return true
-    const host = parsed.hostname.replace(/^www\./, '')
-    return host !== 'wikipedia.org' && !host.endsWith('.wikipedia.org')
-  })
+function suppressWikipedia(urls) {
+  // Don't suppress Wikipedia by default anymore — the LLM classifier handles
+  // intent upstream. Return URLs as-is.
+  return urls
 }
 
 export function buildVerificationReport(userMessage, sourceUrls, options = {}) {
-  const required = Boolean(options.forceRequired) || requiresFactVerification(userMessage)
+  const required = Boolean(options.forceRequired)
+
+  // If the LLM classifier (classifyIntent) already determined this needs search,
+  // then verification is required. The forceRequired option overrides for tests.
   const rawUrls = dedupeSourceUrls(Array.isArray(sourceUrls) ? sourceUrls.filter(Boolean) : [])
-  const dedupedUrls = suppressWikipediaForCurrentTitle(userMessage, rawUrls)
+  const dedupedUrls = suppressWikipedia(rawUrls)
   const sourceCount = dedupedUrls.length
   const reliableSourceCount = countReliableSources(dedupedUrls)
   const highConfidenceSourceCount = countHighConfidenceSources(dedupedUrls)
   const trustedSourceCount = countTrustedSources(dedupedUrls)
   const trustedTechSourceCount = countTrustedTechSources(dedupedUrls)
-  const currentTitleQuestion = isCurrentTitleQuestion(userMessage)
-  const sensitivePersonStatusClaim = isSensitivePersonStatusClaim(userMessage)
-  const marketRecommendation = isMarketRecommendationQuestion(userMessage)
 
   // NOTE: property order matters — tests assert JSON substrings starting with
   // `{"required":...,"status":...`. Keep `required` and `status` first.
@@ -84,40 +67,12 @@ export function buildVerificationReport(userMessage, sourceUrls, options = {}) {
     return verdict('not_required', 'No strict verification required for this prompt type.', false)
   }
 
-  if (marketRecommendation && trustedTechSourceCount >= 1 && reliableSourceCount >= 2) {
-    return verdict(
-      'verified',
-      'Recommendation is corroborated by multiple reliable sources including a trusted hardware-review outlet. Answer with citations and trade-offs.',
-    )
-  }
-
-  if (marketRecommendation) {
-    return verdict(
-      sourceCount >= 1 ? 'weak' : 'unverified',
-      'Recommendation evidence is insufficient. Require at least one trusted hardware-review source plus corroboration before giving a definitive best-value pick.',
-    )
-  }
-
-  if (currentTitleQuestion && (highConfidenceSourceCount >= 1 || reliableSourceCount >= 1)) {
-    return verdict(
-      'verified',
-      'Current office/title claim is supported by a reliable source. Answer directly with citations.',
-    )
-  }
-
   // A single reliable source is enough for precise-value questions (version
   // numbers, prices, etc.) — we will read the page to get the actual value.
-  if (requiresPreciseValue(userMessage) && reliableSourceCount >= 1) {
+  if (reliableSourceCount >= 1) {
     return verdict(
       'verified',
       'A reliable source was found. Read the page to get the exact value and cite it.',
-    )
-  }
-
-  if (sensitivePersonStatusClaim && trustedSourceCount < 1) {
-    return verdict(
-      sourceCount >= 1 ? 'weak' : 'unverified',
-      'Sensitive person-status claims require at least one trusted outlet source before answering definitively.',
     )
   }
 
@@ -125,13 +80,6 @@ export function buildVerificationReport(userMessage, sourceUrls, options = {}) {
     return verdict(
       'verified',
       'Evidence is sufficient. Answer with citations and avoid unsupported extras.',
-    )
-  }
-
-  if (currentTitleQuestion && sourceCount >= 1) {
-    return verdict(
-      'low_confidence',
-      'Only low-confidence sources were found. Use cited evidence carefully and avoid unsupported extra details.',
     )
   }
 
@@ -153,12 +101,6 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
     : ''
 
   if (report.status === 'verified') {
-    if (requiresPreciseValue(userMessage)) {
-      return 'Verification phase: a source page has been read and its content is in the tool results above. ' +
-        'You MUST report the exact version, price, or number stated in that page content. ' +
-        'Do NOT use your training data for this value — it is outdated. ' +
-        'If the page content does not contain the value, say so explicitly instead of guessing.'
-    }
     return 'CRITICAL: You MUST cite sources for every factual claim.\n' +
       '- Format citations as [Source: Name] or (per Source Name)\n' +
       '- Include at least 2 independent sources explicitly named\n' +
@@ -169,9 +111,6 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
   }
 
   if (report.status === 'weak') {
-    if (isMarketRecommendationQuestion(userMessage)) {
-      return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
-    }
     return 'WEAK EVIDENCE - YOU MUST CITE SOURCES:\n' +
       '- Evidence is limited. Cite every source explicitly by name.\n' +
       '- Format: "According to [Source Name], ..."\n' +

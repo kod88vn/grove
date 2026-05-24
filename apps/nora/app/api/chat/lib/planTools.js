@@ -9,8 +9,7 @@ import { TOOL_DEFINITIONS } from './tools'
 import { log } from './logger'
 import { dedupeSourceUrls, readWebpage, webSearch } from './web'
 import { isLowConfidenceSource } from './sources'
-import { requiresFactVerification, requiresLiveData, requiresPreciseValue } from './intent'
-import { assessVerificationNeed } from './llmCalls'
+import { classifyIntent } from './intent'
 import { buildVerificationQueries, buildVerificationReport } from './verification'
 import { buildDatedQuery } from './queries'
 import { executeToolCall } from './toolExecution'
@@ -186,23 +185,39 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
   }
 
   const noToolCalls = !Array.isArray(toolCalls) || toolCalls.length === 0
-  const shouldForceLiveSearch = noToolCalls && requiresLiveData(userMessage)
 
-  if (shouldForceLiveSearch) {
-    await runLiveDataSearch(userMessage, followupMessages, sourceUrls, emit)
-    return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
-  }
-
-  // Skip the LLM-based verification need assessment when orchestrator already
-  // forced verification (saves one slow Ollama call).
-  const semanticVerification = noToolCalls && !forceVerificationFromPlanner
+  // LLM-based semantic intent classification via classifyIntent().
+  // When orchestrator already forced verification, skip the redundant classifier call.
+  let semanticVerification = noToolCalls && !forceVerificationFromPlanner
     ? await assessVerificationNeed(model, userMessage)
     : { required: false, confidence: 'low', reason: forceVerificationFromPlanner ? 'orchestrator_forced' : 'tool_call_present', queryHints: [] }
+
+  // Primary classification: use classifyIntent() as the authoritative source for
+  // determining whether web search is needed. No keyword matching is used.
+  let shouldForceLiveSearch = false
+  if (noToolCalls) {
+    const intent = await classifyIntent(model, userMessage)
+
+    // Update semantic verification with LLM result as the primary signal.
+    if (intent.requiresSearch && intent.confidence !== 'low') {
+      semanticVerification = { required: true, confidence: intent.confidence, reason: 'llm_classifier', queryHints: intent.searchHints }
+    } else if (intent.requiresSearch) {
+      // LLM says search needed but confidence is low — record the hint
+      semanticVerification = { required: true, confidence: intent.confidence, reason: 'llm_classifier_low_conf', queryHints: intent.searchHints }
+    }
+
+    // Live data check: LLM classification determines if we need live search
+    shouldForceLiveSearch = noToolCalls && semanticVerification.reason === 'llm_classifier'
+
+    if (shouldForceLiveSearch) {
+      await runLiveDataSearch(userMessage, followupMessages, sourceUrls, emit)
+      return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
+    }
+  }
 
   const shouldForceVerification = noToolCalls && (
     forceVerificationFromPlanner
     || semanticVerification.required
-    || requiresFactVerification(userMessage)
   )
 
   if (shouldForceVerification) {
@@ -239,12 +254,10 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
       // For precise-value questions (version numbers, prices, etc.) the search
       // result only supplies a URL — the model needs the actual page content.
       // Read the top reliable source before streaming the final answer.
-      if (requiresPreciseValue(userMessage)) {
-        const freshDedupe = dedupeSourceUrls(sourceUrls)
-        const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
-        if (topUrl) {
-          await readSinglePrimarySource(topUrl, followupMessages, emit, 'for exact value')
-        }
+      const freshDedupe = dedupeSourceUrls(sourceUrls)
+      const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
+      if (topUrl) {
+        await readSinglePrimarySource(topUrl, followupMessages, emit, 'for exact value')
       }
       toolCalls = []
     }
