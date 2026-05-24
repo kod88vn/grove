@@ -96,8 +96,9 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
 | **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
 | **Post-Deploy Verification** | [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
-| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors
+| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors |
 | **Branch-PR Check** | [`skills/workflow/branch-pr-check/SKILL.md`](skills/workflow/branch-pr-check/SKILL.md) | Verify current branch has open PR before proceeding |
+| **GitHub PR Review** | [`skills/coding/github-pr-review/SKILL.md`](skills/coding/github-pr-review/SKILL.md) | Automated PR review workflow — find open PRs, fix change requests, resubmit |
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
