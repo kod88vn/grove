@@ -131,6 +131,35 @@ When performing any of these activities, follow the procedure in the correspondi
 - Do **not** silently accept generation failure and substitute canned output.
 - Retries are allowed, but final failure should surface clearly so prompt/model issues are corrected at the source.
 
+## API Token Configuration
+
+**API tokens are configured in `~/.zshrc` (not `.env.local`).**
+
+### Required Tokens
+
+Add these to your `~/.zshrc` file:
+
+```bash
+# GitHub Personal Access Token (for API access)
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
+
+# Anthropic API Key (for Claude models)
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+After updating `.zshrc`, reload your shell or run:
+```bash
+source ~/.zshrc
+```
+
+### Old Configuration (removed from .env.local)
+
+The following variables are no longer used in `.env.local`:
+- `GITHUB_TOKEN` (replaced by `GITHUB_PERSONAL_ACCESS_TOKEN`)
+- `ANTHROPIC_API_KEY` (moved to `.zshrc`)
+
+Note: Other app-specific environment variables (e.g., SMTP settings for the nightly digest) may still be configured in `.env.local`.
+
 ## Workspace Standards
 
 - **Linkification**: When mentioning files in chat, always use markdown links: `[path/to/file.ts](path/to/file.ts)`.

@@ -68,6 +68,35 @@ Workspace boundary for the Grove reminders app. See [apps/reminders/README.md](a
 
 Intent-first orchestration service that is being expanded into the control plane for skill selection, tool routing, MCP integration, and schema-enforced structured outputs. Current baseline includes skill-manifest driven planning, `/orchestrate` execution, strict weather and dashboard schema validation routes, typed MCP unavailability refusals, and route-level audit logging. See [apps/orchestrator/README.md](apps/orchestrator/README.md) and [apps/orchestrator/DESIGN.md](apps/orchestrator/DESIGN.md).
 
+## API Token Configuration
+
+**API tokens are now configured in `~/.zshrc` (not `.env.local`).**
+
+### Required Tokens
+
+Add these to your `~/.zshrc` file:
+
+```bash
+# GitHub Personal Access Token (for API access)
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
+
+# Anthropic API Key (for Claude models)
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+After updating `.zshrc`, reload your shell or run:
+```bash
+source ~/.zshrc
+```
+
+### Old Configuration (removed from .env.local)
+
+The following variables are no longer used in `.env.local`:
+- `GITHUB_TOKEN` (replaced by `GITHUB_PERSONAL_ACCESS_TOKEN`)
+- `ANTHROPIC_API_KEY` (moved to `.zshrc`)
+
+Note: Other app-specific environment variables (e.g., SMTP settings for the nightly digest) may still be configured in `.env.local`.
+
 ## Development SMS Test Page
 
 The Grove app now includes a development-only test page for the nightly digest SMS/email-to-text flow:
