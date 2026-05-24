@@ -38,12 +38,12 @@ describe('getExecutionPlan', () => {
     expect(options.method).toBe('POST')
   })
 
-  it('falls back to fast_chat when orchestrator is unavailable', async () => {
+  it('falls back to factual_tool when orchestrator is unavailable (fail-safe toward web search)', async () => {
     process.env.NODE_ENV = 'development'
     global.fetch = jest.fn().mockRejectedValue(new Error('offline'))
 
     const result = await getExecutionPlan('what is weather')
-    expect(result.plan.route).toBe('fast_chat')
+    expect(result.plan.route).toBe('factual_tool')
     expect(result.plan.reason).toBe('orchestrator_unreachable')
   })
 

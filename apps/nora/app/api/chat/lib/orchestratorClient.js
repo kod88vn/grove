@@ -48,11 +48,11 @@ async function buildFallbackPlan(message, reason) {
   try {
     intent = await classifyIntent(DEFAULT_MODEL, message)
   } catch (err) {
-    // Per AGENTS.md "No Silent Failures": do NOT silently default to requiresSearch=false.
-    // In production, log the error and fall back to a conservative route (fast_chat).
-    // The LLM will still generate a response, just without forced search verification.
-    console.error('[orchestratorClient] buildFallbackPlan: classifier failed, falling back to fast_chat. reason=', err.message)
-    intent = { requiresSearch: false, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
+    // Per AGENTS.md "No Silent Failures": classifier failures must be surfaced.
+    // In production, log the error and fall back to requiresSearch=true (fail-safe toward web search).
+    // The LLM will still generate a response, but with forced search verification enabled.
+    console.error('[orchestratorClient] buildFallbackPlan: classifier failed, defaulting to requiresSearch=true (fail-safe). reason=', err.message)
+    intent = { requiresSearch: true, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
   }
 
   // needsSearch from LLM classifier determines if factual/web search route is needed.

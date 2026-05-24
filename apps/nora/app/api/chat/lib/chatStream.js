@@ -162,8 +162,11 @@ async function escalateRound3(userMessage, followupMessages, sourceUrls, emit) {
 
 // If we have evidence but the planner skipped read_webpage, fetch the top
 // reliable URL and pin its content as a system message so the model can't
-// fall back to training data. Replaces keyword-based requiresPreciseValue() check —
-// now always reads top source when verification is required (LLM determines need).
+// fall back to training data.
+//
+// KEY CHANGE: This function now unconditionally reads the top reliable URL whenever
+// called (since the caller already guards for needsPreciseValue via requireVerification).
+// Replaces keyword-based requiresPreciseValue() check — LLM determines verification need.
 async function ensurePreciseValuePageRead(userMessage, followupMessages, sourceUrls, emit) {
 
   const alreadyRead = followupMessages.some(

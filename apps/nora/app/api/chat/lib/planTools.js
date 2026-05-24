@@ -213,7 +213,6 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
   }
 
   // Live data check: LLM classifier determines if we need live search.
-  // Live data check: LLM classifier determines if we need live search.
   // Replaces the old requiresLiveData() keyword-based check (weather/stock/sports patterns).
   // Note: intentResult is always set when noToolCalls is true because classifyIntent() runs above.
   // In test mode, the classifier returns { requiresSearch: false } — callers must use TEST_FALLBACK_ROUTE.
@@ -285,14 +284,6 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
       const needsPageRead = noToolCalls && (intentResult?.requiresSearch === true)
 
       if (needsPageRead) {
-        const freshDedupe = dedupeSourceUrls(sourceUrls)
-        const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
-        if (topUrl) {
-          await readSinglePrimarySource(topUrl, followupMessages, emit, 'for exact value')
-        }
-      } else if (intentResult?.searchHints && intentResult.searchHints.length > 0) {
-        // Fallback: if classifier returned searchHints but requiresSearch was false,
-        // still read the page for precise-value questions. This handles edge cases.
         const freshDedupe = dedupeSourceUrls(sourceUrls)
         const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
         if (topUrl) {

@@ -18,27 +18,6 @@ import {
   parseSourceUrl,
 } from './sources'
 
-/**
- * Assess whether the user's prompt requires fact verification.
- * In production, this is decided by LLM-based classifyIntent() in planTools.js.
- * In test mode (NODE_ENV=test), the LLM classifier is disabled, so we fall back
- * to keyword-based detection ONLY for test coverage.
- * @param {string} userMessage
- * @returns {{requires: boolean, forceRequired?: boolean}}
- */
-export function assessVerificationNeed(userMessage) {
-  if (process.env.NODE_ENV === 'test') {
-    // LLM classifier disabled in test — fall back to keyword heuristic for tests.
-    return { requires: true, forceRequired: requiresFactVerification(userMessage) }
-  }
-
-  // In production, the orchestrator/planTools already called classifyIntent() and
-  // will set forceRequired when classifier says requiresSearch. This function is
-  // only reached here for informational purposes (e.g., to build query variants).
-  return { requires: true }
-}
-
-
 const MIN_VERIFICATION_SOURCES = 2
 
 export function buildVerificationQueries(userMessage) {

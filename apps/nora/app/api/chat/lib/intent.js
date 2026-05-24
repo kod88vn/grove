@@ -36,6 +36,8 @@ const CURRENT_TITLE_KEYWORDS = [
   'minister',
 ]
 
+import { callOllama } from './ollama'
+
 const VERIFICATION_KEYWORDS = [
   'event',
   'incident',
@@ -348,8 +350,6 @@ export async function classifyIntent(model, userMessage) {
     )
   }
 }
-
-import { callOllama } from './ollama'
 
 // ============================================================================
 // Test-mode helpers (NOT used in production)
