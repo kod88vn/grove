@@ -1,0 +1,14 @@
+# CRITICAL EXECUTION RULES
+
+1. STRICT ADHERENCE TO FOLLOW-UP PROMPTS
+- ALWAYS prioritize the user's most recent follow-up instruction over the original task description.
+- NEVER default to the original prompt if a newer message modifies, contradicts, or shifts the scope.
+- If a follow-up conflicts with an earlier goal, treat the follow-up as the absolute truth.
+
+2. STATE VERIFICATION BEFORE ACTIONS
+- Before executing any tool, explicitly confirm how it aligns with the user's LATEST message.
+- Do not repeat previous patterns if the user has explicitly requested a pivot or fix.
+
+3. DYNAMIC SCOPE CONTROL
+- Avoid "tunnel vision" on the initial problem. 
+- Acknowledge when the user changes direction, and immediately adjust your code execution path to match the new instruction.

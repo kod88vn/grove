@@ -42,6 +42,19 @@ curl -sH "Authorization: Bearer $GITHUB_TOKEN" \
 - If rate limited, wait or use an authenticated request
 - If the branch name contains special characters, quote it properly
 
+## API Token Configuration
+
+GitHub tokens are configured in `~/.zshrc` (not `.env.local`):
+
+```bash
+# GitHub Personal Access Token (for API access)
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
+```
+
+The `GITHUB_TOKEN` environment variable is no longer used. Update any scripts that reference it.
+
+See [`README.md`](../../README.md) for related environment variables.
+
 ## Example Output
 
 ```

@@ -96,8 +96,9 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 | **Component Architecture** | [`skills/coding/component-architecture/SKILL.md`](skills/coding/component-architecture/SKILL.md) | React/Next.js component design and boundaries |
 | **CI Monitoring** | [`skills/ci/monitoring/SKILL.md`](skills/ci/monitoring/SKILL.md) | Diagnose CI failures, replicate locally, resolve transient issues |
 | **Post-Deploy Verification** | [`skills/ci/post-deploy-verification/SKILL.md`](skills/ci/post-deploy-verification/SKILL.md) | Verify deploy success after merge — check workflow status, container health, confirm changes are live |
-| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors
+| **OpenObserve Logging** | [`skills/observability/openobserve/SKILL.md`](skills/observability/openobserve/SKILL.md) | Centralized log query, search, dashboards — AI troubleshooting workflow for production errors |
 | **Branch-PR Check** | [`skills/workflow/branch-pr-check/SKILL.md`](skills/workflow/branch-pr-check/SKILL.md) | Verify current branch has open PR before proceeding |
+| **GitHub PR Review** | [`skills/coding/github-pr-review/SKILL.md`](skills/coding/github-pr-review/SKILL.md) | Automated PR review workflow — find open PRs, fix change requests, resubmit |
 | **Terse Communication** | [`skills/workflow/terse-communication/SKILL.md`](skills/workflow/terse-communication/SKILL.md) | Brief, execution-first responses (default mode) |
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
@@ -129,6 +130,35 @@ When performing any of these activities, follow the procedure in the correspondi
 - Do **not** implement fallback content or fallback response paths that mask model errors.
 - Do **not** silently accept generation failure and substitute canned output.
 - Retries are allowed, but final failure should surface clearly so prompt/model issues are corrected at the source.
+
+## API Token Configuration
+
+**API tokens are configured in `~/.zshrc` (not `.env.local`).**
+
+### Required Tokens
+
+Add these to your `~/.zshrc` file:
+
+```bash
+# GitHub Personal Access Token (for API access)
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
+
+# Anthropic API Key (for Claude models)
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+After updating `.zshrc`, reload your shell or run:
+```bash
+source ~/.zshrc
+```
+
+### Old Configuration (removed from .env.local)
+
+The following variables are no longer used in `.env.local`:
+- `GITHUB_TOKEN` (replaced by `GITHUB_PERSONAL_ACCESS_TOKEN`)
+- `ANTHROPIC_API_KEY` (moved to `.zshrc`)
+
+Note: Other app-specific environment variables (e.g., SMTP settings for the nightly digest) may still be configured in `.env.local`.
 
 ## Workspace Standards
 

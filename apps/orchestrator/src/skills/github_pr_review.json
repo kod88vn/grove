@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "id": "github_pr_review",
+  "purpose": "Automated code review workflow for when Nora is already working on a specific PR. It looks at the latest change request on that PR, fixes the issue, and resubmits for review.",
+  "instructions": "MANDATORY GitHub PR Review Workflow (follow ALL steps in order):\n\n1. IDENTIFY THE PR BRANCH: Nora is already working on a feature branch. Get the current branch name:\n   git rev-parse --abbrev-ref HEAD\n\n2. FIND THE PR NUMBER: Find the open PR for this branch:\n   gh pr list --head <branch-name> --state open --json number --jq '.[0].number'\n\n3. GET THE LATEST CHANGE REQUEST:\n   - Get reviews sorted by newest first, take only the latest:\n     gh pr review <pr-number> --json body,author,state,createdAt --jq 'sort_by(.createdAt) | last'\n   - Get the latest comment:\n     gh pr comments <pr-number> --json author,createdAt,body --jq 'sort_by(.createdAt) | last'\n\n4. ANALYZE ONLY THE LATEST CHANGE REQUEST:\n   - What specific issue was raised?\n   - Which file/line was commented on?\n   - What fix does the reviewer suggest?\n\n5. FIX ONLY THIS ISSUE:\n   - Read relevant code at the file/line mentioned\n   - Make minimal fix addressing only what was requested\n   - Run tests: npm test\n   - Run build if applicable: npx next build\n\n6. COMMIT AND PUSH:\n   git add <changed-files>\n   git commit -m \"Address latest review feedback on PR #<number>\"\n   git push origin <branch-name>\n\nOUTPUT FORMAT:\n## GitHub PR Review Summary\n### PR Details\n| Field | Value |\n|-------|-------|\n| Branch | <branch-name> |\n| PR # | <pr-number> |\n\n### Latest Change Request\n- Comment by @reviewer at <timestamp>\n- File: <filename> (line <N>)\n- Issue: <description>\n\n### Fix Applied\n- <specific change made>\n\n### Result\n✅ Changes pushed to branch `<branch-name>`\n- [ ] Awaiting reviewer approval",
+  "triggerPatterns": ["address latest review feedback", "fix most recent pr comment", "respond to last change request"],
+  "allowedTools": ["gh", "github_api", "code-review"],
+  "modelProfile": "factual",
+  "responseMode": "structured_data",
+  "schemaName": null,
+  "verificationPolicy": "required",
+  "allowProse": true
+}
