@@ -32,12 +32,12 @@ export async function POST(request) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { passage, questions, lessonKeyPoint, domain, score, maxScore } = body || {}
+  const { passage, questions, lessonKeyPoint, domain, score, maxScore, answers } = body || {}
 
   try {
     const id = recordReading(
       'public',
-      passage, questions, lessonKeyPoint, domain, score, maxScore
+      passage, questions, lessonKeyPoint, domain, score, maxScore, answers
     )
     return Response.json({ id })
   } catch (error) {
