@@ -34,7 +34,7 @@ export function recordSubmission(studentId, subject, type, exerciseData, score, 
 }
 
 // Record a reading session to SQLite
-export function recordReading(studentId, passage, questions, lessonKeyPoint, domain, score, maxScore) {
+export function recordReading(studentId, passage, questions, lessonKeyPoint, domain, score, maxScore, answers) {
   const id = `reading-${Date.now()}`
   const percentage = maxScore ? Math.round((score / maxScore) * 100) : null
 
@@ -48,6 +48,7 @@ export function recordReading(studentId, passage, questions, lessonKeyPoint, dom
     score,
     max_score: maxScore,
     percentage,
+    answers_json: JSON.stringify(answers || {}),
   })
 
   return id

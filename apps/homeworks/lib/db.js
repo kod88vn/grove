@@ -32,6 +32,7 @@ const SCHEMA = `
     score REAL NOT NULL DEFAULT 0,
     max_score REAL NOT NULL DEFAULT 1,
     percentage INTEGER,
+    answers_json TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 
@@ -48,6 +49,11 @@ export function createDatabase(dbPath) {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+
+  // Migrate: ensure answers_json column exists on existing databases
+  try {
+    db.exec(`ALTER TABLE readings ADD COLUMN answers_json TEXT NOT NULL DEFAULT '{}'`)
+  } catch (_) { /* column already exists */ }
 
   return db
 }
@@ -95,8 +101,8 @@ function initStatements(db) {
   `)
 
   stmts.insertReading = db.prepare(`
-    INSERT INTO readings (id, student_id, passage, questions_json, lesson_key_point, domain, score, max_score, percentage)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO readings (id, student_id, passage, questions_json, lesson_key_point, domain, score, max_score, percentage, answers_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   stmts.getReadingsByDateRange = db.prepare(`
@@ -162,13 +168,14 @@ export function getSubmissionById(id) {
 
 export function insertReading(data) {
   ensureStatements()
-  const { id, student_id: sid, passage, questions, lesson_key_point, domain, score, max_score: mscore, percentage } = data
+  const { id, student_id: sid, passage, questions, lesson_key_point, domain, score, max_score: mscore, percentage, answers_json } = data
   return stmts.insertReading.run(
     id, sid, passage || '',
     JSON.stringify(questions || []),
     lesson_key_point || '',
     domain || 'random',
-    score, mscore, percentage
+    score, mscore, percentage,
+    answers_json || '{}'
   )
 }
 
@@ -180,6 +187,7 @@ export function getReadingsByDateRange(startDateMs, endDateMs) {
   return rows.map(r => ({
     ...r,
     questions: JSON.parse(r.questions_json),
+    answers: JSON.parse(r.answers_json || '{}'),
   }))
 }
 
@@ -251,6 +259,7 @@ export function getAllReadings(startDateMs, endDateMs) {
     score: r.score,
     max_score: r.max_score,
     percentage: r.percentage,
+    answers: JSON.parse(r.answers_json || '{}'),
     date: new Date(r.created_at * 1000).toISOString(),
   }))
 }

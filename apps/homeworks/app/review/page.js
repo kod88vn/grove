@@ -2,6 +2,21 @@
 
 import { useState, useEffect } from 'react'
 
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  // Use UTC to avoid timezone shifts messing up the date display
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function getSubjectLabel(subject) {
+  return subject === 'math' ? '🔢 Math' : '📚 English'
+}
+
+function getTypeLabel(type) {
+  const labels = { 'reading': 'Reading', 'writing': 'Writing', 'problem-set': 'Problem Set' }
+  return labels[type] || type
+}
+
 export default function ReviewPage() {
   const [days, setDays] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
@@ -27,21 +42,6 @@ export default function ReviewPage() {
   }
 
   useEffect(() => { loadData() }, [])
-
-  function formatDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00Z')
-    // Use UTC to avoid timezone shifts messing up the date display
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  function getSubjectLabel(subject) {
-    return subject === 'math' ? '🔢 Math' : '📚 English'
-  }
-
-  function getTypeLabel(type) {
-    const labels = { 'reading': 'Reading', 'writing': 'Writing', 'problem-set': 'Problem Set' }
-    return labels[type] || type
-  }
 
   if (loading) return <div className="text-gray-600 p-8">Loading review data...</div>
 
@@ -154,11 +154,6 @@ function SubmissionCard({ submission }) {
           <span className="text-xs text-gray-500 ml-2">{getTypeLabel(submission.type)}</span>
         </div>
         <div className="flex items-center gap-2">
-          {submission.feedback && (
-            <span className="text-xs text-gray-500 italic max-w-xs truncate" title={submission.feedback}>
-              {submission.feedback}
-            </span>
-          )}
           <span className={`rounded-full px-3 py-1 text-sm font-semibold ${
             submission.percentage >= 80 ? 'bg-green-100 text-green-700' :
             submission.percentage >= 60 ? 'bg-yellow-100 text-yellow-700' :
@@ -178,6 +173,59 @@ function SubmissionCard({ submission }) {
 
       {expanded && (
         <div className="mt-3 space-y-4 bg-slate-50 rounded p-3 text-sm">
+          {/* Grading subsection */}
+          <div className="bg-white rounded p-3 space-y-2">
+            <h4 className="font-semibold text-gray-700">Grading</h4>
+            <p className="text-xs text-gray-600">
+              Score: {submission.score} / {submission.max_score} ({submission.percentage}%)
+            </p>
+            {submission.feedback && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase">Feedback:</p>
+                <p className="text-gray-700 whitespace-pre-wrap mt-1">{submission.feedback}</p>
+              </div>
+            )}
+            {submission.details && submission.subject === 'math' && submission.type === 'problem-set' &&
+             submission.details.problems && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Problem Results:</p>
+                <div className="space-y-1">
+                  {submission.details.problems.map((problem, idx) => (
+                    <p key={idx} className="text-xs text-gray-700">
+                      {problem.correct ? '✅' : '❌'} Problem {idx + 1}: {problem.prompt || problem.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {submission.details && submission.subject === 'english' && submission.type === 'writing' &&
+             submission.details.criteria && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Rubric Criteria:</p>
+                <div className="space-y-1">
+                  {submission.details.criteria.map((criterion, idx) => (
+                    <p key={idx} className="text-xs text-gray-700">
+                      {criterion.name}: {criterion.score} / {criterion.maxScore || criterion.max_score}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {submission.details && submission.subject === 'english' && submission.type === 'reading' &&
+             submission.details.answers && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Per-Question Grade:</p>
+                <div className="space-y-1">
+                  {submission.details.answers.map((answer, idx) => (
+                    <p key={idx} className="text-xs text-gray-700">
+                      {answer.correct ? '✅' : '❌'} Question {idx + 1}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Render exercise content based on subject/type */}
           {submission.subject === 'math' && submission.type === 'problem-set' ? (
             <MathExerciseDetails exercise={submission.exercise} answers={submission.answers} />
@@ -333,7 +381,10 @@ function ReadingCard({ reading }) {
                 {reading.questions.map((q) => (
                   <div key={q.id} className="bg-white rounded p-2">
                     <p className="text-gray-700">Q{q.id}: {q.question}</p>
-                    <p className="text-xs text-gray-500 mt-1">✅ {q.correctAnswer}</p>
+                    <p className="text-xs text-green-700 mt-1">✅ Correct answer: {q.correctAnswer}</p>
+                    {reading.answers && reading.answers[q.id] !== undefined && (
+                      <p className="text-xs text-blue-700 mt-1">📝 Student answer: {reading.answers[q.id]}</p>
+                    )}
                   </div>
                 ))}
               </div>
