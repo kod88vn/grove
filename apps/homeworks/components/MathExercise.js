@@ -456,7 +456,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
         query.set('skillCategory', skillCategory)
       }
 
-      const res = await fetch(`/api/exercises?${query.toString()}`)
+      const res = await fetch(`/homeworks/api/exercises?${query.toString()}`)
       const data = await res.json()
       setExercise(data.exercise)
       setAnswers({})
@@ -484,7 +484,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
 
     setLoading_(true)
     try {
-      const res = await fetch('/api/grade', {
+      const res = await fetch('/homeworks/api/grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

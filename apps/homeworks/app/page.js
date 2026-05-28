@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { EnglishExercise } from '../components/EnglishExercise'
-import { MathExercise } from '../components/MathExercise'
+import dynamic from 'next/dynamic'
+const EnglishExerciseClient = dynamic(() => import('../components/EnglishExercise').then(mod => mod.EnglishExercise), { ssr: false })
+const MathExerciseClient = dynamic(() => import('../components/MathExercise').then(mod => mod.MathExercise), { ssr: false })
 
 export default function HomeworksPage() {
   const [activeSection, setActiveSection] = useState('english')
@@ -69,7 +70,7 @@ export default function HomeworksPage() {
               Read a short passage and answer questions to test your understanding. Mix of
               multiple choice and written answers.
             </p>
-            <EnglishExercise onSubmit={setLastSubmission} />
+            <EnglishExerciseClient onSubmit={setLastSubmission} />
           </div>
         )}
 
@@ -80,7 +81,7 @@ export default function HomeworksPage() {
               Solve math problems by showing your work step-by-step. Covers addition, subtraction,
               multiplication, and division. Remember to show all your steps!
             </p>
-            <MathExercise onSubmit={setLastSubmission} />
+            <MathExerciseClient onSubmit={setLastSubmission} />
           </div>
         )}
       </div>

@@ -16,12 +16,17 @@ describe('exercise resubmission flow', () => {
 
   it('allows revising and resubmitting english answers', async () => {
     global.fetch
-      // 1. loadTopics() calls /chat/api/nora-homework/topics
+      // 1. loadTopics() calls /chat/api/nora-homework/topics (on mount)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ topics: [], categories: [] }),
       })
-      // 2. fetchExercise() calls /homeworks/api/exercises?... (first exercise)
+      // 2. loadReadingHistory() calls /homeworks/api/reading-history (on mount)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ history: [] }),
+      })
+      // 3. fetchExercise() calls /homeworks/api/exercises?... (first exercise)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -61,8 +66,9 @@ describe('exercise resubmission flow', () => {
 
     render(<EnglishExercise />)
 
-    // Click "New Exercise" button which opens the topic modal
-    fireEvent.click(screen.getByRole('button', { name: /✏️ New Exercise/ }))
+    // Click "New Exercise" button which opens the topic modal (use getAllByRole since empty state also has one)
+    const newExerciseButtons = screen.getAllByRole('button', { name: /✏️ New Exercise/ })
+    fireEvent.click(newExerciseButtons[0])
 
     // Modal appears on top; select Random to proceed
     await screen.findByText('Choose a Reading Topic')
@@ -88,9 +94,9 @@ describe('exercise resubmission flow', () => {
     // New exercise loads with fresh answers
     await screen.findByText('Comprehension Questions')
 
-    // Total fetches: loadTopics + exercise(first) + grade(1st submit) + history save(first) + exercise(new) = 5
+    // Total fetches: loadTopics + history(load on mount) + exercise(first) + grade(1st submit) + history save(first) + exercise(new) = 6
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(5)
+      expect(global.fetch).toHaveBeenCalledTimes(6)
     })
 
     // Answer the second exercise and submit again for "revise" flow
@@ -114,9 +120,9 @@ describe('exercise resubmission flow', () => {
 
     await screen.findByText('Exercise Graded!')
 
-    // 5 + grade(2nd) + history save(2nd) = 7
+    // 6 + grade(2nd) + history save(2nd) = 8
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(7)
+      expect(global.fetch).toHaveBeenCalledTimes(8)
     })
   })
 
