@@ -36,10 +36,35 @@ jobs:
           Write-Host "sha=$sha"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "sha=$sha"
 
+      - name: Kill stale processes locking sharp binary (Windows runner)
+        shell: powershell
+        run: |
+          $procs = Get-Process | Where-Object { $_.Path -and $_.Path -match "sharp" }
+          if ($procs) {
+            Write-Host "Killing sharp-related processes: $($procs.Name -join ', ')"
+            $procs | Stop-Process -Force
+          } else {
+            Write-Host "No sharp-related processes found."
+          }
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed for turbo diff detection
           ref: ${{ steps.shainfo.outputs.sha }}
+
+      - name: Remove stale node_modules (sharp binary lock workaround)
+        if: always()
+        shell: powershell
+        run: |
+          # After checkout, remove node_modules if it exists from a previous build.
+          # This handles the case where actions/checkout's built-in clean failed due
+          # to locked sharp-win32-x64.node files (EPERM on Windows self-hosted runners).
+          if (Test-Path node_modules) {
+            Write-Host "Removing stale node_modules to ensure clean build..."
+            Remove-Item -Recurse -Force node_modules
+          } else {
+            Write-Host "node_modules not present; nothing to clean."
+          }
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
