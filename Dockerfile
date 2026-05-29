@@ -31,6 +31,12 @@ COPY . .
 ARG COMMIT_HASH=dev
 RUN printf "NEXT_PUBLIC_COMMIT_HASH=%s\n" "${COMMIT_HASH}" > apps/nora/.env.local
 
+# Rebuild better-sqlite3 for this Alpine stage (required after COPY --from=deps)
+RUN npm rebuild better-sqlite3
+
+# Set PLT_NORA_URL for Next.js builds (evaluated at build time)
+ENV PLT_NORA_URL=http://localhost:3000
+
 # Build all zone apps
 RUN yarn workspace @grove/grove build && \
     yarn workspace nora build && \
@@ -44,6 +50,10 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# Service connectivity: all apps run inside the same Platformatic runtime (single process)
+# PLT_NORA_URL: homeworks calls Nora at port 3000 (Nora's platformatic.json port)
+ENV PLT_NORA_URL=http://localhost:3000
 
 # Install build tools needed for native module compilation
 RUN apk add --no-cache make g++ python3
