@@ -11,9 +11,9 @@ export function EnglishExercise({ onSubmit, loading }) {
   const [selectedDomainId, setSelectedDomainId] = useState(null) // null or topic id (null = random)
   const [topics, setTopics] = useState([])
   const [categoriesMap, setCategoriesMap] = useState({})
-  const [view, setView] = useState('exercise') // 'exercise' or 'history'
+  const [view, setView] = useState('exercise') // 'exercise', 'history', or 'review'
   const [readingHistory, setReadingHistory] = useState([])
-  const [historyDetail, setHistoryDetail] = useState(null)
+  const [reviewData, setReviewData] = useState(null) // grading info when re-reading from history
 
   // --- Modal state for topic selection ---
   const [showTopicModal, setShowTopicModal] = useState(false)
@@ -44,15 +44,9 @@ export function EnglishExercise({ onSubmit, loading }) {
     }
   }
 
-  async function fetchReadingDetail(readingId) {
-    try {
-      const res = await fetch(`/homeworks/api/reading-history/${readingId}`)
-      if (!res.ok) return null
-      const data = await res.json()
-      return data
-    } catch {
-      return null
-    }
+  // No API endpoint for individual reading detail exists, so we find it from local history state instead
+  function getReadingFromHistory(readingId) {
+    return readingHistory.find((r) => String(r.id) === String(readingId)) || null
   }
 
   function getDomainLabel(domainId) {
@@ -64,7 +58,6 @@ export function EnglishExercise({ onSubmit, loading }) {
   // --- Fetch exercise when selectedDomainId changes ---
   async function fetchExercise() {
     setLoading_(true)
-    setHistoryDetail(null)
 
     try {
       const params = new URLSearchParams()
@@ -94,21 +87,33 @@ export function EnglishExercise({ onSubmit, loading }) {
     }
   }
 
-  // --- Fetch saved reading from history ---
+  // --- Fetch saved reading from history (review mode: show past score + answers) ---
   function selectReadingFromHistory(readingId) {
-    setExercise(null)
-    setSelectedDomainId(null)
+    // Set view synchronously FIRST — React will batch all state updates in this tick.
+    setView('review')
 
-    fetchReadingDetail(readingId).then((detail) => {
-      if (detail) {
-        setExercise({ passage: detail.passage, questions: detail.questions })
-        setLessonKeyPoint(detail.lessonKeyPoint || '')
-        setSelectedDomainId(detail.domain ? detail.domain : null)
-        setHistoryDetail(detail)
-        setAnswers({})
-        setSubmitted(null)
-      }
-    })
+    // Find the reading from local history state (synchronous, no await needed)
+    const detail = getReadingFromHistory(readingId)
+
+    if (detail) {
+      setExercise({ passage: detail.passage, questions: detail.questions })
+      setLessonKeyPoint(detail.lesson_key_point || '')
+      setSelectedDomainId(detail.domain ? detail.domain : null)
+      // Preserve past grading results for review display
+      setReviewData({
+        score: detail.score ?? 0,
+        maxScore: detail.max_score ?? 1,
+        percentage: detail.percentage ?? 0,
+        studentAnswers: detail.answers || {},
+      })
+      setAnswers({}) // clear unanswered for fresh attempt
+    } else {
+      // Reading not in local state — revert to exercise view and show error
+      console.warn('Reading not found in history for id:', readingId, 'current history count:', readingHistory.length)
+      setView('exercise')
+      setSelectedDomainId(null)
+      alert('Could not load reading details. Please try again.')
+    }
   }
 
   // --- Submit answers and save to history ---
@@ -129,7 +134,7 @@ export function EnglishExercise({ onSubmit, loading }) {
       const result = await res.json()
       setSubmitted(result)
 
-      // Save to reading history
+      // Save to reading history AND update local state immediately so counter stays fresh
       try {
         await fetch('/homeworks/api/reading-history', {
           method: 'POST',
@@ -143,13 +148,28 @@ export function EnglishExercise({ onSubmit, loading }) {
             maxScore: result.maxScore || 1,
           }),
         })
+        // Optimistically add to local history so the counter updates right away
+        const newEntry = {
+          id: `reading-${Date.now()}`,
+          student_id: 'public',
+          passage: exercise.passage,
+          questions: exercise.questions,
+          lesson_key_point: lessonKeyPoint,
+          domain: domainForHistory,
+          score: result.score || 0,
+          max_score: result.maxScore || 1,
+          percentage: result.percentage || 0,
+          date: new Date().toISOString(),
+          answers: { ...answers }, // include answers so immediate review shows student responses
+        }
+        setReadingHistory((prev) => [newEntry, ...prev])
       } catch (saveErr) {
-        console.log('Failed to save reading:', saveErr.message)
+        console.error('Failed to save reading:', saveErr)
       }
 
       onSubmit?.(result)
     } catch (error) {
-      console.log('Failed to submit: ' + error.message)
+      console.error('Failed to submit: ' + error.message)
     } finally {
       setLoading_(false)
     }
@@ -183,11 +203,7 @@ export function EnglishExercise({ onSubmit, loading }) {
     loadReadingHistory()
   }
 
-  // --- Effects ---
-  useEffect(() => {
-    loadTopics()
-  }, [])
-
+  // --- Effects (loadTopics removed — now in the combined effect above) ---
   useEffect(() => {
     if (view === 'exercise' && selectedDomainId) {
       fetchExercise()
@@ -248,6 +264,17 @@ export function EnglishExercise({ onSubmit, loading }) {
     )
   }
 
+  // Load reading history when component mounts so the detail is available for review without needing to click History first
+  useEffect(() => {
+    // Only run on client — during SSR these fetch calls fail and cause build errors
+    if (typeof window !== 'undefined') {
+      loadTopics()
+      loadReadingHistory()
+    }
+  }, [])
+
+  // --- Render helpers ---
+
   function renderHistoryTab() {
     if (readingHistory.length === 0) {
       return (
@@ -297,31 +324,63 @@ export function EnglishExercise({ onSubmit, loading }) {
   }
 
   function renderExerciseView() {
-    // Loading state (topic selected, fetching)
-    if (!exercise && loading_) {
+    // Empty state: no exercise loaded yet (initial render or after clearing)
+    if (!exercise && !submitted && !reviewData) {
       return (
-        <div className="flex items-center gap-4">
-          <p className="text-gray-500">Loading reading passage...</p>
+        <div className="text-center py-12">
+          <p className="mb-4 text-gray-500 text-lg">Start a reading exercise to begin.</p>
+          <p className="text-sm text-gray-400">Click "✏️ New Exercise" above to choose a topic and get started.</p>
         </div>
       )
     }
 
-    // Empty state — no exercise loaded, prompt to pick a topic via the New Exercise button above
-    if (!exercise) {
+    // Review state: already-graded exercise from history (checked FIRST so it takes priority)
+    if (reviewData) {
+      const bannerClass = reviewData.percentage >= 80
+        ? 'border-green-300 bg-green-50'
+        : reviewData.percentage >= 60
+          ? 'border-yellow-300 bg-yellow-50'
+          : 'border-red-300 bg-red-50'
+      const textClass = reviewData.percentage >= 80
+        ? 'text-green-800'
+        : reviewData.percentage >= 60
+          ? 'text-yellow-700'
+          : 'text-gray-800'
+      const headingClass = reviewData.percentage >= 80
+        ? 'text-green-800'
+        : reviewData.percentage >= 60
+          ? 'text-yellow-700'
+          : 'text-red-800'
       return (
-        <div className="space-y-4">
-          {!selectedDomainId && (
-            <p className="text-gray-500">Click "New Exercise" above to choose a topic and start.</p>
-          )}
+        <div className="space-y-6">
+          {/* Review summary banner */}
+          <div className={`rounded border ${bannerClass} p-6`}>
+            <h3 className={`mb-2 text-xl font-bold ${headingClass}`}>📝 Review: Past Submission</h3>
+            <p className={`mb-4 text-lg ${textClass}`}>Score: {reviewData.score}/{reviewData.maxScore} ({reviewData.percentage}%)</p>
+            <div className="rounded bg-white/60 p-3">
+              <p className="text-sm text-gray-600 mb-2">Your previous answers:</p>
+              <div className="space-y-1 text-sm text-gray-700">
+                {Object.entries(reviewData.studentAnswers).map(([qId, ans]) => (
+                  <p key={qId}><strong>Q{qId}:</strong> {ans}</p>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          {selectedDomainId && (
-            <p className="text-sm text-gray-500">Topic: {getDomainLabel(selectedDomainId)}</p>
-          )}
+          {/* Passage + questions with past answers shown */}
+          {renderExerciseWithPastAnswers(exercise, lessonKeyPoint, reviewData.studentAnswers, openTopicModalForNewExercise)}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={() => { setReviewData(null); setExercise(null); setSubmitted(null); openTopicModalForNewExercise() }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+              New Exercise
+            </button>
+          </div>
+
         </div>
       )
     }
 
-    // Submission result state
+    // Submission result state (fresh exercise just graded)
     if (submitted) {
       return (
         <div className="space-y-6">
@@ -396,6 +455,43 @@ export function EnglishExercise({ onSubmit, loading }) {
     )
   }
 
+  // Helper to render exercise with past answers shown as read-only info
+  function renderExerciseWithPastAnswers(exerciseData, lessonKeyPointValue, pastAnswers, openTopicModalForNewExerciseFn) {
+    if (!exerciseData) return null
+
+    return (
+      <div className="space-y-6">
+        <div className="rounded border border-slate-300 bg-white p-6">
+          {lessonKeyPointValue && (
+            <div className="mb-3 flex items-center gap-2 rounded bg-blue-50 px-4 py-2">
+              <span className="text-lg">📚</span>
+              <p className="text-sm font-medium text-blue-800">Lesson: {lessonKeyPointValue}</p>
+            </div>
+          )}
+          <h3 className="mb-4 text-lg font-semibold text-gray-800">Reading Passage</h3>
+          <p className="whitespace-pre-line leading-relaxed text-gray-700">{exerciseData.passage}</p>
+        </div>
+
+        {pastAnswers && Object.keys(pastAnswers).length > 0 && (
+          <div className="rounded border border-amber-200 bg-amber-50 p-4">
+            <h4 className="mb-2 font-semibold text-amber-800">📋 Your Previous Answers:</h4>
+            <div className="space-y-2">
+              {exerciseData.questions?.map((q) => (
+                <div key={q.id}>
+                  <p className="text-sm font-medium text-gray-700">Q{q.id}: {pastAnswers[q.id]}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button type="button" onClick={() => { openTopicModalForNewExerciseFn() }} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+          Try This Exercise Again (Unanswered)
+        </button>
+      </div>
+    )
+  }
+
   // --- Main render ---
   return (
     <div>
@@ -404,10 +500,10 @@ export function EnglishExercise({ onSubmit, loading }) {
 
       {/* View Toggle */}
       <div className="mb-4 flex gap-2">
-        <button type="button" onClick={openTopicModalForNewExercise} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'exercise' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
+        <button type="button" onClick={openTopicModalForNewExercise} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'exercise' ? 'bg-blue-600 text-white shadow-md' : view === 'review' ? 'bg-blue-100 text-blue-600 shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
           ✏️ New Exercise
         </button>
-        <button type="button" onClick={switchToHistory} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'history' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
+        <button type="button" onClick={switchToHistory} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${view === 'history' ? 'bg-blue-600 text-white shadow-md' : view === 'review' ? 'bg-blue-100 text-blue-600 shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-blue-50'}`}>
           📚 History ({readingHistory.length})
         </button>
       </div>
