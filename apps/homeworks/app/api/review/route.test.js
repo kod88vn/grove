@@ -93,4 +93,3 @@ describe('GET /api/review', () => {
     expect(body.error).toBe('DB connection failed')
   })
 })
-
