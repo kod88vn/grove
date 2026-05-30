@@ -55,6 +55,11 @@ ENV NODE_ENV=production
 # PLT_NORA_URL: homeworks calls Nora at port 3000 (Nora's platformatic.json port)
 ENV PLT_NORA_URL=http://localhost:3000
 
+# Ollama host - defaults to localhost since production uses --network host.
+# When the container shares the host's network namespace, Ollama on the host
+# is reachable at localhost:11434.
+ENV OLLAMA_HOST=http://localhost:11434
+
 # Install build tools needed for native module compilation
 RUN apk add --no-cache make g++ python3
 

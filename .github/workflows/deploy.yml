@@ -179,7 +179,7 @@ jobs:
           docker run -d `
             --name grove-live `
             --restart always `
-            -p 80:80 `
+            --network host `
             -e NORA_DB_PATH=/data/nora.db `
             -v nora-data:/data `
             grove:$tag
