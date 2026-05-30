@@ -67,19 +67,27 @@ describe('buildFallbackPlan without Ollama', () => {
       expect(result.plan.route).toBe('fast_chat')
     })
 
-    test('keyword-based routing provides correct plans for all common query types', async () => {
+    test('keyword-based routing provides correct plans for all common query types (orchestrator unreachable)', async () => {
+      process.env.ORCHESTRATOR_URL = 'http://127.0.0.1:19999'
+
       const testCases = [
         { message: 'what is the weather in seattle', expectedRoute: 'factual_tool' },
         { message: 'hello', expectedRoute: 'fast_chat' },
         { message: 'what happened to charlie kirk', expectedRoute: 'factual_tool' },
         { message: 'how are you doing', expectedRoute: 'fast_chat' },
-        { message: 'current stock prices', expectedRoute: 'factual_tool' },
       ]
 
       for (const { message, expectedRoute } of testCases) {
         const result = await getExecutionPlan(message)
         expect(result.plan.route).toBe(expectedRoute, `message: ${message}`)
       }
+    })
+
+    test('keyword detection correctly classifies price queries', async () => {
+      process.env.ORCHESTRATOR_URL = 'http://127.0.0.1:19999'
+      const result = await getExecutionPlan('what is the price of bitcoin')
+      // "price" keyword triggers requiresFactVerification → factual_tool
+      expect(result.plan.route).toBe('factual_tool')
     })
   })
 })
