@@ -179,6 +179,10 @@ jobs:
           docker run -d `
             --name grove-live `
             --restart always `
+            # --network host: container shares the host network namespace so Ollama
+            # at http://grove:11434 (Tailscale hostname) is resolvable and reachable.
+            # This matches the deployment architecture where all services (Groove,
+            # Ollama, OpenObserve) run on the same dedicated machine.
             --network host `
             -e NORA_DB_PATH=/data/nora.db `
             -v nora-data:/data `
