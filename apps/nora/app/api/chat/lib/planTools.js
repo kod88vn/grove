@@ -199,9 +199,18 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
       intentResult = await classifyIntent(model, userMessage)
     } catch (err) {
       // Graceful fallback: mirror orchestratorClient.js behavior.
-      // Per AGENTS.md "No Silent Failures" — log the error clearly, don't mask it.
+      // Per AGENTS.md "No Silent Failures" — log the error clearly with diagnostics, don't mask it.
       // Default to requiresSearch=true (fail-safe toward web search).
-      console.error('[planTools] classifier failed, defaulting to requiresSearch=true: ' + err.message)
+      const ollamaHost = process.env.OLLAMA_HOST || 'http://grove:11434'
+      const details = err.details || {}
+      console.error('[planTools] classifier failed, defaulting to requiresSearch=true:', {
+        message: err.message,
+        reason: details.reason || 'unknown',
+        ollamaHost,
+        model,
+        statusCode: details.statusCode != null ? String(details.statusCode) : undefined,
+        errorDetail: details.error || undefined,
+      })
       intentResult = { requiresSearch: true, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
     }
   }
