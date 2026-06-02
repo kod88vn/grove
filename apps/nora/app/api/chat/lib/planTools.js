@@ -198,17 +198,11 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
     try {
       intentResult = await classifyIntent(model, userMessage)
     } catch (err) {
-      if (process.env.NODE_ENV === 'test') {
-        // In test mode, classifier throws are unexpected — fall back to safe defaults.
-        intentResult = { requiresSearch: false, reason: 'test_mode_classifier_error', searchHints: [], confidence: 'low' }
-        log.planningResponse(0, { role: 'assistant', content: `[classifier error in test: ${err.message?.slice(0, 80)}]` })
-      } else {
-        // Production: classifier failure must be surfaced, not silently masked.
-        throw new IntentClassifierError(
-          `Intent classifier failed during planTools execution: ${err.message}`,
-          { ...err.details, context: 'planTools_classifier' }
-        )
-      }
+      // Graceful fallback: mirror orchestratorClient.js behavior.
+      // Per AGENTS.md "No Silent Failures" — log the error clearly, don't mask it.
+      // Default to requiresSearch=true (fail-safe toward web search).
+      console.error('[planTools] classifier failed, defaulting to requiresSearch=true: ' + err.message)
+      intentResult = { requiresSearch: true, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
     }
   }
 
