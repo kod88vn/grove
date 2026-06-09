@@ -14,12 +14,6 @@
 import { SSE_HEADERS } from './constants'
 import { ROLLING_WINDOW, RECENT_KEEP } from './constants'
 import { withSystemMessage } from './prompt'
-
-/** Simple rolling window: keep recent messages, drop old ones. */
-function rollingWindow(messages) {
-  if (messages.length <= ROLLING_WINDOW) return messages
-  return messages.slice(-RECENT_KEEP)
-}
 import { normalizeQuery } from './toolCalls'
 import { log } from './logger'
 import { deepResearch } from './research'
@@ -36,6 +30,12 @@ import {
 } from './verification'
 import { planTools } from './planTools'
 import { streamFinalAnswer } from './streamAnswer'
+
+/** Simple rolling window: keep recent messages, drop old ones. */
+function rollingWindow(messages) {
+  if (messages.length <= ROLLING_WINDOW) return messages
+  return messages.slice(-RECENT_KEEP)
+}
 
 const isUnverifiedStatus = (status) =>
   status === 'unverified' || status === 'weak' || status === 'low_confidence'

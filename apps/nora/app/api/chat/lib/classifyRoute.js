@@ -57,66 +57,67 @@ export async function classifyRoute(message) {
 
   try {
     // Use the same parameters as /api/nora-classify/route.js:
-      // temperature: 0, max_tokens: 80, response_format: json_object
-      const res = await callAI({
-        model: DEFAULT_MODEL,
-        stream: false,
-        options: { temperature: 0, num_predict: 80, think: false },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: trimmedMessage },
-        ],
-      })
+    // temperature: 0, max_tokens: 80, response_format: json_object
+    const res = await callAI({
+      model: DEFAULT_MODEL,
+      stream: false,
+      options: { temperature: 0, num_predict: 80, think: false },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: trimmedMessage },
+      ],
+    })
 
-      if (!res.ok) {
-        // Fail-safe: use hasFactualQuerySignals to determine appropriate route
-        const shouldSearch = hasFactualQuerySignals(trimmedMessage)
-        console.error(
-          '[classifyRoute] LLM request failed with status', res.status || 'unknown',
-          `— fallback to ${shouldSearch ? 'factual_tool' : 'fast_chat'} (hasFactualQuerySignals)`,
-          '| message:', trimmedMessage.slice(0, 100)
-        )
-        return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: `llm_unavailable_status_${res.status || 'unknown'}` }
-      }
-
-      const json = await res.json()
-      const content = json?.message?.content || json?.message?.thinking || ''
-
-      if (!content) {
-        // Empty response: use hasFactualQuerySignals for safe default
-        const shouldSearch = hasFactualQuerySignals(trimmedMessage)
-        return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: 'empty_response' }
-      }
-
-      // Try to extract JSON from the response
-      let parsed = null
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
-      
-      if (jsonMatch) {
-        let rawJson = jsonMatch[0]
-        rawJson = rawJson.replace(/(?<!["\w])(\w+)(?=\s*:)/g, '"$1"')
-        rawJson = rawJson.replace(/,\s*}/g, '}')
-        try {
-          parsed = JSON.parse(rawJson)
-        } catch {
-          // Parse failed — fall through to defaults
-        }
-      }
-
-      if (parsed && typeof parsed.route === 'string') {
-        return {
-          route: parsed.route,
-          intent: typeof parsed.intent === 'string' ? parsed.intent : 'chat',
-          confidence: ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'low',
-          reason: typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'llm_classifier',
-        }
-      }
-
-      // No valid JSON — use hasFactualQuerySignals for safe default instead of blind fast_chat
+    if (!res.ok) {
+      // Fail-safe: use hasFactualQuerySignals to determine appropriate route
       const shouldSearch = hasFactualQuerySignals(trimmedMessage)
-      console.error('[classifyRoute] parse_failure — fallback to', shouldSearch ? 'factual_tool' : 'fast_chat')
-      return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: 'parse_failure' }
-    } catch (err) {
+      console.error(
+        '[classifyRoute] LLM request failed with status', res.status || 'unknown',
+        `— fallback to ${shouldSearch ? 'factual_tool' : 'fast_chat'} (hasFactualQuerySignals)`,
+        '| message:', trimmedMessage.slice(0, 100)
+      )
+      return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: `llm_unavailable_status_${res.status || 'unknown'}` }
+    }
+
+    // callLMStudio returns OpenAI-compatible format: choices[0].message.content
+    const json = await res.json()
+    const content = json?.choices?.[0]?.message?.content || json?.choices?.[0]?.message?.thinking || ''
+
+    if (!content) {
+      // Empty response: use hasFactualQuerySignals for safe default
+      const shouldSearch = hasFactualQuerySignals(trimmedMessage)
+      return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: 'empty_response' }
+    }
+
+    // Try to extract JSON from the response
+    let parsed = null
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+
+    if (jsonMatch) {
+      let rawJson = jsonMatch[0]
+      rawJson = rawJson.replace(/(?<!["\w])(\w+)(?=\s*:)/g, '"$1"')
+      rawJson = rawJson.replace(/,\s*}/g, '}')
+      try {
+        parsed = JSON.parse(rawJson)
+      } catch {
+        // Parse failed — fall through to defaults
+      }
+    }
+
+    if (parsed && typeof parsed.route === 'string') {
+      return {
+        route: parsed.route,
+        intent: typeof parsed.intent === 'string' ? parsed.intent : 'chat',
+        confidence: ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'low',
+        reason: typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'llm_classifier',
+      }
+    }
+
+    // No valid JSON — use hasFactualQuerySignals for safe default instead of blind fast_chat
+    const shouldSearch = hasFactualQuerySignals(trimmedMessage)
+    console.error('[classifyRoute] parse_failure — fallback to', shouldSearch ? 'factual_tool' : 'fast_chat')
+    return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: 'parse_failure' }
+  } catch (err) {
       // On any error, use hasFactualQuerySignals for safe default
       const shouldSearch = hasFactualQuerySignals(trimmedMessage)
       console.error('[classifyRoute] classifier error:', err?.message || String(err), `— fallback to ${shouldSearch ? 'factual_tool' : 'fast_chat'}`)

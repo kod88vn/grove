@@ -26,16 +26,9 @@ export async function callAI(payload) {
 
   aiLog('provider:', provider, '| model:', payload?.model || '(unnamed)')
 
-  // Validate LMSTUDIO_BASE_URL is configured
+  // Validate LMSTUDIO_BASE_URL is configured — No Silent Failures policy
   if (!process.env.LMSTUDIO_BASE_URL) {
-    console.error(AI_LOG_PREFIX, 'LMSTUDIO_BASE_URL is not set but AI_PROVIDER=lmstudio.')
-    return {
-      ok: false,
-      status: 0,
-      statusText: 'lmstudio_not_configured',
-      async json() { return {} },
-      async text() { return 'LMSTUDIO_BASE_URL is not configured' },
-    }
+    throw new Error('LMSTUDIO_BASE_URL is not configured — cannot call AI backend')
   }
 
   return callLMStudio(payload)
