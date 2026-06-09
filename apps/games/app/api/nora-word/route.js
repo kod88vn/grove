@@ -34,11 +34,12 @@ Respond ONLY with a raw JSON object, no explanation, no markdown:
 The word must be a single word, uppercase letters only, no spaces or hyphens.`
 
   try {
-    const res = await fetch('http://grove:11434/api/chat', {
+    const noraUrl = process.env.PLT_NORA_URL || 'http://localhost:3001'
+    const res = await fetch(`${noraUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3.2',
+        model: process.env.MODEL || 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx',
         stream: false,
         options: { num_predict: 80, temperature: 0.9 },
         messages: [
@@ -50,7 +51,7 @@ The word must be a single word, uppercase letters only, no spaces or hyphens.`
     })
 
     if (!res.ok) {
-      return Response.json({ error: 'ollama_unavailable' }, { status: 502 })
+      return Response.json({ error: 'ai_unavailable' }, { status: 502 })
     }
 
     const json = await res.json()

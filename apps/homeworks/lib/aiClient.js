@@ -1,4 +1,4 @@
-const NORA_URL = process.env.PLT_NORA_URL || 'http://localhost:3000'
+const NORA_URL = process.env.PLT_NORA_URL || 'http://localhost:3001'
 // Nora's Next.js app has basePath: '/chat'
 const NORA_BASE = `${NORA_URL}/chat`
 const NORA_TIMEOUT_MS = Number(process.env.HOMEWORKS_NORA_TIMEOUT_MS || 60000)

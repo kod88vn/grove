@@ -1,6 +1,6 @@
 import { DEFAULT_MODEL, SSE_HEADERS } from './lib/constants'
 import { streamResponse } from './lib/chatStream'
-import { callOllama } from './lib/ollama'
+import { callAI } from './lib/callAI'
 import {
   saveMessage,
   getFreshMessagesForContext,
@@ -37,7 +37,7 @@ function streamGreetingResponse(model, greetingName) {
           return
         }
 
-        const upstream = await callOllama({
+        const upstream = await callAI({
           model,
           stream: true,
           options: { think: false, num_predict: 60 },
@@ -74,7 +74,9 @@ function streamGreetingResponse(model, greetingName) {
           for (const line of lines) {
             if (!line.trim()) continue
             try {
-              const json = JSON.parse(line)
+              const dataLine = line.startsWith('data: ') ? line.slice(6) : line
+              if (dataLine === '[DONE]') continue
+              const json = JSON.parse(dataLine)
               const content = json.message?.content ?? ''
               if (content) {
                 emit({ word: content })
@@ -133,7 +135,7 @@ async function maybeUpdateTitle(model, chatId, userId) {
   if (!transcript.trim()) return
 
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       messages: [
         {
@@ -172,7 +174,7 @@ async function maybeSummarize(model, chatId, userId) {
   if (!transcript.trim()) return
 
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       messages: [
         {

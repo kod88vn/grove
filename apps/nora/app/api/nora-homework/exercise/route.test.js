@@ -27,11 +27,11 @@ if (!global.Response) {
   global.Response = TestResponse
 }
 
-jest.mock('@/app/api/chat/lib/ollama', () => ({
-  callOllama: jest.fn(),
+jest.mock('@/app/api/chat/lib/callAI', () => ({
+  callAI: jest.fn(),
 }))
 
-const { callOllama } = jest.requireMock('@/app/api/chat/lib/ollama')
+const { callAI } = jest.requireMock('@/app/api/chat/lib/callAI')
 const { POST } = require('./route')
 
 describe('POST /api/nora-homework/exercise', () => {
@@ -43,8 +43,8 @@ describe('POST /api/nora-homework/exercise', () => {
     global.Response = originalResponse
   })
 
-  it('retries when Ollama returns an empty response for passage generation', async () => {
-    callOllama
+  it('retries when AI returns an empty response for passage generation', async () => {
+    callAI
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ message: { content: '   ' } }),
@@ -74,9 +74,9 @@ describe('POST /api/nora-homework/exercise', () => {
     expect(body.passage).toBe('A short reading passage.')
     expect(Array.isArray(body.questions)).toBe(true)
     expect(body.questions).toHaveLength(3)
-    expect(callOllama).toHaveBeenCalledTimes(3)
+    expect(callAI).toHaveBeenCalledTimes(3)
 
-    expect(callOllama.mock.calls[0][0]).toEqual(
+    expect(callAI.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         stream: false,
         think: false,
@@ -86,10 +86,10 @@ describe('POST /api/nora-homework/exercise', () => {
         }),
       })
     )
-    expect(callOllama.mock.calls[0][0].messages[1].content).toContain('Theme:')
-    expect(callOllama.mock.calls[0][0].options.temperature).toBe(0.55)
+    expect(callAI.mock.calls[0][0].messages[1].content).toContain('Theme:')
+    expect(callAI.mock.calls[0][0].options.temperature).toBe(0.55)
 
-    expect(callOllama.mock.calls[2][0]).toEqual(
+    expect(callAI.mock.calls[2][0]).toEqual(
       expect.objectContaining({
         stream: false,
         think: false,
@@ -102,7 +102,7 @@ describe('POST /api/nora-homework/exercise', () => {
   })
 
   it('returns 502 when passage generation remains empty after retries', async () => {
-    callOllama
+    callAI
       .mockResolvedValue({
         ok: true,
         json: async () => ({ message: { content: '   ' } }),
@@ -116,12 +116,12 @@ describe('POST /api/nora-homework/exercise', () => {
     const body = await response.json()
 
     expect(response.status).toBe(502)
-    expect(body.error).toBe('Empty response from Ollama')
-    expect(callOllama).toHaveBeenCalledTimes(3)
+    expect(body.error).toBe('Empty response from AI')
+    expect(callAI).toHaveBeenCalledTimes(3)
   })
 
   it('returns 502 when question generation remains empty after retries', async () => {
-    callOllama
+    callAI
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ message: { content: '{"passage":"Plants need water and sunlight to grow well."}' } }),
@@ -147,12 +147,12 @@ describe('POST /api/nora-homework/exercise', () => {
     const body = await response.json()
 
     expect(response.status).toBe(502)
-    expect(body.error).toBe('Empty response from Ollama')
-    expect(callOllama).toHaveBeenCalledTimes(4)
+    expect(body.error).toBe('Empty response from AI')
+    expect(callAI).toHaveBeenCalledTimes(4)
   })
 
-  it('accepts object content from Ollama structured output', async () => {
-    callOllama
+  it('accepts object content from AI structured output', async () => {
+    callAI
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ message: { content: { passage: 'A valid structured passage.' } } }),
@@ -198,7 +198,7 @@ describe('POST /api/nora-homework/exercise', () => {
     expect(response.status).toBe(200)
     expect(body.passage).toBe('A valid structured passage.')
     expect(body.questions).toHaveLength(3)
-    expect(callOllama).toHaveBeenCalledTimes(2)
+    expect(callAI).toHaveBeenCalledTimes(2)
   })
 
   it('generates math mixed quiz with column-method multiplication and division coverage', async () => {
@@ -220,7 +220,7 @@ describe('POST /api/nora-homework/exercise', () => {
       difficulty: i % 3 === 0 ? 'easy' : i % 3 === 1 ? 'medium' : 'hard',
     }))
 
-    callOllama.mockResolvedValueOnce({
+    callAI.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ message: { content: { problems } } }),
     })
@@ -239,8 +239,8 @@ describe('POST /api/nora-homework/exercise', () => {
     ).toBeGreaterThanOrEqual(5)
     expect(body.problems.some((p) => p.problemType === 'column-method' && p.operator === '*')).toBe(true)
     expect(body.problems.some((p) => p.problemType === 'column-method' && p.operator === '/')).toBe(true)
-    expect(callOllama.mock.calls[0][0].messages[1].content).toContain('exactly 10 problems')
-    expect(callOllama.mock.calls[0][0].messages[1].content).toContain('multiplication, or division')
-    expect(callOllama.mock.calls[0][0].format.properties.problems.minItems).toBe(10)
+    expect(callAI.mock.calls[0][0].messages[1].content).toContain('exactly 10 problems')
+    expect(callAI.mock.calls[0][0].messages[1].content).toContain('multiplication, or division')
+    expect(callAI.mock.calls[0][0].format.properties.problems.minItems).toBe(10)
   })
 })

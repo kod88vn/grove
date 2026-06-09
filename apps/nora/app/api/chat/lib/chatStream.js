@@ -2,7 +2,7 @@
 //
 // Pipeline (read top-to-bottom — each step is a separate module):
 //   1. orchestratorClient.getExecutionPlan        → routing decision
-//   2. ollama.compressHistory + prompt.withSystemMessage → message prep
+//   2. rollingWindow + prompt.withSystemMessage        → message prep
 //   3. planTools                                  → tool/verification planning
 //   4. verification.buildVerificationReport       → judge evidence
 //   5. trusted-outlet escalation (rounds 2 + 3)   → in this file
@@ -12,8 +12,14 @@
 // this file so the public surface stays stable.
 
 import { SSE_HEADERS } from './constants'
-import { compressHistory } from './ollama'
+import { ROLLING_WINDOW, RECENT_KEEP } from './constants'
 import { withSystemMessage } from './prompt'
+
+/** Simple rolling window: keep recent messages, drop old ones. */
+function rollingWindow(messages) {
+  if (messages.length <= ROLLING_WINDOW) return messages
+  return messages.slice(-RECENT_KEEP)
+}
 import { normalizeQuery } from './toolCalls'
 import { log } from './logger'
 import { deepResearch } from './research'
@@ -30,7 +36,6 @@ import {
 } from './verification'
 import { planTools } from './planTools'
 import { streamFinalAnswer } from './streamAnswer'
-import { IntentClassifierError } from './intent'
 
 const isUnverifiedStatus = (status) =>
   status === 'unverified' || status === 'weak' || status === 'low_confidence'
@@ -239,7 +244,8 @@ export function streamResponse(model, messages) {
           return
         }
 
-        const compressed = await compressHistory(model, messages)
+        const compressed = rollingWindow(messages)
+
         const promptProfile = executionPlan.promptProfile === 'fast' ? 'fast' : 'factual'
         const messagesWithSystem = withSystemMessage(compressed, promptProfile, {
           skillPromptPack: orchestration?.skillPromptPack || '',
@@ -261,8 +267,10 @@ export function streamResponse(model, messages) {
         const verifyOptions = { forceRequired: Boolean(executionPlan.requireVerification) }
         let verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
 
-        // Round 1: deep research escalation
-        if (verification.required && isUnverifiedStatus(verification.status)) {
+        // Round 1: deep research escalation — ONLY if planTools already ran searches (classification said search was needed).
+        // If classifyIntent returned requiresSearch:false, planTools runs zero searches and sourceUrls is empty.
+        // No point escalating to nothing — the model can answer from general knowledge.
+        if (verification.required && isUnverifiedStatus(verification.status) && sourceUrls.length > 0) {
           emit({ status: 'Evidence is thin — running deeper verification…' })
           emit({ researching: true, topic: userMessage })
           const result = await deepResearch(model, userMessage, (progress) => {
@@ -284,15 +292,17 @@ export function streamResponse(model, messages) {
           verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
         }
 
-        // Round 2: trusted-outlet escalation
-        if (verification.required && isUnverifiedStatus(verification.status)) {
+        // Round 2: trusted-outlet escalation — only if there are already sources to escalate from.
+        // classifyIntent() is the sole gate: requiresSearch:false → planTools runs no searches → sourceUrls empty → no escalation.
+        if (verification.required && isUnverifiedStatus(verification.status) && sourceUrls.length > 0) {
           await escalateTrustedOutlets(userMessage, followupMessages, sourceUrls, emit)
           sourceUrls = dedupeSourceUrls(sourceUrls)
           verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
         }
 
-        // Round 3: read unread sources + comparison queries
-        if (verification.required && isUnverifiedStatus(verification.status)) {
+        // Round 3: read unread sources + comparison queries — only if there are already sources.
+        // classifyIntent() is the sole gate: requiresSearch:false → planTools runs no searches → sourceUrls empty → no escalation.
+        if (verification.required && isUnverifiedStatus(verification.status) && sourceUrls.length > 0) {
           await escalateRound3(userMessage, followupMessages, sourceUrls, emit)
           sourceUrls = dedupeSourceUrls(sourceUrls)
           verification = buildVerificationReport(userMessage, sourceUrls, verifyOptions)
@@ -303,31 +313,18 @@ export function streamResponse(model, messages) {
         }
 
         emit({ status: 'Verifying evidence…' })
-        emit({ verification })
 
-        // After 3 rounds, only refuse if we found zero sources.
-        if (verification.required && verification.status === 'unverified') {
-          emit({ status: null })
-          emit({ thinkingDone: true })
-          emit({
-            word: `I ran three rounds of research and couldn't find any sources to answer this. I don't want to guess.`,
-          })
-          controller.enqueue(enc.encode('data: [DONE]\n\n'))
-          controller.close()
-          return
+        // Only show verification status for actual web searches.
+        // When classifyIntent said no-search, sourceUrls is empty and verification will be unverified.
+        // Emit neutral status instead so the UI doesn't show "Verification: unverified" for general-knowledge answers.
+        if (sourceUrls.length > 0) {
+          emit({ verification })
+        } else {
+          emit({ verification: { status: 'not_applicable', required: false, sourceCount: 0 } })
         }
 
-        const verifiedSourceUrls = dedupeSourceUrls(sourceUrls)
-        if (verification.required && verification.status !== 'verified' && verifiedSourceUrls.length < 2) {
-          emit({ status: null })
-          emit({ thinkingDone: true })
-          emit({
-            word: 'I could not verify this with at least 2 independent sources, so I will not provide an uncited factual answer.',
-          })
-          controller.enqueue(enc.encode('data: [DONE]\n\n'))
-          controller.close()
-          return
-        }
+        // Removed the 2-source refusal gate. When ≥2 sources exist, buildVerificationReport returns "verified".
+        // When <2 sources, the system message tells Nora to answer from knowledge instead of refusing.
 
         const verificationMessage = buildVerificationSystemMessage(verification, userMessage, sourceUrls)
         if (verificationMessage) {
@@ -347,13 +344,9 @@ export function streamResponse(model, messages) {
         emit({ searching: false })
         emit({ thinkingDone: true })
 
-        // Surface IntentClassifierError clearly so the user knows classification
-        // failed (per "No Silent Failures" policy — not silently masking errors).
-        if (error instanceof IntentClassifierError) {
-          emit({ word: `I couldn't reach my intent classifier (LLM service unavailable). I'll do my best with a general response. Error: ${error.message?.slice(0, 120) || 'unknown'}` })
-        } else {
-          emit({ word: `Error: ${error.message || 'Request failed'}` })
-        }
+        // classifyIntent() no longer throws — any error here is from tool execution,
+        // web search, or the final LLM call. Surface a generic error message.
+        emit({ word: `Error: ${error.message || 'Request failed'}` })
 
         controller.enqueue(enc.encode('data: [DONE]\n\n'))
         controller.close()

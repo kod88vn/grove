@@ -27,7 +27,7 @@ if (!global.Response) {
   global.Response = TestResponse
 }
 
-jest.mock('../../../lib/ollama', () => ({
+jest.mock('../../../lib/aiClient', () => ({
   gradeSubmission: jest.fn(),
 }))
 
@@ -35,7 +35,7 @@ jest.mock('../../../lib/progress', () => ({
   recordSubmission: jest.fn().mockReturnValue({ id: 'progress-1' }),
 }))
 
-const { gradeSubmission } = jest.requireMock('../../../lib/ollama')
+const { gradeSubmission } = jest.requireMock('../../../lib/aiClient')
 const { POST } = require('./route')
 
 describe('POST /api/grade', () => {
@@ -73,7 +73,7 @@ describe('POST /api/grade', () => {
   })
 
   it('preserves upstream Nora 502 status', async () => {
-    gradeSubmission.mockRejectedValue(new Error('Nora API error 502: {"error":"Empty response from Ollama"}'))
+    gradeSubmission.mockRejectedValue(new Error('Nora API error 502: {"error":"Empty response from LMStudio"}'))
 
     const request = {
       json: jest.fn().mockResolvedValue({

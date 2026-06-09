@@ -105,11 +105,12 @@ export async function POST(request) {
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const res = await fetch('http://grove:11434/api/chat', {
+      const noraUrl = process.env.PLT_NORA_URL || 'http://localhost:3001'
+      const res = await fetch(`${noraUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: process.env.MODEL || 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx',
           stream: false,
           options: { num_predict: 500, temperature: 0.2 },
           messages: [
@@ -121,7 +122,7 @@ export async function POST(request) {
       })
 
       if (!res.ok) {
-        return Response.json({ error: 'ollama_unavailable' }, { status: 502 })
+        return Response.json({ error: 'ai_unavailable' }, { status: 502 })
       }
 
       const json = await res.json()

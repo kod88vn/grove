@@ -129,6 +129,15 @@ export function buildVerificationReport(userMessage, sourceUrls, options = {}) {
     )
   }
 
+  // ≥2 distinct sources = verified. This is the hard gate: when web search runs and finds
+  // at least 2 unique URLs, Nora treats the evidence as sufficient and answers with citations.
+  if (sourceCount >= 2) {
+    return verdict(
+      'verified',
+      'Evidence corroborated by multiple sources. Answer confidently with citations.',
+    )
+  }
+
   if (currentTitleQuestion && sourceCount >= 1) {
     return verdict(
       'low_confidence',
@@ -172,30 +181,28 @@ export function buildVerificationSystemMessage(report, userMessage = '', sourceU
   }
 
   if (report.status === 'weak') {
-    // Keyword-based market detection kept for guidance text only — not used for classification.
-    if (/\b(best|bang\s+for\s+the\s+buck)\b.*\b(gpu|cpu|llm)\b/i.test(userMessage)) {
-      return 'Verification phase: recommendation evidence is weak. Do NOT claim a single product is the best bang for buck yet. State uncertainty, summarize trade-offs, and ask whether to run deeper verification.'
-    }
-    return 'WEAK EVIDENCE - YOU MUST CITE SOURCES:\n' +
-      '- Evidence is limited. Cite every source explicitly by name.\n' +
-      '- Format: "According to [Source Name], ..."\n' +
-      '- Use at least 2 sources provided below.\n' +
-      '- State: "Evidence is limited and may not be fully reliable."' +
+    return 'SINGLE SOURCE AVAILABLE - CITE IT BUT ANSWER:\n' +
+      '- You have one source. Report what it says and add your own knowledge.\n' +
+      '- Format: "The source says... Additionally, ..."\n' +
+      '- Do NOT refuse to answer — provide the best response you can.' +
       sourceList
   }
 
   if (report.status === 'low_confidence') {
-    return 'LOW CONFIDENCE EVIDENCE - STRICT CITATION REQUIRED:\n' +
-      '- Only weak sources available. Cite every claim with source name.\n' +
-      '- Format: "...claim [Source Name]"\n' +
-      '- Do NOT add unsupported claims.' +
+    return 'LOW CONFIDENCE SOURCES - CITE CAREFULLY BUT ANSWER:\n' +
+      '- Sources exist but are not highly reliable. Cite them and add your own knowledge.\n' +
+      '- Format: "...claim [Source Name]. Additionally, ..."\n' +
+      '- Do NOT refuse to answer — provide the best response you can.' +
       sourceList
   }
 
-  return 'NO RELIABLE SOURCES FOUND:\n' +
-    '- Do not provide definitive factual claims.\n' +
-    '- State explicitly: "I could not find verified sources for this claim."\n' +
-    '- Offer to run deeper research if needed.'
+  // "unverified" — search ran but found no results. Tell Nora to answer from general knowledge with a caveat, NOT refuse and ask the user for confirmation.
+  return 'NO WEB SOURCES FOUND - ANSWER FROM KNOWLEDGE:\n' +
+    '- Web search returned no results but your training data may still have relevant information.\n' +
+    '- Provide the best answer you can from your knowledge. Disclose uncertainty: "Based on available information..."\n' +
+    '- Do NOT refuse to answer or ask the user if they want deeper research.\n' +
+    '- Do NOT stall for confirmation — just answer.' +
+    sourceList
 }
 
 export function hasSufficientCitations(responseText, minimumCitations = 2) {

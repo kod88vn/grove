@@ -1,4 +1,4 @@
-import { gradeSubmission } from '../../../lib/ollama'
+import { gradeSubmission } from '../../../lib/aiClient'
 import { recordSubmission } from '../../../lib/progress'
 
 export async function POST(request) {

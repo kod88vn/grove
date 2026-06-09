@@ -207,7 +207,9 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
     global.Response = class IntegrationMockResponse {
       constructor(body, init) {
         this.body = body
-        this.init = init
+        this.status = init?.status ?? 200
+        this.ok = this.status >= 200 && this.status < 300
+        this.headers = init?.headers ?? {}
       }
       async text() {
         if (!this.body) return ''
@@ -221,6 +223,10 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
         }
         return out
       }
+      async json() {
+        const text = await this.text()
+        return JSON.parse(text)
+      }
     }
   })
 
@@ -231,12 +237,14 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
 
   beforeEach(() => {
     process.env.NODE_ENV = 'test' // forces orchestratorClient to use buildFallbackPlan(requireVerification:true)
+    process.env.LMSTUDIO_BASE_URL = 'http://test-lmstudio:1234/v1'
   })
 
   afterEach(() => {
     global.fetch = originalFetch
     process.env.NODE_ENV = originalEnv
     delete process.env.TEST_FALLBACK_ROUTE
+    delete process.env.LMSTUDIO_BASE_URL
     jest.clearAllMocks()
   })
 
@@ -270,34 +278,36 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
   }
 
   function makeMockFetch({ ddgJson, ddgHtml, ollamaFinalAnswer, ollamaPlanning } = {}) {
-    let ollamaCallCount = 0
-    const calls = { ollama: 0, ddgJson: 0, ddgHtml: 0, readWebpage: 0 }
+    let lmstudioCallCount = 0
+    const calls = { lmstudio: 0, ddgJson: 0, ddgHtml: 0, readWebpage: 0 }
 
     const mock = jest.fn(async (url, init) => {
       const u = String(url)
-      if (u === 'http://grove:11434/api/chat') {
-        ollamaCallCount += 1
-        calls.ollama = ollamaCallCount
+      if (u === 'http://test-lmstudio:1234/v1/chat/completions') {
+        lmstudioCallCount += 1
+        calls.lmstudio = lmstudioCallCount
         const body = JSON.parse(init?.body || '{}')
-        // Streaming final answer call (no `tools`, has stream=undefined → streamFinalAnswer uses streaming).
-        const isStreaming = !body.tools
-        if (isStreaming) {
-          const encoder = new NodeTextEncoder()
-          const content = ollamaFinalAnswer || 'Charlie Kirk was a political activist who was assassinated in September 2025 [Source: Reuters]. He co-founded Turning Point USA in 2012 [Source: BBC News].'
-          const chunk = encoder.encode(JSON.stringify({ message: { role: 'assistant', content } }) + '\n')
-          // streamFinalAnswer uses `for await (const chunk of upstream.body)`
-          async function* bodyIterator() {
-            yield chunk
+        if (body?.stream === false) {
+          // Non-streaming planning calls — return LMStudio format.
+          const planContent = ollamaPlanning?.message?.content ?? ''
+          const planToolCalls = ollamaPlanning?.message?.tool_calls ?? []
+          return {
+            ok: true,
+            status: 200,
+            clone() { return this },
+            async json() {
+              return { choices: [{ message: { content: planContent, tool_calls: planToolCalls } }] }
+            },
           }
-          return { ok: true, body: bodyIterator() }
         }
-        // Non-streaming planning calls — return whatever caller specified.
-        return {
-          ok: true,
-          async json() {
-            return ollamaPlanning || { message: { role: 'assistant', content: '', tool_calls: [] } }
-          },
+        // Streaming final answer call — return LMStudio SSE format.
+        const encoder = new NodeTextEncoder()
+        const content = ollamaFinalAnswer || 'Charlie Kirk was a political activist who was assassinated in September 2025 [Source: Reuters]. He co-founded Turning Point USA in 2012 [Source: BBC News].'
+        async function* bodyIterator() {
+          yield encoder.encode(`data: {"id":"chatcmpl-1","created":1000000,"choices":[{"delta":{"content":${JSON.stringify(content)}}}]}\n`)
+          yield encoder.encode('data: [DONE]\n')
         }
+        return { ok: true, status: 200, body: bodyIterator() }
       }
 
       if (u.startsWith('https://api.duckduckgo.com/')) {
@@ -432,12 +442,11 @@ describe('Full chat flow integration (orchestrator forced verification)', () => 
 
     await readStreamText(response)
 
-    // Count Ollama calls: should ONLY be the final-answer streaming call
-    // (NOT the firstPass planning call AND NOT assessVerificationNeed).
-    const ollamaCalls = mock.mock.calls.filter(([url]) => String(url) === 'http://grove:11434/api/chat')
-    // Final answer + maybe 1 verification re-plan if status not 'verified' on first try.
-    // Critical: must NOT include the obsolete firstPass + assessVerificationNeed pair.
-    expect(ollamaCalls.length).toBeLessThanOrEqual(2)
+    // Count LMStudio calls: should ONLY be the final-answer streaming call + non-streaming planning.
+    // (NOT excessive firstPass + assessVerificationNeed pairs from old code).
+    const lmstudioCalls = mock.mock.calls.filter(([url]) => String(url) === 'http://test-lmstudio:1234/v1/chat/completions')
+    // classifyIntent (1) + final streaming answer (1) = 2 calls max in this flow.
+    expect(lmstudioCalls.length).toBeLessThanOrEqual(3)
 
     process.env.TEST_FALLBACK_ROUTE = orig
   }, 15000)

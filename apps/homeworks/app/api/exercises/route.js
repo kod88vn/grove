@@ -1,4 +1,4 @@
-import { generateExercise } from '../../../lib/ollama'
+import { generateExercise } from '../../../lib/aiClient'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)

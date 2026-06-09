@@ -27,11 +27,11 @@ if (!global.Response) {
   global.Response = TestResponse
 }
 
-jest.mock('../../../lib/ollama', () => ({
+jest.mock('../../../lib/aiClient', () => ({
   generateExercise: jest.fn(),
 }))
 
-const { generateExercise } = jest.requireMock('../../../lib/ollama')
+const { generateExercise } = jest.requireMock('../../../lib/aiClient')
 const { GET } = require('./route')
 
 describe('GET /api/exercises', () => {
@@ -77,7 +77,7 @@ describe('GET /api/exercises', () => {
 
   it('preserves upstream Nora 502 status', async () => {
     generateExercise.mockRejectedValue(
-      new Error('Nora API error 502: {"error":"Empty response from Ollama"}')
+      new Error('Nora API error 502: {"error":"Empty response from LMStudio"}')
     )
 
     const request = {

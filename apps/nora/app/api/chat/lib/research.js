@@ -1,4 +1,4 @@
-import { callOllama } from './ollama'
+import { callAI } from './callAI'
 import { webSearch, readWebpage } from './web'
 import { log } from './logger'
 
@@ -11,7 +11,7 @@ const SUMMARY_TOKENS = 200
  */
 async function planResearchAngles(model, topic) {
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       messages: [
         {
@@ -43,7 +43,7 @@ async function planResearchAngles(model, topic) {
  */
 async function summarizeForTopic(model, topic, url, title, content) {
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       messages: [
         {
