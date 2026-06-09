@@ -141,6 +141,12 @@ describe('Model resolution for LMStudio', () => {
   })
 
   it('verifies .env.local has correct MODEL env var', () => {
+    // Skip in CI — .env.local is a local/dev-only file, not present in CI
+    if (process.env.CI) {
+      console.log('Skipping .env.local verification in CI')
+      return
+    }
+
     const fs = require('fs')
     const path = require('path')
 

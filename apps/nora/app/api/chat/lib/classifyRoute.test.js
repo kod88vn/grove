@@ -24,7 +24,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"route":"fast_chat","intent":"chat","confidence":"high","reason":"test_mock"}' } }
+        return { choices: [{ message: { content: '{"route":"fast_chat","intent":"chat","confidence":"high","reason":"test_mock"}' } }] }
       },
     }))
 
@@ -88,7 +88,7 @@ describe('classifyRoute', () => {
   test('should handle invalid JSON gracefully', async () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
-      async json() { return { message: { content: 'not valid json at all' } } },
+      async json() { return { choices: [{ message: { content: 'not valid json at all' } }] } },
     }))
 
     // "what is the weather" has factual query signals → factual_tool on parse failure
@@ -122,7 +122,8 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"route":"factual_tool","intent":"weather","confidence":"high","reason":"weather query"}' } }
+        // OpenAI-compatible format: choices[0].message.content
+        return { choices: [{ message: { content: '{"route":"factual_tool","intent":"weather","confidence":"high","reason":"weather query"}' } }] }
       },
     }))
 
@@ -137,7 +138,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{route:"fast_chat",intent:"chat",confidence:"medium",reason:"test"}' } }
+        return { choices: [{ message: { content: '{route:"fast_chat",intent:"chat",confidence:"medium",reason:"test"}' } }] }
       },
     }))
 
@@ -149,7 +150,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{route:"reasoning",intent:"reasoning",confidence:"high",reason:"analysis",}' } }
+        return { choices: [{ message: { content: '{route:"reasoning",intent:"reasoning","confidence":"high","reason":"analysis",}' } }] }
       },
     }))
 
@@ -161,7 +162,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"intent":"chat","confidence":"high","reason":"no route field"}' } }
+        return { choices: [{ message: { content: '{"intent":"chat","confidence":"high","reason":"no route field"}' } }] }
       },
     }))
 
@@ -174,7 +175,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"intent":"factual","confidence":"high","reason":"no route field"}' } }
+        return { choices: [{ message: { content: '{"intent":"factual","confidence":"high","reason":"no route field"}' } }] }
       },
     }))
 
@@ -187,7 +188,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"route":"reasoning","intent":"reasoning","confidence":"high","reason":"comparison"}' } }
+        return { choices: [{ message: { content: '{"route":"reasoning","intent":"reasoning","confidence":"high","reason":"comparison"}' } }] }
       },
     }))
 
@@ -199,7 +200,7 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"route":"factual_tool","intent":"factual","confidence":"high","reason":"current info"}' } }
+        return { choices: [{ message: { content: '{"route":"factual_tool","intent":"factual","confidence":"high","reason":"current info"}' } }] }
       },
     }))
 
@@ -211,13 +212,14 @@ describe('classifyRoute', () => {
     jest.spyOn(callAIModule, 'callAI').mockImplementation(async () => ({
       ok: true,
       async json() {
-        return { message: { content: '{"route":"local_tool","intent":"local_time","confidence":"high","reason":"clock time"}' } }
+        return { choices: [{ message: { content: '{"route":"local_tool","intent":"local_time","confidence":"high","reason":"clock time"}' } }] }
       },
     }))
 
     const result = await classifyRoute('what time is it')
     expect(result.route).toBe('local_tool')
   })
+
 })
 
 describe('routeToRequiresSearch', () => {
