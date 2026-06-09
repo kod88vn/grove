@@ -5,7 +5,7 @@
 - API key: `lm-studio` (placeholder, LM Studio ignores it)
 
 ## Models (in preference order for coding tasks)
-- `openai/qwen3.6-35b-a3b-ud-mlx` — primary
+- `openai/qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx` — primary
 - `openai/kimi-dev-72b-dwq` — alternative if Qwen drifts
 - `openai/openai/gpt-oss-120b` — heavy lifting
 
@@ -15,7 +15,7 @@
 aider \
   --openai-api-base http://192.168.68.121:1234/v1 \
   --openai-api-key lm-studio \
-  --model openai/qwen3.6-35b-a3b-ud-mlx \
+  --model openai/qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx \
   --yes \
   --no-auto-commits \
   --file <path> \

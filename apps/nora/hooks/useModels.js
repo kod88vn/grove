@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { fetchModels } from '@/lib/api/models'
+import { DEFAULT_MODEL } from './defaultModel.js'
 
-const ENV_DEFAULT = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
+const ENV_DEFAULT = DEFAULT_MODEL
 
 /**
  * Loads the available model list from /api/models (dev only).

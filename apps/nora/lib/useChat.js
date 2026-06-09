@@ -2,6 +2,7 @@
 
 import { apiPath } from './api/path.js'
 import { useCallback, useRef, useEffect } from 'react'
+import { DEFAULT_MODEL } from '../hooks/defaultModel.js'
 
 export function useChat() {
   const messagesRef = useRef([])
@@ -36,7 +37,7 @@ export function useChat() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'qwen3.5:9b',
+            model: DEFAULT_MODEL,
             messages: newMessages,
           }),
         })

@@ -27,11 +27,11 @@ if (!global.Response) {
   global.Response = TestResponse
 }
 
-jest.mock('@/app/api/chat/lib/ollama', () => ({
-  callOllama: jest.fn(),
+jest.mock('@/app/api/chat/lib/callAI', () => ({
+  callAI: jest.fn(),
 }))
 
-const { callOllama } = jest.requireMock('@/app/api/chat/lib/ollama')
+const { callAI } = jest.requireMock('@/app/api/chat/lib/callAI')
 const { POST } = require('./route')
 
 describe('POST /api/nora-homework/grade', () => {
@@ -44,7 +44,7 @@ describe('POST /api/nora-homework/grade', () => {
   })
 
   it('grades math mixed with structured output format', async () => {
-    callOllama.mockResolvedValue({
+    callAI.mockResolvedValue({
       ok: true,
       json: async () => ({
         message: {
@@ -79,7 +79,7 @@ describe('POST /api/nora-homework/grade', () => {
     expect(body.totalCorrect).toBe(2)
     expect(body.problems).toHaveLength(3)
 
-    expect(callOllama.mock.calls[0][0]).toEqual(
+    expect(callAI.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         stream: false,
         think: false,
@@ -91,8 +91,8 @@ describe('POST /api/nora-homework/grade', () => {
     )
   })
 
-  it('retries then returns 502 when Ollama stays empty', async () => {
-    callOllama.mockResolvedValue({
+  it('retries then returns 502 when AI stays empty', async () => {
+    callAI.mockResolvedValue({
       ok: true,
       json: async () => ({ message: { content: '   ' } }),
     })
@@ -110,7 +110,7 @@ describe('POST /api/nora-homework/grade', () => {
     const body = await response.json()
 
     expect(response.status).toBe(502)
-    expect(body.error).toBe('Empty response from Ollama')
-    expect(callOllama).toHaveBeenCalledTimes(3)
+    expect(body.error).toBe('Empty response from AI')
+    expect(callAI).toHaveBeenCalledTimes(3)
   })
 })

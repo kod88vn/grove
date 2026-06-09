@@ -1,4 +1,4 @@
-import { callOllama } from '@/app/api/chat/lib/ollama'
+import { callAI } from '@/app/api/chat/lib/callAI'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 import { generateCrossword } from '@grove/games/src/crosswordGenerator.js'
 
@@ -74,7 +74,7 @@ export async function POST(request) {
   for (let attempt = 0; attempt < 3 && pool.length < config.entryCount * 2; attempt += 1) {
     let res
     try {
-      res = await callOllama({
+      res = await callAI({
         model: DEFAULT_MODEL,
         stream: false,
         think: false,

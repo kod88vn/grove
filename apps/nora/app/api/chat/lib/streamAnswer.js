@@ -5,7 +5,7 @@
 //     run the search and re-stream;
 // (3) verification required citations but model didn't produce them — re-prompt.
 
-import { callOllama } from './ollama'
+import { callAI } from './callAI'
 import { parseXmlToolCalls } from './toolCalls'
 import { buildFallbackWebQuery, dedupeSourceUrls, webSearch } from './web'
 import { hasSufficientCitations } from './verification'
@@ -13,9 +13,18 @@ import { executeToolCall } from './toolExecution'
 
 const MAX_XML_INTERCEPT_PASSES = 2
 const MAX_NARRATION_PASSES = 2
+const MAX_EMPTY_RETRIES = 1
+const FALLBACK_MESSAGE = "I wasn't able to generate a response. Please try again."
+
+function isUsableThinking(text) {
+  const t = text.trim()
+  if (t.length < 15) return false
+  if (/^[\s\p{P}]+$/u.test(t)) return false  // purely punctuation/whitespace
+  return true
+}
 
 export async function streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc, _pass = 0) {
-  const upstream = await callOllama({
+  const upstream = await callAI({
     model,
     messages: followupMessages,
     stream: true,
@@ -31,6 +40,7 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
   const seen = new Set()
   let rawBuffer = ''
   let fullContent = ''
+  let fullThinking = ''
   let contentStarted = false
 
   for await (const chunk of upstream.body) {
@@ -42,7 +52,9 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
     for (const line of lines) {
       if (!line.trim()) continue
       try {
-        const json = JSON.parse(line)
+        // Handle both SSE format (data: {...}) and raw JSON lines ({...})
+        const dataLine = line.startsWith('data: ') ? line.slice(6) : line
+        const json = JSON.parse(dataLine)
         const key = json.created_at
         if (key) {
           if (seen.has(key)) continue
@@ -53,6 +65,7 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
         const content = json.message?.content ?? ''
 
         if (thinking && !contentStarted) {
+          fullThinking += thinking
           emit({ thinking })
         }
 
@@ -67,6 +80,29 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
         }
 
         if (json.done) {
+          // Model produced thinking but no content — some models ignore enable_thinking=false
+          // and respond entirely through reasoning_content. Use thinking as the actual response.
+          if (!contentStarted) {
+            emit({ status: null })
+            emit({ thinkingDone: true })
+            if (isUsableThinking(fullThinking)) {
+              // Safeguard 2: quality-checked thinking promotion
+              fullContent = fullThinking.trim()
+              emit({ word: fullContent })
+              contentStarted = true
+            } else if (_pass < MAX_EMPTY_RETRIES) {
+              // Safeguard 1: retry once on empty/garbage response
+              console.warn('[streamAnswer] Empty/garbage response on pass', _pass, '— retrying')
+              await streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc, _pass + 1)
+              return  // CRITICAL: prevents retract loops from running on blank response
+            } else {
+              // Safeguard 1: exhausted retries — emit fallback
+              console.warn('[streamAnswer] Empty response on final pass — emitting fallback')
+              emit({ word: FALLBACK_MESSAGE })
+              fullContent = FALLBACK_MESSAGE
+              contentStarted = true
+            }
+          }
           // 1. XML tool-call interception
           const xmlCalls = parseXmlToolCalls(fullContent)
           if (xmlCalls.length > 0 && _pass < MAX_XML_INTERCEPT_PASSES) {
@@ -160,6 +196,20 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
     }
   }
 
-  controller.enqueue(enc.encode('data: [DONE]\n\n'))
-  controller.close()
+  // Safeguard 3: stream exhausted without a done event (truncated response)
+  if (contentStarted && fullContent) {
+    // Partial content already streamed — close cleanly, don't retry over already-sent words
+    console.warn('[streamAnswer] Stream truncated on pass', _pass, '— closing with partial content')
+    controller.enqueue(enc.encode('data: [DONE]\n\n'))
+    controller.close()
+  } else if (_pass < MAX_EMPTY_RETRIES) {
+    console.warn('[streamAnswer] Truncated stream with no content on pass', _pass, '— retrying')
+    await streamFinalAnswer(model, followupMessages, sourceUrls, emit, controller, enc, _pass + 1)
+  } else {
+    console.warn('[streamAnswer] Truncated stream on final pass — emitting fallback')
+    emit({ thinkingDone: true })
+    emit({ word: FALLBACK_MESSAGE })
+    controller.enqueue(enc.encode('data: [DONE]\n\n'))
+    controller.close()
+  }
 }

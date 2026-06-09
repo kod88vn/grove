@@ -1,4 +1,4 @@
-import { callOllama } from '@/app/api/chat/lib/ollama'
+import { callAI } from '@/app/api/chat/lib/callAI'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 
 const HOMEWORKS_MODEL = process.env.HOMEWORKS_OLLAMA_MODEL || DEFAULT_MODEL
@@ -180,7 +180,7 @@ async function gradeWithOllama(prompt, format) {
 
   for (let attempt = 1; attempt <= MAX_OLLAMA_ATTEMPTS; attempt += 1) {
     try {
-      const res = await callOllama({
+      const res = await callAI({
         model: HOMEWORKS_MODEL,
         messages: [
           {
@@ -196,13 +196,13 @@ async function gradeWithOllama(prompt, format) {
       })
 
       if (!res.ok) {
-        throw new Error(`Ollama error: ${res.status}`)
+        throw new Error(`AI error: ${res.status}`)
       }
 
       const json = await res.json()
       const parsed = parseModelJson(json)
       if (!parsed) {
-        throw new Error('Empty response from Ollama')
+        throw new Error('Empty response from AI')
       }
 
       return parsed
@@ -214,7 +214,7 @@ async function gradeWithOllama(prompt, format) {
     }
   }
 
-  throw lastError || new Error('Failed to grade with Ollama')
+  throw lastError || new Error('Failed to grade with AI')
 }
 
 export async function POST(request) {

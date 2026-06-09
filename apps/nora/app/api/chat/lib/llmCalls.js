@@ -1,7 +1,7 @@
 // Small LLM-backed helpers used by the planner. Wraps Ollama calls that aren't
 // part of the main streaming response.
 
-import { callOllama } from './ollama'
+import { callAI } from './callAI'
 import { log } from './logger'
 
 function safeJsonParse(value) {
@@ -50,7 +50,7 @@ export async function assessVerificationNeed(model, userMessage) {
   }
 
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       stream: false,
       options: { num_predict: 160, think: false },
@@ -94,7 +94,7 @@ export async function assessVerificationNeed(model, userMessage) {
 
 export async function summarizePage(model, url, title, content) {
   try {
-    const res = await callOllama({
+    const res = await callAI({
       model,
       messages: [
         {

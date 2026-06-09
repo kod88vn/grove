@@ -1,4 +1,5 @@
-export const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'qwen3.5:9b'
+// Unified model config — single MODEL variable for all AI calls.
+export const DEFAULT_MODEL = process.env.MODEL || 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx'
 
 // Rolling window config
 export const ROLLING_WINDOW = 20

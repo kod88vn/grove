@@ -109,19 +109,27 @@ afterAll(() => {
 })
 
 describe('POST', () => {
+  beforeEach(() => {
+    process.env.LMSTUDIO_BASE_URL = 'http://test-lmstudio:1234/v1'
+  })
+  afterEach(() => {
+    delete process.env.LMSTUDIO_BASE_URL
+  })
+
   it('uses fast greeting stream without planning statuses', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       body: makeNdjsonStream([
-        JSON.stringify({ message: { content: 'Hi Master, how can I help today?' }, done: false }),
-        JSON.stringify({ done: true }),
+        'data: {"id":"chatcmpl-1","created":1000000,"choices":[{"delta":{"content":"Hi Master, how can I help today?"}}]}',
+        'data: [DONE]',
       ]),
     })
     global.fetch = fetchMock
 
     const request = {
       json: async () => ({
-        model: 'qwen3.5:9b',
+        model: 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx',
         mode: 'greeting',
         greetingName: 'Master',
       }),
@@ -138,14 +146,13 @@ describe('POST', () => {
     const [, options] = fetchMock.mock.calls[0]
     const payload = JSON.parse(options.body)
     expect(payload.stream).toBe(true)
-    expect(payload.options.think).toBe(false)
     expect(payload.messages[0].role).toBe('system')
     expect(payload.messages[1].content).toContain('Master')
   })
 
   it('still validates regular chat payloads', async () => {
     const request = {
-      json: async () => ({ model: 'qwen3.5:9b' }),
+      json: async () => ({ model: 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx' }),
       headers: { get: () => null },
     }
 
@@ -159,16 +166,17 @@ describe('POST', () => {
   it('emits fallback greeting when upstream finishes without content', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       body: makeNdjsonStream([
-        JSON.stringify({ message: { content: '' }, done: false }),
-        JSON.stringify({ done: true }),
+        'data: {"id":"chatcmpl-1","created":1000000,"choices":[{"delta":{"content":""}}]}',
+        'data: [DONE]',
       ]),
     })
     global.fetch = fetchMock
 
     const request = {
       json: async () => ({
-        model: 'qwen3.5:9b',
+        model: 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx',
         mode: 'greeting',
         greetingName: 'Master',
       }),
@@ -189,7 +197,7 @@ describe('POST', () => {
 
     const request = {
       json: async () => ({
-        model: 'qwen3.5:9b',
+        model: 'qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx',
         mode: 'greeting',
         greetingName: 'Alice',
       }),

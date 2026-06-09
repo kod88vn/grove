@@ -2,30 +2,20 @@
 // Calls the orchestrator service at ORCHESTRATOR_URL (default: http://127.0.0.1:4010).
 //
 // In production fallback (when orchestrator is unreachable), this module uses
-// LLM-based classifyIntent() for intent classification. Keyword-based matching
-// (the old isCurrentInfoQuery) has been removed — all routing decisions now use
-// semantic understanding via Ollama.
+// the shared classifyRoute() helper for intent classification. This eliminates
+// the parallel-but-inconsistent dual classifier system.
 
-import { classifyIntent, IntentClassifierError } from './intent'
+import { classifyRoute, routeToPlan } from './classifyRoute'
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://127.0.0.1:4010'
 
-const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'qwen3.5:9b'
-
 /**
  * Build a fallback execution plan when the orchestrator is unreachable.
- * Uses LLM-based classifyIntent() for semantic intent detection — NO keyword matching.
+ * Uses the shared classifyRoute() helper for semantic intent detection.
  * In test mode, TEST_FALLBACK_ROUTE is the sole override.
- * 
- * Per AGENTS.md "No Silent Failures" policy: if the classifier fails in production
- * (throws IntentClassifierError), we fall back to 'fast_chat' with a clear log message
- * rather than silently masking the error. The route handler will still call the LLM
- * to generate a response (just without forced web search verification).
  */
 async function buildFallbackPlan(message, reason) {
-  // In test mode, TEST_FALLBACK_ROUTE is the sole override — do NOT call classifyIntent
-  // based on the message string itself. The classifier must only be used in production
-  // fallbacks where semantic understanding is available.
+  // In test mode, TEST_FALLBACK_ROUTE is the sole override — do NOT call classifyRoute.
   const explicitTestRoute = process.env.TEST_FALLBACK_ROUTE
   if (explicitTestRoute) {
     console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + explicitTestRoute + ' reason=' + reason)
@@ -43,41 +33,12 @@ async function buildFallbackPlan(message, reason) {
     }
   }
 
-  // LLM-based semantic intent classification — NO keyword matching.
-  let intent
-  try {
-    intent = await classifyIntent(DEFAULT_MODEL, message)
-  } catch (err) {
-    // Per AGENTS.md "No Silent Failures": classifier failures must be surfaced.
-    // In production, log the error and fall back to requiresSearch=true (fail-safe toward web search).
-    // The LLM will still generate a response, but with forced search verification enabled.
-    console.error('[orchestratorClient] buildFallbackPlan: classifier failed, defaulting to requiresSearch=true (fail-safe). reason=', err.message)
-    intent = { requiresSearch: true, reason: 'classifier_failed_fallback', searchHints: [], confidence: 'low' }
-  }
+  // Shared classifier — single authoritative classification logic.
+  const routeResult = await classifyRoute(message)
 
-  // needsSearch from LLM classifier determines if factual/web search route is needed.
-  const needsFactual = intent.requiresSearch === true
+  console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + routeResult.route + ' reason=' + reason + ' intent=' + JSON.stringify(routeResult))
 
-  let route
-  if (needsFactual) {
-    route = 'factual_tool'
-  } else {
-    route = 'fast_chat'
-  }
-
-  console.error('[orchestratorClient] buildFallbackPlan: message="' + String(message).slice(0, 100) + '" route=' + route + ' reason=' + reason + ' intent=' + JSON.stringify(intent))
-
-  return {
-    plan: {
-      route,
-      confidence: intent.confidence || 'low',
-      reason,
-      useModel: true,
-      skipToolPlanning: route === 'fast_chat',
-      promptProfile: route === 'factual_tool' ? 'factual' : 'fast',
-      requireVerification: route === 'factual_tool',
-    },
-  }
+  return routeToPlan(routeResult)
 }
 
 export async function getExecutionPlan(message) {
@@ -99,6 +60,13 @@ export async function getExecutionPlan(message) {
     console.debug('[orchestratorClient] Payload received: route=' + (payload?.plan?.route || 'null') + ' reason=' + (payload?.plan?.reason || 'none'))
 
     if (payload?.plan?.route) {
+      // If the orchestrator explicitly signals it couldn't classify (no_classifier),
+      // its route is a meaningless default — fall back to classifyRoute for real routing.
+      if (payload.plan.reason === 'no_classifier') {
+        console.error('[orchestratorClient] Orchestrator returned no_classifier — using classifyRoute fallback')
+        return await buildFallbackPlan(message, 'orchestrator_no_classifier')
+      }
+
       const result = {
         ...payload,
         plan: {

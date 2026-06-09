@@ -27,11 +27,11 @@ if (!global.Response) {
   global.Response = TestResponse
 }
 
-jest.mock('@/app/api/chat/lib/ollama', () => ({
-  callOllama: jest.fn(),
+jest.mock('@/app/api/chat/lib/callAI', () => ({
+  callAI: jest.fn(),
 }))
 
-const { callOllama } = jest.requireMock('@/app/api/chat/lib/ollama')
+const { callAI } = jest.requireMock('@/app/api/chat/lib/callAI')
 const { POST } = require('./route')
 
 describe('POST /api/nora-word', () => {
@@ -44,7 +44,7 @@ describe('POST /api/nora-word', () => {
   })
 
   it('retries and succeeds when first response is invalid JSON', async () => {
-    callOllama
+    callAI
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -69,11 +69,11 @@ describe('POST /api/nora-word', () => {
 
     expect(response.status).toBe(200)
     expect(body.word).toBe('ELEPHANT')
-    expect(callOllama).toHaveBeenCalledTimes(2)
+    expect(callAI).toHaveBeenCalledTimes(2)
   })
 
-  it('returns 503 when ollama is unavailable after retries', async () => {
-    callOllama.mockRejectedValue(new Error('unavailable'))
+  it('returns 503 when ai is unavailable after retries', async () => {
+    callAI.mockRejectedValue(new Error('unavailable'))
 
     const request = {
       json: jest.fn().mockResolvedValue({ level: 'highschool' }),
@@ -84,6 +84,6 @@ describe('POST /api/nora-word', () => {
 
     expect(response.status).toBe(503)
     expect(body.error).toBe('ai_unavailable')
-    expect(callOllama).toHaveBeenCalledTimes(2)
+    expect(callAI).toHaveBeenCalledTimes(2)
   })
 })

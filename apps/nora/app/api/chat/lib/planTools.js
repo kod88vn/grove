@@ -3,15 +3,14 @@
 // fact-verification searches before the final answer is streamed.
 
 import { MAX_TOOL_PLANNING_PASSES } from './constants'
-import { callOllama } from './ollama'
+import { callAI } from './callAI'
 import { extractToolCalls, normalizeQuery, normalizeUrl } from './toolCalls'
 import { TOOL_DEFINITIONS } from './tools'
 import { log } from './logger'
 import { dedupeSourceUrls, readWebpage, webSearch } from './web'
 import { isLowConfidenceSource } from './sources'
-import { classifyIntent, IntentClassifierError } from './intent'
-import { assessVerificationNeed } from './llmCalls'
-import { buildVerificationQueries, buildVerificationReport } from './verification'
+import { classifyIntent } from './intent'
+
 import { buildDatedQuery } from './queries'
 import { executeToolCall } from './toolExecution'
 
@@ -45,7 +44,7 @@ async function runFirstPlanningPass(model, messagesWithSystem, forceVerification
     return { planningResult: null, toolCalls: [] }
   }
 
-  const firstPass = await callOllama({
+  const firstPass = await callAI({
     model,
     messages: messagesWithSystem,
     stream: false,
@@ -105,64 +104,6 @@ async function runLiveDataSearch(userMessage, followupMessages, sourceUrls, emit
   }
 }
 
-async function runVerificationSearches(userMessage, semanticHints, followupMessages, sourceUrls, emit) {
-  emit({ status: 'Verifying facts with current sources…' })
-  const verificationQueries = [...buildVerificationQueries(userMessage), ...semanticHints]
-  const dedupedQueries = [...new Set(verificationQueries)]
-
-  // Run all verification searches in parallel to avoid serial round-trips.
-  const searchTasks = dedupedQueries.map(async (rawQuery) => {
-    const query = buildDatedQuery(rawQuery)
-    emit({ searching: true, query: rawQuery })
-    const results = await webSearch(query)
-    emit({ searching: false, query: rawQuery, resultCount: results.length })
-    return { rawQuery, query, results }
-  })
-
-  const settled = await Promise.allSettled(searchTasks)
-  for (const outcome of settled) {
-    if (outcome.status !== 'fulfilled') continue
-    const { rawQuery, query, results } = outcome.value
-    for (const result of results) {
-      if (result?.url) sourceUrls.push(result.url)
-    }
-    followupMessages.push({
-      role: 'assistant',
-      content: '',
-      tool_calls: [
-        {
-          type: 'function',
-          function: { name: 'web_search', arguments: { query: rawQuery } },
-        },
-      ],
-    })
-    followupMessages.push({
-      role: 'tool',
-      tool_name: 'web_search',
-      content: JSON.stringify({ query, results, forcedVerification: true }),
-    })
-  }
-}
-
-async function readSinglePrimarySource(url, followupMessages, emit, statusLabel) {
-  emit({ status: `Reading ${hostnameOf(url)} ${statusLabel}…` })
-  const page = await readWebpage(url)
-  followupMessages.push({
-    role: 'assistant',
-    content: '',
-    tool_calls: [
-      {
-        type: 'function',
-        function: { name: 'read_webpage', arguments: { url } },
-      },
-    ],
-  })
-  followupMessages.push({
-    role: 'tool',
-    tool_name: 'read_webpage',
-    content: JSON.stringify({ ...page, forcedVerification: true }),
-  })
-}
 
 export async function planTools(model, messagesWithSystem, emit, options = {}) {
   const forceVerificationFromPlanner = Boolean(options.forceVerification)
@@ -190,108 +131,21 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
   // LLM-based semantic intent classification via classifyIntent().
   // NO keyword matching — all decisions are made by calling Ollama with semantic understanding.
   // 
-  // In production: classifyIntent() throws IntentClassifierError on failure (per "No Silent Failures"
-  // policy). Callers that cannot propagate errors should wrap in a try/catch and decide how to handle.
-  // In test mode: classifier returns { requiresSearch: false } — tests must set TEST_FALLBACK_ROUTE.
+  // classifyIntent() never throws — on failure it returns { requiresSearch: true, reason: 'llm_unavailable', ... }
+  // as a fail-safe default so factual queries get web search verification.
   let intentResult = null
   if (noToolCalls) {
-    try {
-      intentResult = await classifyIntent(model, userMessage)
-    } catch (err) {
-      if (process.env.NODE_ENV === 'test') {
-        // In test mode, classifier throws are unexpected — fall back to safe defaults.
-        intentResult = { requiresSearch: false, reason: 'test_mode_classifier_error', searchHints: [], confidence: 'low' }
-        log.planningResponse(0, { role: 'assistant', content: `[classifier error in test: ${err.message?.slice(0, 80)}]` })
-      } else {
-        // Production: classifier failure must be surfaced, not silently masked.
-        throw new IntentClassifierError(
-          `Intent classifier failed during planTools execution: ${err.message}`,
-          { ...err.details, context: 'planTools_classifier' }
-        )
-      }
-    }
+    intentResult = await classifyIntent(model, userMessage)
   }
 
-  // Live data check: LLM classifier determines if we need live search.
-  // Replaces the old requiresLiveData() keyword-based check (weather/stock/sports patterns).
-  // Note: intentResult is always set when noToolCalls is true because classifyIntent() runs above.
-  // In test mode, the classifier returns { requiresSearch: false } — callers must use TEST_FALLBACK_ROUTE.
-  const shouldForceLiveSearch = noToolCalls && intentResult?.requiresSearch === true
+  // classifyIntent() is the primary authority. Orchestrator's requireVerification acts as a secondary trigger
+  // to ensure factual queries get searched even if the classifier misclassifies them.
+  // All search-requiring queries go through runLiveDataSearch (single search + page read).
+  const shouldForceLiveSearch = noToolCalls && (intentResult?.requiresSearch === true || forceVerificationFromPlanner)
 
   if (shouldForceLiveSearch) {
     await runLiveDataSearch(userMessage, followupMessages, sourceUrls, emit)
     return { followupMessages, sourceUrls: dedupeSourceUrls(sourceUrls), toolCalls: [], planningResult }
-  }
-
-  // Skip the LLM-based verification need assessment when orchestrator already
-  // forced verification (saves one slow Ollama call).
-  const semanticVerification = noToolCalls && !forceVerificationFromPlanner
-    ? await assessVerificationNeed(model, userMessage)
-    : { required: false, confidence: 'low', reason: forceVerificationFromPlanner ? 'orchestrator_forced' : 'tool_call_present', queryHints: [] }
-
-  // Verification requirement: ONLY use orchestrator force flag or LLM classifier result.
-  // The old requiresFactVerification() keyword-based check has been removed — it was
-  // redundant with classifyIntent and caused false positives on conversational queries.
-  const shouldForceVerification = noToolCalls && (
-    forceVerificationFromPlanner
-    || semanticVerification.required
-  )
-
-  if (shouldForceVerification) {
-    await runVerificationSearches(userMessage, semanticVerification.queryHints, followupMessages, sourceUrls, emit)
-
-    // Pass forceRequired from the LLM classifier (or test-mode keyword fallback).
-    const verificationReport = buildVerificationReport(userMessage, sourceUrls, { forceRequired: true })
-    const dedupedSourceUrls = dedupeSourceUrls(sourceUrls)
-    if (verificationReport.status === 'low_confidence' && dedupedSourceUrls.length === 1) {
-      await readSinglePrimarySource(dedupedSourceUrls[0], followupMessages, emit, 'for primary evidence')
-    }
-
-    // Skip the extra planning LLM call when searches already produced a
-    // verified result — the evidence is already in followupMessages and the
-    // final streaming answer can use it directly.
-    if (verificationReport.status !== 'verified') {
-      const verificationPlan = await callOllama({
-        model,
-        messages: followupMessages,
-        stream: false,
-        tools: TOOL_DEFINITIONS,
-        options: { num_predict: 512, think: false },
-      })
-
-      if (!verificationPlan.ok) {
-        const text = await verificationPlan.text()
-        throw new Error(text || 'Verification planning request failed')
-      }
-
-      planningResult = await verificationPlan.json()
-      log.planningResponse(1, planningResult.message)
-      toolCalls = extractToolCalls(planningResult.message)
-      log.toolCallsExtracted(1, toolCalls)
-    } else {
-      // For precise-value questions (version numbers, prices, etc.) the search
-      // result only supplies a URL — the model needs the actual page content.
-      // Read the top reliable source before streaming the final answer.
-      // 
-      // KEY CHANGE: The page-read now fires when intentResult.requiresSearch is true
-      // (from the LLM classifier), NOT just when searchHints are non-empty. 
-      // ClassifyIntent() can return requiresSearch=true with empty searchHints on
-      // classifier failure in test mode — we must still read the primary source to avoid
-      // silently skipping this step. Per AGENTS.md "No Silent Failures" rule.
-      // 
-      // In test mode, intentResult.requiresSearch will be false (classifier disabled).
-      // Tests must set TEST_FALLBACK_ROUTE='factual_tool' to exercise this code path.
-      const needsPageRead = noToolCalls && (intentResult?.requiresSearch === true)
-
-      if (needsPageRead) {
-        const freshDedupe = dedupeSourceUrls(sourceUrls)
-        const topUrl = freshDedupe.find((u) => !isLowConfidenceSource(u)) ?? freshDedupe[0]
-        if (topUrl) {
-          await readSinglePrimarySource(topUrl, followupMessages, emit, 'for exact value')
-        }
-      }
-      toolCalls = []
-    }
   }
 
   for (let pass = 0; pass < MAX_TOOL_PLANNING_PASSES; pass++) {
@@ -309,7 +163,7 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
       await executeToolCall(call, followupMessages, sourceUrls, emit, model)
     }
 
-    const nextPlan = await callOllama({
+    const nextPlan = await callAI({
       model,
       messages: followupMessages,
       stream: false,
@@ -335,3 +189,4 @@ export async function planTools(model, messagesWithSystem, emit, options = {}) {
     planningResult,
   }
 }
+

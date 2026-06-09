@@ -5,8 +5,7 @@ import { usePathname } from 'next/navigation'
 import { ChatMessage } from '@/components/ChatMessage'
 import { GreetingTrigger } from '@/components/GreetingTrigger'
 import { useChatMessages } from '@/hooks/useChatMessages'
-
-const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'qwen3.5:9b'
+import { DEFAULT_MODEL } from '@/hooks/defaultModel.js'
 
 /** Floating Nora chat drawer — shown on all pages except /chat */
 export function FloatingChat({ enableGreeting = true } = {}) {

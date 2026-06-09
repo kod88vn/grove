@@ -1,4 +1,4 @@
-import { callOllama } from '@/app/api/chat/lib/ollama'
+import { callAI } from '@/app/api/chat/lib/callAI'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 import { MATH_SKILLS_CATALOG } from '@/lib/skills-catalog'
 
@@ -407,7 +407,7 @@ async function askJson(messages, numPredict = 300, format = 'json', temperature 
 
   for (let attempt = 1; attempt <= MAX_OLLAMA_ATTEMPTS; attempt += 1) {
     try {
-      const res = await callOllama({
+      const res = await callAI({
         model: HOMEWORKS_MODEL,
         messages,
         stream: false,
@@ -420,13 +420,13 @@ async function askJson(messages, numPredict = 300, format = 'json', temperature 
       })
 
       if (!res.ok) {
-        throw new Error(`Ollama error: ${res.status}`)
+        throw new Error(`AI error: ${res.status}`)
       }
 
       const json = await res.json()
       const parsed = parseModelJson(json)
       if (!parsed) {
-        throw new Error('Empty response from Ollama')
+        throw new Error('Empty response from AI')
       }
 
       return parsed
