@@ -47,6 +47,15 @@ jobs:
             Write-Host "No sharp-related processes found."
           }
 
+          $nodeProcs = Get-Process -Name 'node' -ErrorAction SilentlyContinue
+          if ($nodeProcs) {
+            Write-Host "Killing stale node processes: $($nodeProcs.Id -join ', ')"
+            $nodeProcs | Stop-Process -Force
+          } else {
+            Write-Host 'No stale node processes found.'
+          }
+          Start-Sleep -Seconds 2
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed for turbo diff detection
