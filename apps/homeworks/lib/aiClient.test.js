@@ -151,8 +151,15 @@ describe('aiClient', () => {
   })
 
   describe('callNora (internal)', () => {
-    it('uses default Nora URL when PLT_NORA_URL is not set', async () => {
+    beforeEach(() => {
+      // Override beforeEach to ensure PLT_NORA_URL is cleared and modules reset
+      jest.clearAllMocks()
       delete process.env.PLT_NORA_URL
+    })
+
+    it('uses default Nora URL when PLT_NORA_URL is not set', async () => {
+      // Reset modules to get fresh import of aiClient with deleted PLT_NORA_URL
+      jest.resetModules()
 
       const { generateExercise } = await import('./aiClient')
 
