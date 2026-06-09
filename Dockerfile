@@ -24,6 +24,7 @@ WORKDIR /app
 
 RUN apk add --no-cache git
 
+# Copy node_modules from deps stage (already compiled for Alpine)
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -34,8 +35,9 @@ RUN printf "NEXT_PUBLIC_COMMIT_HASH=%s\n" "${COMMIT_HASH}" > apps/nora/.env.loca
 # Rebuild better-sqlite3 for this Alpine stage (required after COPY --from=deps)
 RUN npm rebuild better-sqlite3
 
-# Set PLT_NORA_URL for Next.js builds (evaluated at build time)
+# Set required env vars for Next.js builds (evaluated at build time)
 ENV PLT_NORA_URL=http://localhost:3000
+ENV OLLAMA_HOST=http://grove:11434
 
 # Build all zone apps
 RUN yarn workspace @grove/grove build && \
@@ -53,7 +55,9 @@ ENV NODE_ENV=production
 
 # Service connectivity: all apps run inside the same Platformatic runtime (single process)
 # PLT_NORA_URL: homeworks calls Nora at port 3000 (Nora's platformatic.json port)
+# OLLAMA_HOST: Nora calls Ollama at http://grove:11434 (Tailscale service name)
 ENV PLT_NORA_URL=http://localhost:3000
+ENV OLLAMA_HOST=http://grove:11434
 
 # Install build tools needed for native module compilation
 RUN apk add --no-cache make g++ python3
