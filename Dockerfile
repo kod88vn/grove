@@ -55,15 +55,9 @@ ENV NODE_ENV=production
 
 # Service connectivity: all apps run inside the same Platformatic runtime (single process)
 # PLT_NORA_URL: homeworks calls Nora at port 3000 (Nora's platformatic.json port)
-# AI_PROVIDER: "lmstudio" — Nora only calls LMStudio-compatible API (no Ollama)
-# MODEL: default model for AI calls (override via runtime -e flag)
-# LMSTUDIO_BASE_URL: Nora calls LMStudio-compatible API (e.g., http://m5:1234/v1)
-# GROVE_LOCATION: used in system prompt for contextual responses
+# OLLAMA_HOST: Nora calls Ollama at http://grove:11434 (Tailscale service name)
 ENV PLT_NORA_URL=http://localhost:3000
-ENV AI_PROVIDER=lmstudio
-ENV MODEL=qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx
-ENV LMSTUDIO_BASE_URL=http://m5:1234/v1
-ENV GROVE_LOCATION=Duluth, Georgia, USA
+ENV OLLAMA_HOST=http://grove:11434
 
 # Install build tools needed for native module compilation
 RUN apk add --no-cache make g++ python3

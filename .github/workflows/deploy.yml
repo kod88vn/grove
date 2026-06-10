@@ -190,10 +190,6 @@ jobs:
             --restart always `
             -p 80:80 `
             -e NORA_DB_PATH=/data/nora.db `
-            -e AI_PROVIDER=${{ vars.AI_PROVIDER }} `
-            -e MODEL=${{ vars.MODEL }} `
-            -e LMSTUDIO_BASE_URL=${{ vars.LMSTUDIO_BASE_URL }} `
-            -e GROVE_LOCATION=${{ vars.GROVE_LOCATION }} `
             -v nora-data:/data `
             grove:$tag
 
