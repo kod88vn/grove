@@ -165,8 +165,8 @@ jobs:
 
           # Stop any existing containers, then start.
           # --pull missing: only pull images not already cached locally (avoids slow ECR re-pulls on every deploy)
-          # Use `|| $true` to ignore non-zero exit code when containers don't exist or are stuck
-          docker compose down 2>$null | Out-Null; $true
+          # Wrap in try/catch to suppress NativeCommandError when containers are stopping (non-zero exit code)
+          try { docker compose down 2>$null | Out-Null } catch {}
           docker compose up -d --pull missing
 
       - name: Swap Grove container
