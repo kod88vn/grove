@@ -55,9 +55,8 @@ ENV NODE_ENV=production
 
 # Service connectivity: all apps run inside the same Platformatic runtime (single process)
 # PLT_NORA_URL: homeworks calls Nora at port 3000 (Nora's platformatic.json port)
-# OLLAMA_HOST: Nora calls Ollama at http://grove:11434 (Tailscale service name)
+# AI_PROVIDER, MODEL, LMSTUDIO_BASE_URL, GROVE_LOCATION: passed via docker run -e at deploy time
 ENV PLT_NORA_URL=http://localhost:3000
-ENV OLLAMA_HOST=http://grove:11434
 
 # Install build tools needed for native module compilation
 RUN apk add --no-cache make g++ python3
