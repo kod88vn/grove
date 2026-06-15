@@ -1,4 +1,4 @@
-// Streams the final assistant answer to the client. Handles two retract loops:
+// Streams the final assistant answer to the client. Handles three retract loops:
 // (1) the model leaks XML tool calls into content instead of using structured
 //     calls — execute them and re-stream;
 // (2) the model narrates intent ("I'll search for...") instead of answering —
@@ -20,6 +20,19 @@ function isUsableThinking(text) {
   const t = text.trim()
   if (t.length < 15) return false
   if (/^[\s\p{P}]+$/u.test(t)) return false  // purely punctuation/whitespace
+  return true
+}
+
+/**
+ * Check if text is a valid, non-empty response — even if short.
+ * Used as a secondary check when thinking is too short to be usable
+ * but still contains actual content worth emitting.
+ */
+function isValidResponse(text) {
+  const t = text.trim()
+  if (!t) return false
+  if (/^[\s\p{P}]+$/u.test(t)) return false  // purely punctuation/whitespace
+  if (/^(ok|okay|sure|yes|no|hmm|uh|um|ah|hm)\.?$/i.test(t)) return false  // single-word fillers
   return true
 }
 
@@ -86,7 +99,13 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
             emit({ status: null })
             emit({ thinkingDone: true })
             if (isUsableThinking(fullThinking)) {
-              // Safeguard 2: quality-checked thinking promotion
+              // Safeguard 2: quality-checked thinking promotion (thinking >= 15 chars)
+              fullContent = fullThinking.trim()
+              emit({ word: fullContent })
+              contentStarted = true
+            } else if (isValidResponse(fullThinking)) {
+              // Secondary check: thinking is short but still valid content
+              // This catches legitimate short answers that would otherwise trigger retries/fallback
               fullContent = fullThinking.trim()
               emit({ word: fullContent })
               contentStarted = true
@@ -103,6 +122,7 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
               contentStarted = true
             }
           }
+
           // 1. XML tool-call interception
           const xmlCalls = parseXmlToolCalls(fullContent)
           if (xmlCalls.length > 0 && _pass < MAX_XML_INTERCEPT_PASSES) {
@@ -122,7 +142,7 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
             return
           }
 
-          // 2. Citation enforcement
+          // 2. Citation enforcement — re-prompt if verification requires citations but model omitted them
           const hasVerificationMessage = followupMessages.some((m) => {
             if (m.role !== 'system' || !m.content) return false
             return /(cite|citation|source)/i.test(m.content) && /(must|required|critical|strict)/i.test(m.content)
@@ -200,6 +220,13 @@ export async function streamFinalAnswer(model, followupMessages, sourceUrls, emi
   if (contentStarted && fullContent) {
     // Partial content already streamed — close cleanly, don't retry over already-sent words
     console.warn('[streamAnswer] Stream truncated on pass', _pass, '— closing with partial content')
+    controller.enqueue(enc.encode('data: [DONE]\n\n'))
+    controller.close()
+  } else if (isValidResponse(fullThinking)) {
+    // Stream ended without done event but we have valid thinking content — emit it
+    console.warn('[streamAnswer] Stream truncated with valid thinking on pass', _pass, '— emitting thinking as response')
+    emit({ thinkingDone: true })
+    emit({ word: fullThinking.trim() })
     controller.enqueue(enc.encode('data: [DONE]\n\n'))
     controller.close()
   } else if (_pass < MAX_EMPTY_RETRIES) {
