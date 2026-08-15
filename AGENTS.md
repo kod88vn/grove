@@ -103,6 +103,67 @@ The following canonical skills define AI behavior. Each skill has detailed proce
 
 When performing any of these activities, follow the procedure in the corresponding skill file.
 
+## AI Workflow Template — Agents, Instructions & Guards
+
+Grove uses a structured AI workflow adapted from [`kod88vn/ai_template`](https://github.com/kod88vn/ai_template). These artifacts enforce discipline around abstraction layers, size limits, and verifiable milestones.
+
+### Subagent Prompts (`.github/agents/`)
+
+| Agent | Purpose |
+|-------|---------|
+| [`code-reviewer.agent.md`](.github/agents/code-reviewer.agent.md) | Architecture reviewer — layer violations, mixed abstraction, oversized files/functions, banned patterns |
+| [`spec-lookup.agent.md`](.github/agents/spec-lookup.agent.md) | Spec lookup subagent — returns <200 word cited answers from docs instead of dumping large documents into context |
+| [`docs-researcher.agent.md`](.github/agents/docs-researcher.agent.md) | Documentation researcher — fetches verified API facts with URLs before writing code against external dependencies |
+| [`milestone-verifier.agent.md`](.github/agents/milestone-verifier.agent.md) | Milestone verification gate — runs real commands, anti-cheat checks, never edits code |
+
+### Auto-Applied Instructions (`.github/instructions/`)
+
+| Instruction | Applies To | Purpose |
+|-------------|-----------|---------|
+| [`code-quality.instructions.md`](.github/instructions/code-quality.instructions.md) | All source files | Layer placement, size limits, naming, types, errors, banned escape hatches |
+| [`testing.instructions.md`](.github/instructions/testing.instructions.md) | Test files | What to test, fakes over mocks, determinism, side-by-side placement rule |
+| [`vendor-adapters.instructions.md`](.github/instructions/vendor-adapters.instructions.md) | Adapter layer (L3) | Port/adapter boundary, untrusted responses, retries, caching, Ollama access pattern |
+
+### Workflow Prompts (`.github/prompts/`)
+
+| Prompt | Purpose |
+|--------|---------|
+| [`plan-milestone.prompt.md`](.github/prompts/plan-milestone.prompt.md) | Break vague requests into gated milestones with verifiable gates |
+| [`refactor-abstraction.prompt.md`](.github/prompts/refactor-abstraction.prompt.md) | Refactor for clean layers, split oversized files, remove mixed abstraction |
+
+### Milestone Workflow Skill (`.github/skills/`)
+
+| Skill | Purpose |
+|-------|---------|
+| [`milestone-workflow/SKILL.md`](.github/skills/milestone-workflow/SKILL.md) | End-to-end milestone workflow — plan-then-build-verify with real command gates |
+
+### Guard Scripts (`scripts/`)
+
+| Script | Purpose | Run via |
+|--------|---------|---------|
+| [`ai-guard-config.mjs`](scripts/ai-guard-config.mjs) | Shared config loader (supports `//` comments in JSON) | Imported by arch-check and quality-check |
+| [`arch-check.mjs`](scripts/arch-check.mjs) | Architecture boundary enforcement — layer violations, vendor SDK placement, purity | `node scripts/arch-check.mjs` |
+| [`quality-check.mjs`](scripts/quality-check.mjs) | Size/hygiene enforcement — 300-line files, 50-line functions, banned patterns | `node scripts/quality-check.mjs` |
+
+### Configuration & Documentation
+
+| File | Purpose |
+|------|---------|
+| [`ai-guard.config.json`](ai-guard.config.json) | Guard configuration — layer definitions, vendor SDKs, limits, banned filenames/patterns |
+| [`CONTEXT.md`](CONTEXT.md) | Domain glossary — terms, actors, states, constraints |
+| [`docs/STACK.md`](docs/STACK.md) | Verified facts ledger — package versions, frameworks, APIs with dates and source URLs |
+| [`docs/MILESTONES.md`](docs/MILESTONES.md) | Milestone tracking table with gates, observations, and completion log |
+
+### How to use
+
+1. **Before writing code against an external API**: delegate to `docs-researcher`, record facts in `docs/STACK.md`.
+2. **Before committing a milestone**: run `node scripts/arch-check.mjs && node scripts/quality-check.mjs`.
+3. **When reviewing changes**: delegate to `code-reviewer` subagent for architecture audit.
+4. **When planning scope**: use `plan-milestone.prompt.md` to produce gated milestones in `docs/MILESTONES.md`.
+5. **When refactoring**: use `refactor-abstraction.prompt.md` to restore clean layers without changing behavior.
+
+See `.github/skills/milestone-workflow/SKILL.md` for the full plan-then-build-verify procedure.
+
 ## Naming Convention: Always Use "Nora"
 
 **Refer to the AI assistant as "Nora", never as "AI" in user-facing text.**

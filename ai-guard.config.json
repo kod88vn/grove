@@ -1,0 +1,126 @@
+{
+  // Source directories to scan (monorepo apps)
+  "sourceRoots": ["apps"],
+
+  // File extensions to include
+  "fileExtensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"],
+
+  // Directories to ignore
+  "ignoredDirs": [
+    "node_modules",
+    ".next",
+    ".turbo",
+    "dist",
+    "build",
+    "public",
+    "coverage",
+    "__snapshots__"
+  ],
+
+  // Import path aliases (maps bare specifiers to repo paths)
+  "importAliases": [
+    { "pattern": "^@/(.*)$", "path": "$1" }
+  ],
+
+  // Layer definitions — dependencies point downward only
+  "layers": [
+    {
+      "name": "schema",
+      "level": 0,
+      "match": ["apps/*/types", "apps/*/schemas"],
+      "allowedExternal": [],
+      "//": "L0: types and validation only"
+    },
+    {
+      "name": "rules",
+      "level": 1,
+      "match": ["apps/*/lib/*.test.js", "apps/nora/lib/chat"],
+      "pure": true,
+      "//": "L1: pure business logic, no I/O"
+    },
+    {
+      "name": "ports",
+      "level": 2,
+      "match": [],
+      "//": "L2: interface definitions only"
+    },
+    {
+      "name": "adapters",
+      "level": 3,
+      "match": ["apps/*/lib"],
+      "noVendor": false,
+      "//": "L3: third-party SDKs live here only"
+    },
+    {
+      "name": "use-cases",
+      "level": 4,
+      "match": ["apps/*/src", "apps/nora/app/api"],
+      "//": "L4: orchestration, no vendor SDKs directly"
+    },
+    {
+      "name": "delivery",
+      "level": 5,
+      "match": ["apps/*/app", "apps/*/components"],
+      "//": "L5: routing, transport, UI"
+    }
+  ],
+
+  // Vendor SDKs — must be imported in L3 only
+  "vendorSdks": [
+    "@anthropic-ai/vertex-sdk",
+    "ollama",
+    "better-sqlite3",
+    "platformatic"
+  ],
+  "vendorAllowedLayers": [3],
+
+  // Purity patterns for pure layers (L1+)
+  "purityPatterns": [
+    { "pattern": "fetch\\s*\\(", "why": "uses network" },
+    { "pattern": "import\\s+.*from\\s+['\"]node:", "why": "uses node builtins" },
+    { "pattern": "require\\s*\\(\\s*['\"]fs['\"]", "why": "uses filesystem" },
+    { "pattern": "Date\\.now|new Date", "why": "uses clock" },
+    { "pattern": "process\\.env\\.", "why": "reads environment" },
+    { "pattern": "Math\\.random", "why": "uses randomness" }
+  ],
+
+  // Size and hygiene limits
+  "limits": {
+    "fileLines": 300,
+    "functionLines": 50,
+    "parameters": 4,
+    "nestingDepth": 3
+  },
+
+  // Banned filenames (bucket names that hide responsibility)
+  "bannedFilenames": [
+    "utils.js",
+    "helpers.js",
+    "common.js",
+    "misc.js",
+    "shared.js"
+  ],
+
+  // Test file pattern for hygiene checks
+  "testFilePattern": "\\.(test|spec)\\.[jt]sx?$",
+
+  // Banned text patterns — learn from every mistake
+  "bannedPatterns": [
+    {
+      "pattern": "TODO",
+      "what": "a TODO in completed code"
+    },
+    {
+      "pattern": "FIXME",
+      "what": "a FIXME in shipped code"
+    },
+    {
+      "pattern": "\\.only\\b",
+      "what": ".only disables the rest of the suite"
+    },
+    {
+      "pattern": "\\.skip\\b",
+      "what": "skipped test — weakens coverage"
+    }
+  ]
+}
