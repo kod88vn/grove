@@ -7,9 +7,9 @@
 
 **Goal:** A scheduled personal automation runner that observes my Jira/git/GitHub state, proposes actions, and — only under explicit, expiring, rate-limited pre-approval — performs them, with a full audit trail and a local dashboard.
 
-**Architecture:** Pure task functions emit `Action` objects; a policy engine decides allow/queue/deny; an executor is the only component with side effects. JSONL store is the single source of truth shared by the CLI, the launchd agent, and the dashboard.
+**Architecture:** Pure task functions emit `Action` objects; a policy engine decides allow/queue/deny; an executor is the only component with side effects. A single SQLite database is the source of truth shared by the CLI, the launchd agent, and the dashboard.
 
-**Tech Stack:** TypeScript, Node v24.18.0 (ESM), `tsx` for direct script execution, Vitest, Vite + React (dashboard), launchd (scheduling), `gh` 2.97.0 (GitHub), Jira DC REST v2, Copilot CLI 1.0.81 (later phases).
+**Tech Stack:** TypeScript, Node v24.18.0 (ESM), built-in `node:sqlite` (SQLite 3.53.1, WAL, FTS5 — zero external deps), `tsx` for direct script execution, Vitest, Vite + React (dashboard), launchd (scheduling), `gh` 2.97.0 (GitHub), Jira DC REST v2, Copilot CLI 1.0.81 (later phases).
 
 **Source spec:** [DESIGN.md](../../../DESIGN.md)
 
@@ -21,7 +21,7 @@
 |---|---|---|---|
 | P0 | Scaffold & toolchain | Repo builds, tests run, config schema | — |
 | P1 | Core + policy engine | Pre-approval logic, fully unit-tested, no I/O | P0 |
-| P2 | Store, audit & retention | JSONL append/read, pruning, audit records | P0 |
+| P2 | Store, audit & retention | SQLite schema, migrations, queries, pruning | P0 |
 | P3 | Connectors & `doctor` | Jira, git, GitHub reads against fixtures | P1, P2 |
 | P4 | Standalone task scripts | Three independently runnable scripts | P3 |
 | P5 | **Composite standup + reports** | **First genuinely useful output** | P4 |
@@ -55,7 +55,7 @@ graph LR
 
 ## P0 — Scaffold & toolchain
 
-**Delivers:** TypeScript ESM project, Vitest, `tsx`, lint, `.gitignore` (`data/`, `reports/`, `node_modules/`), `config.json` schema + loader with validation.
+**Delivers:** TypeScript ESM project, Vitest, `tsx`, lint, `.gitignore` (`data/`, `reports/`, `node_modules/`), config schema + validation.
 
 **Exit criteria:** `npm test` runs (green, trivially); `npx tsx --version` works; committing does not stage `data/` or `reports/`.
 
@@ -75,11 +75,14 @@ graph LR
 
 ## P2 — Store, audit trail & retention
 
-**Delivers:** Append/read for `runs.jsonl`, `actions.jsonl`, `queue.jsonl`; `rules.json` and `config.json` atomic writes (temp + rename); per-stream retention pruning.
+**Delivers:** SQLite schema and forward-only migrations (`PRAGMA user_version`); repository functions for `runs`, `actions`, `logs`, `schedule_slots`, `rules`, `rule_history`, `config`; FTS5 index over actions; per-table retention pruning; `bot export`.
 
-**Exit criteria:** Concurrent appends don't interleave-corrupt; pruning respects **different windows per stream** (30d logs, 365d applied mutations — see spec §8); pruning never deletes a record referenced by an unresolved queue entry; pruning is itself audited.
+**Exit criteria:** Migrations apply from empty and are idempotent on reopen; WAL enabled and a concurrent reader is not blocked by a writing run; a crashed mid-run transaction leaves no partial rows; pruning respects **different windows per table** (30d logs, 365d applied mutations — see DESIGN §8), never deletes an unresolved action, and is itself logged; post-prune checkpoint actually reclaims space.
 
-**Design constraint:** Every applied action records `authorizedBy: <ruleId>`, the run that produced it, the exact payload, and the outcome. Without provenance the audit view in P8 cannot answer "why did it do that".
+**Design constraints:**
+- Every applied action records its authorizing rule id, the run that produced it, the exact payload, and the outcome. Without provenance the audit view in P8 cannot answer "why did it do that".
+- **The queue is a query, not a table** — `decision='queue' AND resolution IS NULL`. A separate queue table would duplicate audit rows and create two things that can disagree.
+- All SQL is confined to `src/store/`. Nothing above it knows the storage engine.
 
 ---
 
@@ -131,7 +134,7 @@ graph LR
 
 **Delivers:** Executor applying policy decisions; `bot queue list|approve|reject`; write-capable connector methods (still gated).
 
-**Exit criteria:** With zero enabled rules, every proposed action lands in `queue.jsonl` and `actions.jsonl` shows a `QUEUE` decision — **nothing is applied**. `--apply` does not bypass policy. Denylist violations are rejected in tests (attempt to push `main`, `--force`, `--no-verify`, PR without a Jira link).
+**Exit criteria:** With zero enabled rules, every proposed action is stored with a `QUEUE` decision and no resolution — **nothing is applied**. `--apply` does not bypass policy. Denylist violations are rejected in tests (attempt to push `main`, `--force`, `--no-verify`, PR without a Jira link).
 
 ---
 
@@ -143,7 +146,7 @@ graph LR
 - Approve a queued action end-to-end and see it applied and audited
 - "Always approve like this" generates a **pre-filled, editable** rule showing predicate, limits, and expiry before saving
 - Every setting in spec §11 is editable from the UI, written atomically and schema-validated
-- **The cron job runs correctly with the dashboard never started** — config file is the contract, the dashboard is not a dependency
+- **The cron job runs correctly with the dashboard never started** — the `config` table is the contract, the dashboard is not a dependency
 - Audit view filters by date/task/capability/decision, isolates applied mutations, and answers both "what did the bot change today" and "what did rule X ever authorize"
 
 ---
@@ -181,12 +184,12 @@ These hold in every phase; a change that violates one is a bug regardless of wha
 
 ## Deliberately deferred
 
-Slack delivery, sprint maintenance, auto-resolving tickets, PR-feedback resolution, multi-user/auth, remote hosting, SQLite migration. Each is additive; none require restructuring.
+Slack delivery, sprint maintenance, auto-resolving tickets, PR-feedback resolution, multi-user/auth, remote hosting. Each is additive; none require restructuring.
 
 ---
 
 ## Open questions blocking later phases
 
 1. Staleness threshold — 3 days assumed (blocks P5)
-2. `actions.jsonl` retention: 30 days as stated, or 365 as recommended in spec §8 (blocks P2)
+2. Applied-mutation retention: 30 days as stated, or 365 as recommended in DESIGN §8 (blocks P2)
 3. Catch-up semantics after a long gap: cover the whole window, or report current state and note the gap (blocks P6)

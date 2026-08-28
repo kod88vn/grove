@@ -35,6 +35,9 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 | Copilot permissioning | `--allow-tool[=tools...]`, `--allow-url`, `--allow-all-paths`, `--add-dir`, `--agent` | `copilot --help` |
 | Copilot safety judge | `--assisted-approval` — *takes precedence over* `--allow-all-tools`; requires `--experimental` or `enabledFeatureFlags.AUTO_APPROVAL` | `copilot --help` |
 | Node | `v24.18.0` | `node --version` |
+| `node:sqlite` | Available with **no experimental flag and no warning**; exports `DatabaseSync`, `StatementSync`, `Session`, `constants`, `backup` | `node -e "require('node:sqlite')"` |
+| Bundled SQLite | `3.53.1`, with **FTS5** and **json1** compiled in | `SELECT sqlite_version()`; `CREATE VIRTUAL TABLE … USING fts5`; `json_extract` |
+| SQLite WAL | `PRAGMA journal_mode=WAL` → `wal`; `busy_timeout` and `user_version` settable | verified on a file-backed DB |
 | GitHub CLI | `2.97.0` | `gh --version` |
 | GitHub host | `github.corp.clover.com`, account `jay-quach`, git protocol **ssh** | `gh auth status` |
 | GitHub token scopes | `admin:public_key`, `gist`, `read:org`, `repo` | `gh auth status` |
@@ -56,7 +59,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 
 ### In scope for the POC
 
-1. Shared skeleton: task registry, action/policy engine, JSONL store, CLI
+1. Shared skeleton: task registry, action/policy engine, SQLite store, CLI
 2. One standalone script per task, individually runnable and testable
 3. One real task implemented end to end: **standup digest** (Jira + git + GitHub)
 4. Pre-approval policy engine with a catalog of candidate rules, **all disabled by default**
@@ -83,7 +86,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 | Per-task scripts | Yes — one runnable script per task |
 | Dashboard | Vite + React SPA against a small JSON API |
 | Dashboard role | Read state, approve actions, trigger manual runs |
-| Storage | JSONL files + a rules JSON file |
+| Storage | **SQLite** via built-in `node:sqlite`, WAL mode, zero dependencies |
 | Initial pre-approvals | **None enabled.** Ship a catalog of candidates, disabled, for inspection |
 | Ticket scope | All my tickets, but **correlated with PRs I opened** — PR linkage is the primary signal |
 | Quiet hours | No runs 23:00–07:00 local |
@@ -122,7 +125,7 @@ bot/
       pr-status.ts
       standup.ts
     executor/                   # applies actions according to policy decisions
-    store/                      # JSONL append + read
+    store/                      # SQLite: schema, migrations, queries
     delivery/                   # ConsoleReporter, FileReporter (SlackReporter later)
     config/
   dashboard/
@@ -132,10 +135,8 @@ bot/
     com.jayquach.bot.standup.plist.template
     install.sh / uninstall.sh
   data/                         # gitignored
-    runs.jsonl
-    actions.jsonl               # append-only audit log
-    queue.jsonl
-    rules.json
+    bot.db                      # SQLite (WAL: bot.db-wal, bot.db-shm alongside)
+    migrations/                 # numbered .sql files, applied via PRAGMA user_version
   reports/                      # gitignored
 ```
 
@@ -204,7 +205,7 @@ Default is always `QUEUE`. Absence of a rule can never mean permission.
 ### Three non-negotiable properties
 
 1. **Expiry** — every rule has `expiresAt`. Rules rot as circumstances change; forcing periodic re-consent prevents "pre-approved once" silently becoming permanent autonomy. An expired rule falls through to `QUEUE`, it does not fail closed loudly but it does not act.
-2. **Rate limits** — `perRun` and `perDay`. The realistic failure is not a malicious action, it is a loop emitting the same action 400 times. Limits are counted from `actions.jsonl`, so they survive restarts.
+2. **Rate limits** — `perRun` and `perDay`. The realistic failure is not a malicious action, it is a loop emitting the same action 400 times. Limits are counted with a query over the `actions` table, so they survive restarts.
 3. **Provenance** — every applied action records `authorizedBy: <ruleId>` in the audit log. You can always answer "why did it do that", and revoking a rule tells you exactly what it had authorized.
 
 ### Hardcoded denylist (uneditable, encodes standing personal rules)
@@ -240,39 +241,92 @@ The third is the important one: the allowlist grows from actions you have actual
 
 ## 8. Storage
 
-JSONL append-only files under `data/`, plus `rules.json`.
+A single SQLite database at `data/bot.db`, accessed through the built-in `node:sqlite`
+module. No external dependency, no native build step.
 
-| File | Contents |
-|---|---|
-| `runs.jsonl` | one record per task execution: id, task, start/end, mode, outcome |
-| `actions.jsonl` | append-only audit: every action proposed, its decision, authorizing rule, result |
-| `queue.jsonl` | pending actions awaiting approval; resolved entries appended, never edited in place |
-| `rules.json` | pre-approval rules |
-| `config.json` | all job settings the dashboard edits; the single source of truth |
+**Why SQLite over append-only JSONL:** the audit requirement (§11) is a *query* requirement —
+filter by date range, task, capability and decision, isolate applied mutations, full-text
+search, and pivot on "everything rule X authorized". Serving those from JSONL means reading
+every line into memory on every dashboard request, and log volume is expected to be high.
+Retention also becomes a `DELETE … WHERE ts < ?` instead of rewriting files.
 
-Append-only means concurrent writers never corrupt earlier records, and history is greppable and git-diffable. The tradeoff is weak querying; if the dashboard gets slow, migrating to SQLite is a store-layer change only, because nothing above `src/store/` knows the format.
+### Tables
+
+| Table | Purpose | Volume |
+|---|---|---|
+| `runs` | one row per execution: task, scheduled slot, start/end, mode, outcome, catch-up window | low |
+| `actions` | every action proposed, its decision, authorizing rule, payload, result | low–medium |
+| `logs` | verbose run output, level, message, context | **high** |
+| `schedule_slots` | per-slot accounting: `ran` / `suppressed` / `missed` / `failed` | medium |
+| `rules` | pre-approval rules | low |
+| `rule_history` | every rule create/edit/revoke, with before/after | low |
+| `config` | key → JSON value; all dashboard-editable settings | low |
+| `actions_fts` | FTS5 index over action summary/target | mirrors `actions` |
+
+### The queue is a query, not a table
+
+An earlier draft had a separate `queue.jsonl`. That was a mistake: it duplicates rows that
+already exist in the audit record and creates two things that can disagree. Instead,
+`actions` carries `resolution`, `resolved_at`, `resolved_by`, and the approval inbox is:
+
+```sql
+SELECT * FROM actions WHERE decision = 'queue' AND resolution IS NULL ORDER BY created_at;
+```
+
+One row per action, from proposal through to outcome. Nothing to reconcile.
+
+### Concurrency
+
+The launchd agent writes while the dashboard reads, so:
+
+- `PRAGMA journal_mode=WAL` — readers never block the writer and vice versa (verified working, §2)
+- `PRAGMA busy_timeout=5000` — absorbs brief contention instead of throwing `SQLITE_BUSY`
+- Single-writer discipline: the dashboard mutates only via explicit commands, never mid-run
+- Every run's inserts are wrapped in a transaction so a crashed run leaves no half-written state
+
+### Migrations
+
+Numbered `.sql` files in `data/migrations/`, applied at startup in order, tracked with
+`PRAGMA user_version` (verified settable, §2). Both the CLI and the dashboard run the same
+migration step on open, so whichever starts first brings the schema up to date. Migrations
+are forward-only.
 
 ### Retention: logs and audit are not the same thing
 
-Retention is configured **per stream**, not globally, because these have different purposes:
+Retention is configured **per table**, not globally, because these have different purposes:
 
-| Stream | Default retention | Rationale |
+| Data | Default retention | Rationale |
 |---|---|---|
-| Verbose run logs (`~/Library/Logs/bot/`) | **30 days** | Debugging aid; high volume; loses value quickly |
-| `runs.jsonl` | **30 days** | Operational history |
-| `queue.jsonl` (resolved entries) | **30 days** | Superseded by the audit record |
-| `actions.jsonl` (**applied mutations only**) | **365 days** | This is the record of what the bot *changed*. See below. |
+| `logs` | **30 days** | Debugging aid; high volume; loses value quickly |
+| `runs`, `schedule_slots` | **30 days** | Operational history |
+| `actions` — proposed / rejected / queued | **30 days** | High volume, superseded once resolved |
+| `actions` — **applied mutations** | **365 days** | The record of what the bot *changed*. See below. |
+| `rules`, `rule_history`, `config` | **never pruned** | Tiny, and they explain every past decision |
 
-**Recommendation, flagged for explicit decision:** pruning `actions.jsonl` at 30 days would
+**Recommendation, flagged for explicit decision:** pruning applied mutations at 30 days would
 destroy the answer to "did the bot do this, and under what authority?" for anything older
-than a month. That is the one question an audit trail exists to answer. Applied mutations
-are also extremely low volume — a handful per day at most — so retaining them for a year
-costs almost nothing. Proposed and rejected actions are high-volume and *are* pruned at 30
-days. If 30 days across the board is genuinely required, say so and it becomes a one-line
-config change, but the tradeoff should be deliberate.
+than a month. That is the one question an audit trail exists to answer. Applied mutations are
+also extremely low volume — a handful per day at most — so retaining them for a year costs
+almost nothing, while the high-volume data that motivated SQLite (`logs`) *is* pruned at 30
+days. If 30 days across the board is genuinely required it is a one-line config change, but
+the tradeoff should be deliberate.
 
-Pruning runs at the start of each scheduled run, is itself logged, and never deletes a
-record that is still referenced by an unresolved queue entry.
+Pruning runs at the start of each scheduled run, is itself logged, and never deletes an
+action that is still unresolved. Note that `DELETE` alone does not shrink the file: pruning
+is followed by `PRAGMA wal_checkpoint(TRUNCATE)`, with a periodic `VACUUM` on a longer cycle.
+
+### Indexes
+
+Driven by the actual dashboard queries, not guessed: `actions(created_at)`,
+`actions(decision, resolution)`, `actions(capability)`, `actions(authorized_by_rule)`,
+`actions(run_id)`, `logs(ts)`, `logs(run_id)`, `runs(scheduled_slot)`.
+
+### Escape hatch
+
+`bot export` dumps `config`, `rules`, and applied actions to JSON. This preserves the one
+real advantage JSONL had — human-readable, diffable, backup-able state — without paying its
+query cost. Config and rules live in the database rather than in a hand-edited file so that
+edits are transactional and every change is captured in `rule_history`.
 
 ## 9. Scripts and CLI
 
@@ -287,7 +341,7 @@ bot run standup                               # via the registry
 
 `--dry-run` is the default everywhere. `--apply` does not bypass policy; it only permits the executor to act on actions the policy engine independently allows.
 
-`bot doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, launchd agent loaded. Exits non-zero on any failure.
+`bot doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, the database opens and its migrations are current, launchd agent loaded. Exits non-zero on any failure.
 
 ## 10. POC task: standup digest
 
@@ -308,12 +362,11 @@ The task also *emits* actions it will not run in the POC (all queued): staleness
 
 ### Dashboard controls everything; cron depends on nothing
 
-These two requirements are reconciled by making **`config.json` the single source of truth**
-and the dashboard merely an editor of it. The dashboard writes config atomically
-(write-temp-then-rename) and validates against a schema before saving; the scheduled run
-re-reads config at the start of every fire. The bot therefore runs correctly whether the
-dashboard has ever been opened, is running, or has crashed. The dashboard is a control
-panel, never a dependency.
+These two requirements are reconciled by making **the `config` table the single source of
+truth** and the dashboard merely an editor of it. Writes are transactional and
+schema-validated before commit; the scheduled run re-reads config at the start of every fire.
+The bot therefore runs correctly whether the dashboard has ever been opened, is running, or
+has crashed. The dashboard is a control panel, never a dependency.
 
 Settings that must be dashboard-editable: per-job enable/disable, schedule and quiet hours,
 dry-run vs apply per capability, pre-approval rules (add/revoke/expiry/limits), watched repo
@@ -329,11 +382,11 @@ list, staleness thresholds, retention windows, and report destinations.
 
 ### Audit navigation
 
-An append-only JSONL file is not an audit trail if nobody can read it. The audit view must
-support, at minimum: filter by date range, task, capability, and decision
-(`allow`/`queue`/`deny`); filter to **applied mutations only**; free-text search over target
-and summary; and per-entry drill-down showing the exact payload sent, the authorizing rule,
-the run that produced it, and the outcome.
+A log nobody can query is not an audit trail. Backed by SQL, the audit view must support, at
+minimum: filter by date range, task, capability, and decision (`allow`/`queue`/`deny`);
+filter to **applied mutations only**; full-text search over target and summary via FTS5
+(verified available, §2); and per-entry drill-down showing the exact payload sent, the
+authorizing rule, the run that produced it, and the outcome.
 
 Two pivots matter most in practice and should be first-class: **"what did the bot actually
 change today"** and **"show me everything rule X ever authorized"** — the latter is what you
@@ -369,7 +422,7 @@ launchd coalesces missed wake-up events into a single fire, and offline failures
 invisible to it entirely. Recovery is therefore implemented in our own store, independent of
 launchd semantics:
 
-- Each run records its scheduled slot and outcome in `runs.jsonl`
+- Each run records its scheduled slot and outcome in `schedule_slots`
 - On every fire, the runner compares expected slots since `lastSuccessfulRun` against recorded ones
 - Missed slots are **coalesced into one catch-up run**, never replayed N times — replaying an hourly digest 9 times after a weekend is noise, not recovery
 - The catch-up report states the window it covers, so a gap is visible rather than silently smoothed over
@@ -410,18 +463,10 @@ Consider `--assisted-approval` as a second safety layer inside the worktree. Def
 
 ## 15. Milestones
 
-| # | Milestone | Verifiable by |
-|---|---|---|
-| M1 | Repo scaffold, TS config, core types, policy engine + tests | `npm test` green; policy table tests pass |
-| M2 | Store (JSONL) + `bot doctor` | `bot doctor` exits 0 against the real environment |
-| M3 | Three connectors against fixtures | Connector tests green |
-| M4 | Three task scripts runnable standalone, dry-run | `npx tsx scripts/*.ts` each produce a report |
-| M5 | Composite `standup` + file/console reporters | `reports/*.md` generated with real data |
-| M6 | Executor + queue; actions land in queue, nothing applied | `data/queue.jsonl` populated, `actions.jsonl` shows QUEUE decisions |
-| M7 | Dashboard API + SPA: jobs, inbox, rules, history | Approve a queued action end to end |
-| M8 | launchd agent installed, hourly | Agent fires; logs in `~/Library/Logs/bot/` |
-
-M1–M5 alone constitute a useful, fully read-only tool. Everything after adds control surface.
+Superseded by the phased roadmap in §18 and
+[the roadmap document](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md). An earlier
+M1–M8 list lived here and had drifted out of step with the roadmap's ordering; keeping two
+sequencing plans in one document guarantees one of them is wrong.
 
 ## 16. Risks
 
@@ -433,11 +478,14 @@ M1–M5 alone constitute a useful, fully read-only tool. Everything after adds c
 | Pre-approval creeps into de facto full autonomy | Mandatory expiry + rate limits + audit provenance |
 | Loopback dashboard later exposed remotely | Documented as a hard precondition; bind address asserted in code |
 | Scope sprawl back into "automate everything" | Each new task is a separate spec; skeleton unchanged |
+| SQLite contention between agent and dashboard | WAL + `busy_timeout`; single-writer discipline; per-run transactions |
+| Database file grows despite pruning | `DELETE` does not shrink the file — checkpoint after prune, periodic `VACUUM` |
+| `node:sqlite` API changes | It is stable in v24.18.0 (§2), but all access is confined to `src/store/`, so a swap to another driver touches one directory |
 
 ## 17. Open questions
 
 1. Staleness threshold — 3 days assumed. Correct?
-2. Should `actions.jsonl` (applied mutations) really be pruned at 30 days along with everything else, or retained for 365 days as recommended in §8?
+2. Should applied mutations really be pruned at 30 days along with everything else, or retained for 365 days as recommended in §8?
 3. On catch-up after a long gap (e.g. Monday morning after a weekend), should the digest cover the whole gap, or just report current state and note the gap?
 
 Resolved:
@@ -454,7 +502,7 @@ Each phase gets its own task-level plan when work on it starts.
 |---|---|---|
 | P0 | Scaffold & toolchain | Repo builds, tests run, config schema |
 | P1 | Core + policy engine | Pre-approval logic, unit-tested, no I/O |
-| P2 | Store, audit & retention | JSONL append/read, pruning, audit records |
+| P2 | Store, audit & retention | SQLite schema, migrations, queries, pruning |
 | P3 | Connectors & `doctor` | Jira, git, GitHub reads against fixtures |
 | P4 | Standalone task scripts | Three independently runnable scripts |
 | P5 | **Composite standup** | **First genuinely useful output — POC checkpoint** |
