@@ -1,0 +1,97 @@
+{
+  "//": "Guard policy for the bot repo. Logic lives in web-storefront-copilot-config/scripts; the rules live here.",
+  "//layers": "Dependencies point DOWNWARD ONLY: a layer may import equal or lower levels, never higher. Enforced by arch-check.mjs.",
+
+  "layers": [
+    {
+      "name": "core",
+      "level": 0,
+      "match": ["src/core/"],
+      "pure": true,
+      "noVendor": true,
+      "allowedExternal": [],
+      "//": "DESIGN.md §19 invariant 6: core imports no vendor package, no connector, and no Node builtin. Clock and id generation are injected."
+    },
+    {
+      "name": "tasks",
+      "level": 1,
+      "match": ["src/tasks/"],
+      "pure": true,
+      "noVendor": true,
+      "allowedExternal": [],
+      "//": "DESIGN.md §19 invariant 1: tasks are pure. They receive connectors through context; they never import one."
+    },
+    {
+      "name": "store",
+      "level": 2,
+      "match": ["src/store/"],
+      "allowedExternal": ["node:sqlite", "node:fs", "node:path"],
+      "//": "All SQL is confined here. Nothing above this layer knows the storage engine."
+    },
+    {
+      "name": "delivery",
+      "level": 2,
+      "match": ["src/delivery/"],
+      "allowedExternal": ["node:fs", "node:path"]
+    },
+    {
+      "name": "connectors",
+      "level": 3,
+      "match": ["src/connectors/"],
+      "allowedExternal": ["node:child_process", "node:fs", "node:path", "node:util"]
+    },
+    {
+      "name": "executor",
+      "level": 4,
+      "match": ["src/executor/"],
+      "allowedExternal": ["node:crypto"]
+    },
+    {
+      "name": "entrypoints",
+      "level": 5,
+      "match": ["bin/", "scripts/", "dashboard/", "src/config/"]
+    }
+  ],
+
+  "vendorSdks": [],
+  "//vendorSdks": "Empty today: the project has zero runtime dependencies (node:sqlite is built in). Add an SDK here the moment one is introduced, or vendor placement goes unchecked.",
+  "vendorAllowedLayers": [3, 5],
+
+  "purityPatterns": [
+    { "pattern": "\\bDate\\.now\\s*\\(|\\bnew\\s+Date\\s*\\(", "why": "reads the clock directly — inject a clock so staleness and expiry tests are deterministic" },
+    { "pattern": "\\bMath\\.random\\s*\\(", "why": "uses non-deterministic randomness — inject it" },
+    { "pattern": "\\bprocess\\.env\\b", "why": "reads the environment directly — pass config in" },
+    { "pattern": "\\bfetch\\s*\\(", "why": "performs network I/O" },
+    { "pattern": "from\\s+[\"']node:(fs|child_process|http|https|net|sqlite)", "why": "performs I/O" }
+  ],
+
+  "importAliases": [],
+
+  "limits": {
+    "fileLines": 300,
+    "functionLines": 50,
+    "parameters": 4,
+    "nestingDepth": 3
+  },
+
+  "bannedFilenames": ["utils.ts", "helpers.ts", "misc.ts", "common.ts", "shared.ts", "stuff.ts", "manager.ts"],
+
+  "bannedPatterns": [
+    { "pattern": "\\bas\\s+any\\b", "what": "`as any` erases the type system at exactly the boundary that needed checking" },
+    { "pattern": ":\\s*any\\b", "what": "`any` annotation — use `unknown` and narrow" },
+    { "pattern": "@ts-(ignore|nocheck|expect-error)", "what": "suppressing the type checker hides the defect instead of fixing it" },
+    { "pattern": "eslint-disable", "what": "disabling the linter inline — fix the code or change the rule deliberately" },
+    { "pattern": "\\bconsole\\.log\\b", "scope": "^src/", "what": "use the store-backed logger so output is auditable and retained" },
+    {
+      "pattern": "--no-verify|--force-with-lease|--force\\b|reset\\s+--hard",
+      "scope": "^src/",
+      "exclude": "^src/core/policy/denylist\\.ts$|\\.(test|spec)\\.ts$",
+      "what": "DESIGN.md §7 denylist: these must exist ONLY in the compiled-in denylist and its tests, never in an executable code path"
+    }
+  ],
+
+  "sourceRoots": ["src", "scripts", "bin", "dashboard"],
+  "ignoredDirs": ["node_modules", "dist", "build", "coverage", "data", "reports", ".git"],
+  "fileExtensions": [".ts", ".tsx", ".mts"],
+  "testFilePattern": "\\.(test|spec)\\.[jt]sx?$"
+}

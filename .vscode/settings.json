@@ -1,0 +1,15 @@
+{
+  "chat.agentSkillsLocations": {
+    ".copilot-config/skills": true
+  },
+  "chat.instructionsFilesLocations": {
+    ".copilot-config/instructions": true,
+    ".github/instructions": true
+  },
+  "chat.promptFilesLocations": {
+    ".copilot-config/prompts": true,
+    ".copilot-config/agents": true,
+    ".github/prompts": true,
+    ".github/agents": true
+  }
+}

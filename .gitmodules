@@ -1,0 +1,3 @@
+[submodule ".copilot-config"]
+	path = .copilot-config
+	url = git@github.corp.clover.com:clover/web-storefront-copilot-config.git
