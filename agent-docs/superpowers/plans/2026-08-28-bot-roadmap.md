@@ -11,7 +11,7 @@
 
 **Tech Stack:** TypeScript, Node v24.18.0 (ESM), `tsx` for direct script execution, Vitest, Vite + React (dashboard), launchd (scheduling), `gh` 2.97.0 (GitHub), Jira DC REST v2, Copilot CLI 1.0.81 (later phases).
 
-**Source spec:** [2026-08-28-bot-automation-poc-design.md](../specs/2026-08-28-bot-automation-poc-design.md)
+**Source spec:** [DESIGN.md](../../../DESIGN.md)
 
 ---
 

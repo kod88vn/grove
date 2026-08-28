@@ -1,4 +1,8 @@
-# `bot` — Personal Work Automation Runner (POC Design)
+# `bot` — Personal Work Automation Runner
+
+**Design document.** This is the canonical description of what `bot` is and why it is built
+this way. Phase-by-phase delivery lives in
+[the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
 
 - **Date:** 2026-08-28
 - **Status:** Draft, awaiting review
@@ -440,3 +444,37 @@ Resolved:
 - Repo list starts at `web-storefront-engine` only (§4), configured as an array.
 - "My tickets" = assignee/reporter/watcher, correlated with and ranked by PRs I opened (§10).
 - Quiet hours 23:00–07:00, implemented structurally via `StartCalendarInterval` (§12).
+
+## 18. Roadmap
+
+Full detail in [the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
+Each phase gets its own task-level plan when work on it starts.
+
+| # | Phase | Delivers |
+|---|---|---|
+| P0 | Scaffold & toolchain | Repo builds, tests run, config schema |
+| P1 | Core + policy engine | Pre-approval logic, unit-tested, no I/O |
+| P2 | Store, audit & retention | JSONL append/read, pruning, audit records |
+| P3 | Connectors & `doctor` | Jira, git, GitHub reads against fixtures |
+| P4 | Standalone task scripts | Three independently runnable scripts |
+| P5 | **Composite standup** | **First genuinely useful output — POC checkpoint** |
+| P6 | Scheduler | launchd, quiet hours, sleep/offline catch-up |
+| P7 | Executor & queue | Actions queued; approve via CLI |
+| P8 | Dashboard | Full control surface + audit navigation |
+| P9 | Enable first pre-approvals | Operational, not code |
+| P10+ | New tasks & Copilot automation | Sprint hygiene, PR feedback, autonomous dev |
+
+**P0–P5 is the POC and is entirely read-only. Nothing mutates anything until P9.**
+
+## 19. Invariants
+
+These hold in every phase. A change that violates one is a bug regardless of what it enables:
+
+1. Tasks are pure. Only the executor causes side effects.
+2. Default is queue. Absence of a rule never means permission.
+3. The hardcoded denylist is not overridable by configuration.
+4. Every pre-approval has an expiry and a rate limit.
+5. Every applied action is auditable to its authorizing rule.
+6. `src/core/` imports no vendor package and no connector.
+7. The dashboard is a control panel, never a runtime dependency.
+8. Repository facts (endpoints, fields, flags) are verified against the live system or a fixture before code depends on them.
