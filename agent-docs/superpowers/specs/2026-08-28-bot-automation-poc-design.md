@@ -81,6 +81,12 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 | Dashboard role | Read state, approve actions, trigger manual runs |
 | Storage | JSONL files + a rules JSON file |
 | Initial pre-approvals | **None enabled.** Ship a catalog of candidates, disabled, for inspection |
+| Ticket scope | All my tickets, but **correlated with PRs I opened** — PR linkage is the primary signal |
+| Quiet hours | No runs 23:00–07:00 local |
+| Sleep/offline recovery | Required — runs missed while asleep or offline must be caught up |
+| Dashboard authority | Must control every meaningful setting, while the cron job stays independent of it |
+| Audit | Every automated action must leave an audit trail, navigable from the dashboard |
+| Retention | 30 days for run logs (see §8 for the audit-log exception) |
 
 ## 5. Architecture
 
@@ -238,8 +244,31 @@ JSONL append-only files under `data/`, plus `rules.json`.
 | `actions.jsonl` | append-only audit: every action proposed, its decision, authorizing rule, result |
 | `queue.jsonl` | pending actions awaiting approval; resolved entries appended, never edited in place |
 | `rules.json` | pre-approval rules |
+| `config.json` | all job settings the dashboard edits; the single source of truth |
 
 Append-only means concurrent writers never corrupt earlier records, and history is greppable and git-diffable. The tradeoff is weak querying; if the dashboard gets slow, migrating to SQLite is a store-layer change only, because nothing above `src/store/` knows the format.
+
+### Retention: logs and audit are not the same thing
+
+Retention is configured **per stream**, not globally, because these have different purposes:
+
+| Stream | Default retention | Rationale |
+|---|---|---|
+| Verbose run logs (`~/Library/Logs/bot/`) | **30 days** | Debugging aid; high volume; loses value quickly |
+| `runs.jsonl` | **30 days** | Operational history |
+| `queue.jsonl` (resolved entries) | **30 days** | Superseded by the audit record |
+| `actions.jsonl` (**applied mutations only**) | **365 days** | This is the record of what the bot *changed*. See below. |
+
+**Recommendation, flagged for explicit decision:** pruning `actions.jsonl` at 30 days would
+destroy the answer to "did the bot do this, and under what authority?" for anything older
+than a month. That is the one question an audit trail exists to answer. Applied mutations
+are also extremely low volume — a handful per day at most — so retaining them for a year
+costs almost nothing. Proposed and rejected actions are high-volume and *are* pruned at 30
+days. If 30 days across the board is genuinely required, say so and it becomes a one-line
+config change, but the tradeoff should be deliberate.
+
+Pruning runs at the start of each scheduled run, is itself logged, and never deletes a
+record that is still referenced by an unresolved queue entry.
 
 ## 9. Scripts and CLI
 
@@ -260,7 +289,7 @@ bot run standup                               # via the registry
 
 Three collectors, merged into one report:
 
-1. **Jira** — open `WS` issues assigned to me; fields: key, summary, status, updated, sprint. Flags anything untouched > 3 days.
+1. **Jira** — my tickets, resolved as: issues where I am assignee, reporter, or watcher, **plus** any issue whose key appears in a branch or PR I authored. Tickets are then ranked by PR linkage, since a ticket with an open PR of mine is the one most likely to need action. Fields: key, summary, status, updated, sprint, linked PR. Flags anything untouched > 3 days.
 2. **Git** — per configured repo: current branch, dirty worktree, ahead/behind `origin/main`, branches lacking an upstream. Read-only (`git fetch` + `rev-list`); never modifies the worktree.
 3. **GitHub** — my open PRs via `gh`: review decision, mergeable state, CI status, age.
 
@@ -272,13 +301,89 @@ The task also *emits* actions it will not run in the POC (all queued): staleness
 
 - **Web:** Vite + React SPA, `dashboard/web/`
 - **API:** small JSON API over the store, bound to `127.0.0.1` only — never `0.0.0.0`. No auth in the POC is acceptable *only* because it is loopback-bound; this must be revisited before any remote exposure.
-- **Views:** Jobs (last run, next fire, enable/disable, Run now with dry-run/apply toggle) · Approval inbox · Rules editor with expiry countdown and usage-vs-limit · Run history · Audit log
+
+### Dashboard controls everything; cron depends on nothing
+
+These two requirements are reconciled by making **`config.json` the single source of truth**
+and the dashboard merely an editor of it. The dashboard writes config atomically
+(write-temp-then-rename) and validates against a schema before saving; the scheduled run
+re-reads config at the start of every fire. The bot therefore runs correctly whether the
+dashboard has ever been opened, is running, or has crashed. The dashboard is a control
+panel, never a dependency.
+
+Settings that must be dashboard-editable: per-job enable/disable, schedule and quiet hours,
+dry-run vs apply per capability, pre-approval rules (add/revoke/expiry/limits), watched repo
+list, staleness thresholds, retention windows, and report destinations.
+
+### Views
+
+- **Jobs** — last run, outcome, duration, next fire, enable/disable, Run now (dry-run/apply toggle)
+- **Approval inbox** — queued actions with full payload; approve once / reject / always-approve-like-this
+- **Rules** — expiry countdown, usage vs limit, revoke
+- **Settings** — everything listed above
+- **Audit** — see below
+
+### Audit navigation
+
+An append-only JSONL file is not an audit trail if nobody can read it. The audit view must
+support, at minimum: filter by date range, task, capability, and decision
+(`allow`/`queue`/`deny`); filter to **applied mutations only**; free-text search over target
+and summary; and per-entry drill-down showing the exact payload sent, the authorizing rule,
+the run that produced it, and the outcome.
+
+Two pivots matter most in practice and should be first-class: **"what did the bot actually
+change today"** and **"show me everything rule X ever authorized"** — the latter is what you
+need when deciding whether to revoke a pre-approval.
 
 The API is a thin read/command layer. All business logic stays in `src/`, so the dashboard can be deleted without breaking the CLI.
 
-## 12. Scheduling
+## 12. Scheduling, quiet hours, and recovery
 
-`launchd/com.jayquach.bot.standup.plist.template` → `~/Library/LaunchAgents/`, installed by `install.sh` (never hand-edited). `StartInterval` hourly, `RunAtLoad` false so installation does not immediately fire. stdout/stderr to `~/Library/Logs/bot/`. Because launchd runs with a minimal environment, the agent must source credentials explicitly rather than assuming an interactive shell profile — a common and silent failure mode.
+### Use `StartCalendarInterval`, not `StartInterval`
+
+This is load-bearing and was corrected after reading `man launchd.plist` (lines 348–369):
+
+> **`StartInterval`** — "If the system is asleep during the time of the next scheduled interval firing, that interval **will be missed** due to shortcomings in kqueue(3)."
+>
+> **`StartCalendarInterval`** — "Unlike cron which skips job invocations when the computer is asleep, launchd **will start the job the next time the computer wakes up**. If multiple intervals transpire before the computer is woken, those events **will be coalesced into one event** upon wake from sleep."
+
+So `StartInterval` — the obvious choice, and what an earlier draft of this spec specified —
+is the one option that silently loses runs across sleep, which is exactly the failure the
+user asked to avoid. The agent uses an **array of `StartCalendarInterval` dictionaries, one
+per waking hour (07:00–22:00)**. This delivers quiet hours structurally rather than by
+running and then deciding to do nothing.
+
+`RunAtLoad` stays false so installing the agent does not immediately fire. stdout/stderr to
+`~/Library/Logs/bot/`. Because launchd runs with a minimal environment, the agent must source
+credentials explicitly rather than assuming an interactive shell profile — a common and
+silent failure mode, and something `bot doctor` must be able to check *from inside* the agent
+context, not just from a terminal.
+
+### Do not rely on launchd alone for recovery
+
+launchd coalesces missed wake-up events into a single fire, and offline failures are
+invisible to it entirely. Recovery is therefore implemented in our own store, independent of
+launchd semantics:
+
+- Each run records its scheduled slot and outcome in `runs.jsonl`
+- On every fire, the runner compares expected slots since `lastSuccessfulRun` against recorded ones
+- Missed slots are **coalesced into one catch-up run**, never replayed N times — replaying an hourly digest 9 times after a weekend is noise, not recovery
+- The catch-up report states the window it covers, so a gap is visible rather than silently smoothed over
+
+### Suppressed is not the same as missed
+
+Slots inside quiet hours are recorded as **suppressed** and are never caught up — they were
+intentionally skipped. Only slots missed due to sleep, shutdown, or failure count as missed.
+Conflating the two would produce a 23:00–07:00 catch-up burst every single morning, which
+defeats the purpose of having quiet hours.
+
+### Offline handling
+
+Network calls use bounded retry with backoff. If a connector still fails, the run is recorded
+as `failed:offline`, `lastSuccessfulRun` is **not** advanced, and the next fire treats the
+slot as missed. A partial run (e.g. git succeeded, Jira unreachable) reports what it has and
+marks the missing section explicitly — it never silently omits a section, since a digest that
+quietly drops Jira looks identical to a digest with no Jira tickets.
 
 ## 13. Copilot CLI integration (designed, not built)
 
@@ -328,8 +433,10 @@ M1–M5 alone constitute a useful, fully read-only tool. Everything after adds c
 ## 17. Open questions
 
 1. Staleness threshold — 3 days assumed. Correct?
-2. Preferred hour boundary for the hourly run, and should it stay quiet outside working hours?
-3. Jira "my open tickets" — does that mean assignee only, or also tickets I reported or am watching?
+2. Should `actions.jsonl` (applied mutations) really be pruned at 30 days along with everything else, or retained for 365 days as recommended in §8?
+3. On catch-up after a long gap (e.g. Monday morning after a weekend), should the digest cover the whole gap, or just report current state and note the gap?
 
-Resolved: repo list starts at `web-storefront-engine` only (§4), configured as an array so
-additional repos are a config edit, not a code change.
+Resolved:
+- Repo list starts at `web-storefront-engine` only (§4), configured as an array.
+- "My tickets" = assignee/reporter/watcher, correlated with and ranked by PRs I opened (§10).
+- Quiet hours 23:00–07:00, implemented structurally via `StartCalendarInterval` (§12).
