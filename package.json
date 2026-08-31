@@ -1,0 +1,27 @@
+{
+  "name": "bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal work tracker: mirrors Jira and GitHub locally, detects stalled work, and surfaces the next move.",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "arch": "node .copilot-config/scripts/arch-check.mjs",
+    "quality": "node .copilot-config/scripts/quality-check.mjs",
+    "customizations": "node .copilot-config/scripts/validate-customizations.mjs \"$PWD\"",
+    "guards": "npm run customizations && npm run arch && npm run quality",
+    "verify": "npm run guards && npm run typecheck && npm run test",
+    "bot": "tsx bin/bot.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
