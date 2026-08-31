@@ -104,6 +104,8 @@ These are the invariants from DESIGN.md §19, restated as absolutes.
   into exactly one catch-up run, never a replay burst.
 - **The queue is a query, not a table.** Never introduce a second structure holding rows that
   already exist in `actions`.
+- **The bot never invokes a language model.** No phase may add one. Judgment work is prepared
+  by the bot as a `chat:handoff` and initiated by a human in VS Code Chat.
 
 ## Grounding — the expensive failures in this repo
 
@@ -115,6 +117,10 @@ The shared `grounding.instructions.md` applies. Three specifics that have alread
    to the contrary. Do not add `--experimental-sqlite`.
 3. **Jira and GHE shapes are unverified.** `STACK.md` has a "NOT YET VERIFIED" section.
    Do not write parsing code against a remembered response shape.
+4. **The Copilot CLI is installed but blocked by org policy.** `copilot --version` succeeds,
+   which makes it look available; every `-p` invocation returns `Access denied by policy
+   settings`. There is no headless LLM on this machine and no alternative agent CLI installed.
+   Never design a step that calls a model unattended. See DESIGN.md §13.
 
 ## Validation Checklist
 

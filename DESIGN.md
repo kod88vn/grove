@@ -30,10 +30,9 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 
 | Fact | Value | Source |
 |---|---|---|
-| Copilot CLI | `1.0.81`, at `~/.nvm/versions/node/v24.18.0/bin/copilot` | `copilot --version` |
-| Copilot non-interactive | `-p/--prompt`; `--allow-all-tools` **required** for non-interactive | `copilot --help` |
-| Copilot permissioning | `--allow-tool[=tools...]`, `--allow-url`, `--allow-all-paths`, `--add-dir`, `--agent` | `copilot --help` |
-| Copilot safety judge | `--assisted-approval` — *takes precedence over* `--allow-all-tools`; requires `--experimental` or `enabledFeatureFlags.AUTO_APPROVAL` | `copilot --help` |
+| Copilot CLI | Installed (`1.0.81`, at `~/.nvm/versions/node/v24.18.0/bin/copilot`) but **BLOCKED and unusable** — every non-interactive run returns `Error: Access denied by policy settings`. Org policy; not ours to change. See §13. | `copilot -p … --allow-all-tools` |
+| Other agent CLIs | **None installed** — `claude`, `codex`, `aider`, `cursor-agent`, `gemini`, `ollama`, `llm` all absent | `command -v <name>` |
+| Headless LLM access | **None, in any phase.** The bot cannot invoke a model unattended. Judgment work is handed off to VS Code Chat and initiated by a human (§13). | derived from the two rows above |
 | Node | `v24.18.0` | `node --version` |
 | `node:sqlite` | Available with **no experimental flag and no warning**; exports `DatabaseSync`, `StatementSync`, `Session`, `constants`, `backup` | `node -e "require('node:sqlite')"` |
 | Bundled SQLite | `3.53.1`, with **FTS5** and **json1** compiled in | `SELECT sqlite_version()`; `CREATE VIRTUAL TABLE … USING fts5`; `json_extract` |
@@ -71,7 +70,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 
 - Slack delivery (deferred by user; `Reporter` interface makes it a drop-in later)
 - Sprint maintenance, auto-resolving tickets, PR-feedback resolution — each needs its own spec
-- Copilot-driven code changes — interface defined, implementation stubbed
+- Agent-driven code changes — the `chat:handoff` action and its briefing writer are defined; the agents themselves are P10+ (§13)
 - Multi-user, auth, remote hosting
 
 ## 4. Decisions locked with the user
@@ -118,16 +117,18 @@ bot/
       jira.ts
       github.ts                 # wraps `gh`
       git.ts                    # wraps local git
-      copilot.ts                # STUB: interface only in POC
     tasks/                      # pure: collect() -> TaskResult. No side effects.
       jira-standup.ts
       branch-hygiene.ts
       pr-status.ts
       standup.ts
     executor/                   # applies actions according to policy decisions
+    handoff/                    # writes briefing files for chat agents (P10+; stub in POC)
     store/                      # SQLite: schema, migrations, queries
     delivery/                   # ConsoleReporter, FileReporter (SlackReporter later)
     config/
+  .github/
+    agents/                     # dedicated chat agents — human-initiated only (§13)
   dashboard/
     api/                        # JSON API over the store, binds 127.0.0.1
     web/                        # Vite + React SPA
@@ -138,6 +139,7 @@ bot/
     bot.db                      # SQLite (WAL: bot.db-wal, bot.db-shm alongside)
     migrations/                 # numbered .sql files, applied via PRAGMA user_version
   reports/                      # gitignored
+    handoffs/                   # per-action briefing files consumed by chat agents
 ```
 
 **Dependency direction is strictly inward:** `dashboard → store → core`, `scripts → tasks → connectors → core`. `src/core/` imports nothing from `connectors/`, `tasks/`, or any vendor package. This is what keeps the policy engine unit-testable without network or git.
@@ -149,7 +151,7 @@ type Capability =
   | 'jira:comment' | 'jira:assign' | 'jira:transition' | 'jira:create'
   | 'git:push' | 'git:branch-create' | 'git:commit'
   | 'github:pr-create' | 'github:pr-comment' | 'github:pr-review'
-  | 'copilot:code-change';
+  | 'chat:handoff';   // prepare work for a human-initiated chat agent (§13)
 
 interface Action {
   id: string;              // stable hash of capability + target + payload
@@ -216,6 +218,8 @@ Default is always `QUEUE`. Absence of a rule can never mean permission.
 - `git reset --hard`, branch deletion, `rm -rf`
 - committing on a branch the bot did not create
 - opening a PR whose body contains no Jira link
+- auto-applying the *outcome* of a `chat:handoff` — the executor may only prepare a handoff,
+  never perform the judgment work itself, and never mark one applied on the agent's behalf
 
 These are compiled in, not config. Config cannot grant them.
 
@@ -442,16 +446,69 @@ slot as missed. A partial run (e.g. git succeeded, Jira unreachable) reports wha
 marks the missing section explicitly — it never silently omits a section, since a digest that
 quietly drops Jira looks identical to a digest with no Jira tickets.
 
-## 13. Copilot CLI integration (designed, not built)
+## 13. Chat-initiated agent handoff (designed, not built)
 
-`src/connectors/copilot.ts` ships as an interface with a stub implementation. Intended shape:
+**The Copilot CLI is unusable here, and that is not going to change.** It is installed at
+`1.0.81`, but every non-interactive invocation is refused by org policy:
 
-1. Create an isolated `git worktree` for the ticket
-2. Run `copilot -p "<task prompt>" --allow-all-tools --add-dir <worktree>` (both flags verified present in 1.0.81)
-3. Capture the resulting diff as a `copilot:code-change` action
-4. Route it through the same policy engine as every other action
+```
+$ copilot -p "Reply with exactly: PROBE_OK" --allow-all-tools
+Error: Access denied by policy settings (Request ID: 5A74:32B222:30F7C3:36D5A4:6A91D982)
+```
 
-Consider `--assisted-approval` as a second safety layer inside the worktree. Defining the interface now means autonomous development inherits the existing approval gates instead of requiring a restructure.
+The entitlement exists in VS Code Chat but not on the CLI surface, and the policy is not ours
+to grant. No alternative agent CLI is installed either. So the bot has **no headless path to a
+language model, in any phase.** Any design that assumes one is wrong.
+
+This is a constraint, not a loss. It splits the "act" tier along a line that was always the
+right one:
+
+| Tier | Needs judgment? | Who performs it |
+|---|---|---|
+| Deterministic mutations — assign, transition, comment, create branch, push, open PR | No | The executor, headless, under policy — **P7–P9 unchanged** |
+| Judgment work — write code, triage PR feedback, draft prose | Yes | A dedicated chat agent, **initiated by the human** |
+
+Everything the POC and P7–P9 promise lives in the first row: those are HTTP calls and git
+plumbing, not inference. **Nothing in P0–P9 changes.** Only P10+ is affected.
+
+### The handoff mechanism
+
+A task that wants judgment work emits a `chat:handoff` action like any other. What differs is
+who applies it:
+
+1. The task emits `chat:handoff`, with a payload naming the target agent and carrying the
+   facts it already gathered.
+2. On approval the executor performs only the **deterministic prep** — create the isolated
+   `git worktree`, then write a briefing to `reports/handoffs/<action-id>.md` containing
+   everything the agent needs, so the agent never re-fetches what the bot already knows.
+3. The action moves to resolution `awaiting-human`. The digest and the dashboard surface it
+   as a copy-pasteable chat invocation.
+4. You open Chat and run the agent. **This step is manual by construction — that is the
+   entire point of the model, not a workaround for the policy block.**
+5. The agent's mandatory closing step is
+   `npx tsx scripts/record-outcome.ts --action <id> --status applied|abandoned --notes "…"`,
+   which writes the result back into `actions`.
+
+Step 5 is the load-bearing one. Without it, work performed in Chat is invisible to the
+database and the audit trail (§11) has a hole in exactly the place where the mutations
+happened. An agent that cannot run that command must not be given the handoff.
+
+### Where the agents live
+
+`.github/agents/*.agent.md` in this repo. That directory is already a configured discovery
+target (`chat.promptFilesLocations` in `.vscode/settings.json`), so adding agents requires no
+submodule bump. They are bot-specific and must **not** go in `.copilot-config/agents/`, which
+is shared across the storefront repos.
+
+Each agent stays narrow and reads its briefing file rather than rediscovering context —
+candidates are `implement-ticket`, `fix-pr-feedback`, `sprint-hygiene`. Defining them as
+agents rather than prompts means each one carries its own tool restrictions.
+
+### Why this is safer than what it replaces
+
+§16 lists "pre-approval creeps into de facto full autonomy" as a standing risk. Removing
+headless model access deletes that risk at the code-change tier outright: unattended runs can
+now only ever perform mutations that were enumerable in advance.
 
 ## 14. Testing strategy
 
@@ -478,6 +535,8 @@ sequencing plans in one document guarantees one of them is wrong.
 | Pre-approval creeps into de facto full autonomy | Mandatory expiry + rate limits + audit provenance |
 | Loopback dashboard later exposed remotely | Documented as a hard precondition; bind address asserted in code |
 | Scope sprawl back into "automate everything" | Each new task is a separate spec; skeleton unchanged |
+| Copilot CLI blocked by org policy (§13) | Judgment work moves to human-initiated chat agents; deterministic mutations are unaffected, so P0–P9 stand |
+| Work done in Chat escapes the audit trail | Every agent's mandatory final step is `record-outcome.ts`; a handoff stays `awaiting-human` until it reports back |
 | SQLite contention between agent and dashboard | WAL + `busy_timeout`; single-writer discipline; per-run transactions |
 | Database file grows despite pruning | `DELETE` does not shrink the file — checkpoint after prune, periodic `VACUUM` |
 | `node:sqlite` API changes | It is stable in v24.18.0 (§2), but all access is confined to `src/store/`, so a swap to another driver touches one directory |
@@ -510,7 +569,7 @@ Each phase gets its own task-level plan when work on it starts.
 | P7 | Executor & queue | Actions queued; approve via CLI |
 | P8 | Dashboard | Full control surface + audit navigation |
 | P9 | Enable first pre-approvals | Operational, not code |
-| P10+ | New tasks & Copilot automation | Sprint hygiene, PR feedback, autonomous dev |
+| P10+ | New tasks & chat-agent handoff | Sprint hygiene, PR feedback, human-initiated agent work |
 
 **P0–P5 is the POC and is entirely read-only. Nothing mutates anything until P9.**
 
@@ -526,3 +585,5 @@ These hold in every phase. A change that violates one is a bug regardless of wha
 6. `src/core/` imports no vendor package and no connector.
 7. The dashboard is a control panel, never a runtime dependency.
 8. Repository facts (endpoints, fields, flags) are verified against the live system or a fixture before code depends on them.
+9. **The bot never invokes a language model.** There is no headless path to one (§13), and no phase may introduce one. Judgment work is prepared by the bot and initiated by a human in Chat.
+10. A `chat:handoff` is never resolved by the executor. It stays `awaiting-human` until the agent reports its own outcome back into `actions`.

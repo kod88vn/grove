@@ -40,11 +40,18 @@
 | Git protocol | **ssh** | 2026-08-28 | `gh auth status` |
 | GitHub token scopes | `admin:public_key`, `gist`, `read:org`, `repo` | 2026-08-28 | `gh auth status` |
 | `jq` | present at `/usr/bin/jq` | 2026-08-28 | `which jq` |
-| Copilot CLI | `1.0.81` | 2026-08-28 | `copilot --version` |
+| Copilot CLI | Installed `1.0.81` — **BLOCKED by org policy, unusable** | 2026-08-28 | `copilot --version`, then `copilot -p …` |
+| Copilot CLI non-interactive | Fails: `Error: Access denied by policy settings (Request ID: 5A74:32B222:30F7C3:36D5A4:6A91D982)`, exit 1 | 2026-08-28 | `copilot -p "…" --allow-all-tools` in an empty dir |
+| Alternative agent CLIs | **None installed**: `claude`, `codex`, `aider`, `cursor-agent`, `gemini`, `ollama`, `llm` | 2026-08-28 | `command -v <name>` |
+| Headless LLM access | **None available to this machine** | 2026-08-28 | derived from the three rows above |
 
-### Copilot CLI flags (verified from `copilot --help`, 1.0.81)
+### Copilot CLI flags — documented, never successfully exercised
 
-| Flag | Behaviour | Verified on |
+Read from `copilot --help` (1.0.81) before the policy block was discovered. **Do not write code
+against these.** The binary refuses every non-interactive request, so none of these flags has
+been observed to do anything. Retained only so a future re-test knows what to try.
+
+| Flag | Behaviour per `--help` | Read on |
 | --- | --- | --- |
 | `-p, --prompt` | Non-interactive scripting mode | 2026-08-28 |
 | `--allow-all-tools` | **Required** for non-interactive mode; env `COPILOT_ALLOW_ALL` | 2026-08-28 |
@@ -53,6 +60,16 @@
 | `--add-dir <directory>` | Grant file access to a directory; loads its `.github/skills` and `.github/agents` | 2026-08-28 |
 | `--agent <agent>` | Select a custom agent | 2026-08-28 |
 | `--assisted-approval` | Safety judge; **takes precedence over `--allow-all-tools`**; needs `--experimental` or `enabledFeatureFlags.AUTO_APPROVAL`; env `COPILOT_ASSISTED_APPROVAL` | 2026-08-28 |
+
+### Chat customization discovery (this repo)
+
+| Fact | Value | Verified on | Source |
+| --- | --- | --- | --- |
+| Agent discovery paths | `.copilot-config/agents`, `.github/agents` (both under `chat.promptFilesLocations`) | 2026-08-28 | `.vscode/settings.json` |
+| Skill discovery path | `.copilot-config/skills` | 2026-08-28 | `.vscode/settings.json` |
+| Instruction discovery paths | `.copilot-config/instructions`, `.github/instructions` | 2026-08-28 | `.vscode/settings.json` |
+| `.github/` | **Does not exist yet** — created when the first bot agent is written (P10+) | 2026-08-28 | `ls -a .github` |
+| Shared agents present | 8: `builder`, `code-reviewer`, `docs-researcher`, `milestone-verifier`, `planner`, `reviewer`, `spec-lookup`, `validator` | 2026-08-28 | `ls .copilot-config/agents/` |
 
 ## Scheduling (launchd)
 

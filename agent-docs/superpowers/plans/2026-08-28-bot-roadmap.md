@@ -9,7 +9,7 @@
 
 **Architecture:** Pure task functions emit `Action` objects; a policy engine decides allow/queue/deny; an executor is the only component with side effects. A single SQLite database is the source of truth shared by the CLI, the launchd agent, and the dashboard.
 
-**Tech Stack:** TypeScript, Node v24.18.0 (ESM), built-in `node:sqlite` (SQLite 3.53.1, WAL, FTS5 — zero external deps), `tsx` for direct script execution, Vitest, Vite + React (dashboard), launchd (scheduling), `gh` 2.97.0 (GitHub), Jira DC REST v2, Copilot CLI 1.0.81 (later phases).
+**Tech Stack:** TypeScript, Node v24.18.0 (ESM), built-in `node:sqlite` (SQLite 3.53.1, WAL, FTS5 — zero external deps), `tsx` for direct script execution, Vitest, Vite + React (dashboard), launchd (scheduling), `gh` 2.97.0 (GitHub), Jira DC REST v2. **No language model anywhere in the runtime** — the Copilot CLI is installed but blocked by org policy, so judgment work is handed off to human-initiated VS Code Chat agents (DESIGN.md §13).
 
 **Source spec:** [DESIGN.md](../../../DESIGN.md)
 
@@ -29,7 +29,7 @@
 | P7 | Executor & queue | Actions queued; approve via CLI | P5 |
 | P8 | Dashboard | Full control surface + audit navigation | P6, P7 |
 | P9 | Enable first pre-approvals | Operational, not code | P8 |
-| P10+ | New tasks & Copilot automation | Sprint hygiene, PR feedback, autonomous dev | P9 |
+| P10+ | New tasks & chat-agent handoff | Sprint hygiene, PR feedback, human-initiated agent work | P9 |
 
 ```mermaid
 graph LR
@@ -44,7 +44,7 @@ graph LR
   P6 --> P8[P8 Dashboard]
   P7 --> P8
   P8 --> P9[P9 Enable pre-approvals]
-  P9 --> P10[P10+ New tasks / Copilot]
+  P9 --> P10[P10+ New tasks / chat handoff]
 ```
 
 **Two boundaries worth naming:**
@@ -88,7 +88,7 @@ graph LR
 
 ## P3 — Connectors & `bot doctor`
 
-**Delivers:** `jira.ts`, `git.ts`, `github.ts` (read-only paths only); `copilot.ts` as interface + stub; `bot doctor`.
+**Delivers:** `jira.ts`, `git.ts`, `github.ts` (read-only paths only); `bot doctor`.
 
 **Exit criteria:** Connector tests pass against **committed fixtures captured from the real APIs**, not hand-written guesses. `bot doctor` exits 0 in a healthy environment and non-zero with an actionable message for each failure mode.
 
@@ -159,11 +159,11 @@ Not a coding phase. Review real queued actions accumulated since P5, then enable
 
 ---
 
-## P10+ — Additional tasks & Copilot automation
+## P10+ — Additional tasks & chat-agent handoff
 
 Each gets its own spec and plan; none require changing the skeleton:
 - Sprint hygiene, PR-feedback resolution, Slack delivery (`SlackReporter`)
-- Copilot-driven development: isolated `git worktree` → `copilot -p "…" --allow-all-tools --add-dir <worktree>` → resulting diff becomes a `copilot:code-change` action routed through the **same** policy engine, inheriting every existing gate
+- Chat-agent handoff: a task emits a `chat:handoff` action → the executor does the deterministic prep only (isolated `git worktree` + a briefing at `reports/handoffs/<action-id>.md`) → the action rests at `awaiting-human` → **you** invoke a dedicated agent from `.github/agents/` in VS Code Chat → the agent closes the loop with `scripts/record-outcome.ts`. Routed through the **same** policy engine, inheriting every existing gate. See DESIGN.md §13.
 
 ---
 
