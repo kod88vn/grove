@@ -57,13 +57,21 @@ const DEFAULT_REPOS = [
 /**
  * Build configuration from the environment.
  *
- * The token is the only value that must not have a default. Everything else falls back to the
- * verified values for this machine so that `bot` runs with no setup, while an override stays
- * possible for a second board or a different checkout root.
+ * The token is the only value with no default. Everything else falls back to the verified
+ * values for this machine so that `bot` runs with no setup, while an override stays possible
+ * for a second board or a different checkout root.
+ *
+ * `requireToken: false` is for the read-only paths. The MCP server and the dashboard's read
+ * pages answer entirely from the local mirror and never call Jira, so demanding a secret they
+ * do not use would make them fail to start in exactly the environments most likely to lack
+ * it — a task or MCP client spawned in a non-interactive shell that never sourced a profile.
  */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
-  const token = env['JIRA_DC_TOKEN'];
-  if (token === undefined || token === '') {
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  requireToken = true,
+): BotConfig {
+  const token = env['JIRA_DC_TOKEN'] ?? '';
+  if (requireToken && token === '') {
     throw new ConfigError(
       'JIRA_DC_TOKEN is not set. Export it in your shell profile; the bot never stores it.',
     );

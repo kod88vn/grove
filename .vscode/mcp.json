@@ -1,0 +1,16 @@
+{
+  // Absolute path to node on purpose. VS Code spawns this in a non-login shell, where nvm has
+  // never run and `node` is not on PATH — a bare `node` here fails with ENOENT and the server
+  // appears simply not to start.
+  "servers": {
+    "bot": {
+      "type": "stdio",
+      "command": "/Users/jay.quach/.nvm/versions/node/v24.18.0/bin/node",
+      "args": [
+        "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
+        "${workspaceFolder}/bin/bot.ts",
+        "mcp"
+      ]
+    }
+  }
+}

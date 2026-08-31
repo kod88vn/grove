@@ -6,8 +6,9 @@ import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
 import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
+import { serveMcp } from '../src/mcp/serve.ts';
 
-const COMMANDS = ['doctor', 'sync', 'stalls', 'serve'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls', 'serve', 'mcp'] as const;
 const DEFAULT_PORT = 4747;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
@@ -23,6 +24,13 @@ async function main(argv: readonly string[]): Promise<number> {
       return stallsCommand(argv.slice(1));
     case 'serve':
       return serveCommand(argv.slice(1));
+    case 'mcp':
+      // Returns immediately. The readline handle on stdin keeps the process alive until the
+      // client closes the stream, which is how the stdio transport signals shutdown. Awaiting
+      // a promise that never settles here would work but makes node warn about it on stderr,
+      // and stderr is what the client shows when something is wrong.
+      serveMcp();
+      return 0;
     default:
       process.stderr.write(`unknown command "${command}". Known: ${COMMANDS.join(', ')}\n`);
       return 2;
