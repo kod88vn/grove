@@ -71,14 +71,62 @@ been observed to do anything. Retained only so a future re-test knows what to tr
 | `.github/` | **Does not exist yet** — created when the first bot agent is written (P10+) | 2026-08-28 | `ls -a .github` |
 | Shared agents present | 8: `builder`, `code-reviewer`, `docs-researcher`, `milestone-verifier`, `planner`, `reviewer`, `spec-lookup`, `validator` | 2026-08-28 | `ls .copilot-config/agents/` |
 
-## Scheduling (launchd)
+## Scheduling — VS Code tasks (launchd removed)
+
+The hourly `launchd` runner was dropped. Refresh is now manual, interval-driven from the
+dashboard server, and best-effort per chat turn via MCP.
 
 | Fact | Value | Verified on | Source |
 | --- | --- | --- | --- |
-| `~/Library/LaunchAgents` | Empty — no conflicting agents | 2026-08-28 | `ls ~/Library/LaunchAgents` |
-| `StartInterval` + sleep | Interval **is missed** if the system is asleep ("due to shortcomings in kqueue(3)") | 2026-08-28 | `man launchd.plist`, ~line 349 |
-| `StartCalendarInterval` + sleep | Job **starts on next wake**; multiple missed intervals **coalesce into one event** | 2026-08-28 | `man launchd.plist`, ~line 363 |
-| Interaction | `StartInterval` and `StartCalendarInterval` are evaluated **independently** and are not aware of each other | 2026-08-28 | `man launchd.plist`, ~line 368 |
+| Auto-start mechanism | `"runOptions": { "runOn": "folderOpen" }` in `.vscode/tasks.json` | 2026-08-31 | VS Code tasks docs, "Run behavior" |
+| Auto-task gate | Setting `task.allowAutomaticTasks`: `off` (default, prompts once) or `on`; never runs in an untrusted workspace | 2026-08-31 | VS Code tasks docs |
+| Task shell | Tasks run **non-login, non-interactive** — shell startup files do not run, so **nvm is not on `PATH`** | 2026-08-31 | VS Code tasks docs, "Why do I get 'command not found'" |
+| Consequence | Any task invoking node must use the absolute path `~/.nvm/versions/node/v24.18.0/bin/node` | 2026-08-31 | derived from the two rows above |
+| `~/Library/LaunchAgents` | Empty — nothing installed, nothing to remove | 2026-08-28 | `ls ~/Library/LaunchAgents` |
+
+## Jira Data Center — verified 2026-08-31
+
+Host `https://jira.corp.clover.com`, header `Authorization: Bearer $JIRA_DC_TOKEN`.
+
+| Fact | Value | Source |
+| --- | --- | --- |
+| Identity | `GET /rest/api/2/myself` -> 200; `name=jay.quach`, `key=JIRAUSER22842` | live probe |
+| Search | `POST /rest/api/2/search` with `{jql, maxResults, fields}` -> 200; returns `total`, `startAt`, `maxResults`, `issues[]` | live probe |
+| My unresolved issues | 66 (`assignee = currentUser() AND resolution = Unresolved`) | live probe |
+| **Agile API works on DC** | `/rest/agile/1.0/board/1386` -> 200. Board is `storefront platform`, type `scrum` | live probe |
+| Board columns | `To Do`, `In Progress`, `Done` via `/rest/agile/1.0/board/1386/configuration` | live probe |
+| Sprints | `/rest/agile/1.0/board/1386/sprint?state=active\|closed` -> 200. 38 closed; active is id `12388` `Platform_13`, `2026-08-24` -> `2026-09-04` | live probe |
+| Sprint issues | `/rest/agile/1.0/board/1386/sprint/12388/issue` -> 200, `total=39` | live probe |
+| Board JQL | `/rest/agile/1.0/board/1386/issue?jql=…` accepts JQL -> 200 | live probe |
+| Transitions | `GET /rest/api/2/issue/<K>/transitions?expand=transitions.fields` -> 200. On WS-6316: `301` Stop Progress, **`5` Resolve Issue -> Resolved**, `2` Close Issue, `711` Code Review -> In Review, `721`, `751`, `801` | live probe |
+| **Resolve required fields** | **`resolution` is the ONLY required field.** `fixVersions` and `customfield_10206` are on the screen but **optional** | `transitions.fields[].required` |
+| Resolution values | `Fixed`, `Won't Fix`, `Duplicate`, `Done`, `Cancelled`, … (18 total) | `allowedValues` |
+| Custom field ids | `10205` Sprint, `10206` Epic Link, `10207` Epic Name, `10202` Story Points, `12400` Environment_pd | `GET /rest/api/2/field` |
+
+## GitHub Enterprise — verified 2026-08-31
+
+| Fact | Value | Source |
+| --- | --- | --- |
+| GHE version | **3.21** | error `documentation_url` on a 404 |
+| Cross-repo PR search | `gh search prs --author=@me --state=open --json …` works | live probe |
+| Search qualifiers | `--author=@me`, `--review-requested=@me`, `--reviewed-by=@me`, `--involves=@me --updated=">=YYYY-MM-DD"` all return results | live probe |
+| Review-requested backlog | 20+ open PRs currently request my review | live probe |
+| `gh pr list --json` fields | Includes `reviewDecision`, `reviews`, `latestReviews`, `reviewRequests`, `mergeable`, `mergeStateStatus`, `statusCheckRollup`, `autoMergeRequest`, `closingIssuesReferences`, `headRefName`, `baseRefName`, `isDraft`, `mergedAt`, `mergedBy` | `gh pr list --json` with no value |
+| `reviewDecision` | `REVIEW_REQUIRED` \| `APPROVED` \| `CHANGES_REQUESTED` | live probe |
+| `reviewRequests` | Mixed list of `User` (`login`) and `Team` (`name`, `slug`), discriminated by `__typename` | live probe |
+| Repo merge methods | merge, squash, rebase all enabled; `delete_branch_on_merge: true` | `gh api repos/clover/web-storefront-engine` |
+| My repo permissions | `admin:false`, `maintain:false`, `push:true`, `triage:true`, `pull:true` | same |
+| Branch protection API | **404 Not Found** — requires admin, which I do not have | `gh api …/branches/main/protection` |
+| Org-enforced checks | A `JIRA Link` status check exists and gates merge; a `Semantic Title` check exists | `statusCheckRollup` on PR 2390 |
+
+## NOT YET VERIFIED — do not state these as fact
+
+| Unknown | What must be checked |
+| --- | --- |
+| Whether `gh pr merge` actually succeeds | Cannot be verified without performing a real merge. `mergeStateStatus` is the best pre-flight signal; treat merge failure as expected and surface the error. |
+| Jira `POST /rest/api/2/issue/<K>/transitions` write path | Only the **read** side has been exercised. The write is unverified until R7. |
+| Non-`WS` project behaviour | All probes used project `WS` and board `1386` only. |
+| Sprint field on other boards | `customfield_10205` shape was only checked on board 1386 issues. |
 
 ## Environment Variables
 
@@ -98,17 +146,10 @@ been observed to do anything. Retained only so a future re-test knows what to tr
 | Copilot config Mode B | Submodule `.copilot-config`, pinned at `b799aef` | 2026-08-28 | `git -C .copilot-config rev-parse --short HEAD` |
 | Shared config has no `package.json` | Guard scripts run under plain `node`, zero dependencies | 2026-08-28 | `.copilot-config/README.md` "Layout" |
 
-## NOT YET VERIFIED — do not state these as fact
+## NOT YET VERIFIED — superseded
 
-These are needed by P3 and must be confirmed against the live system before any parsing code
-is written. Prior session notes are **not** sufficient evidence.
-
-| Unknown | What must be checked |
-| --- | --- |
-| Jira DC search endpoint | Exact path, request shape, pagination, and response field names on `https://jira.corp.clover.com` |
-| Jira issue fields | Real names for status, sprint, updated, watcher on this instance |
-| `gh pr list --json` fields | Which fields GHE `github.corp.clover.com` actually supports — GHE lags github.com |
-| Jira transition ids | Workflow-specific; never hardcode a numeric id without reading it back |
+The P3 unknowns listed here were resolved by the R0 verification spike on 2026-08-31; see the
+Jira Data Center and GitHub Enterprise sections above. Remaining unknowns are listed there.
 
 ## Known Divergences From Public Defaults
 
@@ -118,7 +159,12 @@ documentation implies, which is exactly where models hallucinate.
 | Topic | Public default / common assumption | Here | Source |
 | --- | --- | --- | --- |
 | `node:sqlite` | Widely documented as experimental, needing `--experimental-sqlite` | Stable in v24.18.0, no flag, no warning | verified 2026-08-28 |
-| Hourly cron on macOS | `StartInterval` is the obvious choice | `StartInterval` **loses** runs across sleep; must use `StartCalendarInterval` | `man launchd.plist` |
-| GitHub host | `github.com` | `github.corp.clover.com` (GHE) | `gh auth status` |
-| GitHub write scopes | `repo` implies broad write | **No `write:org`, no `workflow`** — org and workflow writes will fail | `gh auth status` |
+| Hourly cron on macOS | `StartInterval` is the obvious choice | Moot — launchd dropped entirely. `StartInterval` also **loses** runs across sleep | `man launchd.plist` |
+| GitHub host | `github.com` | `github.corp.clover.com` (GHE 3.21) | `gh auth status` |
+| GitHub write scopes | `repo` implies broad write | **No `write:org`, no `workflow`**; also **not repo admin** | `gh auth status`, `gh api repos/…` |
 | SQLite `DELETE` | Assumed to free disk space | Does **not** shrink the file; needs checkpoint / `VACUUM` | SQLite behaviour, see DESIGN §8 |
+| Jira resolve payload | A prior session note claimed `resolution` + `fixVersions` + `customfield_10206` were all required | **Only `resolution` is required.** Never hardcode — read `transitions.fields[].required` live | verified 2026-08-31 on WS-6316 |
+| Jira sprint via core search | Assumed to be a JSON object | `customfield_10205` returns a **legacy GreenHopper `toString` blob**: `com.atlassian.greenhopper.service.sprint.Sprint@…[id=…,name=…,state=ACTIVE]`. Core search returns **no** `sprint`/`epic` fields at all — use `/rest/agile/1.0/…`, which returns proper objects | verified 2026-08-31 |
+| `mergeable` on first read | Assumed immediately correct | Returns **`UNKNOWN`** on first query because GitHub computes it lazily; resolves on re-query. Never emit a stall from `UNKNOWN` | verified 2026-08-31 on PR 2390 |
+| `statusCheckRollup` element shape | Assumed uniform | **Two shapes.** `StatusContext` has `context`/`state`; `CheckRun` has `name`/`status`/`conclusion`. Must normalise both | verified 2026-08-31 |
+| Ticket -> PR links | `closingIssuesReferences` assumed populated | **Empty** — no Jira/GHE issue integration. Correlation must parse `WS-\d+` from branch name, title, and body | verified 2026-08-31 |

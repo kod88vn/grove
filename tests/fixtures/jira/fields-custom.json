@@ -1,0 +1,2037 @@
+[
+  {
+    "id": "customfield_10500",
+    "name": "Device",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10501",
+    "name": "QA Assignee",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_12802",
+    "name": "Merchant Release Notes - Applicable Countries",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_12801",
+    "name": "Merchant Release Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12804",
+    "name": "Stakeholder Release Notes - Applicable Countries",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_12803",
+    "name": "Stakeholder Release Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12806",
+    "name": "Subject",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12805",
+    "name": "Stakeholder Release Notes To Document",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12808",
+    "name": "Description (MultiLine)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12807",
+    "name": "Subject",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11700",
+    "name": "Test Region",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_11702",
+    "name": "Merchant Plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_11701",
+    "name": "Test Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_11703",
+    "name": "Test Case Coverage",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_10601",
+    "name": "S/N",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12901",
+    "name": "SKU Number Affected?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10602",
+    "name": "Failure type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12902",
+    "name": "U-BLOX Case #",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12904",
+    "name": "U-BLOX Product",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12907",
+    "name": "Purpose and Use Case",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12906",
+    "name": "Content Auidence",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12908",
+    "name": "Subject Matter Expert",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11800",
+    "name": "Impacted Stakeholders",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10940",
+    "name": "Scope",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10941",
+    "name": "Data Elements",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10700",
+    "name": "Estimated Merchant Locations",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_10942",
+    "name": "Intended Use of Data",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10943",
+    "name": "Bypass Integration Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10945",
+    "name": "Booker Integration Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10946",
+    "name": "Initiative",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10947",
+    "name": "QA_Validated_Env",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10948",
+    "name": "External Commitment Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16001",
+    "name": "Schema",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10930",
+    "name": "Scope",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10810",
+    "name": "ECR Approval - Instructions",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:readonlyfield"
+  },
+  {
+    "id": "customfield_10811",
+    "name": "Old Material",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10933",
+    "name": "Recipients",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11902",
+    "name": "Severity",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10812",
+    "name": "Target Implementation Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10813",
+    "name": "Control Run Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_11901",
+    "name": "Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10934",
+    "name": "Target Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10935",
+    "name": "Delivery Method",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_10814",
+    "name": "ODM Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_10815",
+    "name": "Clover Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_10936",
+    "name": "Delivery Location",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10937",
+    "name": "Encryption",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:radiobuttons"
+  },
+  {
+    "id": "customfield_10938",
+    "name": "Frequency",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10939",
+    "name": "Category",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10800",
+    "name": "Cut In S/N(s)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10801",
+    "name": "Cut In Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10922",
+    "name": "PROD_Regression",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10923",
+    "name": "Applicable Devices",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10802",
+    "name": "Project",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10926",
+    "name": "Automated In",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10805",
+    "name": "MPM",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_10927",
+    "name": "Automators",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker"
+  },
+  {
+    "id": "customfield_10806",
+    "name": "Proposed Implementation",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10928",
+    "name": "Content Assignee",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_10807",
+    "name": "Parts Affected",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10808",
+    "name": "Vendors Affected",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10929",
+    "name": "Written By",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker"
+  },
+  {
+    "id": "customfield_10809",
+    "name": "Qualification Plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15132",
+    "name": "Business Logic",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16101",
+    "name": "Transcripts",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15133",
+    "name": "Accessibility Approval",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16100",
+    "name": "Fiserv Problem Record",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15130",
+    "name": "What is the rollout strategy",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15131",
+    "name": "How will this Rollout strategy be supported/executed technically?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15136",
+    "name": "Origin of Change",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15137",
+    "name": "Recurring Problem",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15134",
+    "name": "Partner Approval",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15135",
+    "name": "Incident Caused by Change",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15138",
+    "name": "Known Issue",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15139",
+    "name": "Impacted Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10910",
+    "name": "Quantity Needed (Per Device)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10911",
+    "name": "Date Needed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10912",
+    "name": "Device shipping address and device owner email",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10913",
+    "name": "Additional Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10914",
+    "name": "Flex 2 Components",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_10915",
+    "name": "Risk to IFM or PCD",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10916",
+    "name": "Explanation of Affected Security Components, PCI/PTS Re-Certification, and/or IFM/PCD Risk",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10917",
+    "name": "Release Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10919",
+    "name": "Test Setup",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11200",
+    "name": "Engineering Run Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_14832",
+    "name": "Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15800",
+    "name": "Time In Status",
+    "schema": "com.atlassian.jira.ext.charting:timeinstatus"
+  },
+  {
+    "id": "customfield_14833",
+    "name": "Participants",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15801",
+    "name": "RM Review",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11202",
+    "name": "Affects Security Related Components",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11203",
+    "name": "Market Segment",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_14831",
+    "name": "Summary Insight",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14825",
+    "name": "Resolution Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14826",
+    "name": "Incident Root Cause",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14823",
+    "name": "PagerDuty Alert Link",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14824",
+    "name": "Root Cause Component",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14829",
+    "name": "Read Only Message Banner",
+    "schema": "com.atlassian.jira.toolkit:viewmessage"
+  },
+  {
+    "id": "customfield_14827",
+    "name": "Risk Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_14828",
+    "name": "UserVoice Links",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10100",
+    "name": "Effort",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14700",
+    "name": "Employee Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12400",
+    "name": "Environment_pd",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14821",
+    "name": "Monetary Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_14822",
+    "name": "Incident Source",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_12401",
+    "name": "Dependencies",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14820",
+    "name": "Transactions Impacted",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14814",
+    "name": "End Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_14815",
+    "name": "Caused Due to Change",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15904",
+    "name": "Localization Request Instructions",
+    "schema": "com.atlassian.jira.toolkit:message"
+  },
+  {
+    "id": "customfield_15901",
+    "name": "Designer",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_14812",
+    "name": "PD Condition",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14813",
+    "name": "PD Created Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14818",
+    "name": "Impacted Region(s)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14819",
+    "name": "Business Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14816",
+    "name": "IM Engaged Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_14817",
+    "name": "First Communicated Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_14810",
+    "name": "PD Tags",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10210",
+    "name": "Release Version History",
+    "schema": "com.pyxis.greenhopper.jira:greenhopper-releasedmultiversionhistory"
+  },
+  {
+    "id": "customfield_14811",
+    "name": "PD ChartURL",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:url"
+  },
+  {
+    "id": "customfield_15900",
+    "name": "Product Manager",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_13600",
+    "name": "Development",
+    "schema": "com.atlassian.jira.plugins.jira-development-integration-plugin:devsummary"
+  },
+  {
+    "id": "customfield_11302",
+    "name": "Original story points",
+    "schema": "com.atlassian.jpo:jpo-custom-field-original-story-points"
+  },
+  {
+    "id": "customfield_10203",
+    "name": "Business Value",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_14803",
+    "name": "Slack Channel",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14804",
+    "name": "PD Urgency",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10204",
+    "name": "Rank (Obsolete)",
+    "schema": "com.pyxis.greenhopper.jira:gh-global-rank"
+  },
+  {
+    "id": "customfield_14801",
+    "name": "PD Incident Start Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10205",
+    "name": "Sprint",
+    "schema": "com.pyxis.greenhopper.jira:gh-sprint"
+  },
+  {
+    "id": "customfield_10206",
+    "name": "Epic Link",
+    "schema": "com.pyxis.greenhopper.jira:gh-epic-link"
+  },
+  {
+    "id": "customfield_14802",
+    "name": "PD Escalation Team",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10207",
+    "name": "Epic Name",
+    "schema": "com.pyxis.greenhopper.jira:gh-epic-label"
+  },
+  {
+    "id": "customfield_14807",
+    "name": "PD Severity",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10208",
+    "name": "Epic Status",
+    "schema": "com.pyxis.greenhopper.jira:gh-epic-status"
+  },
+  {
+    "id": "customfield_14808",
+    "name": "PD Summary",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_10209",
+    "name": "Epic Color",
+    "schema": "com.pyxis.greenhopper.jira:gh-epic-color"
+  },
+  {
+    "id": "customfield_14805",
+    "name": "Primary Impacted Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14806",
+    "name": "PD Service Description",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14809",
+    "name": "Start time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_10200",
+    "name": "Flagged",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_14800",
+    "name": "PD Status",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10201",
+    "name": "Epic/Theme",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:labels"
+  },
+  {
+    "id": "customfield_12501",
+    "name": "Integrated Build Version",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:labels"
+  },
+  {
+    "id": "customfield_10202",
+    "name": "Story Points",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_13701",
+    "name": "Deal Size in Currency",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_11401",
+    "name": "Developer Release Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13700",
+    "name": "Tier",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11400",
+    "name": "Research Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_14902",
+    "name": "Clover Team",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12602",
+    "name": "Requested/Existing username",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14903",
+    "name": "Location",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12601",
+    "name": "User Email",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12604",
+    "name": "Access Requested (For Prod App, please only select one)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12603",
+    "name": "Employee effective date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_12606",
+    "name": "Google Groups (email lists)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12605",
+    "name": "Computer Hardware",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12608",
+    "name": "Name of System Admin completing the request",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12607",
+    "name": "Name of requesting Manager",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12609",
+    "name": "Date of completion",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10300",
+    "name": "Customers affected",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_12600",
+    "name": "Full Name",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10301",
+    "name": "Reviewer",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker"
+  },
+  {
+    "id": "customfield_13801",
+    "name": "Engineering Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_13800",
+    "name": "App Origin",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11500",
+    "name": "Candidate to automate",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12701",
+    "name": "Approved For Scoping",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12822",
+    "name": "Vendor Name",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12700",
+    "name": "Status",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12821",
+    "name": "Urgency",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_12824",
+    "name": "Tests Passed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_12823",
+    "name": "Total Devices Tested",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_12825",
+    "name": "Tests Failed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_12828",
+    "name": "Test Items",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12827",
+    "name": "Model",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12820",
+    "name": "Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_10400",
+    "name": "Rank",
+    "schema": "com.pyxis.greenhopper.jira:gh-lexo-rank"
+  },
+  {
+    "id": "customfield_11601",
+    "name": "Alert Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12811",
+    "name": "Merchant Identifier (CID or MID)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13900",
+    "name": "Probability",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11600",
+    "name": "Alert Action",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12810",
+    "name": "Number of Merchants",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11603",
+    "name": "Alert Impact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12812",
+    "name": "Account Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_11602",
+    "name": "Alert Region",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12815",
+    "name": "Requestor Phone",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11605",
+    "name": "Zones Impacted",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_11604",
+    "name": "Alert Impact Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_12814",
+    "name": "Requestor Name",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12817",
+    "name": "Requestor Source",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_11606",
+    "name": "Alert ID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12816",
+    "name": "Requestor Email",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_12819",
+    "name": "Country",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12818",
+    "name": "Region",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_13100",
+    "name": "Clover Role",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15400",
+    "name": "ERIS Issue Number",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15401",
+    "name": "Blocked By (Dependencies)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13102",
+    "name": "Total Tests to be Performed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_13101",
+    "name": "Last Public Comment Date",
+    "schema": "com.atlassian.jira.toolkit:LastCommentDate"
+  },
+  {
+    "id": "customfield_15404",
+    "name": "Feature Request",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_13104",
+    "name": "S/N Listing",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15405",
+    "name": "Customer",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_13103",
+    "name": "Test Plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15402",
+    "name": "Blocking (Dependencies)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13106",
+    "name": "Supplier",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15403",
+    "name": "Roadmap State",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_13105",
+    "name": "Tracking #",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14300",
+    "name": "Account",
+    "schema": "com.tempoplugin.tempo-accounts:accounts.customfield"
+  },
+  {
+    "id": "customfield_12000",
+    "name": "CCB Approval",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16600",
+    "name": "Country/Region",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14301",
+    "name": "Team",
+    "schema": "com.tempoplugin.tempo-teams:team.customfield"
+  },
+  {
+    "id": "customfield_12002",
+    "name": "Root Cause",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_12001",
+    "name": "Impact Analysis",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16604",
+    "name": "Date of Escalation",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_16603",
+    "name": "Date of Issue/Incident",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_12003",
+    "name": "Request Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16602",
+    "name": "Escalator Name",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14302",
+    "name": "Team Role",
+    "schema": "com.tempoplugin.tempo-teams:team.role.customfield"
+  },
+  {
+    "id": "customfield_14303",
+    "name": "Iteration",
+    "schema": "com.tempoplugin.tempo-plan-core:tp.iteration.customfield"
+  },
+  {
+    "id": "customfield_16601",
+    "name": "Modem/SOM",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15507",
+    "name": "Transaction Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15508",
+    "name": "Primary Impacted Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_15505",
+    "name": "CR# - Caused By",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15506",
+    "name": "CR# - Fix",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15620",
+    "name": "PDLC Phase",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15621",
+    "name": "Application Information",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15500",
+    "name": "Incident Category",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_13201",
+    "name": "Build Notes",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13200",
+    "name": "Tamper Related?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15503",
+    "name": "RCA",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15504",
+    "name": "Incident Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15501",
+    "name": "Caused by Change",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_15617",
+    "name": "API Changelog?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12106",
+    "name": "Integrated Version",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15618",
+    "name": "Vendor Information",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15615",
+    "name": "3PD Release Note Needed?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15616",
+    "name": "3PD Release Note Description",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16825",
+    "name": "Security Review",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15619",
+    "name": "RCA Participants",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15610",
+    "name": "Critical Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_12101",
+    "name": "Status Color",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12100",
+    "name": "Key Issues / Lowlights / Risks",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15613",
+    "name": "Draft Links",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16824",
+    "name": "Permit to Build",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_12102",
+    "name": "Highlights",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16823",
+    "name": "Permit to Design",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15614",
+    "name": "Specification Link",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15611",
+    "name": "Dependent Services",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14401",
+    "name": "Message",
+    "schema": "com.atlassian.jira.toolkit:message"
+  },
+  {
+    "id": "customfield_12105",
+    "name": "Release Version",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16701",
+    "name": "Resolving Team",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_16700",
+    "name": "Needs USB exception",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_12104",
+    "name": "Stack Ranked Priority",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15612",
+    "name": "Topics Affected",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15606",
+    "name": "Complexity",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15607",
+    "name": "Report Category Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15604",
+    "name": "Project Context",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15605",
+    "name": "Code Review",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_15608",
+    "name": "Project Goal",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15609",
+    "name": "Requesting Organization SLT",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_13300",
+    "name": "Change Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11000",
+    "name": "TestCase",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_13302",
+    "name": "Deal Size Details",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15603",
+    "name": "Critical and Dependent Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_13301",
+    "name": "Fiserv Contact",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15600",
+    "name": "CCO Volume (highest point)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_15601",
+    "name": "Merchants Impacted",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_11237",
+    "name": "Target end",
+    "schema": "com.atlassian.jpo:jpo-custom-field-baseline-end"
+  },
+  {
+    "id": "customfield_11239",
+    "name": "ECR Priority",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11230",
+    "name": "Expiration Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_12200",
+    "name": "Targeted Release",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:version"
+  },
+  {
+    "id": "customfield_11231",
+    "name": "Waiver Quantity",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14500",
+    "name": "RCA Link",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:url"
+  },
+  {
+    "id": "customfield_11235",
+    "name": "Test Sequence",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11236",
+    "name": "Target start",
+    "schema": "com.atlassian.jpo:jpo-custom-field-baseline-start"
+  },
+  {
+    "id": "customfield_11228",
+    "name": "Cut Out Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_11229",
+    "name": "Cut Out S/N(s)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11220",
+    "name": "ISV Approval",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_11100",
+    "name": "Required Remote Pay Version",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11221",
+    "name": "Start Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_11101",
+    "name": "Team",
+    "schema": "com.atlassian.teams:rm-teams-custom-field-team"
+  },
+  {
+    "id": "customfield_11222",
+    "name": "Time of Detection",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_13401",
+    "name": "data_model_deputy",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11102",
+    "name": "Parent Link",
+    "schema": "com.atlassian.jpo:jpo-custom-field-parent"
+  },
+  {
+    "id": "customfield_11223",
+    "name": "Time of Resolution",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_13400",
+    "name": "migration_phase",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11224",
+    "name": "Detected by",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11103",
+    "name": "Requires PCI/PTS Recertification",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15700",
+    "name": "Details",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_11225",
+    "name": "Team Responsible",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_13402",
+    "name": "rollback_enabled",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14605",
+    "name": "Residual risk",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:exposure-cf-type"
+  },
+  {
+    "id": "customfield_14606",
+    "name": "Contingency plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16904",
+    "name": "Requesting Organization",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16903",
+    "name": "Organization - Other",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14603",
+    "name": "Residual Probability",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_14604",
+    "name": "Inherent risk",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:exposure-cf-type"
+  },
+  {
+    "id": "customfield_16902",
+    "name": "Organization",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14609",
+    "name": "Treatment plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_14607",
+    "name": "Realization",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_14608",
+    "name": "Treatment",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_10000",
+    "name": "External issue ID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11210",
+    "name": "QM",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_16901",
+    "name": "Department",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14601",
+    "name": "Probability",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_12300",
+    "name": "Delivery Quarter",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14602",
+    "name": "Residual Impact",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_16900",
+    "name": "Work Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_11213",
+    "name": "Developer App Approval",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_11214",
+    "name": "DAA ISV or 3rd Party",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14600",
+    "name": "Impact",
+    "schema": "com.projectbalm.riskregister.riskregister-jira:riskfactor-cf-type"
+  },
+  {
+    "id": "customfield_15804",
+    "name": "ARB Ticket?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11204",
+    "name": "Benefit Category",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14836",
+    "name": "Project Folder",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:url"
+  },
+  {
+    "id": "customfield_11205",
+    "name": "Business Justification",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_14837",
+    "name": "Phase",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15805",
+    "name": "Requesting Squad",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14834",
+    "name": "RACI engagement level",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15802",
+    "name": "RM Approval Status",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11206",
+    "name": "Strategic Priority",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_11207",
+    "name": "Estimated Duration (Days)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_14835",
+    "name": "Researcher",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_11209",
+    "name": "Last Comment Date",
+    "schema": "com.atlassian.jira.toolkit:LastCommentDate"
+  },
+  {
+    "id": "customfield_15806",
+    "name": "Declared Major",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_14838",
+    "name": "Doc links",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15121",
+    "name": "Number of Participants",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15000",
+    "name": "Research Question",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15122",
+    "name": "Workaround",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15120",
+    "name": "Reported By",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_15125",
+    "name": "Cards Type Needed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_15126",
+    "name": "Rom Needed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15123",
+    "name": "Knowledge Article",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15124",
+    "name": "Known Error",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:radiobuttons"
+  },
+  {
+    "id": "customfield_15129",
+    "name": "NEW EMAIL or UPDATE TO EXISTING EMAIL",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15127",
+    "name": "UserVoice Links",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15128",
+    "name": "Security Risk Rating",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10901",
+    "name": "Design Assignee",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_10902",
+    "name": "Target US Prod Release",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10903",
+    "name": "Target EU Prod Release",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_10905",
+    "name": "Device Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10906",
+    "name": "Model",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10907",
+    "name": "Environment",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_10908",
+    "name": "Merchant UUID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_10909",
+    "name": "Region",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16200",
+    "name": "Acceptance Criteria",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15110",
+    "name": "Control ID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15111",
+    "name": "Control Title",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15114",
+    "name": "Control Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_15115",
+    "name": "Problem Owner",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15112",
+    "name": "Corrective Action Plan",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15113",
+    "name": "Corrective Action Taken",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15118",
+    "name": "Closing Code",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15119",
+    "name": "Problem Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15116",
+    "name": "Linked Incident",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:url"
+  },
+  {
+    "id": "customfield_15117",
+    "name": "Pending Code",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15109",
+    "name": "Root Cause Analysis",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15100",
+    "name": "Service Point Ticket",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15104",
+    "name": "RCA Attendees",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_15101",
+    "name": "Change Ticket",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15102",
+    "name": "SalesForce Parent Case",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15107",
+    "name": "RCA Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_15108",
+    "name": "User Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_15105",
+    "name": "RCA End Time",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datetime"
+  },
+  {
+    "id": "customfield_15106",
+    "name": "RCA Document Link",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:url"
+  },
+  {
+    "id": "customfield_14000",
+    "name": "Execution Window",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15210",
+    "name": "Found in Environment",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_14004",
+    "name": "Capital Expense Eligible (CapEx)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14002",
+    "name": "Primary Reseller",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_15203",
+    "name": "DEVICEREQ Message 2",
+    "schema": "com.atlassian.jira.toolkit:message"
+  },
+  {
+    "id": "customfield_15200",
+    "name": "Flex 3 and Mini 3 Components",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15201",
+    "name": "Station 2018, Station Pro, Station Duo, Station Duo 2 Components",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15207",
+    "name": "Collaborator",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:userpicker"
+  },
+  {
+    "id": "customfield_15204",
+    "name": "Incident Origin",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15205",
+    "name": "Affected Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect"
+  },
+  {
+    "id": "customfield_16401",
+    "name": "SIRT_TNT_Validated_Env",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_14100",
+    "name": "Factory Location",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16400",
+    "name": "IM Review",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_14101",
+    "name": "Payment Card",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect"
+  },
+  {
+    "id": "customfield_15307",
+    "name": "CAB",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15301",
+    "name": "Context",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13000",
+    "name": "Close Date",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"
+  },
+  {
+    "id": "customfield_15302",
+    "name": "Deliverables",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16510",
+    "name": "Swap Order Number (IMS)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15300",
+    "name": "ITRM Finding ID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15305",
+    "name": "Service",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_15306",
+    "name": "Dependent Version/s",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multiversion"
+  },
+  {
+    "id": "customfield_15303",
+    "name": "Requirements",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_15304",
+    "name": "External issue ID",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16509",
+    "name": "Has a replacement (swap order) been issued?",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_16508",
+    "name": "Detailed description of troubleshooting",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16507",
+    "name": "Issue/Incident Description",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16506",
+    "name": "ROM Version",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15411",
+    "name": "ERIS MAP Number",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16501",
+    "name": "Escalator Email",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15412",
+    "name": "Incident Participants",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16500",
+    "name": "Incident Summary",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_13110",
+    "name": "Number of Cavities",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_15410",
+    "name": "Project Type",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_14200",
+    "name": "Risk Buy Needed",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_16505",
+    "name": "Affected Device Serial(s)",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"
+  },
+  {
+    "id": "customfield_16504",
+    "name": "Qty of Affected Devices",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_16503",
+    "name": "Merchant Name",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_16502",
+    "name": "Escalating Org",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_13108",
+    "name": "Material",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"
+  },
+  {
+    "id": "customfield_15408",
+    "name": "Stabilization",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"
+  },
+  {
+    "id": "customfield_15409",
+    "name": "Capitalization",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:select"
+  },
+  {
+    "id": "customfield_13107",
+    "name": "Tooling Life",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  },
+  {
+    "id": "customfield_15407",
+    "name": "DEVICEREQ India Message",
+    "schema": "com.atlassian.jira.toolkit:message"
+  },
+  {
+    "id": "customfield_13109",
+    "name": "Monthly Capacity",
+    "schema": "com.atlassian.jira.plugin.system.customfieldtypes:float"
+  }
+]
