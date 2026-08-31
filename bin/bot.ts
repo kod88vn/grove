@@ -1,11 +1,14 @@
 #!/usr/bin/env -S npx tsx
 import { doctor, type CheckResult } from '../src/config/doctor.ts';
+import { createDashboard, listen } from '../dashboard/server.ts';
+import { loadConfig } from '../src/config/config.ts';
 import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
 import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
 
-const COMMANDS = ['doctor', 'sync', 'stalls'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls', 'serve'] as const;
+const DEFAULT_PORT = 4747;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -18,6 +21,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return runSyncCommand(argv.slice(1));
     case 'stalls':
       return stallsCommand(argv.slice(1));
+    case 'serve':
+      return serveCommand(argv.slice(1));
     default:
       process.stderr.write(`unknown command "${command}". Known: ${COMMANDS.join(', ')}\n`);
       return 2;
@@ -87,6 +92,14 @@ function writeGroup(heading: string, stalls: readonly Stall[], limit: number): v
   if (hidden > 0) {
     process.stdout.write(`  ... and ${hidden} more (--all to see them)\n`);
   }
+}
+
+async function serveCommand(args: readonly string[]): Promise<number> {
+  const port = numberFlag(args, '--port') ?? DEFAULT_PORT;
+  const server = createDashboard({ config: loadConfig(), port });
+  const url = await listen(server, port);
+  process.stdout.write(`dashboard on ${url}\n`);
+  return 0;
 }
 
 function scopeFrom(args: readonly string[]): SyncScope | null {

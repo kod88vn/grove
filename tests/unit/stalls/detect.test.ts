@@ -264,11 +264,36 @@ describe('review-requested-of-me', () => {
   });
 
   it('escalates with age, so a week-old request outranks a fresh one', () => {
-    const old = pullRequest({ ...waiting, number: 2, createdAt: daysAgo(9) });
-    const stalls = detect(snapshot({ pullRequests: [waiting, old] }), clock).filter(
+    const asked = { kind: 'user', id: 'jay-quach' } as const;
+    const fresh = pullRequest({ ...waiting, reviewRequests: [asked] });
+    const old = pullRequest({ ...waiting, number: 2, createdAt: daysAgo(9), reviewRequests: [asked] });
+    const stalls = detect(snapshot({ pullRequests: [fresh, old] }), clock).filter(
       (s) => s.id === 'review-requested-of-me',
     );
     expect(stalls[0]?.severity).toBe('high');
+  });
+
+  it('ranks a request that merely reached my team below one addressed to me', () => {
+    // Almost every request arrives through a team. Treating those as urgent buries the few
+    // where someone actually asked for me by name.
+    const viaTeam = pullRequest({
+      ...waiting,
+      createdAt: daysAgo(30),
+      reviewRequests: [{ kind: 'team', id: 'clover/services-team' }],
+    });
+    const byName = pullRequest({
+      ...waiting,
+      number: 2,
+      createdAt: daysAgo(9),
+      reviewRequests: [{ kind: 'user', id: 'jay-quach' }],
+    });
+    const stalls = detect(snapshot({ pullRequests: [viaTeam, byName] }), clock).filter(
+      (s) => s.id === 'review-requested-of-me',
+    );
+    expect(stalls[0]?.subject).toMatchObject({ number: 2 });
+    expect(stalls[0]?.severity).toBe('high');
+    expect(stalls[1]?.severity).toBe('low');
+    expect(stalls[1]?.summary).toContain('not on me by name');
   });
 });
 

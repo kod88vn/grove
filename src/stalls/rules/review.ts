@@ -21,21 +21,39 @@ export function reviewRequestedOfMe(context: RuleContext): Stall[] {
     if (age < context.thresholds.prAwaitingReviewDays) {
       return [];
     }
+    const direct = requestedByName(pr, context.snapshot.identity.github);
     return [
       manual({
         id: 'review-requested-of-me',
         subject: subjectOf(pr),
         owner: 'me',
         ageDays: age,
-        severity: severityFor(age),
-        summary: `${pr.author} has been waiting ${humanDays(age)} for my review`,
+        severity: severityFor(age, direct),
+        summary: direct
+          ? `${pr.author} has been waiting ${humanDays(age)} for my review`
+          : `waiting ${humanDays(age)} on my team, not on me by name`,
         move: `Review ${pr.repo}#${pr.number} — ${pr.title}`,
       }),
     ];
   });
 }
 
-function severityFor(age: number): Stall['severity'] {
+/** Whether a human chose me, rather than my membership of a team catching the request. */
+function requestedByName(pr: PullRequest, me: string): boolean {
+  return pr.reviewRequests.some((request) => request.kind === 'user' && request.id === me);
+}
+
+/**
+ * A request addressed to me by name outranks one my team happened to receive.
+ *
+ * Nearly all of these arrive through a team, and treating those as equally urgent buries the
+ * handful where someone actually asked for me. Team-routed requests stay visible but never
+ * outrank work that is unambiguously mine.
+ */
+function severityFor(age: number, direct: boolean): Stall['severity'] {
+  if (!direct) {
+    return 'low';
+  }
   if (age >= 7) {
     return 'high';
   }
