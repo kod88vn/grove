@@ -3,13 +3,18 @@ import type { Issue } from '../../src/core/model/issue.ts';
 import type { Sprint } from '../../src/core/model/sprint.ts';
 import type { SyncRun } from '../../src/store/repositories/sync-runs.ts';
 import { isIssueDone } from '../../src/core/model/issue.ts';
+import type { TableQuery, TableRow } from '../html.ts';
 import { empty, escapeHtml, layout, link, section, table } from '../html.ts';
 
-export function sprintPage(
-  sprint: Sprint | null,
-  issues: readonly Issue[],
-  issueUrl: (key: string) => string,
-): string {
+export interface SprintPageOptions {
+  readonly sprint: Sprint | null;
+  readonly issues: readonly Issue[];
+  readonly issueUrl: (key: string) => string;
+  readonly query?: TableQuery;
+}
+
+export function sprintPage(options: SprintPageOptions): string {
+  const { sprint, issues, issueUrl, query = { path: '/sprint', sort: null, direction: 'asc', group: null } } = options;
   if (sprint === null) {
     return layout('Sprint', '/sprint', `<h1>Sprint</h1>${empty('No active sprint.')}`);
   }
@@ -20,28 +25,36 @@ export function sprintPage(
 
   const body =
     `<p class="age">${escapeHtml(`${sprint.name} — ${ends} — ${done.length}/${issues.length} done`)}</p>` +
-    section('Remaining', remaining.length, rows(remaining, issueUrl)) +
-    section('Done', done.length, rows(done, issueUrl));
+    section('Remaining', remaining.length, rows(remaining, issueUrl, query)) +
+    section('Done', done.length, rows(done, issueUrl, query));
 
   return layout('Sprint', '/sprint', `<h1>Sprint</h1>${body}`);
 }
 
-function rows(issues: readonly Issue[], issueUrl: (key: string) => string): string {
+function rows(issues: readonly Issue[], issueUrl: (key: string) => string, query: TableQuery): string {
   if (issues.length === 0) {
     return empty('Nothing here.');
   }
   return table(
-    ['Key', 'Status', 'Assignee', 'Summary'],
-    issues.map((issue) => [
-      link(issueUrl(issue.key), issue.key),
-      escapeHtml(issue.status),
-      escapeHtml(issue.assignee?.displayName ?? 'unassigned'),
-      escapeHtml(issue.summary),
-    ]),
+    sprintColumns,
+    issues.map((issue): TableRow => ({
+      cells: [
+        link(issueUrl(issue.key), issue.key),
+        escapeHtml(issue.status),
+        escapeHtml(issue.assignee?.displayName ?? 'unassigned'),
+        escapeHtml(issue.summary),
+      ],
+      values: [issue.key, issue.status, issue.assignee?.displayName ?? 'unassigned', issue.summary],
+    })),
+    query,
   );
 }
 
-export function activityPage(events: readonly BotEvent[], lastRun: SyncRun | null): string {
+export function activityPage(
+  events: readonly BotEvent[],
+  lastRun: SyncRun | null,
+  query: TableQuery = { path: '/activity', sort: null, direction: 'asc', group: null },
+): string {
   const status =
     lastRun === null
       ? empty('Never synced.')
@@ -51,12 +64,16 @@ export function activityPage(events: readonly BotEvent[], lastRun: SyncRun | nul
     events.length === 0
       ? empty('No activity recorded yet.')
       : table(
-          ['When', 'What', 'Subject'],
-          events.map((event) => [
-            `<span class="age">${escapeHtml(event.at.slice(0, 16).replace('T', ' '))}</span>`,
-            escapeHtml(event.kind),
-            `<span class="mono">${escapeHtml(event.subjectId)}</span>`,
-          ]),
+          activityColumns,
+          events.map((event): TableRow => ({
+            cells: [
+              `<span class="age">${escapeHtml(event.at.slice(0, 16).replace('T', ' '))}</span>`,
+              escapeHtml(event.kind),
+              `<span class="mono">${escapeHtml(event.subjectId)}</span>`,
+            ],
+            values: [event.at, event.kind, event.subjectId],
+          })),
+          query,
         );
 
   return layout(
@@ -65,6 +82,19 @@ export function activityPage(events: readonly BotEvent[], lastRun: SyncRun | nul
     `<h1>Activity</h1>${status}${section('Recent changes', events.length, body)}`,
   );
 }
+
+const sprintColumns = [
+  { key: 'key', label: 'Key' },
+  { key: 'status', label: 'Status' },
+  { key: 'assignee', label: 'Assignee' },
+  { key: 'summary', label: 'Summary' },
+] as const;
+
+const activityColumns = [
+  { key: 'when', label: 'When' },
+  { key: 'what', label: 'What' },
+  { key: 'subject', label: 'Subject' },
+] as const;
 
 function describe(run: SyncRun): string {
   const when = run.finishedAt ?? run.startedAt;

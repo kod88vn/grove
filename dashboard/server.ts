@@ -12,6 +12,7 @@ import { pullRequestsPage, ticketsPage } from './pages/work.ts';
 import { pushPage } from './pages/push.ts';
 import { originAllowed, performAction, readBody } from './actions.ts';
 import { resultPage } from './pages/result.ts';
+import type { TableQuery } from './html.ts';
 
 /** Loopback only. This server exposes an authenticated view of private work and has no auth. */
 const HOST = '127.0.0.1';
@@ -108,10 +109,10 @@ function handle(
     return;
   }
 
-  const path = new URL(request.url ?? '/', `http://${HOST}`).pathname;
-  const page = render(path, db, config);
+  const url = new URL(request.url ?? '/', `http://${HOST}`);
+  const page = render(url.pathname, url.searchParams, db, config);
   if (page === null) {
-    send(response, 404, layout('Not found', '', `<h1>Not found</h1><p class="mono">${escapeHtml(path)}</p>`));
+    send(response, 404, layout('Not found', '', `<h1>Not found</h1><p class="mono">${escapeHtml(url.pathname)}</p>`));
     return;
   }
   send(response, 200, page);
@@ -126,29 +127,45 @@ function hostAllowed(header: string | undefined): boolean {
   return ALLOWED_HOSTS.has(name);
 }
 
-function render(path: string, db: Database, config: Config): string | null {
+function render(
+  path: string,
+  query: URLSearchParams,
+  db: Database,
+  config: Config,
+): string | null {
   const issueUrl = (key: string): string => `${config.jira.baseUrl}/browse/${key}`;
   const snapshot = readSnapshot(db, { jira: config.jira.me, github: config.github.me });
+  const tableQuery: TableQuery = {
+    path,
+    sort: query.get('sort'),
+    direction: query.get('direction') === 'desc' ? 'desc' : 'asc',
+    group: query.get('group'),
+  };
 
   switch (path) {
     case '/':
-      return pushPage(detect(snapshot, systemClock(), config.thresholds), {
-        issueUrl,
-        pullRequestUrl: (repo, number) =>
-          snapshot.pullRequests.find((pr) => pr.repo === repo && pr.number === number)?.url ?? null,
-      });
-    case '/tickets':
-      return ticketsPage(snapshot.issues, issueUrl);
-    case '/prs':
-      return pullRequestsPage(snapshot.pullRequests, config.github.me);
-    case '/sprint':
-      return sprintPage(
-        snapshot.activeSprint,
-        snapshot.issues.filter((issue) => snapshot.sprintIssueKeys.includes(issue.key)),
-        issueUrl,
+      return pushPage(
+        detect(snapshot, systemClock(), config.thresholds),
+        {
+          issueUrl,
+          pullRequestUrl: (repo, number) =>
+            snapshot.pullRequests.find((pr) => pr.repo === repo && pr.number === number)?.url ?? null,
+        },
+        { category: query.get('category'), severity: query.get('severity') },
       );
+    case '/tickets':
+      return ticketsPage(snapshot.issues, issueUrl, tableQuery);
+    case '/prs':
+      return pullRequestsPage(snapshot.pullRequests, config.github.me, tableQuery);
+    case '/sprint':
+      return sprintPage({
+        sprint: snapshot.activeSprint,
+        issues: snapshot.issues.filter((issue) => snapshot.sprintIssueKeys.includes(issue.key)),
+        issueUrl,
+        query: tableQuery,
+      });
     case '/activity':
-      return activityPage(readRecentEvents(db, 100), readLastRun(db));
+      return activityPage(readRecentEvents(db, 100), readLastRun(db), tableQuery);
     default:
       return null;
   }
