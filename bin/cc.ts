@@ -2,13 +2,14 @@
 import { doctor, type CheckResult } from '../src/config/doctor.ts';
 import { createDashboard, listen } from '../dashboard/server.ts';
 import { loadConfig } from '../src/config/config.ts';
+import { runResolve, type ResolveOutcome, type ResolveStatus } from '../src/config/run-resolve.ts';
 import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
 import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
 import { serveMcp } from '../src/mcp/serve.ts';
 
-const COMMANDS = ['doctor', 'sync', 'stalls', 'serve', 'mcp'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls', 'resolve', 'serve', 'mcp'] as const;
 const DEFAULT_PORT = 4747;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
@@ -22,6 +23,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return runSyncCommand(argv.slice(1));
     case 'stalls':
       return stallsCommand(argv.slice(1));
+    case 'resolve':
+      return resolveCommand(argv.slice(1));
     case 'serve':
       return serveCommand(argv.slice(1));
     case 'mcp':
@@ -108,6 +111,49 @@ async function serveCommand(args: readonly string[]): Promise<number> {
   const url = await listen(server, port);
   process.stdout.write(`dashboard on ${url}\n`);
   return 0;
+}
+
+const MARK: Record<ResolveStatus, string> = {
+  ready: '·',
+  applied: '✓',
+  refused: '✗',
+  failed: '!',
+  unavailable: '–',
+};
+
+/**
+ * Close the loop on tickets whose code already shipped.
+ *
+ * Lists by default and mutates only under `--apply`, because the difference between the two is
+ * the difference between a report and a set of irreversible workflow transitions.
+ */
+async function resolveCommand(args: readonly string[]): Promise<number> {
+  const apply = args.includes('--apply');
+  const only = args.find((arg) => !arg.startsWith('--')) ?? null;
+  const outcomes = await runResolve({ apply, only });
+
+  if (outcomes.length === 0) {
+    process.stdout.write('nothing shipped is waiting on a ticket.\n');
+    return 0;
+  }
+  for (const outcome of outcomes) {
+    process.stdout.write(`  ${MARK[outcome.status]} ${outcome.issueKey}  ${outcome.detail}\n`);
+  }
+  process.stdout.write(summarise(outcomes, apply));
+  return outcomes.some((outcome) => outcome.status === 'failed') ? 1 : 0;
+}
+
+function summarise(outcomes: readonly ResolveOutcome[], apply: boolean): string {
+  if (outcomes.length === 0) {
+    return '\nNothing shipped is waiting on a ticket.\n';
+  }
+  if (!apply) {
+    const ready = outcomes.filter((outcome) => outcome.status === 'ready').length;
+    const next = ready === 0 ? 'Nothing to apply.' : 'Re-run with --apply to resolve them.';
+    return `\n${ready} of ${outcomes.length} ready. ${next}\n`;
+  }
+  const applied = outcomes.filter((outcome) => outcome.status === 'applied').length;
+  return `\n${applied} of ${outcomes.length} resolved.\n`;
 }
 
 function scopeFrom(args: readonly string[]): SyncScope | null {

@@ -99,7 +99,10 @@ Host `https://jira.corp.clover.com`, header `Authorization: Bearer $JIRA_DC_TOKE
 | Sprint issues | `/rest/agile/1.0/board/1386/sprint/12388/issue` -> 200, `total=39` | live probe |
 | Board JQL | `/rest/agile/1.0/board/1386/issue?jql=…` accepts JQL -> 200 | live probe |
 | Transitions | `GET /rest/api/2/issue/<K>/transitions?expand=transitions.fields` -> 200. On WS-6316: `301` Stop Progress, **`5` Resolve Issue -> Resolved**, `2` Close Issue, `711` Code Review -> In Review, `721`, `751`, `801` | live probe |
-| **Resolve required fields** | **`resolution` is the ONLY required field.** `fixVersions` and `customfield_10206` are on the screen but **optional** | `transitions.fields[].required` |
+| **Resolve required fields** | `transitions.fields[].required` reports **`resolution` alone** — but that metadata is NOT the whole contract. A workflow **validator** also demands `fixVersions`, and validators are invisible to the transitions endpoint. A POST with only `resolution` returns `400 {"errors":{"fixVersions":"Please add a Fix/Version "}}` | live `POST`, WS-6114, 2026-08-31 |
+| **Resolve payload that works** | `{"transition":{"id":"5"},"fields":{"resolution":{"name":"Fixed"},"fixVersions":[{"name":"NA"}]}}` -> `204 No Content` | live `POST`, WS-6229/6232/6206/6316 |
+| **Fix version convention** | `NA` for work outside a release train. 23 of the 24 tickets this user resolved in the 45 days to 2026-08-31 used `NA` (one used `N/A`), including storefront fixes, not only tooling. Named trains like `ws-26.09.07` also exist | `search` + `project/WS/versions` |
+| Successful transition response | **`204` with an empty body.** `JSON.parse('')` throws `Unexpected end of JSON input`, which reads as a failed mutation for a change that was applied | live `POST` |
 | Resolution values | `Fixed`, `Won't Fix`, `Duplicate`, `Done`, `Cancelled`, … (18 total) | `allowedValues` |
 | Custom field ids | `10205` Sprint, `10206` Epic Link, `10207` Epic Name, `10202` Story Points, `12400` Environment_pd | `GET /rest/api/2/field` |
 
@@ -141,7 +144,6 @@ The site states the latest revision is **`2026-07-28`**.
 | Unknown | What must be checked |
 | --- | --- |
 | Whether `gh pr merge` actually succeeds | Cannot be verified without performing a real merge. `mergeStateStatus` is the best pre-flight signal; treat merge failure as expected and surface the error. |
-| Jira transition **write** path | The executor and `prepareResolve` are built and the payload has been produced for real tickets (WS-6114, WS-6326 — `{"resolution":{"name":"Fixed"}}`, transition `5`), but **no live `POST` has been issued**. The write remains unverified until one is. |
 | Non-`WS` project behaviour | All probes used project `WS` and board `1386` only. |
 | Sprint field on other boards | `customfield_10205` shape was only checked on board 1386 issues. |
 
@@ -180,7 +182,7 @@ documentation implies, which is exactly where models hallucinate.
 | GitHub host | `github.com` | `github.corp.clover.com` (GHE 3.21) | `gh auth status` |
 | GitHub write scopes | `repo` implies broad write | **No `write:org`, no `workflow`**; also **not repo admin** | `gh auth status`, `gh api repos/…` |
 | SQLite `DELETE` | Assumed to free disk space | Does **not** shrink the file; needs checkpoint / `VACUUM` | SQLite behaviour, see DESIGN §8 |
-| Jira resolve payload | A prior session note claimed `resolution` + `fixVersions` + `customfield_10206` were all required | **Only `resolution` is required.** Never hardcode — read `transitions.fields[].required` live | verified 2026-08-31 on WS-6316 |
+| Jira resolve payload | A prior session note claimed `resolution` + `fixVersions` + `customfield_10206` were all required. A later session read `transitions.fields[].required`, saw `resolution` alone, and "corrected" the note — wrongly | **`resolution` AND `fixVersions` are both required at POST time.** The note was closer to the truth than the metadata was. `customfield_10206` is genuinely optional. Read the metadata live, then expect a validator to want more | verified by live POST 2026-08-31 |
 | Jira sprint via core search | Assumed to be a JSON object | `customfield_10205` returns a **legacy GreenHopper `toString` blob**: `com.atlassian.greenhopper.service.sprint.Sprint@…[id=…,name=…,state=ACTIVE]`. Core search returns **no** `sprint`/`epic` fields at all — use `/rest/agile/1.0/…`, which returns proper objects | verified 2026-08-31 |
 | `mergeable` on first read | Assumed immediately correct | Returns **`UNKNOWN`** on first query because GitHub computes it lazily; resolves on re-query. Never emit a stall from `UNKNOWN` | verified 2026-08-31 on PR 2390 |
 | `statusCheckRollup` element shape | Assumed uniform | **Two shapes.** `StatusContext` has `context`/`state`; `CheckRun` has `name`/`status`/`conclusion`. Must normalise both | verified 2026-08-31 |

@@ -25,6 +25,7 @@ const config: Config = {
     boardId: 1,
     projectKeys: ['WS'],
     me: 'jay.quach',
+    fixVersion: 'NA',
   },
   github: { me: 'jay-quach' },
   repos: [],

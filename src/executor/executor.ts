@@ -7,7 +7,7 @@ import type { GitHubClient } from '../connectors/github/client.ts';
 import type { JiraClient } from '../connectors/jira/client.ts';
 import type { Database } from '../store/database.ts';
 import { recordOutcome, recordProposal } from '../store/repositories/actions.ts';
-import { readIssue } from '../store/repositories/issues.ts';
+import { upsertIssue } from '../store/repositories/issues.ts';
 import { readLinksForIssue } from '../store/repositories/links.ts';
 import { upsertPullRequest } from '../store/repositories/pull-requests.ts';
 
@@ -63,7 +63,7 @@ export async function execute(
     authorizedBy: request.authorizedBy,
   });
 
-  const refusal = await preflight(deps, request.action);
+  const refusal = await checkAction(deps, request.action);
   if (refusal !== null) {
     recordOutcome(deps.db, {
       id,
@@ -95,8 +95,17 @@ export async function execute(
   }
 }
 
-/** Guards, run against state read seconds ago rather than against the mirror. */
-async function preflight(deps: ExecutorDeps, action: ActionPayload): Promise<Denial | null> {
+/**
+ * Guards, run against state read seconds ago rather than against the mirror.
+ *
+ * Exported so a dry run can ask the same question the executor will ask. A preview that
+ * answers "ready" for something the guard is about to refuse is worse than no preview: it
+ * teaches you to distrust the tool.
+ */
+export async function checkAction(
+  deps: ExecutorDeps,
+  action: ActionPayload,
+): Promise<Denial | null> {
   if (action.capability === 'github:pr-merge') {
     const { repo, number } = action.payload;
     const fresh = await deps.github.pullRequest(repo, number);
@@ -110,20 +119,33 @@ async function preflight(deps: ExecutorDeps, action: ActionPayload): Promise<Den
 }
 
 async function resolveGuard(deps: ExecutorDeps, issueKey: string): Promise<Denial | null> {
-  const issue = readIssue(deps.db, issueKey);
-  if (issue === null) {
-    return { rule: 'unknown-issue', because: `${issueKey} is not in the mirror` };
+  // Re-read the ticket from Jira, not from the mirror.
+  //
+  // The mirror is as old as the last sync, and "is this already done?" is precisely the
+  // question a stale answer gets wrong. Observed on WS-6114: the mirror said Open, the ticket
+  // was already Resolved, the `already-done` guard could not fire, and the resolve fell
+  // through to the only transition still on offer — Close. A guard that reads stale state is
+  // not a guard.
+  const live = await deps.jira.searchIssues(
+    `key = ${issueKey}`,
+    new Date(deps.clock.now()).toISOString(),
+  );
+  const fresh = live[0];
+  if (fresh === undefined) {
+    return { rule: 'unknown-issue', because: `${issueKey} is not in Jira` };
   }
+  upsertIssue(deps.db, fresh, true);
+
   const links = readLinksForIssue(deps.db, issueKey);
-  const fresh = await Promise.all(
+  const prs = await Promise.all(
     links.map((link) => deps.github.pullRequest(link.repo, link.number)),
   );
-  for (const pr of fresh) {
+  for (const pr of prs) {
     upsertPullRequest(deps.db, pr, true);
   }
   return refuseResolve(
-    issue,
-    fresh.map((pr) => pr.value),
+    fresh.value,
+    prs.map((pr) => pr.value),
     deps.identity.jira,
   );
 }

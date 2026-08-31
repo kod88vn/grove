@@ -2,7 +2,7 @@ import { hasFailingChecks, isApproved } from '../../core/model/pull-request.ts';
 import type { PullRequest } from '../../core/model/pull-request.ts';
 import type { Stall } from '../../core/model/stall.ts';
 import type { RuleContext } from '../context.ts';
-import { daysSince, humanDays, manual, subjectOf } from '../context.ts';
+import { daysSince, humanAgo, humanDays, manual, subjectOf } from '../context.ts';
 
 /** PRs I wrote, which are the only ones whose progress is mine to drive. */
 function mine(context: RuleContext): PullRequest[] {
@@ -31,7 +31,7 @@ export function prApprovedUnmerged(context: RuleContext): Stall[] {
         owner: 'me',
         ageDays: age,
         severity: age >= 3 ? 'high' : 'medium',
-        summary: `approved ${humanDays(age)} ago, still open`,
+        summary: `approved ${humanAgo(age)}, still open`,
         move: mergeBlockedBy(pr) ?? `Merge ${pr.repo}#${pr.number}`,
       }),
     ];

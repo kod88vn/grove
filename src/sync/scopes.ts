@@ -25,8 +25,17 @@ export interface ScopeResult {
   readonly events: BotEvent[];
 }
 
-const MY_UNRESOLVED_JQL =
-  'assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC';
+/**
+ * My tickets, plus anything of mine that closed recently.
+ *
+ * `resolution = Unresolved` alone is a trap: once a ticket is resolved it stops matching, so
+ * it is never fetched again and its mirror row stays frozen at the last unresolved state. The
+ * mirror then reports it as Open forever, and the stall engine keeps demanding a move on work
+ * that finished. Observed on WS-6114. The date bound keeps the result set small while letting
+ * closure propagate — including closures made by someone else, or by a bulk edit.
+ */
+const MY_ISSUES_JQL =
+  'assignee = currentUser() AND (resolution = Unresolved OR resolutiondate >= -30d) ORDER BY updated DESC';
 
 /**
  * Mirror Jira: my open tickets, the board, and the active sprint's contents.
@@ -43,7 +52,7 @@ export async function syncJira(deps: SyncDeps): Promise<ScopeResult> {
   const board = await deps.jira.board();
   upsertBoard(deps.db, board, at);
 
-  const mine = await deps.jira.searchIssues(MY_UNRESOLVED_JQL, at);
+  const mine = await deps.jira.searchIssues(MY_ISSUES_JQL, at);
   for (const mirrored of mine) {
     events.push(...diffIssue(readIssue(deps.db, mirrored.value.key), mirrored.value, at));
     upsertIssue(deps.db, mirrored, true);

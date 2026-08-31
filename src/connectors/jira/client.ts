@@ -149,6 +149,27 @@ export class JiraClient {
   }
 
   /**
+   * Fix versions currently on an issue.
+   *
+   * Needed because the WS workflow enforces a Fix/Version through a transition *validator*,
+   * and validators are invisible to `transitions?expand=transitions.fields` — that endpoint
+   * reports `resolution` alone, then the POST fails with
+   * `{"errors":{"fixVersions":"Please add a Fix/Version "}}`. Reading what is already there is
+   * the only way to add one without overwriting a real release train.
+   */
+  async fixVersions(issueKey: string): Promise<string[]> {
+    const response = await jiraRequest<{ fields?: { fixVersions?: unknown } }>(this.credentials, {
+      method: 'GET',
+      path: `/rest/api/2/issue/${encodeURIComponent(issueKey)}?fields=fixVersions`,
+    });
+    const raw = response.fields?.fixVersions;
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.map((entry) => String((entry as { name?: unknown }).name ?? '')).filter((n) => n !== '');
+  }
+
+  /**
    * Drive an issue through a transition.
    *
    * `fields` must be built from the metadata `transitions()` returned moments earlier. Jira

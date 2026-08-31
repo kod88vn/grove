@@ -1,6 +1,6 @@
 import type { Stall } from '../../core/model/stall.ts';
 import type { RuleContext } from '../context.ts';
-import { daysSince, humanDays, manual } from '../context.ts';
+import { daysSince, humanAgo, humanDays, manual } from '../context.ts';
 
 /**
  * Committed work that exists only on this machine.
@@ -32,7 +32,7 @@ export function branchNoPr(context: RuleContext): Stall[] {
         severity: branch.upstream === null ? 'high' : 'medium',
         summary:
           branch.upstream === null
-            ? `${branch.ahead} unpushed commit(s), last ${humanDays(age)} ago`
+            ? `${branch.ahead} unpushed commit(s), last ${humanAgo(age)}`
             : `${branch.ahead} commit(s) ahead of ${branch.upstream}, no PR`,
         move: `Open a PR for ${branch.repo} ${branch.name}, or delete it`,
       }),
@@ -64,7 +64,7 @@ export function prMergedBranchExists(context: RuleContext): Stall[] {
         owner: 'me',
         ageDays: age,
         severity: 'low',
-        summary: `${pr.repo}#${pr.number} merged ${humanDays(age)} ago, local branch remains`,
+        summary: `${pr.repo}#${pr.number} merged ${humanAgo(age)}, local branch remains`,
         move: `Delete local branch ${branch.name} in ${pr.repo}`,
       }),
     ];

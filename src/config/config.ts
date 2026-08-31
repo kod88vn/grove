@@ -29,6 +29,14 @@ export interface Config {
     readonly projectKeys: readonly string[];
     /** Jira username, e.g. `jay.quach`. */
     readonly me: string;
+    /**
+     * Fix version to set when resolving a ticket that has none.
+     *
+     * The WS workflow refuses to resolve without one. `NA` is the observed convention for
+     * work that is not part of a release train: 23 of the 24 tickets resolved by this user in
+     * the 45 days to 2026-08-31 used it, including storefront fixes, not only tooling.
+     */
+    readonly fixVersion: string;
   };
   readonly github: {
     /** GitHub login, e.g. `jay-quach`. */
@@ -86,6 +94,7 @@ export function loadConfig(
       boardId: intFromEnv(env['CC_JIRA_BOARD'], 1386),
       projectKeys: (env['CC_JIRA_PROJECTS'] ?? 'WS').split(',').map((key) => key.trim()),
       me: env['CC_JIRA_USER'] ?? 'jay.quach',
+      fixVersion: env['CC_JIRA_FIX_VERSION'] ?? 'NA',
     },
     github: {
       me: env['CC_GITHUB_USER'] ?? 'jay-quach',

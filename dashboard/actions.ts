@@ -44,7 +44,7 @@ export async function performAction(
     config.jira.boardId,
   );
   const github = new GitHubClient({ me: config.github.me, projectKeys: config.jira.projectKeys });
-  const built = await build(form, jira, db);
+  const built = await build(form, jira, db, config.jira.fixVersion);
   if (built === null) {
     return { ok: false, message: 'That action is no longer available.' };
   }
@@ -72,6 +72,7 @@ async function build(
   form: URLSearchParams,
   jira: JiraClient,
   db: Database,
+  fixVersion: string,
 ): Promise<ActionPayload | null> {
   const kind = form.get('do');
   if (kind === 'merge') {
@@ -89,7 +90,7 @@ async function build(
       return null;
     }
     // Read the workflow live rather than assuming a transition id. Screens change.
-    const prepared = await prepareResolve(jira, key);
+    const prepared = await prepareResolve(jira, key, fixVersion);
     return prepared === null || prepared.unfilled.length > 0 ? null : prepared.action;
   }
   return null;

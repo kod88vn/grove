@@ -46,6 +46,13 @@ export async function jiraRequest<T>(
   if (!response.ok) {
     throw new JiraRequestError(request.method, request.path, response.status, text);
   }
+  // A successful transition answers 204 with no body. Parsing that threw "Unexpected end of
+  // JSON input", which the executor could only read as a failed mutation — so the audit trail
+  // recorded `failed` for a change Jira had already applied. A mutation log that is wrong
+  // about what happened is worse than no mutation log.
+  if (text === '') {
+    return undefined as T;
+  }
   return JSON.parse(text) as T;
 }
 

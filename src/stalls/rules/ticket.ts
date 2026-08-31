@@ -3,7 +3,7 @@ import type { Issue } from '../../core/model/issue.ts';
 import type { PullRequest } from '../../core/model/pull-request.ts';
 import type { Stall } from '../../core/model/stall.ts';
 import type { RuleContext } from '../context.ts';
-import { daysSince, humanDays, issueSubject, manual } from '../context.ts';
+import { daysSince, humanAgo, humanDays, issueSubject, manual } from '../context.ts';
 
 function myOpenIssues(context: RuleContext): Issue[] {
   return context.snapshot.issues.filter(
@@ -40,7 +40,7 @@ export function prMergedTicketOpen(context: RuleContext): Stall[] {
         owner: 'me',
         ageDays: age,
         severity: 'high',
-        summary: `${last.repo}#${last.number} merged ${humanDays(age)} ago, ticket still ${issue.status}`,
+        summary: `${last.repo}#${last.number} merged ${humanAgo(age)}, ticket still ${issue.status}`,
         move: `Resolve ${issue.key} — its PR ${last.repo}#${last.number} is merged`,
       }),
     ];

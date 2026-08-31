@@ -78,3 +78,14 @@ export function humanDays(days: number): string {
   }
   return whole === 1 ? '1 day' : `${whole} days`;
 }
+
+/**
+ * The same span, phrased as a point in the past.
+ *
+ * Separate from `humanDays` because "today" is already a complete phrase: appending "ago" at
+ * the call site produced "merged today ago" on every PR merged within 24 hours.
+ */
+export function humanAgo(days: number): string {
+  const spoken = humanDays(days);
+  return spoken === 'today' ? 'today' : `${spoken} ago`;
+}

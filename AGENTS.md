@@ -17,8 +17,13 @@ anything by default. The design document is [DESIGN.md](DESIGN.md).
 ## Current Status — read this before assuming anything exists
 
 The POC is built and works against live data. `cc sync` mirrors Jira, GitHub and local
-branches; `cc stalls` and the dashboard report what has stopped moving; `cc serve` offers
-Merge and Resolve buttons behind the guards; `cc mcp` answers questions in Chat, read-only.
+branches; `cc stalls` and the dashboard report what has stopped moving; `cc resolve` closes
+tickets whose code already shipped; `cc serve` offers Merge and Resolve buttons behind the
+guards; `cc mcp` answers questions in Chat, read-only.
+
+The Jira write path is **verified**: five tickets were resolved through the executor on
+2026-08-31 and read back from Jira. Merging a PR is still unproven — it cannot be tested
+without really merging something.
 
 What is **not** built: `launchd` scheduling, the chat handoff, notifications, and pre-approval
 rules with expiry and rate limits. Nothing runs unattended yet — every mutation today needs a
@@ -49,8 +54,26 @@ output rather than summarizing it.
 | Check credentials and connectivity | `npm run cc -- doctor` |
 | Refresh the mirror | `npm run cc -- sync all` |
 | What has stopped moving | `npm run cc -- stalls` (add `--all` to lift the per-group cap) |
+| Tickets whose PR merged | `npm run cc -- resolve` (lists; `--apply` resolves; takes an optional key) |
 | Dashboard | `npm run cc -- serve` → http://127.0.0.1:4747 |
 | MCP server (stdio) | `npm run cc -- mcp` |
+
+### Finish the loop
+
+**Work is not done when the code is written. It is done when the ticket is closed.**
+
+This project exists because that gap is where work rots: a PR merges, everyone moves on, and
+the ticket stays Open as a false signal about project state. Seven such tickets were sitting
+in Jira the day this was built.
+
+So, for any change in any repository:
+
+- Merged the PR? Resolve the ticket in the same session. Do not leave it for later.
+- Opened a ticket? Assign it to yourself at creation and close it when its PR merges.
+- Finished a task here? `npm run cc -- resolve` before you stop, and act on what it reports.
+
+A refusal is a finished loop too. `pr-not-merged` and `already-done` are correct answers, not
+failures — what is forbidden is walking away without looking.
 
 The guards are plain `node` scripts with no dependencies and read `ai-guard.config.json` from
 the repo root — an absent config is a hard error by design ("an unconfigured guard is a guard
