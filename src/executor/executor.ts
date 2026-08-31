@@ -80,7 +80,7 @@ export async function execute(
       id,
       status: 'applied',
       executedAt: new Date(deps.clock.now()).toISOString(),
-      outcome,
+      outcome: await refreshMirror(deps, request.action, outcome),
     });
     return { ok: true, id, outcome };
   } catch (error) {
@@ -148,6 +148,47 @@ async function resolveGuard(deps: ExecutorDeps, issueKey: string): Promise<Denia
     prs.map((pr) => pr.value),
     deps.identity.jira,
   );
+}
+
+/**
+ * Fold the state *after* the mutation back into the mirror.
+ *
+ * Step 1 stores what was read moments before acting, which is by definition the pre-mutation
+ * state. Without this step the mirror still says the ticket is open and the pull request is
+ * unmerged, so the next render offers the same button for work that is already done. The next
+ * scheduled sync would eventually correct it; the person looking at the screen now would have
+ * stopped believing the screen by then.
+ */
+async function refreshMirror(
+  deps: ExecutorDeps,
+  action: ActionPayload,
+  outcome: string,
+): Promise<string> {
+  try {
+    if (action.capability === 'github:pr-merge') {
+      const { repo, number } = action.payload;
+      upsertPullRequest(deps.db, await deps.github.pullRequest(repo, number), true);
+    } else {
+      await remirrorIssue(deps, action.payload.issueKey);
+    }
+    return outcome;
+  } catch (error) {
+    // The mutation already landed. A failed re-read must not be reported as a failed action,
+    // but it is named in the audit row rather than swallowed, so a stale row has a stated cause.
+    const because = error instanceof Error ? error.message : String(error);
+    return `${outcome} (mirror not refreshed: ${because})`;
+  }
+}
+
+async function remirrorIssue(deps: ExecutorDeps, issueKey: string): Promise<void> {
+  const live = await deps.jira.searchIssues(
+    `key = ${issueKey}`,
+    new Date(deps.clock.now()).toISOString(),
+  );
+  const fresh = live[0];
+  if (fresh !== undefined) {
+    upsertIssue(deps.db, fresh, true);
+  }
 }
 
 async function perform(deps: ExecutorDeps, action: ActionPayload): Promise<string> {

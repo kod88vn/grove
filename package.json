@@ -16,7 +16,8 @@
     "customizations": "node .copilot-config/scripts/validate-customizations.mjs \"$PWD\"",
     "guards": "npm run customizations && npm run arch && npm run quality",
     "verify": "npm run guards && npm run typecheck && npm run test",
-    "cc": "tsx bin/cc.ts"
+    "cc": "tsx bin/cc.ts",
+    "dashboard": "tsx watch --clear-screen=false --exclude \"data/**\" --exclude \"reports/**\" bin/cc.ts serve"
   },
   "devDependencies": {
     "@types/node": "26.4.0",

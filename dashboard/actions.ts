@@ -37,7 +37,12 @@ export async function performAction(
   config: Config,
 ): Promise<ActionResult> {
   if (form.get('token') !== CSRF_TOKEN) {
-    return { ok: false, message: 'Stale or forged form: token does not match this process.' };
+    return {
+      ok: false,
+      message:
+        'Stale or forged form: token does not match this process. ' +
+        'If the server restarted, reload the page and click again.',
+    };
   }
   const jira = new JiraClient(
     { baseUrl: config.jira.baseUrl, token: config.jira.token },
