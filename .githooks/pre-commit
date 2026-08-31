@@ -1,0 +1,8 @@
+#!/bin/sh
+# The gate. Refuses the commit unless a step is in progress and has passed `npm run verify`
+# against exactly this tree.
+#
+# This is not advice and there is no flag to soften it. Bypassing it requires `--no-verify`,
+# which is on the compiled-in denylist (DESIGN.md §7) and which you have already decided you
+# do not use.
+exec npx tsx bin/cc.ts step gate

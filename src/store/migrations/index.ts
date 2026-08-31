@@ -20,6 +20,7 @@ const FILES: readonly { version: number; name: string; file: string }[] = [
   { version: 3, name: 'search', file: '0003-search.sql' },
   { version: 4, name: 'branch-upstream', file: '0004-branch-upstream.sql' },
   { version: 5, name: 'check-started-at', file: '0005-check-started-at.sql' },
+  { version: 6, name: 'work-steps', file: '0006-work-steps.sql' },
 ];
 
 export function loadMigrations(): Migration[] {

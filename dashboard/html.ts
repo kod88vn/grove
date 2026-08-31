@@ -5,6 +5,8 @@
  * summaries — none of which this project controls. All of it is escaped on the way out.
  */
 
+import { COPY_SCRIPT_PATH, copyButton, copyHeaderCell, copyRowCell, type CopyCell } from './copy.ts';
+
 const ENTITIES: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -48,6 +50,7 @@ export function layout(title: string, activePath: string, body: string): string 
 <body>
 <nav>${nav}</nav>
 <main>${body}</main>
+<script src="${escapeHtml(COPY_SCRIPT_PATH)}" defer></script>
 </body>
 </html>`;
 }
@@ -97,6 +100,11 @@ export interface TableColumn {
 export interface TableRow {
   readonly cells: readonly string[];
   readonly values: readonly string[];
+  /**
+   * The one link worth sending someone. Supply it and the table grows a select column and a
+   * copy button; omit it on every row and the table renders exactly as it did before.
+   */
+  readonly copy?: CopyCell;
 }
 
 export interface TableQuery {
@@ -114,10 +122,12 @@ export function table(
   const sortIndex = columnIndex(columns, query.sort);
   const groupIndex = columnIndex(columns, query.group);
   const ordered = orderRows(rows, sortIndex, query.direction, groupIndex);
-  const head = columns.map((column) => header(column, query)).join('');
-  const body = groupedBody(ordered, columns.length, groupIndex);
-  const grouping = groupControls(columns, query);
-  return `${grouping}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  const copyable = rows.some((row) => row.copy !== undefined);
+  const head = (copyable ? copyHeaderCell() : '') + columns.map((column) => header(column, query)).join('');
+  const body = groupedBody(ordered, columns.length + (copyable ? 1 : 0), groupIndex);
+  const tools = groupControls(columns, query) + (copyable ? copyButton() : '');
+  const markup = `<div class="table-tools">${tools}</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  return copyable ? `<div class="copy-table">${markup}</div>` : markup;
 }
 
 function columnIndex(columns: readonly TableColumn[], key: string | null): number | null {
@@ -178,7 +188,7 @@ function groupControls(columns: readonly TableColumn[], query: TableQuery): stri
     const label = active ? `Ungroup ${column.label}` : column.label;
     return `<a class="pill${active ? ' current' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
   });
-  return `<div class="table-tools">${label}${links.join('')}</div>`;
+  return `${label}${links.join('')}`;
 }
 
 function queryUrl(query: TableQuery, changes: { sort?: string | null; direction?: string; group?: string | null }): string {
@@ -201,7 +211,8 @@ function groupedBody(rows: readonly TableRow[], columnCount: number, groupIndex:
       ? `<tr class="group-heading"><th colspan="${columnCount}">${escapeHtml(group)}</th></tr>`
       : '';
     previousGroup = group;
-    return `${heading}<tr>${row.cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+    const pick = row.copy === undefined ? '' : copyRowCell(row.copy, escapeHtml);
+    return `${heading}<tr>${pick}${row.cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
   }).join('');
 }
 
@@ -227,6 +238,12 @@ th a { color: inherit; }
 td { padding: .4rem .75rem .4rem 0; border-top: 1px solid var(--edge); vertical-align: top; }
 .table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .5rem 0; }
 .table-tools > span { opacity: .6; font-size: .8rem; }
+.table-tools .copy { margin-left: auto; font: inherit; font-size: .8rem; padding: .25rem .8rem;
+  border-radius: 999px; cursor: pointer; border: 1px solid var(--edge); background: transparent;
+  color: inherit; }
+.table-tools .copy:hover { border-color: currentColor; }
+.copy-said { font-size: .8rem; opacity: .6; min-width: 7rem; }
+td.pick, th.pick { width: 1.5rem; padding-right: .5rem; }
 .group-heading th { padding-top: 1rem; border-top: 1px solid var(--edge); opacity: .8; }
 .stall { border-top: 1px solid var(--edge); padding: .6rem 0; }
 .move { opacity: .75; }

@@ -47,6 +47,56 @@ Sequencing lives in [agent-docs/superpowers/plans/2026-08-28-central-command-roa
 **`npm run verify` is the gate.** Run it before claiming anything is done, and paste the real
 output rather than summarizing it.
 
+## The step gate — mechanical, not advisory
+
+Work in this repository moves one step at a time, and a step finishes only when the repository
+says so. This is enforced by a git hook and two database constraints, not by this paragraph.
+
+| Task | Command |
+| --- | --- |
+| Define a step | `npm run cc -- step add "<title>" [--ticket=WS-1234]` |
+| Begin it | `npm run cc -- step start <id>` |
+| Earn the stamp | `npm run cc -- step stamp` |
+| See the ledger | `npm run cc -- step status` |
+| Drop it | `npm run cc -- step abandon <id>` |
+
+The loop is: **start → work → stamp → commit.** Nothing else is available.
+
+### What the machine enforces
+
+- **`step stamp` does not accept a claim.** It runs `npm run verify` itself and reads the exit
+  code. Non-zero writes nothing. `step_stamps.exit_code` is `CHECK (exit_code = 0)`, so a
+  failing run cannot be stored as a pass even by a caller trying to.
+- **A stamp is bound to the tree that earned it.** It records a SHA-256 over every file git can
+  see under `src`, `bin`, `scripts`, `dashboard`, `package.json`, `tsconfig.json` and
+  `ai-guard.config.json`. Edit any of them and the stamp no longer matches, so the step is
+  unstamped again. Stamp-then-edit is not a policy violation; it is arithmetic.
+- **`.githooks/pre-commit` refuses the commit** unless a step is in progress and holds a stamp
+  for this exact tree. It prints the one command that clears the refusal.
+- **`.githooks/post-commit` is the only writer of `done`,** using the SHA git just produced.
+  `work_steps` has `CHECK (state <> 'done' OR sealed_commit IS NOT NULL)`, so a finished step
+  without a commit behind it cannot exist in the database.
+- **One step in progress at a time**, via a partial unique index on `state = 'doing'`.
+
+### Rules for agents working here
+
+1. Do not report a step complete. Run `npm run cc -- step stamp` and paste its output. The
+   stamp is the report.
+2. If the gate refuses, run the command it printed. Do not explain the refusal, do not work
+   around it, and do not ask for it to be waived.
+3. `--no-verify` is on the compiled-in denylist (`src/core/policy/denylist.ts`). Never suggest
+   it, in any phrasing, for any reason.
+4. If a step turns out to be wrong, `step abandon <id>` and add a new one. Abandoning is a
+   normal outcome and costs nothing. Redefining "done" is not available.
+
+### The limits, stated plainly
+
+A determined human can run `git commit --no-verify` or `git config core.hooksPath ''`. This
+gate stops drift, forgetfulness, and an agent's confident summary — not sabotage. It also
+covers the working tree rather than the index, so if you stage a subset of your changes, the
+stamp attests to what is on disk, not to what is being committed. Stage everything, or know
+the difference.
+
 ### Running it
 
 | Task | Command |

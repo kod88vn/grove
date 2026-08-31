@@ -76,3 +76,41 @@ export async function currentBranch(repoPath: string): Promise<string> {
   const stdout = await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoPath });
   return stdout.trim();
 }
+
+export async function headCommit(repoPath: string): Promise<string> {
+  const stdout = await run('git', ['rev-parse', 'HEAD'], { cwd: repoPath });
+  return stdout.trim();
+}
+
+/**
+ * Content hashes for every source file git can see, tracked or not.
+ *
+ * `--cached --others --exclude-standard` is the combination that matters: `--cached` catches
+ * tracked files, `--others` catches a brand new file that has not been added yet, and
+ * `--exclude-standard` keeps `data/` and `node_modules/` out via .gitignore. Missing the
+ * untracked case would let a new module appear after verification without invalidating it.
+ *
+ * The hashing is `git hash-object`, not a filesystem read, so this layer needs no crypto and
+ * the result is the same object id git itself would compute.
+ */
+export async function sourceFileHashes(
+  repoPath: string,
+  roots: readonly string[],
+): Promise<readonly string[]> {
+  const listed = await run(
+    'git',
+    ['ls-files', '--cached', '--others', '--exclude-standard', '--', ...roots],
+    { cwd: repoPath },
+  );
+
+  const paths = listed.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+  if (paths.length === 0) return [];
+
+  const hashed = await run('git', ['hash-object', '--', ...paths], { cwd: repoPath });
+  const hashes = hashed.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+
+  // Pair each hash with its path before returning. Order is git's, which is stable, but the
+  // path has to be in the digest too: renaming a file without changing its bytes is a change.
+  return paths.map((path, index) => `${hashes[index] ?? ''}  ${path}`);
+}
+

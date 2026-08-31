@@ -146,9 +146,37 @@ describe('dashboard hardening', () => {
     expect(body).not.toContain('<script>alert(1)</script>');
   });
 
-  it('sends a content security policy that forbids script', async () => {
+  it('sends a content security policy that admits only our own script', async () => {
     const response = await fetch(`${origin}/`);
-    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+    const policy = response.headers.get('content-security-policy') ?? '';
+    expect(policy).toContain("default-src 'none'");
+    expect(policy).toContain("script-src 'self'");
+    // Inline script stays forbidden: escaping is the first defence, this is the second.
+    expect(policy).not.toContain("script-src 'unsafe-inline'");
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+  });
+
+  it('serves the copy script as javascript, not as html', async () => {
+    const response = await fetch(`${origin}/copy.js`);
+    expect(response.status).toBe(200);
+    // Served under nosniff, so a wrong content type would stop the browser executing it.
+    expect(response.headers.get('content-type')).toContain('text/javascript');
+    expect(await response.text()).toContain('clipboard');
+  });
+
+  it('offers a copy control on the tables that have links', async () => {
+    for (const path of ['/tickets', '/prs', '/sprint']) {
+      const body = await (await fetch(`${origin}${path}`)).text();
+      expect(body, path).toContain('<script src="/copy.js" defer></script>');
+    }
+    const tickets = await (await fetch(`${origin}/tickets`)).text();
+    expect(tickets).toContain('data-copy>Copy links</button>');
+    expect(tickets).toContain('value="https://jira.example.invalid/browse/WS-1"');
+  });
+
+  it('leaves a table with no links alone', async () => {
+    // Activity rows are events, not addresses; a copy button there would copy nothing useful.
+    const body = await (await fetch(`${origin}/activity`)).text();
+    expect(body).not.toContain('data-copy>');
   });
 });

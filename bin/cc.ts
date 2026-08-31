@@ -5,11 +5,20 @@ import { loadConfig } from '../src/config/config.ts';
 import { runResolve, type ResolveOutcome, type ResolveStatus } from '../src/config/run-resolve.ts';
 import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
+import {
+  stepAbandon,
+  stepAdd,
+  stepGate,
+  stepSeal,
+  stepStamp,
+  stepStart,
+  stepStatus,
+} from '../src/config/run-step.ts';
 import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
 import { serveMcp } from '../src/mcp/serve.ts';
 
-const COMMANDS = ['doctor', 'sync', 'stalls', 'resolve', 'serve', 'mcp'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls', 'resolve', 'serve', 'mcp', 'step'] as const;
 const DEFAULT_PORT = 4747;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
@@ -27,6 +36,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return resolveCommand(argv.slice(1));
     case 'serve':
       return serveCommand(argv.slice(1));
+    case 'step':
+      return stepCommand(argv.slice(1));
     case 'mcp':
       // Returns immediately. The readline handle on stdin keeps the process alive until the
       // client closes the stream, which is how the stdio transport signals shutdown. Awaiting
@@ -38,6 +49,54 @@ async function main(argv: readonly string[]): Promise<number> {
       process.stderr.write(`unknown command "${command}". Known: ${COMMANDS.join(', ')}\n`);
       return 2;
   }
+}
+
+const STEP_SUBCOMMANDS = ['add', 'start', 'status', 'stamp', 'gate', 'seal', 'abandon'] as const;
+
+async function stepCommand(args: readonly string[]): Promise<number> {
+  const sub = args[0] ?? 'status';
+  const rest = args.slice(1);
+
+  switch (sub) {
+    case 'add':
+      return stepAddCommand(rest);
+    case 'start':
+      return withId(rest, stepStart);
+    case 'status':
+      return stepStatus();
+    case 'stamp':
+      return stepStamp(rest[0] === undefined ? null : Number(rest[0]));
+    case 'gate':
+      return stepGate();
+    case 'seal':
+      return rest[0] === undefined ? missing('seal <commit-sha>') : stepSeal(rest[0]);
+    case 'abandon':
+      return withId(rest, stepAbandon);
+    default:
+      process.stderr.write(`unknown step subcommand "${sub}". Known: ${STEP_SUBCOMMANDS.join(', ')}\n`);
+      return 2;
+  }
+}
+
+function stepAddCommand(args: readonly string[]): number {
+  const title = args.filter((a) => !a.startsWith('--')).join(' ').trim();
+  if (title === '') return missing('add "<title>" [--ticket=WS-1234]');
+  return stepAdd(title, stringFlag(args, '--ticket'));
+}
+
+function withId(args: readonly string[], run: (id: number) => number): number {
+  const id = Number(args[0]);
+  return Number.isInteger(id) ? run(id) : missing('<step-id>');
+}
+
+function missing(usage: string): number {
+  process.stderr.write(`usage: cc step ${usage}\n`);
+  return 2;
+}
+
+function stringFlag(args: readonly string[], name: string): string | null {
+  const found = args.find((a) => a.startsWith(`${name}=`));
+  return found === undefined ? null : found.slice(name.length + 1);
 }
 
 async function runSyncCommand(args: readonly string[]): Promise<number> {

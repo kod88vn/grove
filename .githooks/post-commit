@@ -1,0 +1,6 @@
+#!/bin/sh
+# Seal the in-progress step against the commit that was just written.
+#
+# `done` exists nowhere else. The state column requires a commit SHA, and this is the only
+# place one is supplied, so a finished step is always traceable to the code that finished it.
+exec npx tsx bin/cc.ts step seal "$(git rev-parse HEAD)"

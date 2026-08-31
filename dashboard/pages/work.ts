@@ -23,6 +23,7 @@ export function ticketsPage(
               `<span class="age">${escapeHtml(formatDate(issue.updated))}</span>`,
             ],
             values: [issue.key, issue.status, issue.issueType, issue.summary, issue.updated],
+            copy: { url: issueUrl(issue.key), label: issue.key },
           })),
           query,
         );
@@ -60,6 +61,7 @@ function list(pullRequests: readonly PullRequest[], query: TableQuery): string {
         `<span class="age">${escapeHtml(formatDate(pr.updatedAt))}</span>`,
       ],
       values: [`${pr.repo}#${pr.number}`, pr.title, pr.reviewDecision ?? '—', checksLabel(pr), pr.mergeStateStatus ?? '—', pr.updatedAt],
+      copy: { url: pr.url, label: `${pr.repo}#${pr.number}` },
     })),
     query,
   );

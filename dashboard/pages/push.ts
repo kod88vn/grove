@@ -1,4 +1,4 @@
-import type { Stall, StallSubject } from '../../src/core/model/stall.ts';
+import type { Severity, Stall, StallId, StallSubject } from '../../src/core/model/stall.ts';
 import { empty, escapeHtml, layout, link, section } from '../html.ts';
 import { CSRF_TOKEN } from '../actions.ts';
 
@@ -13,25 +13,91 @@ export interface SubjectLinks {
   readonly pullRequestUrl: (repo: string, number: number) => string | null;
 }
 
+/** `category` is a `StallId`; both come straight off the query string, so neither is trusted. */
+export interface PushFilters {
+  readonly category: string | null;
+  readonly severity: string | null;
+}
+
+const SEVERITIES: readonly Severity[] = ['high', 'medium', 'low'];
+
 /**
  * The landing page: what has stopped moving, and whose move it is.
  *
  * Grouped by owner first because that is the only division that changes what I do next —
- * my own queue is actionable now, the other list is only worth a nudge.
+ * my own queue is actionable now, the other list is only worth a nudge. Category and severity
+ * are filters, not groups: with eighteen stall kinds, a heading per kind still buries the one
+ * you came to look at, so a pill bar narrows the page down to one at a time.
  */
-export function pushPage(stalls: readonly Stall[], links: SubjectLinks): string {
-  const mine = stalls.filter((stall) => stall.owner === 'me');
-  const theirs = stalls.filter((stall) => stall.owner === 'them');
+export function pushPage(stalls: readonly Stall[], links: SubjectLinks, filters: PushFilters): string {
+  const visible = stalls.filter(
+    (stall) =>
+      (filters.category === null || stall.id === filters.category) &&
+      (filters.severity === null || stall.severity === filters.severity),
+  );
+  const mine = visible.filter((stall) => stall.owner === 'me');
+  const theirs = visible.filter((stall) => stall.owner === 'them');
 
+  const bar = filterBar(stalls, filters);
   const body =
-    stalls.length === 0
-      ? empty('Nothing is stalled.')
+    visible.length === 0
+      ? empty(stalls.length === 0 ? 'Nothing is stalled.' : 'Nothing matches this filter.')
       : [
           section('Your move', mine.length, groups(mine, links)),
           section('Waiting on someone else', theirs.length, groups(theirs, links)),
         ].join('');
 
-  return layout('Needs a push', '/', `<h1>Needs a push</h1>${body}`);
+  return layout('Needs a push', '/', `<h1>Needs a push</h1>${bar}${body}`);
+}
+
+/** Pill links for category and severity. Pure `<a href>` — no client script, so it works cold. */
+function filterBar(stalls: readonly Stall[], filters: PushFilters): string {
+  const byCategory = new Map<string, number>();
+  for (const stall of stalls) {
+    byCategory.set(stall.id, (byCategory.get(stall.id) ?? 0) + 1);
+  }
+  const categoryPills = [pill({ param: 'category', value: null, caption: 'All', count: stalls.length, filters })]
+    .concat(
+      [...byCategory.entries()].map(([id, count]) =>
+        pill({ param: 'category', value: id, caption: label(id as StallId), count, filters }),
+      ),
+    )
+    .join('');
+  const severityPills = [pill({ param: 'severity', value: null, caption: 'All', count: stalls.length, filters })]
+    .concat(
+      SEVERITIES.map((sev) =>
+        pill({ param: 'severity', value: sev, caption: sev, count: stalls.filter((s) => s.severity === sev).length, filters }),
+      ),
+    )
+    .join('');
+
+  return `<div class="filters"><div class="filter-row">${categoryPills}</div><div class="filter-row">${severityPills}</div></div>`;
+}
+
+interface PillOptions {
+  readonly param: 'category' | 'severity';
+  readonly value: string | null;
+  readonly caption: string;
+  readonly count: number;
+  readonly filters: PushFilters;
+}
+
+function pill(options: PillOptions): string {
+  const { param, value, caption, count, filters } = options;
+  const other = param === 'category' ? { key: 'severity', value: filters.severity } : { key: 'category', value: filters.category };
+  const active = (param === 'category' ? filters.category : filters.severity) === value;
+
+  const params = new URLSearchParams();
+  if (other.value !== null) {
+    params.set(other.key, other.value);
+  }
+  if (value !== null) {
+    params.set(param, value);
+  }
+  const query = params.toString();
+  const href = query === '' ? '/' : `/?${query}`;
+  const cls = active ? ' class="pill current"' : ' class="pill"';
+  return `<a${cls} href="${escapeHtml(href)}">${escapeHtml(caption)} <span class="count">${count}</span></a>`;
 }
 
 /** Group by stall id so a hundred review requests read as one heading, not a hundred rows. */

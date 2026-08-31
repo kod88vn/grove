@@ -7,6 +7,7 @@ import { readRecentEvents } from '../src/store/repositories/events.ts';
 import { readLastRun } from '../src/store/repositories/sync-runs.ts';
 import { readSnapshot } from '../src/store/repositories/snapshot.ts';
 import { activityPage, sprintPage } from './pages/sprint.ts';
+import { COPY_SCRIPT, COPY_SCRIPT_PATH } from './copy.ts';
 import { escapeHtml, layout } from './html.ts';
 import { pullRequestsPage, ticketsPage } from './pages/work.ts';
 import { pushPage } from './pages/push.ts';
@@ -110,6 +111,10 @@ function handle(
   }
 
   const url = new URL(request.url ?? '/', `http://${HOST}`);
+  if (url.pathname === COPY_SCRIPT_PATH) {
+    sendScript(response);
+    return;
+  }
   const page = render(url.pathname, url.searchParams, db, config);
   if (page === null) {
     send(response, 404, layout('Not found', '', `<h1>Not found</h1><p class="mono">${escapeHtml(url.pathname)}</p>`));
@@ -175,12 +180,25 @@ function send(response: ServerResponse, status: number, body: string): void {
   response.writeHead(status, {
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
-    // The dashboard renders no untrusted script and loads nothing remote; say so explicitly.
-    // `form-action` is needed because `default-src 'none'` would otherwise block our own
-    // action forms from submitting.
-    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
+    // The dashboard loads nothing remote and renders no untrusted script; say so explicitly.
+    // `script-src 'self'` admits exactly one file, `/copy.js`, which is a constant in this
+    // repo rather than anything derived from Jira or GitHub data — no `unsafe-inline`, so a
+    // string that escaped `escapeHtml` still could not run. `form-action` is needed because
+    // `default-src 'none'` would otherwise block our own action forms from submitting.
+    'content-security-policy':
+      "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; form-action 'self'",
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
   });
   response.end(body);
+}
+
+/** The single client script. Constant for the life of the process, so it may be cached. */
+function sendScript(response: ServerResponse): void {
+  response.writeHead(200, {
+    'content-type': 'text/javascript; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+  });
+  response.end(COPY_SCRIPT);
 }

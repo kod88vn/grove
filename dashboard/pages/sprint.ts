@@ -45,6 +45,7 @@ function rows(issues: readonly Issue[], issueUrl: (key: string) => string, query
         escapeHtml(issue.summary),
       ],
       values: [issue.key, issue.status, issue.assignee?.displayName ?? 'unassigned', issue.summary],
+      copy: { url: issueUrl(issue.key), label: issue.key },
     })),
     query,
   );
