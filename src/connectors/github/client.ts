@@ -114,10 +114,31 @@ export class GitHubClient {
       ],
       this.options,
     );
-    return hits.flatMap((hit) => {
-      const repo = hit.repository?.nameWithOwner;
-      return repo === undefined || hit.number === undefined ? [] : [{ repo, number: hit.number }];
-    });
+    return toIdentifiers(hits);
+  }
+
+  /**
+   * Pull requests I merged since a date, as `YYYY-MM-DD`.
+   *
+   * Merged PRs are not part of the open-PR mirror but are needed to notice a ticket that was
+   * never closed after its code shipped — the gap this project exists to catch. Identifiers
+   * only; hydrate what is not already mirrored.
+   */
+  async findMergedPullRequests(since: string): Promise<{ repo: string; number: number }[]> {
+    const hits = await runJson<SearchHit[]>(
+      'gh',
+      [
+        'search',
+        'prs',
+        '--merged',
+        `--merged-at=>=${since}`,
+        `--author=${this.config.me}`,
+        '--limit=100',
+        '--json=repository,number',
+      ],
+      this.options,
+    );
+    return toIdentifiers(hits);
   }
 
   /**
@@ -192,8 +213,14 @@ export class GitHubClient {
   }
 }
 
-function scopeFlag(scope: PrSearchScope, me: string): string {
-  switch (scope) {
+function toIdentifiers(hits: readonly SearchHit[]): { repo: string; number: number }[] {
+  return hits.flatMap((hit) => {
+    const repo = hit.repository?.nameWithOwner;
+    return repo === undefined || hit.number === undefined ? [] : [{ repo, number: hit.number }];
+  });
+}
+
+function scopeFlag(scope: PrSearchScope, me: string): string {  switch (scope) {
     case 'authored':
       return `--author=${me}`;
     case 'review-requested':

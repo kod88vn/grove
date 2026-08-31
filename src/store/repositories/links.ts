@@ -1,14 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
+import type { IssuePrLink, LinkSource } from '../../core/model/link.ts';
 
-/** Which text yielded the key. Branch is strongest: it is chosen deliberately, once. */
-export type LinkSource = 'branch' | 'title' | 'body';
-
-export interface IssuePrLink {
-  readonly issueKey: string;
-  readonly repo: string;
-  readonly number: number;
-  readonly source: LinkSource;
-}
+export type { IssuePrLink, LinkSource };
 
 /**
  * Replace every link for one pull request.

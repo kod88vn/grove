@@ -104,7 +104,57 @@ export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
     total += keep.length;
   }
 
-  return { counts: { pullRequests: total, repos: configured.size + involved.size }, events };
+  const merged = await mirrorMerged(deps, at);
+  events.push(...merged.events);
+
+  return {
+    counts: {
+      pullRequests: total,
+      mergedPullRequests: merged.count,
+      repos: configured.size + involved.size,
+    },
+    events,
+  };
+}
+
+/**
+ * How far back to look for merged pull requests of mine.
+ *
+ * A ticket left open behind merged code is worth surfacing for a while, but not forever; a
+ * month is long enough to catch real oversights and short enough that the search stays cheap.
+ */
+const MERGED_LOOKBACK_DAYS = 30;
+
+/**
+ * Mirror pull requests I merged recently.
+ *
+ * Merged PRs are immutable for our purposes, so anything already stored as MERGED is skipped.
+ * Only the newly-merged are hydrated, which keeps a steady-state sync to one extra search.
+ */
+async function mirrorMerged(
+  deps: SyncDeps,
+  at: string,
+): Promise<{ count: number; events: BotEvent[] }> {
+  const since = new Date(deps.now().getTime() - MERGED_LOOKBACK_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const events: BotEvent[] = [];
+  let count = 0;
+
+  for (const hit of await deps.github.findMergedPullRequests(since)) {
+    const known = readPullRequest(deps.db, hit.repo, hit.number);
+    if (known?.state === 'MERGED') {
+      continue;
+    }
+    const mirrored = await deps.github.pullRequest(hit.repo, hit.number);
+    const pr = mirrored.value;
+    events.push(...diffPullRequest(known, pr, at));
+    upsertPullRequest(deps.db, mirrored, true);
+    replaceLinks(deps.db, pr.repo, pr.number, correlate(pr, deps.config.jira.projectKeys));
+    count += 1;
+  }
+
+  return { count, events };
 }
 
 /** Which pull requests involve me, grouped by repository. */

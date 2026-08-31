@@ -112,6 +112,24 @@ export function readMyOpenIssues(db: DatabaseSync): Issue[] {
   return rows.map((row) => toIssue(row as unknown as IssueRow));
 }
 
+/**
+ * My recently resolved tickets.
+ *
+ * `readMyOpenIssues` excludes these by design, but `ticket-resolved-pr-open` cannot fire
+ * without them: that rule is about a closed ticket whose pull request is still open.
+ */
+export function readMyResolvedIssues(db: DatabaseSync, limit: number): Issue[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM issues
+       WHERE is_mine = 1 AND resolution IS NOT NULL
+       ORDER BY updated DESC
+       LIMIT ?`,
+    )
+    .all(limit);
+  return rows.map((row) => toIssue(row as unknown as IssueRow));
+}
+
 export function readIssuesInSprint(db: DatabaseSync, sprintId: number): Issue[] {
   const rows = db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM issues WHERE sprint_id = ? ORDER BY key`)

@@ -159,6 +159,17 @@ export function readOpenPullRequests(db: DatabaseSync): PullRequest[] {
   return rows.map((row) => hydrate(db, row as unknown as PrRow));
 }
 
+/**
+ * Every mirrored pull request, open and merged alike.
+ *
+ * The stall rules need both: a merged PR is what proves its ticket should have closed, and an
+ * open one is what proves the ticket closed too early.
+ */
+export function readAllPullRequests(db: DatabaseSync): PullRequest[] {
+  const rows = db.prepare(`SELECT ${COLUMNS} FROM pull_requests ORDER BY updated_at DESC`).all();
+  return rows.map((row) => hydrate(db, row as unknown as PrRow));
+}
+
 function hydrate(db: DatabaseSync, row: PrRow): PullRequest {
   return {
     repo: row.repo,

@@ -1,14 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
+import type { Branch } from '../../core/model/branch.ts';
 
-export interface BranchRecord {
-  readonly repo: string;
-  readonly name: string;
-  readonly upstream: string | null;
-  readonly upstreamGone: boolean;
-  readonly ahead: number;
-  readonly behind: number;
-  readonly lastCommitAt: string | null;
-}
+export type BranchRecord = Branch;
 
 /**
  * Replace the branch list for one repository.

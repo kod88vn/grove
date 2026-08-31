@@ -1,9 +1,11 @@
 #!/usr/bin/env -S npx tsx
 import { doctor, type CheckResult } from '../src/config/doctor.ts';
+import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
+import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
 
-const COMMANDS = ['doctor', 'sync'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls'] as const;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -14,6 +16,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return report(await doctor());
     case 'sync':
       return runSyncCommand(argv.slice(1));
+    case 'stalls':
+      return stallsCommand(argv.slice(1));
     default:
       process.stderr.write(`unknown command "${command}". Known: ${COMMANDS.join(', ')}\n`);
       return 2;
@@ -47,6 +51,42 @@ async function runSyncCommand(args: readonly string[]): Promise<number> {
     `synced ${scope} in ${Math.round((Date.now() - started) / 1000)}s: ${counts} events=${outcome.events}\n`,
   );
   return 0;
+}
+
+/**
+ * How many stalls to print per group before summarising the rest.
+ *
+ * A backlog of 200 is a list, not a next move. The point of the tool is to name the few things
+ * worth doing now; `--all` is there when the full backlog is genuinely wanted.
+ */
+const TOP_N = 10;
+
+function stallsCommand(args: readonly string[]): number {
+  const stalls = runStalls();
+  if (stalls.length === 0) {
+    process.stdout.write('nothing is stalled.\n');
+    return 0;
+  }
+
+  const limit = args.includes('--all') ? Number.MAX_SAFE_INTEGER : TOP_N;
+  writeGroup('needs a move from me', stalls.filter((stall) => stall.owner === 'me'), limit);
+  writeGroup('waiting on someone else', stalls.filter((stall) => stall.owner === 'them'), limit);
+  return 0;
+}
+
+function writeGroup(heading: string, stalls: readonly Stall[], limit: number): void {
+  if (stalls.length === 0) {
+    return;
+  }
+  process.stdout.write(`\n${heading} (${stalls.length})\n`);
+  for (const stall of stalls.slice(0, limit)) {
+    process.stdout.write(`  [${stall.severity}] ${stall.summary}\n`);
+    process.stdout.write(`      -> ${stall.nextMove.description}\n`);
+  }
+  const hidden = stalls.length - Math.min(stalls.length, limit);
+  if (hidden > 0) {
+    process.stdout.write(`  ... and ${hidden} more (--all to see them)\n`);
+  }
 }
 
 function scopeFrom(args: readonly string[]): SyncScope | null {
