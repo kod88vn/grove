@@ -4,7 +4,7 @@ import type { Sprint } from '../../src/core/model/sprint.ts';
 import type { SyncRun } from '../../src/store/repositories/sync-runs.ts';
 import { isIssueDone } from '../../src/core/model/issue.ts';
 import type { TableQuery, TableRow } from '../html.ts';
-import { empty, escapeHtml, layout, link, section, table } from '../html.ts';
+import { empty, escapeHtml, formatDate, formatDateTime, layout, link, section, table } from '../html.ts';
 
 export interface SprintPageOptions {
   readonly sprint: Sprint | null;
@@ -21,7 +21,7 @@ export function sprintPage(options: SprintPageOptions): string {
 
   const done = issues.filter(isIssueDone);
   const remaining = issues.filter((issue) => !isIssueDone(issue));
-  const ends = sprint.endDate === null ? 'no end date' : `ends ${sprint.endDate.slice(0, 10)}`;
+  const ends = sprint.endDate === null ? 'no end date' : `ends ${formatDate(sprint.endDate)}`;
 
   const body =
     `<p class="age">${escapeHtml(`${sprint.name} — ${ends} — ${done.length}/${issues.length} done`)}</p>` +
@@ -67,7 +67,7 @@ export function activityPage(
           activityColumns,
           events.map((event): TableRow => ({
             cells: [
-              `<span class="age">${escapeHtml(event.at.slice(0, 16).replace('T', ' '))}</span>`,
+              `<span class="age">${escapeHtml(formatDateTime(event.at))}</span>`,
               escapeHtml(event.kind),
               `<span class="mono">${escapeHtml(event.subjectId)}</span>`,
             ],
@@ -99,5 +99,5 @@ const activityColumns = [
 function describe(run: SyncRun): string {
   const when = run.finishedAt ?? run.startedAt;
   const outcome = run.ok === null ? 'in progress' : run.ok ? 'ok' : `failed: ${run.error ?? 'unknown'}`;
-  return `last sync: ${run.scope} — ${outcome} at ${when.slice(0, 16).replace('T', ' ')}`;
+  return `last sync: ${run.scope} — ${outcome} at ${formatDateTime(when)}`;
 }

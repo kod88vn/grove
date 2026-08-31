@@ -66,6 +66,29 @@ export function link(href: string, text: string): string {
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
 }
 
+/**
+ * Renders an ISO instant in the viewer's local time zone rather than the UTC it is stored in.
+ *
+ * This server has no client-side script, and the person running it is the only one who ever
+ * looks at it on loopback — so "local" means the time zone of the machine rendering the page,
+ * read via `Date`'s local getters (which honour `TZ`), not a zone parsed out of the request.
+ */
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** As `formatDate`, with local hours and minutes appended. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  return `${formatDate(iso)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function pad(value: number): string {
+  return value.toString().padStart(2, '0');
+}
+
+
 export interface TableColumn {
   readonly key: string;
   readonly label: string;

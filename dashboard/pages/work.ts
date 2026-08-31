@@ -1,7 +1,7 @@
 import type { Issue } from '../../src/core/model/issue.ts';
 import type { PullRequest } from '../../src/core/model/pull-request.ts';
 import type { TableQuery, TableRow } from '../html.ts';
-import { empty, escapeHtml, layout, link, section, table } from '../html.ts';
+import { empty, escapeHtml, formatDate, layout, link, section, table } from '../html.ts';
 
 export function ticketsPage(
   issues: readonly Issue[],
@@ -20,7 +20,7 @@ export function ticketsPage(
               escapeHtml(issue.status),
               escapeHtml(issue.issueType),
               escapeHtml(issue.summary),
-              `<span class="age">${escapeHtml(issue.updated.slice(0, 10))}</span>`,
+              `<span class="age">${escapeHtml(formatDate(issue.updated))}</span>`,
             ],
             values: [issue.key, issue.status, issue.issueType, issue.summary, issue.updated],
           })),
@@ -57,7 +57,7 @@ function list(pullRequests: readonly PullRequest[], query: TableQuery): string {
         escapeHtml(pr.reviewDecision ?? '—'),
         escapeHtml(checksLabel(pr)),
         escapeHtml(pr.isDraft ? 'draft' : (pr.mergeStateStatus ?? '—')),
-        `<span class="age">${escapeHtml(pr.updatedAt.slice(0, 10))}</span>`,
+        `<span class="age">${escapeHtml(formatDate(pr.updatedAt))}</span>`,
       ],
       values: [`${pr.repo}#${pr.number}`, pr.title, pr.reviewDecision ?? '—', checksLabel(pr), pr.mergeStateStatus ?? '—', pr.updatedAt],
     })),

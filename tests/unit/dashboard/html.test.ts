@@ -1,7 +1,39 @@
-import { describe, expect, it } from 'vitest';
-import { table } from '../../../dashboard/html.ts';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { formatDate, formatDateTime, table } from '../../../dashboard/html.ts';
+
+describe('local time formatting', () => {
+  const originalTz = process.env['TZ'];
+
+  afterEach(() => {
+    if (originalTz === undefined) {
+      delete process.env['TZ'];
+    } else {
+      process.env['TZ'] = originalTz;
+    }
+  });
+
+  it('renders a UTC instant in a zone behind UTC as the previous local day', () => {
+    process.env['TZ'] = 'America/Los_Angeles';
+
+    // 03:00 UTC on Sept 1 is 20:00 the previous day in Los Angeles (UTC-7 in September).
+    expect(formatDate('2026-09-01T03:00:00Z')).toBe('2026-08-31');
+    expect(formatDateTime('2026-09-01T03:00:00Z')).toBe('2026-08-31 20:00');
+  });
+
+  it('renders the same instant differently in a zone ahead of UTC', () => {
+    process.env['TZ'] = 'Asia/Tokyo';
+
+    // 03:00 UTC is 12:00 the same day in Tokyo (UTC+9), unlike the Los Angeles case above.
+    expect(formatDate('2026-09-01T03:00:00Z')).toBe('2026-09-01');
+    expect(formatDateTime('2026-09-01T03:00:00Z')).toBe('2026-09-01 12:00');
+  });
+});
 
 describe('dashboard tables', () => {
+  beforeEach(() => {
+    process.env['TZ'] = 'UTC';
+  });
+
   it('renders sortable column links and preserves the table path', () => {
     const body = table(
       [
