@@ -148,6 +148,25 @@ export class JiraClient {
     return raw.map((entry) => toTransition(entry));
   }
 
+  /**
+   * Drive an issue through a transition.
+   *
+   * `fields` must be built from the metadata `transitions()` returned moments earlier. Jira
+   * rejects the whole request if a required field is missing, and rejects it just as firmly if
+   * a field the screen does not present is supplied.
+   */
+  async applyTransition(
+    issueKey: string,
+    transitionId: string,
+    fields: Record<string, unknown>,
+  ): Promise<void> {
+    await jiraRequest<unknown>(this.credentials, {
+      method: 'POST',
+      path: `/rest/api/2/issue/${encodeURIComponent(issueKey)}/transitions`,
+      body: { transition: { id: transitionId }, fields },
+    });
+  }
+
   /** Whoever the token belongs to. Used by `bot doctor` to prove the token works. */
   async myself(): Promise<{ name: string; displayName: string }> {
     const raw = await jiraRequest<{ name?: string; displayName?: string }>(this.credentials, {

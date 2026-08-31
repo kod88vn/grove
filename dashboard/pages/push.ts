@@ -1,5 +1,6 @@
 import type { Stall, StallSubject } from '../../src/core/model/stall.ts';
 import { empty, escapeHtml, layout, link, section } from '../html.ts';
+import { CSRF_TOKEN } from '../actions.ts';
 
 /**
  * Turns a stall subject into a label and, where one is genuinely known, a URL.
@@ -56,7 +57,38 @@ function groups(stalls: readonly Stall[], links: SubjectLinks): string {
 function row(stall: Stall, links: SubjectLinks): string {
   const severity = `<span class="sev sev-${escapeHtml(stall.severity)}">${escapeHtml(stall.severity)}</span>`;
   return `<div class="stall">${severity} ${subject(stall.subject, links)} — ${escapeHtml(stall.summary)}
-<div class="move">→ ${escapeHtml(stall.nextMove.description)}</div></div>`;
+<div class="move">→ ${escapeHtml(stall.nextMove.description)}</div>${button(stall)}</div>`;
+}
+
+/**
+ * A button appears only where the executor can actually do the thing.
+ *
+ * Every other stall stays as text. Offering a button that will be refused teaches me to
+ * distrust the buttons, which would be worse than having none.
+ */
+function button(stall: Stall): string {
+  if (stall.id === 'pr-approved-unmerged' && stall.subject.kind === 'pull_request') {
+    return form('merge', 'Merge it', stall.id, [
+      ['repo', stall.subject.repo],
+      ['number', String(stall.subject.number)],
+    ]);
+  }
+  if (stall.id === 'pr-merged-ticket-open' && stall.subject.kind === 'issue') {
+    return form('resolve', 'Resolve it', stall.id, [['issue', stall.subject.key]]);
+  }
+  return '';
+}
+
+function form(
+  action: string,
+  caption: string,
+  stallId: string,
+  fields: readonly (readonly [string, string])[],
+): string {
+  const hidden = [...fields, ['do', action], ['stall', stallId], ['token', CSRF_TOKEN]]
+    .map(([name, value]) => `<input type="hidden" name="${escapeHtml(name!)}" value="${escapeHtml(value!)}">`)
+    .join('');
+  return `<form method="post" action="/act" class="act">${hidden}<button type="submit">${escapeHtml(caption)}</button></form>`;
 }
 
 function subject(value: StallSubject, links: SubjectLinks): string {

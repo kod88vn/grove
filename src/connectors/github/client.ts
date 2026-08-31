@@ -3,6 +3,7 @@ import { mapPullRequest } from './map.ts';
 import type { RawPullRequest } from './map-parts.ts';
 import type { PullRequest } from '../../core/model/pull-request.ts';
 import type { Mirrored } from '../../core/model/mirrored.ts';
+import { denyCommand } from '../../core/policy/denylist.ts';
 
 /**
  * Fields hydrated per pull request.
@@ -166,6 +167,27 @@ export class GitHubClient {
       this.options,
     );
     return this.mirror(repo, raw);
+  }
+
+  /**
+   * Merge a pull request.
+   *
+   * Squash is the only method offered. Choosing per-repository would mean reading each repo's
+   * allowed methods and guessing when several are permitted; squash is what the storefront
+   * repositories use, and a repository that forbids it will say so rather than doing something
+   * unexpected.
+   *
+   * There is deliberately no administrator override. If branch protection refuses the merge,
+   * that refusal is the correct outcome and is surfaced verbatim.
+   */
+  async mergePullRequest(repo: string, number: number): Promise<string> {
+    const argv = ['pr', 'merge', String(number), '--repo', repo, '--squash', '--delete-branch'];
+    const denial = denyCommand(argv);
+    if (denial !== null) {
+      throw new Error(`refusing to run gh: ${denial.because}`);
+    }
+    const result = await run('gh', argv, this.options);
+    return result.trim();
   }
 
   private mirror(repo: string, raw: RawPullRequest): Mirrored<PullRequest> {

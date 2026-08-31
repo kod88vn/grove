@@ -96,4 +96,11 @@ td { padding: .4rem .75rem .4rem 0; border-top: 1px solid var(--edge); vertical-
 .sev-medium { color: #b9770e; border-color: currentColor; }
 .mono { font-family: ui-monospace, monospace; font-size: .85em; }
 .age { opacity: .5; white-space: nowrap; }
+.act { display: inline-block; margin-top: .4rem; }
+.act button { font: inherit; padding: .25rem .8rem; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--edge); background: transparent; }
+.act button:hover { border-color: currentColor; }
+.card { border: 1px solid var(--edge); border-radius: 6px; padding: 1.5rem; max-width: 44rem; }
+.card.ok { border-left: 3px solid #1e8449; }
+.card.refused { border-left: 3px solid #c0392b; }
 `;

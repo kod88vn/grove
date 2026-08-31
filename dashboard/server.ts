@@ -10,6 +10,8 @@ import { activityPage, sprintPage } from './pages/sprint.ts';
 import { escapeHtml, layout } from './html.ts';
 import { pullRequestsPage, ticketsPage } from './pages/work.ts';
 import { pushPage } from './pages/push.ts';
+import { originAllowed, performAction, readBody } from './actions.ts';
+import { resultPage } from './pages/result.ts';
 
 /** Loopback only. This server exposes an authenticated view of private work and has no auth. */
 const HOST = '127.0.0.1';
@@ -31,7 +33,7 @@ export interface DashboardOptions {
 export function createDashboard(options: DashboardOptions): Server {
   const db = openDatabase({ path: options.config.databasePath });
   const server = createServer((request, response) => {
-    handle(request, response, db, options.config);
+    void route(request, response, db, options);
   });
   server.on('close', () => {
     db.close();
@@ -47,6 +49,54 @@ export function listen(server: Server, port: number): Promise<string> {
   });
 }
 
+async function route(
+  request: IncomingMessage,
+  response: ServerResponse,
+  db: Database,
+  options: DashboardOptions,
+): Promise<void> {
+  if (!hostAllowed(request.headers.host)) {
+    send(response, 403, layout('Forbidden', '', '<h1>Forbidden</h1>'));
+    return;
+  }
+  if (request.method === 'POST') {
+    await act(request, response, db, options);
+    return;
+  }
+  handle(request, response, db, options.config);
+}
+
+/**
+ * The one route that changes anything.
+ *
+ * Kept separate from the read paths so that the difference between looking and acting is
+ * visible in the code, not buried in a branch.
+ */
+async function act(
+  request: IncomingMessage,
+  response: ServerResponse,
+  db: Database,
+  options: DashboardOptions,
+): Promise<void> {
+  const path = new URL(request.url ?? '/', `http://${HOST}`).pathname;
+  if (path !== '/act') {
+    send(response, 404, layout('Not found', '', '<h1>Not found</h1>'));
+    return;
+  }
+  if (!originAllowed(request.headers.origin, request.headers.host)) {
+    send(response, 403, layout('Forbidden', '', '<h1>Cross-site request refused</h1>'));
+    return;
+  }
+  try {
+    const form = await readBody(request);
+    const result = await performAction(form, db, options.config);
+    send(response, result.ok ? 200 : 409, resultPage(result));
+  } catch (error) {
+    const because = error instanceof Error ? error.message : String(error);
+    send(response, 400, resultPage({ ok: false, message: because }));
+  }
+}
+
 function handle(
   request: IncomingMessage,
   response: ServerResponse,
@@ -55,10 +105,6 @@ function handle(
 ): void {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     send(response, 405, layout('Not allowed', '', '<h1>Method not allowed</h1>'));
-    return;
-  }
-  if (!hostAllowed(request.headers.host)) {
-    send(response, 403, layout('Forbidden', '', '<h1>Forbidden</h1>'));
     return;
   }
 
@@ -113,7 +159,9 @@ function send(response: ServerResponse, status: number, body: string): void {
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     // The dashboard renders no untrusted script and loads nothing remote; say so explicitly.
-    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+    // `form-action` is needed because `default-src 'none'` would otherwise block our own
+    // action forms from submitting.
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
   });

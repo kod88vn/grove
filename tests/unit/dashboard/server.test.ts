@@ -131,9 +131,12 @@ describe('dashboard hardening', () => {
     expect(await getWithHost('/', `127.0.0.1:${port}`)).toBe(200);
   });
 
-  it('refuses anything that is not a read', async () => {
-    const response = await fetch(`${origin}/`, { method: 'POST' });
-    expect(response.status).toBe(405);
+  it('refuses methods other than reading and the one write route', async () => {
+    // POST is legal on /act alone; every other verb is rejected outright.
+    for (const method of ['PUT', 'DELETE', 'PATCH']) {
+      const response = await fetch(`${origin}/`, { method });
+      expect(response.status, method).toBe(405);
+    }
   });
 
   it('escapes markup coming from ticket data', async () => {
