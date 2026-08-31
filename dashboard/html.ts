@@ -78,9 +78,13 @@ const STYLE = `
 :root { color-scheme: light dark; --edge: color-mix(in srgb, currentColor 15%, transparent); }
 * { box-sizing: border-box; }
 body { margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; }
-nav { display: flex; gap: 1.5rem; padding: 1rem 2rem; border-bottom: 1px solid var(--edge); }
+nav { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: .35rem .5rem;
+  padding: .7rem 2rem; border-bottom: 1px solid var(--edge); background: Canvas;
+  box-shadow: 0 2px 12px color-mix(in srgb, CanvasText 8%, transparent); }
 nav a { text-decoration: none; color: inherit; opacity: .6; }
+nav a { padding: .35rem .65rem; border-radius: 999px; }
 nav a.current, nav a:hover { opacity: 1; }
+nav a.current { background: color-mix(in srgb, currentColor 12%, transparent); }
 main { padding: 2rem; max-width: 72rem; }
 h1 { font-size: 1.5rem; margin: 0 0 1.5rem; }
 h2 { font-size: 1rem; margin: 2rem 0 .75rem; font-weight: 600; }
@@ -94,6 +98,7 @@ td { padding: .4rem .75rem .4rem 0; border-top: 1px solid var(--edge); vertical-
 .sev { font-size: .75rem; padding: .1rem .4rem; border-radius: 3px; border: 1px solid var(--edge); }
 .sev-high { color: #c0392b; border-color: currentColor; }
 .sev-medium { color: #b9770e; border-color: currentColor; }
+.sev-low { color: #2471a3; border-color: currentColor; }
 .mono { font-family: ui-monospace, monospace; font-size: .85em; }
 .age { opacity: .5; white-space: nowrap; }
 .act { display: inline-block; margin-top: .4rem; }
@@ -103,4 +108,13 @@ td { padding: .4rem .75rem .4rem 0; border-top: 1px solid var(--edge); vertical-
 .card { border: 1px solid var(--edge); border-radius: 6px; padding: 1.5rem; max-width: 44rem; }
 .card.ok { border-left: 3px solid #1e8449; }
 .card.refused { border-left: 3px solid #c0392b; }
+.filters { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1.5rem; }
+.filter-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pill { display: inline-flex; align-items: center; gap: .3rem; text-decoration: none; color: inherit;
+  font-size: .8rem; padding: .25rem .7rem; border-radius: 999px; border: 1px solid var(--edge);
+  opacity: .7; }
+.pill:hover { opacity: 1; border-color: currentColor; }
+.pill.current { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: currentColor; font-weight: 600; }
+.pill .count { opacity: .6; }
 `;
