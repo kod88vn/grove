@@ -5,12 +5,18 @@ import { JiraClient } from '../connectors/jira/client.ts';
 import { localBranches } from '../connectors/git.ts';
 import { appendEvents, type BotEvent } from '../store/repositories/events.ts';
 import { readIssue, upsertIssue } from '../store/repositories/issues.ts';
-import { readPullRequest, upsertPullRequest } from '../store/repositories/pull-requests.ts';
+import {
+  readOpenPullRequests,
+  readPullRequest,
+  upsertPullRequest,
+} from '../store/repositories/pull-requests.ts';
 import { replaceLinks } from '../store/repositories/links.ts';
 import { replaceBranches, upsertRepo } from '../store/repositories/branches.ts';
 import { replaceSprintIssues, upsertBoard, upsertSprint } from '../store/repositories/sprints.ts';
 import { correlate } from './correlate.ts';
 import { diffIssue, diffPullRequest } from './diff.ts';
+import type { Mirrored } from '../core/model/mirrored.ts';
+import type { PullRequest } from '../core/model/pull-request.ts';
 
 export interface SyncDeps {
   readonly db: Database;
@@ -92,7 +98,11 @@ export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
   const events: BotEvent[] = [];
   const involved = await discoverInvolvement(deps);
   const configured = new Set(deps.config.repos.map((repo) => repo.fullName));
+  // Snapshotted before any upsert this run, so it reflects what the *previous* sync believed —
+  // exactly the rows a fresh open-PR listing needs to be checked against.
+  const previouslyOpen = groupByRepo(readOpenPullRequests(deps.db));
   let total = 0;
+  let reconciled = 0;
 
   for (const repo of new Set([...configured, ...involved.keys()])) {
     upsertRepo(deps.db, repo, pathFor(deps, repo), at);
@@ -110,6 +120,12 @@ export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
       upsertPullRequest(deps.db, mirrored, isMine(pr, deps.config.github.me));
       replaceLinks(deps.db, pr.repo, pr.number, correlate(pr, deps.config.jira.projectKeys));
     }
+
+    // `hydrated` — not `keep` — is the repo's whole current open-PR list regardless of who is
+    // configured or involved, so it is what any previously-open row must be checked against.
+    const vanished = await reconcileVanished(deps, previouslyOpen.get(repo) ?? [], hydrated, at);
+    events.push(...vanished.events);
+    reconciled += vanished.count;
     total += keep.length;
   }
 
@@ -120,10 +136,47 @@ export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
     counts: {
       pullRequests: total,
       mergedPullRequests: merged.count,
+      reconciledPullRequests: reconciled,
       repos: configured.size + involved.size,
     },
     events,
   };
+}
+
+function groupByRepo(pullRequests: readonly PullRequest[]): Map<string, PullRequest[]> {
+  const byRepo = new Map<string, PullRequest[]>();
+  for (const pr of pullRequests) {
+    const list = byRepo.get(pr.repo) ?? [];
+    list.push(pr);
+    byRepo.set(pr.repo, list);
+  }
+  return byRepo;
+}
+
+/**
+ * PRs the mirror still calls OPEN that the fresh open-PR listing no longer contains.
+ *
+ * `gh pr list --state=open` is the only signal for "did this close" — a PR closed without
+ * merging, or merged by someone other than me, simply vanishes from it, and nothing else in
+ * this sync ever looks at it again. Re-reading each one directly turns "gone from the list"
+ * into a real state instead of a permanently stale OPEN row.
+ */
+async function reconcileVanished(
+  deps: SyncDeps,
+  previouslyOpen: readonly PullRequest[],
+  hydrated: readonly Mirrored<PullRequest>[],
+  at: string,
+): Promise<{ events: BotEvent[]; count: number }> {
+  const current = new Set(hydrated.map((m) => m.value.number));
+  const vanished = previouslyOpen.filter((pr) => !current.has(pr.number));
+  const events: BotEvent[] = [];
+  for (const pr of vanished) {
+    const fresh = await deps.github.pullRequest(pr.repo, pr.number);
+    events.push(...diffPullRequest(pr, fresh.value, at));
+    upsertPullRequest(deps.db, fresh, isMine(fresh.value, deps.config.github.me));
+    replaceLinks(deps.db, pr.repo, pr.number, correlate(fresh.value, deps.config.jira.projectKeys));
+  }
+  return { events, count: vanished.length };
 }
 
 /**
