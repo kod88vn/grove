@@ -63,7 +63,18 @@ async function checkGitHub(config: BotConfig): Promise<CheckResult> {
   const client = new GitHubClient({ me: config.github.me, projectKeys: config.jira.projectKeys });
   try {
     await client.authStatus();
-    return { name: 'github', ok: true, detail: `gh authenticated for ${config.github.me}` };
+    // Team membership needs `read:org`. Without it every team-routed review request looks like
+    // someone else's problem, so it is worth surfacing here rather than discovering it as a
+    // mysteriously short review queue.
+    const teams = await client.myTeams();
+    return {
+      name: 'github',
+      ok: teams.length > 0,
+      detail:
+        teams.length > 0
+          ? `gh authenticated for ${config.github.me}, teams: ${teams.join(', ')}`
+          : `gh authenticated for ${config.github.me} but no teams visible — token likely lacks read:org, which hides team-routed review requests`,
+    };
   } catch (error) {
     return { name: 'github', ok: false, detail: String(error) };
   }

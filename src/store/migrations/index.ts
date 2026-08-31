@@ -18,6 +18,8 @@ const FILES: readonly { version: number; name: string; file: string }[] = [
   { version: 1, name: 'mirror', file: '0001-mirror.sql' },
   { version: 2, name: 'local-state', file: '0002-local-state.sql' },
   { version: 3, name: 'search', file: '0003-search.sql' },
+  { version: 4, name: 'branch-upstream', file: '0004-branch-upstream.sql' },
+  { version: 5, name: 'check-started-at', file: '0005-check-started-at.sql' },
 ];
 
 export function loadMigrations(): Migration[] {

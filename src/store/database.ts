@@ -3,6 +3,15 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadMigrations } from './migrations/index.ts';
 
+/**
+ * The database handle, named by the layer that owns it.
+ *
+ * Layers above the store depend on this alias rather than on `node:sqlite` directly, so the
+ * choice of engine stays a fact about the store and does not leak into the sync engine or the
+ * stall rules.
+ */
+export type Database = DatabaseSync;
+
 export interface OpenOptions {
   /** Absolute path to the database file, or `:memory:` for tests. */
   readonly path: string;

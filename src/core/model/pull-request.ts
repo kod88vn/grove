@@ -61,15 +61,22 @@ export interface ReviewRequest {
 export type CheckConclusion = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'SKIPPED' | 'CANCELLED';
 
 /**
- * One entry of `statusCheckRollup`, normalised.
+ * The current state of one named check, normalised.
  *
  * The raw list holds two different shapes: `CheckRun` carries `name`/`status`/`conclusion`,
  * while `StatusContext` carries `context`/`state` and no `name` at all (verified 2026-08-31).
  * Connectors flatten both into this.
+ *
+ * A name can appear many times in the rollup — the same workflow triggered repeatedly produces
+ * one entry per run (five `backmerge_check` runs were observed on one PR). Only the latest run
+ * describes the current state, so connectors collapse a name to its most recent entry. Keeping
+ * all of them would let an old failure outvote the passing re-run that replaced it.
  */
 export interface Check {
   readonly name: string;
   readonly conclusion: CheckConclusion;
+  /** When the latest run of this check began. Empty when the API did not report it. */
+  readonly startedAt: string;
 }
 
 /** How I stand in relation to a PR someone asked me to look at. */

@@ -88,7 +88,7 @@ describe('mapChecks', () => {
     const checks = mapChecks([
       { __typename: 'CheckRun', name: 'build', status: 'IN_PROGRESS', conclusion: null },
     ]);
-    expect(checks).toEqual([{ name: 'build', conclusion: 'PENDING' }]);
+    expect(checks).toEqual([{ name: 'build', conclusion: 'PENDING', startedAt: '' }]);
   });
 
   it('maps error and timeout conclusions to failure', () => {
@@ -102,6 +102,42 @@ describe('mapChecks', () => {
   it('returns nothing when the rollup is absent', () => {
     expect(mapChecks(undefined)).toEqual([]);
   });
+
+  it('collapses repeated runs of one check to the latest, as GitHub itself displays it', () => {
+    // clover/web-storefront-retail#4 really does list backmerge_check five times, one entry
+    // per workflow run. Keeping all five broke the (repo, number, name) primary key.
+    const checks = mapChecks([
+      { __typename: 'CheckRun', name: 'backmerge_check', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-08-12T15:04:43Z' },
+      { __typename: 'CheckRun', name: 'backmerge_check', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-08-12T15:05:03Z' },
+      { __typename: 'CheckRun', name: 'backmerge_check', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-08-12T15:04:58Z' },
+    ]);
+    expect(checks).toHaveLength(1);
+    expect(checks[0]?.startedAt).toBe('2026-08-12T15:05:03Z');
+  });
+
+  it('lets a passing re-run supersede the earlier failure', () => {
+    const checks = mapChecks([
+      { __typename: 'CheckRun', name: 'ci', status: 'COMPLETED', conclusion: 'FAILURE', startedAt: '2026-08-12T10:00:00Z' },
+      { __typename: 'CheckRun', name: 'ci', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-08-12T11:00:00Z' },
+    ]);
+    expect(checks).toEqual([{ name: 'ci', conclusion: 'SUCCESS', startedAt: '2026-08-12T11:00:00Z' }]);
+  });
+
+  it('does not let an older re-run overwrite the newest result', () => {
+    const checks = mapChecks([
+      { __typename: 'CheckRun', name: 'ci', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-08-12T11:00:00Z' },
+      { __typename: 'CheckRun', name: 'ci', status: 'COMPLETED', conclusion: 'FAILURE', startedAt: '2026-08-12T10:00:00Z' },
+    ]);
+    expect(checks[0]?.conclusion).toBe('SUCCESS');
+  });
+
+  it('keeps differently named checks apart', () => {
+    const checks = mapChecks([
+      { __typename: 'CheckRun', name: 'a', status: 'COMPLETED', conclusion: 'SUCCESS' },
+      { __typename: 'StatusContext', context: 'b', state: 'FAILURE' },
+    ]);
+    expect(checks.map((c) => c.name)).toEqual(['a', 'b']);
+  });
 });
 
 describe('mapReviewRequests', () => {
@@ -114,35 +150,44 @@ describe('mapReviewRequests', () => {
 
 describe('myReviewState', () => {
   const me = 'jay-quach';
+  const teams = ['clover/services-team', 'clover/developers'];
+  const state = (over: Partial<Parameters<typeof myReviewState>[0]>) =>
+    myReviewState({ reviews: [], requests: [], me, teams, headCommittedAt: null, ...over });
 
   it('is not_requested when nobody asked me', () => {
-    expect(myReviewState([], [], me, null)).toBe('not_requested');
+    expect(state({})).toBe('not_requested');
   });
 
   it('is requested_not_started when I am a requested reviewer with no review', () => {
-    expect(myReviewState([], [{ kind: 'user', id: me }], me, null)).toBe('requested_not_started');
+    expect(state({ requests: [{ kind: 'user', id: me }] })).toBe('requested_not_started');
   });
 
-  it('ignores a team request, because a team request is not my personal queue', () => {
-    expect(myReviewState([], [{ kind: 'team', id: 'clover/services-team' }], me, null)).toBe(
-      'not_requested',
+  it('counts a request to a team I belong to as a request of me', () => {
+    // 94 of my 111 outstanding review requests are addressed to clover/services-team rather
+    // than to me by name; ignoring them hid two thirds of my review queue.
+    expect(state({ requests: [{ kind: 'team', id: 'clover/services-team' }] })).toBe(
+      'requested_not_started',
     );
+  });
+
+  it('ignores a request to a team I do not belong to', () => {
+    expect(state({ requests: [{ kind: 'team', id: 'clover/security' }] })).toBe('not_requested');
   });
 
   it('is approved when I approved and nothing has been pushed since', () => {
     const reviews = [{ author: me, state: 'APPROVED' as const, submittedAt: '2026-08-30T00:00:00Z' }];
-    expect(myReviewState(reviews, [], me, '2026-08-29T00:00:00Z')).toBe('approved');
+    expect(state({ reviews, headCommittedAt: '2026-08-29T00:00:00Z' })).toBe('approved');
   });
 
   it('is stale_review when the author pushed after I approved', () => {
     const reviews = [{ author: me, state: 'APPROVED' as const, submittedAt: '2026-08-29T00:00:00Z' }];
-    expect(myReviewState(reviews, [], me, '2026-08-30T00:00:00Z')).toBe('stale_review');
+    expect(state({ reviews, headCommittedAt: '2026-08-30T00:00:00Z' })).toBe('stale_review');
   });
 
   it('ignores other people reviews when deciding my state', () => {
     const reviews = [
       { author: 'someone-else', state: 'APPROVED' as const, submittedAt: '2026-08-30T00:00:00Z' },
     ];
-    expect(myReviewState(reviews, [], me, null)).toBe('not_requested');
+    expect(state({ reviews })).toBe('not_requested');
   });
 });

@@ -43,6 +43,11 @@ export interface MapPullRequestContext {
   readonly me: string;
   /** Restrict issue-key parsing to these Jira projects, e.g. `['WS']`. */
   readonly projectKeys?: readonly string[];
+  /**
+   * Teams I belong to, as `org/slug`. Most review requests are addressed to a team rather
+   * than to me by name, so without this my review queue reads as almost empty.
+   */
+  readonly teams?: readonly string[];
 }
 
 export function mapPullRequest(raw: RawPullRequest, context: MapPullRequestContext): PullRequest {
@@ -83,7 +88,13 @@ export function mapPullRequest(raw: RawPullRequest, context: MapPullRequestConte
       { branch: headRefName, title, body },
       context.projectKeys,
     ),
-    myReviewState: myReviewState(reviews, reviewRequests, context.me, headCommittedAt(raw)),
+    myReviewState: myReviewState({
+      reviews,
+      requests: reviewRequests,
+      me: context.me,
+      teams: context.teams ?? [],
+      headCommittedAt: headCommittedAt(raw),
+    }),
   };
 }
 

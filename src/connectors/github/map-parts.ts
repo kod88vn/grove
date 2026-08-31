@@ -46,23 +46,40 @@ export function oneOf<T extends string>(
 }
 
 /**
- * Flatten `statusCheckRollup`, which holds two incompatible shapes.
+ * Flatten `statusCheckRollup` into one entry per check name.
  *
- * `CheckRun` carries `name`, `status` and `conclusion`; `StatusContext` carries `context` and
- * `state` and has no `name` key at all (verified 2026-08-31 on PR 2390). Reading `.name` alone
- * silently produces a list of empty-named checks that never match a failure.
+ * Two problems are handled here. First, the list holds two incompatible shapes: `CheckRun`
+ * carries `name`/`conclusion`, while `StatusContext` carries `context`/`state` and has no
+ * `name` key at all — reading `.name` alone yields a list of blank-named checks that never
+ * match a failure. Second, a name can appear repeatedly, once per workflow run; only the most
+ * recent run reflects reality, so an older entry must never outvote it.
  */
 export function mapChecks(rollup: unknown): Check[] {
-  return list(rollup).map((entry) => {
-    const record = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<
-      string,
-      unknown
-    >;
-    const isCheckRun = record['__typename'] === 'CheckRun';
-    const name = isCheckRun ? str(record['name']) : str(record['context']);
-    const verdict = isCheckRun ? record['conclusion'] : record['state'];
-    return { name: name === '' ? 'unnamed check' : name, conclusion: conclusion(verdict, isCheckRun, record) };
-  });
+  const latest = new Map<string, Check>();
+  for (const entry of list(rollup)) {
+    const check = toCheck(entry);
+    const existing = latest.get(check.name);
+    if (existing === undefined || existing.startedAt <= check.startedAt) {
+      latest.set(check.name, check);
+    }
+  }
+  return [...latest.values()];
+}
+
+function toCheck(entry: unknown): Check {
+  const record = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<
+    string,
+    unknown
+  >;
+  const isCheckRun = record['__typename'] === 'CheckRun';
+  const name = isCheckRun ? str(record['name']) : str(record['context']);
+  const verdict = isCheckRun ? record['conclusion'] : record['state'];
+  return {
+    name: name === '' ? 'unnamed check' : name,
+    conclusion: conclusion(verdict, isCheckRun, record),
+    // ISO-8601 UTC strings sort lexicographically, so plain comparison orders runs correctly.
+    startedAt: str(record['startedAt']),
+  };
 }
 
 function conclusion(verdict: unknown, isCheckRun: boolean, record: Record<string, unknown>): CheckConclusion {
@@ -133,24 +150,32 @@ export function mapReviews(raw: unknown): Review[] {
   return out;
 }
 
+/** Everything needed to decide where I stand on one PR. */
+export interface MyReviewContext {
+  readonly reviews: readonly Review[];
+  readonly requests: readonly ReviewRequest[];
+  readonly me: string;
+  /** Teams I belong to, as `org/slug`. A request to one of these is a request of me. */
+  readonly teams: readonly string[];
+  readonly headCommittedAt: string | null;
+}
+
 /**
  * Where I stand on a PR.
  *
- * `stale_review` is the case worth catching: I approved, the author pushed again, and GitHub
- * quietly keeps showing my approval. Comparing the head commit against the review timestamp is
- * the only way to notice that my verdict no longer covers the diff.
+ * Two cases are easy to get wrong. `stale_review` is the one worth catching: I approved, the
+ * author pushed again, and GitHub quietly keeps showing my approval — comparing the head commit
+ * against the review timestamp is the only way to notice my verdict no longer covers the diff.
+ *
+ * The other is team routing. Most review requests here never name me: 94 of 111 arrive
+ * addressed to `clover/services-team` (measured 2026-08-31). Matching only on login reported a
+ * third of my review queue and silently hid the rest, so team membership counts as a request.
  */
-export function myReviewState(
-  reviews: readonly Review[],
-  requests: readonly ReviewRequest[],
-  me: string,
-  headCommittedAt: string | null,
-): MyReviewState {
+export function myReviewState(context: MyReviewContext): MyReviewState {
+  const { reviews, me, headCommittedAt } = context;
   const mine = reviews.find((review) => review.author === me);
   if (mine === undefined) {
-    return requests.some((r) => r.kind === 'user' && r.id === me)
-      ? 'requested_not_started'
-      : 'not_requested';
+    return isRequestedOfMe(context) ? 'requested_not_started' : 'not_requested';
   }
   if (headCommittedAt !== null && mine.submittedAt !== '' && Date.parse(headCommittedAt) > Date.parse(mine.submittedAt)) {
     return 'stale_review';
@@ -163,4 +188,13 @@ export function myReviewState(
     default:
       return 'commented';
   }
+}
+
+/** A review is wanted from me if I am named, or if any team I belong to is. */
+export function isRequestedOfMe(context: Pick<MyReviewContext, 'requests' | 'me' | 'teams'>): boolean {
+  return context.requests.some((request) =>
+    request.kind === 'user'
+      ? request.id === context.me
+      : context.teams.includes(request.id),
+  );
 }

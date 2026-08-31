@@ -7,6 +7,7 @@ import {
   type RawJiraIssue,
 } from './map.ts';
 import type { Issue } from '../../core/model/issue.ts';
+import type { Mirrored } from '../../core/model/mirrored.ts';
 import type { Board, Sprint } from '../../core/model/sprint.ts';
 
 /**
@@ -56,7 +57,7 @@ export class JiraClient {
    * Use this for anything outside the board — a ticket can be assigned to me and sit on no
    * board at all, and the Agile endpoint would never return it.
    */
-  async searchIssues(jql: string, mirroredAt: string): Promise<Issue[]> {
+  async searchIssues(jql: string, mirroredAt: string): Promise<Mirrored<Issue>[]> {
     const raw = await paginate<RawJiraIssue>(
       (startAt) =>
         jiraRequest(this.credentials, {
@@ -67,11 +68,11 @@ export class JiraClient {
       (page) => (Array.isArray(page['issues']) ? (page['issues'] as RawJiraIssue[]) : []),
       PAGE_SIZE,
     );
-    return raw.map((issue) => mapIssue(issue, mirroredAt));
+    return raw.map((issue) => mirror(issue, mirroredAt));
   }
 
   /** Issues on the board matching a JQL query. Returns sprint and epic, unlike core search. */
-  async boardIssues(jql: string, mirroredAt: string): Promise<Issue[]> {
+  async boardIssues(jql: string, mirroredAt: string): Promise<Mirrored<Issue>[]> {
     const raw = await paginate<RawJiraIssue>(
       (startAt) =>
         jiraRequest(this.credentials, {
@@ -81,10 +82,10 @@ export class JiraClient {
       (page) => (Array.isArray(page['issues']) ? (page['issues'] as RawJiraIssue[]) : []),
       PAGE_SIZE,
     );
-    return raw.map((issue) => mapIssue(issue, mirroredAt));
+    return raw.map((issue) => mirror(issue, mirroredAt));
   }
 
-  async sprintIssues(sprintId: number, mirroredAt: string): Promise<Issue[]> {
+  async sprintIssues(sprintId: number, mirroredAt: string): Promise<Mirrored<Issue>[]> {
     const raw = await paginate<RawJiraIssue>(
       (startAt) =>
         jiraRequest(this.credentials, {
@@ -94,7 +95,7 @@ export class JiraClient {
       (page) => (Array.isArray(page['issues']) ? (page['issues'] as RawJiraIssue[]) : []),
       PAGE_SIZE,
     );
-    return raw.map((issue) => mapIssue(issue, mirroredAt));
+    return raw.map((issue) => mirror(issue, mirroredAt));
   }
 
   /** The sprint currently running, or null between sprints. */
@@ -157,6 +158,10 @@ export class JiraClient {
   }
 }
 
+function mirror(raw: RawJiraIssue, mirroredAt: string): Mirrored<Issue> {
+  return { value: mapIssue(raw, mirroredAt), raw: JSON.stringify(raw) };
+}
+
 function toTransition(entry: unknown): JiraTransition {
   const record = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<
     string,
@@ -173,11 +178,18 @@ function toTransition(entry: unknown): JiraTransition {
   };
 }
 
+/** Field ids the transition screen marks `required`. Read live; never assume. */
 function requiredFieldIds(fields: unknown): string[] {
   if (typeof fields !== 'object' || fields === null) {
     return [];
   }
   return Object.entries(fields as Record<string, unknown>)
-    .filter(([, meta]) => typeof meta === 'object' && meta !== null && (meta as { required?: unknown }).required === true)
+    .filter(([, meta]) => isRequired(meta))
     .map(([id]) => id);
+}
+
+function isRequired(meta: unknown): boolean {
+  return (
+    typeof meta === 'object' && meta !== null && (meta as { required?: unknown }).required === true
+  );
 }
