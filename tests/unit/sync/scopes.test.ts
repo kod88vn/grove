@@ -46,16 +46,23 @@ function mirrored(pr: PullRequest): Mirrored<PullRequest> {
 function fakeGitHub(options: {
   open: readonly PullRequest[];
   reread?: PullRequest;
+  unreadable?: boolean;
+  onReread?: (repo: string, number: number) => void;
 }): GitHubClient {
   return {
     findOpenPullRequests: () => Promise.resolve([]),
     findMergedPullRequests: () => Promise.resolve([]),
     listOpenPullRequests: (repo: string) =>
       Promise.resolve(options.open.filter((pr) => pr.repo === repo).map(mirrored)),
-    pullRequest: (repo: string, number: number) =>
-      Promise.resolve(
+    pullRequest: (repo: string, number: number) => {
+      options.onReread?.(repo, number);
+      if (options.unreadable === true) {
+        return Promise.reject(new Error('gh: could not resolve repository'));
+      }
+      return Promise.resolve(
         mirrored(options.reread ?? { ...basePr(), repo, number, state: 'CLOSED' }),
-      ),
+      );
+    },
   } as unknown as GitHubClient;
 }
 
@@ -93,6 +100,50 @@ describe('syncGitHub reconciling vanished pull requests', () => {
 
     const stored = readAllPullRequests(db).find((pr) => pr.number === 2388);
     expect(stored?.state).toBe('OPEN');
+    db.close();
+  });
+
+  /**
+   * The repo set is discovered from *open* PRs, so the last open PR in an incidental repo
+   * closing removes the whole repo from the sweep. Reconciliation therefore cannot be driven
+   * by the repos visited this run, or those rows are stranded as OPEN permanently.
+   */
+  it('reconciles a PR whose repo is no longer discovered at all', async () => {
+    const db = openDatabase({ path: ':memory:' });
+    const stranded = basePr({ repo: 'clover/web-app-dashboard-navigation', number: 659 });
+    upsertPullRequest(db, mirrored(stranded), true);
+
+    await syncGitHub(deps(fakeGitHub({ open: [] }), db));
+
+    const stored = readAllPullRequests(db).find((pr) => pr.number === 659);
+    expect(stored?.state).toBe('CLOSED');
+    db.close();
+  });
+
+  it('re-reads each vanished PR exactly once', async () => {
+    const db = openDatabase({ path: ':memory:' });
+    upsertPullRequest(db, mirrored(basePr()), true);
+    upsertPullRequest(db, mirrored(basePr({ repo: 'clover/other', number: 7 })), true);
+    const seen: string[] = [];
+
+    await syncGitHub(
+      deps(fakeGitHub({ open: [], onReread: (r, n) => seen.push(`${r}#${n}`) }), db),
+    );
+
+    // Sorted because the read order follows `updated_at`, which these two share; what matters
+    // is that each vanished row is re-read once, not the sequence.
+    expect([...seen].sort()).toEqual([`clover/other#7`, `${REPO}#2388`].sort());
+    db.close();
+  });
+
+  it('keeps syncing when one vanished PR can no longer be read', async () => {
+    const db = openDatabase({ path: ':memory:' });
+    upsertPullRequest(db, mirrored(basePr({ repo: 'archive/gone', number: 5 })), true);
+
+    const result = await syncGitHub(deps(fakeGitHub({ open: [], unreadable: true }), db));
+
+    expect(result.counts['unreadablePullRequests']).toBe(1);
+    expect(readAllPullRequests(db).find((pr) => pr.number === 5)?.state).toBe('OPEN');
     db.close();
   });
 });

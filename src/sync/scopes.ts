@@ -15,8 +15,7 @@ import { replaceBranches, upsertRepo } from '../store/repositories/branches.ts';
 import { replaceSprintIssues, upsertBoard, upsertSprint } from '../store/repositories/sprints.ts';
 import { correlate } from './correlate.ts';
 import { diffIssue, diffPullRequest } from './diff.ts';
-import type { Mirrored } from '../core/model/mirrored.ts';
-import type { PullRequest } from '../core/model/pull-request.ts';
+import { identity, isMine, reconcileVanished } from './reconcile.ts';
 
 export interface SyncDeps {
   readonly db: Database;
@@ -95,18 +94,55 @@ export async function syncJira(deps: SyncDeps): Promise<ScopeResult> {
  */
 export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
   const at = deps.now().toISOString();
-  const events: BotEvent[] = [];
   const involved = await discoverInvolvement(deps);
   const configured = new Set(deps.config.repos.map((repo) => repo.fullName));
-  // Snapshotted before any upsert this run, so it reflects what the *previous* sync believed —
-  // exactly the rows a fresh open-PR listing needs to be checked against.
-  const previouslyOpen = groupByRepo(readOpenPullRequests(deps.db));
+  // Snapshotted before any upsert, so it reflects what the previous sync believed. Every one
+  // of these rows must be accounted for by the end of this run or it is a lie left standing.
+  const previouslyOpen = readOpenPullRequests(deps.db);
+
+  const swept = await sweepRepos(deps, { involved, configured, at });
+  const vanished = await reconcileVanished(deps, previouslyOpen, swept.stillOpen, at);
+  const merged = await mirrorMerged(deps, at);
+
+  return {
+    counts: {
+      pullRequests: swept.total,
+      mergedPullRequests: merged.count,
+      reconciledPullRequests: vanished.count,
+      unreadablePullRequests: vanished.unreadable,
+      repos: configured.size + involved.size,
+    },
+    events: [...swept.events, ...vanished.events, ...merged.events],
+  };
+}
+
+interface SweepOptions {
+  readonly involved: ReadonlyMap<string, ReadonlySet<number>>;
+  readonly configured: ReadonlySet<string>;
+  readonly at: string;
+}
+
+interface SweepResult {
+  readonly events: BotEvent[];
+  readonly total: number;
+  /** Every PR seen open upstream this run, as `repo#number`. The proof a mirrored row is live. */
+  readonly stillOpen: ReadonlySet<string>;
+}
+
+async function sweepRepos(deps: SyncDeps, options: SweepOptions): Promise<SweepResult> {
+  const { involved, configured, at } = options;
+  const events: BotEvent[] = [];
+  const stillOpen = new Set<string>();
   let total = 0;
-  let reconciled = 0;
 
   for (const repo of new Set([...configured, ...involved.keys()])) {
     upsertRepo(deps.db, repo, pathFor(deps, repo), at);
     const hydrated = await deps.github.listOpenPullRequests(repo);
+    // Recorded from `hydrated`, not `keep`: this is the repo's entire open list, which is what
+    // proves a mirrored row is still open regardless of whether we chose to store it.
+    for (const mirrored of hydrated) {
+      stillOpen.add(identity(mirrored.value.repo, mirrored.value.number));
+    }
     // Configured repos are mirrored whole, because their surrounding activity is context I
     // want. Elsewhere only the PRs that involve me are kept, so an incidental repository does
     // not drag in hundreds of unrelated pull requests.
@@ -120,63 +156,9 @@ export async function syncGitHub(deps: SyncDeps): Promise<ScopeResult> {
       upsertPullRequest(deps.db, mirrored, isMine(pr, deps.config.github.me));
       replaceLinks(deps.db, pr.repo, pr.number, correlate(pr, deps.config.jira.projectKeys));
     }
-
-    // `hydrated` — not `keep` — is the repo's whole current open-PR list regardless of who is
-    // configured or involved, so it is what any previously-open row must be checked against.
-    const vanished = await reconcileVanished(deps, previouslyOpen.get(repo) ?? [], hydrated, at);
-    events.push(...vanished.events);
-    reconciled += vanished.count;
     total += keep.length;
   }
-
-  const merged = await mirrorMerged(deps, at);
-  events.push(...merged.events);
-
-  return {
-    counts: {
-      pullRequests: total,
-      mergedPullRequests: merged.count,
-      reconciledPullRequests: reconciled,
-      repos: configured.size + involved.size,
-    },
-    events,
-  };
-}
-
-function groupByRepo(pullRequests: readonly PullRequest[]): Map<string, PullRequest[]> {
-  const byRepo = new Map<string, PullRequest[]>();
-  for (const pr of pullRequests) {
-    const list = byRepo.get(pr.repo) ?? [];
-    list.push(pr);
-    byRepo.set(pr.repo, list);
-  }
-  return byRepo;
-}
-
-/**
- * PRs the mirror still calls OPEN that the fresh open-PR listing no longer contains.
- *
- * `gh pr list --state=open` is the only signal for "did this close" — a PR closed without
- * merging, or merged by someone other than me, simply vanishes from it, and nothing else in
- * this sync ever looks at it again. Re-reading each one directly turns "gone from the list"
- * into a real state instead of a permanently stale OPEN row.
- */
-async function reconcileVanished(
-  deps: SyncDeps,
-  previouslyOpen: readonly PullRequest[],
-  hydrated: readonly Mirrored<PullRequest>[],
-  at: string,
-): Promise<{ events: BotEvent[]; count: number }> {
-  const current = new Set(hydrated.map((m) => m.value.number));
-  const vanished = previouslyOpen.filter((pr) => !current.has(pr.number));
-  const events: BotEvent[] = [];
-  for (const pr of vanished) {
-    const fresh = await deps.github.pullRequest(pr.repo, pr.number);
-    events.push(...diffPullRequest(pr, fresh.value, at));
-    upsertPullRequest(deps.db, fresh, isMine(fresh.value, deps.config.github.me));
-    replaceLinks(deps.db, pr.repo, pr.number, correlate(fresh.value, deps.config.jira.projectKeys));
-  }
-  return { events, count: vanished.length };
+  return { events, total, stillOpen };
 }
 
 /**
@@ -235,11 +217,6 @@ async function discoverInvolvement(deps: SyncDeps): Promise<Map<string, Set<numb
 
 function pathFor(deps: SyncDeps, fullName: string): string | null {
   return deps.config.repos.find((repo) => repo.fullName === fullName)?.path ?? null;
-}
-
-function isMine(pr: { author: string; myReviewState: string }, me: string): boolean {
-  // "Mine" means it is on my plate, which includes PRs I must review, not only ones I wrote.
-  return pr.author === me || pr.myReviewState !== 'not_requested';
 }
 
 /** Mirror local branches for every watched repo that has a clone on disk. */
