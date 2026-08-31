@@ -60,6 +60,6 @@ a layer may import equal or lower levels, never higher.
 | --- | --- | --- |
 | Files | kebab-case, named after the concept owned | `evaluate.ts`, `denylist.ts` |
 | Capabilities | `domain:verb`, lowercase | `jira:transition` |
-| Task scripts | one per task, mirrors the task module name | `scripts/branch-hygiene.ts` |
+| Stall rules | one file per subject, under `src/stalls/rules/` | `src/stalls/rules/review.ts` |
 | Branches | `feature/WS-1234-description` | `feature/bot-poc-scaffold` |
 | Tables | plural, snake_case | `actions`, `schedule_slots`, `rule_history` |

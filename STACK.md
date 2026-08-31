@@ -68,7 +68,7 @@ been observed to do anything. Retained only so a future re-test knows what to tr
 | Agent discovery paths | `.copilot-config/agents`, `.github/agents` (both under `chat.promptFilesLocations`) | 2026-08-28 | `.vscode/settings.json` |
 | Skill discovery path | `.copilot-config/skills` | 2026-08-28 | `.vscode/settings.json` |
 | Instruction discovery paths | `.copilot-config/instructions`, `.github/instructions` | 2026-08-28 | `.vscode/settings.json` |
-| `.github/` | **Does not exist yet** — created when the first bot agent is written (P10+) | 2026-08-28 | `ls -a .github` |
+| `.github/` | Exists: `.github/instructions/bot.instructions.md`, telling Chat how to use the MCP server | 2026-09-01 | `ls .github/instructions` |
 | Shared agents present | 8: `builder`, `code-reviewer`, `docs-researcher`, `milestone-verifier`, `planner`, `reviewer`, `spec-lookup`, `validator` | 2026-08-28 | `ls .copilot-config/agents/` |
 
 ## Scheduling — VS Code tasks (launchd removed)
@@ -119,12 +119,29 @@ Host `https://jira.corp.clover.com`, header `Authorization: Bearer $JIRA_DC_TOKE
 | Branch protection API | **404 Not Found** — requires admin, which I do not have | `gh api …/branches/main/protection` |
 | Org-enforced checks | A `JIRA Link` status check exists and gates merge; a `Semantic Title` check exists | `statusCheckRollup` on PR 2390 |
 
+## Model Context Protocol — verified 2026-09-01
+
+Spec pages `modelcontextprotocol.io/specification/2025-06-18/{basic/lifecycle,server/tools}`.
+The site states the latest revision is **`2026-07-28`**.
+
+| Fact | Value | Source |
+| --- | --- | --- |
+| Version negotiation | "If the server supports the requested protocol version, it MUST respond with the same version. Otherwise, the server MUST respond with another protocol version it supports." | spec, lifecycle |
+| `initialize` result | `{protocolVersion, capabilities, serverInfo, instructions?}` | spec, lifecycle |
+| `tools/list` result | `{tools: [{name, title, description, inputSchema}]}` | spec, tools |
+| `tools/call` result | `{content: [{type:'text', text}], isError}` | spec, tools |
+| Notifications | Have no `id` and **must not be answered** | spec, lifecycle |
+| Error codes used | `-32700` parse, `-32601` method not found, `-32602` invalid params / unknown tool | spec |
+| Live handshake | `initialize` → `notifications/initialized` → `tools/list` → `tools/call` all correct against `bot mcp`; `2026-07-28` echoed back; the notification correctly unanswered | live probe |
+| VS Code registration | `.vscode/mcp.json`, `{"servers":{"bot":{"type":"stdio","command":…,"args":…}}}` | `.vscode/mcp.json` |
+| Spawn shell | Same non-login constraint as tasks — absolute node path required | derived; see Scheduling above |
+
 ## NOT YET VERIFIED — do not state these as fact
 
 | Unknown | What must be checked |
 | --- | --- |
 | Whether `gh pr merge` actually succeeds | Cannot be verified without performing a real merge. `mergeStateStatus` is the best pre-flight signal; treat merge failure as expected and surface the error. |
-| Jira `POST /rest/api/2/issue/<K>/transitions` write path | Only the **read** side has been exercised. The write is unverified until R7. |
+| Jira transition **write** path | The executor and `prepareResolve` are built and the payload has been produced for real tickets (WS-6114, WS-6326 — `{"resolution":{"name":"Fixed"}}`, transition `5`), but **no live `POST` has been issued**. The write remains unverified until one is. |
 | Non-`WS` project behaviour | All probes used project `WS` and board `1386` only. |
 | Sprint field on other boards | `customfield_10205` shape was only checked on board 1386 issues. |
 
@@ -132,7 +149,7 @@ Host `https://jira.corp.clover.com`, header `Authorization: Bearer $JIRA_DC_TOKE
 
 | Name | Required | Purpose | Verified on | Source |
 | --- | --- | --- | --- | --- |
-| `JIRA_DC_TOKEN` | yes | Bearer token for Jira Data Center REST v2 | 2026-08-28 | presence checked via `${JIRA_DC_TOKEN:+yes}`; value never read |
+| `JIRA_DC_TOKEN` | For writes only | Bearer token for Jira Data Center REST v2. `loadConfig(env, false)` omits the requirement, so the MCP server and other mirror-only readers start without it | 2026-09-01 | presence checked via `${JIRA_DC_TOKEN:+yes}`; value never read |
 | `SLACK_*` | no | **Not set** — no Slack credentials present | 2026-08-28 | `env \| grep -i slack` |
 
 ## Local Repositories

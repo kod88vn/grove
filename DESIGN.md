@@ -58,19 +58,22 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 
 ### In scope for the POC
 
-1. Shared skeleton: task registry, action/policy engine, SQLite store, CLI
-2. One standalone script per task, individually runnable and testable
-3. One real task implemented end to end: **standup digest** (Jira + git + GitHub)
+1. Shared skeleton: SQLite mirror, policy engine, CLI
+2. Sync that mirrors Jira, GitHub and local branches into one correlated store
+3. The stall engine: eighteen rules over the mirror, answering "what has stopped moving"
 4. Pre-approval policy engine with a catalog of candidate rules, **all disabled by default**
-5. Local dashboard (Vite + React SPA + JSON API): observe, approve, trigger runs
+5. Local dashboard: observe, approve, trigger runs
 6. launchd hourly agent
 7. `bot doctor` preflight
+
+**Delivered as of 2026-09-01: 1, 2, 3, 5 and 7, plus an executor and a read-only MCP server.**
+4 and 6 are not built — see the roadmap. Item 5 is server-rendered rather than an SPA (§5).
 
 ### Explicitly out of scope for the POC
 
 - Slack delivery (deferred by user; `Reporter` interface makes it a drop-in later)
 - Sprint maintenance, auto-resolving tickets, PR-feedback resolution — each needs its own spec
-- Agent-driven code changes — the `chat:handoff` action and its briefing writer are defined; the agents themselves are P10+ (§13)
+- Agent-driven code changes — the `chat:handoff` action and its briefing writer are defined; the agents themselves are R12 (§13)
 - Multi-user, auth, remote hosting
 
 ## 4. Decisions locked with the user
@@ -83,7 +86,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 | Scheduling | macOS launchd agent, hourly |
 | Repos | Start with `web-storefront-engine`; config is a list, expected to grow |
 | Per-task scripts | Yes — one runnable script per task |
-| Dashboard | Vite + React SPA against a small JSON API |
+| Dashboard | Server-rendered HTML, no build step, no client JavaScript |
 | Dashboard role | Read state, approve actions, trigger manual runs |
 | Storage | **SQLite** via built-in `node:sqlite`, WAL mode, zero dependencies |
 | Initial pre-approvals | **None enabled.** Ship a catalog of candidates, disabled, for inspection |
@@ -96,53 +99,60 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 
 ## 5. Architecture
 
+> Built as described below. Where this section once projected a shape, it now records one;
+> the divergences from the original sketch are noted underneath.
+
 ```
 bot/
-  bin/bot.ts                    # bot run|list|doctor|queue|rules|dash
-  scripts/                      # ONE standalone runnable script per task
-    jira-standup.ts
-    branch-hygiene.ts
-    pr-status.ts
-    standup.ts                  # composite of the three
+  bin/bot.ts                    # doctor | sync | stalls | serve | mcp
   src/
-    core/                       # ZERO vendor imports
-      task.ts                   # Task, TaskContext, TaskResult
-      action.ts                 # Action, Capability
+    core/                       # L0 — pure. No vendor package, no Node builtin, not even a clock.
+      clock.ts
+      issue-key.ts
+      model/                    # issue, pull-request, branch, sprint, link, stall, action, mirrored
       policy/
-        rules.ts                # PolicyRule shape
-        evaluate.ts             # (action, rules, usage) -> Decision
-        denylist.ts             # hardcoded, uneditable
-      report.ts
-    connectors/                 # adapt the outside world to core types
-      jira.ts
-      github.ts                 # wraps `gh`
-      git.ts                    # wraps local git
-    tasks/                      # pure: collect() -> TaskResult. No side effects.
-      jira-standup.ts
-      branch-hygiene.ts
-      pr-status.ts
-      standup.ts
-    executor/                   # applies actions according to policy decisions
-    handoff/                    # writes briefing files for chat agents (P10+; stub in POC)
-    store/                      # SQLite: schema, migrations, queries
-    delivery/                   # ConsoleReporter, FileReporter (SlackReporter later)
-    config/
-  .github/
-    agents/                     # dedicated chat agents — human-initiated only (§13)
-  dashboard/
-    api/                        # JSON API over the store, binds 127.0.0.1
-    web/                        # Vite + React SPA
-  launchd/
-    com.jayquach.bot.standup.plist.template
-    install.sh / uninstall.sh
-  data/                         # gitignored
-    bot.db                      # SQLite (WAL: bot.db-wal, bot.db-shm alongside)
-    migrations/                 # numbered .sql files, applied via PRAGMA user_version
-  reports/                      # gitignored
-    handoffs/                   # per-action briefing files consumed by chat agents
+        denylist.ts             # compiled in, not overridable by config
+        preflight.ts            # refuseMerge / refuseResolve — the rules that say no
+    stalls/                     # L1 — pure. The eighteen ways work stops moving.
+      detect.ts  context.ts  snapshot.ts
+      rules/                    # ticket, pull-request, review, branch
+    store/                      # L2 — SQLite mirror
+      database.ts  migrations/  repositories/
+    connectors/                 # L3 — the only code that talks outward
+      jira/                     # REST v2 over fetch
+      github/                   # wraps `gh`
+      git.ts  process.ts
+    sync/                       # L4 — mirror orchestration, diffing, issue↔PR correlation
+    executor/                   # L4 — the only writer
+      executor.ts  prepare.ts
+    config/                     # L5 — config, doctor, run-sync, run-stalls
+    mcp/                        # L5 — read-only stdio server. Never imports executor/.
+  dashboard/                    # L5 — binds 127.0.0.1, server-rendered
+    server.ts  html.ts  actions.ts  pages/
+  tests/                        # not a source root; the guards do not scan it
+  data/                         # gitignored — bot.db plus WAL and SHM sidecars
 ```
 
-**Dependency direction is strictly inward:** `dashboard → store → core`, `scripts → tasks → connectors → core`. `src/core/` imports nothing from `connectors/`, `tasks/`, or any vendor package. This is what keeps the policy engine unit-testable without network or git.
+**Divergences from the original sketch, and why:**
+
+- **No `scripts/`, no `tasks/`.** The "one standalone script per task" idea did not survive
+  contact with the problem. What mattered was not three separate reports but one correlated
+  view, so the work became `sync` (mirror everything) plus `stalls` (ask eighteen questions of
+  the mirror). A per-task script would have re-fetched the same data three times and still
+  been unable to answer "is this ticket open behind a merged PR", which needs both sides at
+  once.
+- **No React, no Vite, no JSON API.** The dashboard renders HTML on the server. A build step
+  and a client framework would have been the project's only heavy dependencies, to display
+  tables that never change without a page load. A CSP of `default-src 'none'` is achievable
+  because there is no script to allow.
+- **No `handoff/`, no `delivery/`, no `launchd/` yet.** Not built. See the roadmap.
+- **`src/stalls/` exists where `tasks/` was planned** and is pure in the same way.
+
+**Dependency direction is strictly inward** and mechanically enforced by
+`ai-guard.config.json`: `dashboard → store → core`, `sync → connectors → core`. `src/core/`
+imports nothing from `connectors/`, `stalls/`, or any vendor package — not even `node:*`.
+This is what keeps the policy engine unit-testable without network or git, and it is why
+`src/core/clock.ts` is an interface rather than a call to `Date.now()`.
 
 ## 6. Core domain model
 
@@ -332,37 +342,52 @@ real advantage JSONL had — human-readable, diffable, backup-able state — wit
 query cost. Config and rules live in the database rather than in a hand-edited file so that
 edits are transactional and every change is captured in `rule_history`.
 
-## 9. Scripts and CLI
-
-Each task is runnable three ways, all sharing one code path:
+## 9. Commands and CLI
 
 ```bash
-npx tsx scripts/jira-standup.ts               # dry-run by default
-npx tsx scripts/jira-standup.ts --json        # machine-readable
-npx tsx scripts/branch-hygiene.ts --apply     # policy still governs each action
-bot run standup                               # via the registry
+npm run bot -- doctor           # credentials and connectivity
+npm run bot -- sync all         # refresh the mirror (--max-age-seconds to skip a recent one)
+npm run bot -- stalls           # what has stopped moving (--all lifts the per-group cap)
+npm run bot -- serve            # dashboard on http://127.0.0.1:4747
+npm run bot -- mcp              # read-only MCP server over stdio
 ```
 
-`--dry-run` is the default everywhere. `--apply` does not bypass policy; it only permits the executor to act on actions the policy engine independently allows.
+Nothing mutates from the CLI. `sync` and `stalls` read; `serve` mutates only when a button is
+pressed, and only after the guards in `src/core/policy/preflight.ts` re-read live state and
+decline to refuse. `--apply` does not exist and should not be added — a flag that authorizes
+every pending action at once is exactly the blast radius this design avoids.
 
-`bot doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, the database opens and its migrations are current, launchd agent loaded. Exits non-zero on any failure.
+`bot doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, the database opens and its migrations are current. Exits non-zero on any failure.
 
-## 10. POC task: standup digest
+## 10. What the mirror answers
 
-Three collectors, merged into one report:
+Three sources, correlated into one store:
 
-1. **Jira** — my tickets, resolved as: issues where I am assignee, reporter, or watcher, **plus** any issue whose key appears in a branch or PR I authored. Tickets are then ranked by PR linkage, since a ticket with an open PR of mine is the one most likely to need action. Fields: key, summary, status, updated, sprint, linked PR. Flags anything untouched > 3 days.
-2. **Git** — per configured repo: current branch, dirty worktree, ahead/behind `origin/main`, branches lacking an upstream. Read-only (`git fetch` + `rev-list`); never modifies the worktree.
-3. **GitHub** — my open PRs via `gh`: review decision, mergeable state, CI status, age.
+1. **Jira** — my tickets: issues where I am assignee or reporter, **plus** any issue whose key
+   appears in a branch or PR I authored. Fields: key, summary, status, updated, sprint.
+2. **Git** — per configured repo: local branches, upstream, ahead/behind, last commit date.
+   Read-only; never modifies a worktree.
+3. **GitHub** — my PRs via `gh`, **open and merged**, plus PRs awaiting my review: review
+   decision, mergeable state, CI status, age.
 
-Output: console + `reports/<ISO-timestamp>-standup.md`, through the `Reporter` interface.
+Mirroring merged PRs was not in the original sketch and turned out to be the point. Without
+them, "this ticket is still open behind a merged PR" — the single most common way my work
+rots — is undetectable. Adding them took the issue↔PR link count from 15 to 67.
 
-The task also *emits* actions it will not run in the POC (all queued): staleness nudges, assign-to-me for unassigned tickets. This exercises the full pipeline so you can judge action quality before enabling anything.
+`src/stalls/` then asks eighteen questions of that mirror, each one a way work stops moving:
+no Jira link, CI failing, conflicts, waiting on my review, shipped but the ticket is open,
+draft going stale, in progress with nothing to show, gone quiet, and so on. Each stall names
+its subject, its age, and who it is waiting on — stalls owned by someone else are reported
+separately, because they need a nudge rather than work.
 
 ## 11. Dashboard
 
-- **Web:** Vite + React SPA, `dashboard/web/`
-- **API:** small JSON API over the store, bound to `127.0.0.1` only — never `0.0.0.0`. No auth in the POC is acceptable *only* because it is loopback-bound; this must be revisited before any remote exposure.
+- **Server-rendered HTML**, `dashboard/`. No build step, no client JavaScript, no JSON API.
+  This is what makes `content-security-policy: default-src 'none'` achievable.
+- Bound to `127.0.0.1` only — never `0.0.0.0` — with the `Host` header pinned to a loopback
+  name, so a DNS-rebinding page cannot reach it. No auth is acceptable *only* under those
+  conditions, and must be revisited before any remote exposure.
+- Mutating routes are `POST` only, carry a per-process CSRF token, and check `Origin`.
 
 ### Dashboard controls everything; cron depends on nothing
 
@@ -465,13 +490,16 @@ right one:
 
 | Tier | Needs judgment? | Who performs it |
 |---|---|---|
-| Deterministic mutations — assign, transition, comment, create branch, push, open PR | No | The executor, headless, under policy — **P7–P9 unchanged** |
+| Deterministic mutations — assign, transition, comment, create branch, push, open PR | No | The executor, headless, under policy — **unchanged** |
 | Judgment work — write code, triage PR feedback, draft prose | Yes | A dedicated chat agent, **initiated by the human** |
 
-Everything the POC and P7–P9 promise lives in the first row: those are HTTP calls and git
-plumbing, not inference. **Nothing in P0–P9 changes.** Only P10+ is affected.
+Everything this design promises lives in the first row: those are HTTP calls and git
+plumbing, not inference. **Nothing through R10 changes.** Only the chat handoff is affected.
 
 ### The handoff mechanism
+
+**Not built.** Described here so the shape is agreed before it is; the paths and commands
+below do not exist yet.
 
 A task that wants judgment work emits a `chat:handoff` action like any other. What differs is
 who applies it:
@@ -479,14 +507,14 @@ who applies it:
 1. The task emits `chat:handoff`, with a payload naming the target agent and carrying the
    facts it already gathered.
 2. On approval the executor performs only the **deterministic prep** — create the isolated
-   `git worktree`, then write a briefing to `reports/handoffs/<action-id>.md` containing
+   `git worktree`, then write a briefing to `data/handoffs/<action-id>.md` containing
    everything the agent needs, so the agent never re-fetches what the bot already knows.
 3. The action moves to resolution `awaiting-human`. The digest and the dashboard surface it
    as a copy-pasteable chat invocation.
 4. You open Chat and run the agent. **This step is manual by construction — that is the
    entire point of the model, not a workaround for the policy block.**
 5. The agent's mandatory closing step is
-   `npx tsx scripts/record-outcome.ts --action <id> --status applied|abandoned --notes "…"`,
+   `npm run bot -- record-outcome --action <id> --status applied|abandoned --notes "…"`,
    which writes the result back into `actions`.
 
 Step 5 is the load-bearing one. Without it, work performed in Chat is invisible to the
@@ -535,8 +563,8 @@ sequencing plans in one document guarantees one of them is wrong.
 | Pre-approval creeps into de facto full autonomy | Mandatory expiry + rate limits + audit provenance |
 | Loopback dashboard later exposed remotely | Documented as a hard precondition; bind address asserted in code |
 | Scope sprawl back into "automate everything" | Each new task is a separate spec; skeleton unchanged |
-| Copilot CLI blocked by org policy (§13) | Judgment work moves to human-initiated chat agents; deterministic mutations are unaffected, so P0–P9 stand |
-| Work done in Chat escapes the audit trail | Every agent's mandatory final step is `record-outcome.ts`; a handoff stays `awaiting-human` until it reports back |
+| Copilot CLI blocked by org policy (§13) | Judgment work moves to human-initiated chat agents; deterministic mutations are unaffected |
+| Work done in Chat escapes the audit trail | Every agent's mandatory final step is `record-outcome`; a handoff stays `awaiting-human` until it reports back |
 | SQLite contention between agent and dashboard | WAL + `busy_timeout`; single-writer discipline; per-run transactions |
 | Database file grows despite pruning | `DELETE` does not shrink the file — checkpoint after prune, periodic `VACUUM` |
 | `node:sqlite` API changes | It is stable in v24.18.0 (§2), but all access is confined to `src/store/`, so a swap to another driver touches one directory |
@@ -554,36 +582,46 @@ Resolved:
 
 ## 18. Roadmap
 
-Full detail in [the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
-Each phase gets its own task-level plan when work on it starts.
+Full detail in [the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md), which
+is the current source of truth for sequencing. The original P0–P10 table is superseded.
 
-| # | Phase | Delivers |
-|---|---|---|
-| P0 | Scaffold & toolchain | Repo builds, tests run, config schema |
-| P1 | Core + policy engine | Pre-approval logic, unit-tested, no I/O |
-| P2 | Store, audit & retention | SQLite schema, migrations, queries, pruning |
-| P3 | Connectors & `doctor` | Jira, git, GitHub reads against fixtures |
-| P4 | Standalone task scripts | Three independently runnable scripts |
-| P5 | **Composite standup** | **First genuinely useful output — POC checkpoint** |
-| P6 | Scheduler | launchd, quiet hours, sleep/offline catch-up |
-| P7 | Executor & queue | Actions queued; approve via CLI |
-| P8 | Dashboard | Full control surface + audit navigation |
-| P9 | Enable first pre-approvals | Operational, not code |
-| P10+ | New tasks & chat-agent handoff | Sprint hygiene, PR feedback, human-initiated agent work |
+| # | Phase | Delivers | State |
+|---|---|---|---|
+| R0 | Verification spike | Jira DC and GHE probed live, fixtures captured | Done |
+| R1 | Scaffold & core model | Toolchain, pure domain model, guard layer map | Done |
+| R2 | Store | Mirror schema, migrations, WAL, FTS5 | Done |
+| R3 | Connectors & `doctor` | Jira, GitHub via `gh`, git, config | Done |
+| R4 | Sync engine | Mirror, events, issue↔PR correlation | Done |
+| R5 | Stall engine | The eighteen rules, plus `bot stalls` | Done |
+| R6 | Dashboard | Read-only control surface, hardened | Done |
+| R7 | Executor | Merge and resolve, guarded, audited | Done |
+| R8 | Triggers | Read-only MCP server, folder-open sync | Done |
+| R9 | Scheduling | launchd, quiet hours, sleep catch-up | Not built |
+| R10 | Pre-approvals | Rules with expiry and rate limits | Not built |
+| R11 | Notifications | Surfacing a stall without opening a window | Not built |
+| R12 | Chat handoff | `chat:handoff`, human-initiated (§13) | Not built |
 
-**P0–P5 is the POC and is entirely read-only. Nothing mutates anything until P9.**
+**Nothing runs unattended.** Every mutation today requires a button press in the dashboard.
+That stays true until R10 exists and has been watched.
 
 ## 19. Invariants
 
 These hold in every phase. A change that violates one is a bug regardless of what it enables:
 
-1. Tasks are pure. Only the executor causes side effects.
+1. Tasks are pure. Only `src/executor/` causes side effects.
 2. Default is queue. Absence of a rule never means permission.
-3. The hardcoded denylist is not overridable by configuration.
+3. The hardcoded denylist is not overridable by configuration — `src/core/policy/denylist.ts`,
+   the only file under `src/` permitted to contain those argument strings.
 4. Every pre-approval has an expiry and a rate limit.
-5. Every applied action is auditable to its authorizing rule.
-6. `src/core/` imports no vendor package and no connector.
+5. Every applied action is auditable to its authorizing rule, and **the audit row is written
+   before the mutation**, so a crash mid-merge still leaves a record.
+6. `src/core/` imports no vendor package, no connector, and no Node builtin.
 7. The dashboard is a control panel, never a runtime dependency.
 8. Repository facts (endpoints, fields, flags) are verified against the live system or a fixture before code depends on them.
 9. **The bot never invokes a language model.** There is no headless path to one (§13), and no phase may introduce one. Judgment work is prepared by the bot and initiated by a human in Chat.
 10. A `chat:handoff` is never resolved by the executor. It stays `awaiting-human` until the agent reports its own outcome back into `actions`.
+11. **Guards re-read live state, never the mirror.** The mirror can be an hour old and a
+    reviewer may have objected in that hour.
+12. **`src/mcp/` never imports `src/executor/`.** An agent reading this system cannot change
+    it, as a property of the code rather than a promise in a document.
+13. The queue is a query over `actions`, not a second table.

@@ -16,30 +16,56 @@ anything by default. The design document is [DESIGN.md](DESIGN.md).
 
 ## Current Status — read this before assuming anything exists
 
-**No application code exists yet.** The repository contains design documents only.
-Phase P0 creates `package.json`, the TypeScript toolchain, and the directory tree described
-in DESIGN.md §5. Do not reference a script, module, or command as if it were present —
-check first.
+The POC is built and works against live data. `bot sync` mirrors Jira, GitHub and local
+branches; `bot stalls` and the dashboard report what has stopped moving; `bot serve` offers
+Merge and Resolve buttons behind the guards; `bot mcp` answers questions in Chat, read-only.
+
+What is **not** built: `launchd` scheduling, the chat handoff, notifications, and pre-approval
+rules with expiry and rate limits. Nothing runs unattended yet — every mutation today needs a
+button press.
 
 Sequencing lives in [agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
-Two boundaries govern everything: **P0–P5 is the POC and is entirely read-only**, and
-**nothing mutates anything until P9**.
 
 ## Commands
 
-| Task | Command | Exists? |
-| --- | --- | --- |
-| Install | `npm install` | No — P0 |
-| Run one task | `npx tsx scripts/<task>.ts` | No — P4 |
-| Test | `npm test` (Vitest) | No — P0 |
-| Typecheck | `npm run typecheck` | No — P0 |
-| Architecture guard | `node .copilot-config/scripts/arch-check.mjs` | Yes |
-| Quality guard | `node .copilot-config/scripts/quality-check.mjs` | Yes |
-| Validate customizations | `node .copilot-config/scripts/validate-customizations.mjs "$PWD"` | Yes |
+| Task | Command |
+| --- | --- |
+| Install | `npm install` |
+| Everything below at once | `npm run verify` |
+| Test | `npm test` (Vitest) |
+| Typecheck | `npm run typecheck` |
+| All three guards | `npm run guards` |
+| Architecture guard | `npm run arch` |
+| Quality guard | `npm run quality` |
+| Validate customizations | `npm run customizations` |
 
-The guards ship as plain `node` scripts with no dependencies, so they run before `package.json`
-exists; P0 wraps them in npm scripts. They read `ai-guard.config.json` **from the repo root** —
-an absent config is a hard error by design ("an unconfigured guard is a guard that lies").
+**`npm run verify` is the gate.** Run it before claiming anything is done, and paste the real
+output rather than summarizing it.
+
+### Running the bot
+
+| Task | Command |
+| --- | --- |
+| Check credentials and connectivity | `npm run bot -- doctor` |
+| Refresh the mirror | `npm run bot -- sync all` |
+| What has stopped moving | `npm run bot -- stalls` (add `--all` to lift the per-group cap) |
+| Dashboard | `npm run bot -- serve` → http://127.0.0.1:4747 |
+| MCP server (stdio) | `npm run bot -- mcp` |
+
+The guards are plain `node` scripts with no dependencies and read `ai-guard.config.json` from
+the repo root — an absent config is a hard error by design ("an unconfigured guard is a guard
+that lies").
+
+## Layout
+
+| Layer | Path | Rule |
+| --- | --- | --- |
+| 0 | `src/core/` | Pure. No vendor package, no Node builtin, not even a clock. |
+| 1 | `src/stalls/` | Pure. The eighteen rules and their context. |
+| 2 | `src/store/` | SQLite mirror, migrations, repositories. |
+| 3 | `src/connectors/` | Jira, GitHub (`gh`), git. The only code that talks outward. |
+| 4 | `src/sync/`, `src/executor/` | Orchestration. The executor is the only writer. |
+| 5 | `bin/`, `dashboard/`, `src/config/`, `src/mcp/` | Entry points. |
 
 ## Key Files
 
@@ -53,6 +79,9 @@ an absent config is a hard error by design ("an unconfigured guard is a guard th
 | AI document root | `agent-docs/` |
 | Shared Copilot config | `.copilot-config/` (submodule) |
 | Chat discovery paths | `.vscode/settings.json` |
+| MCP server registration | `.vscode/mcp.json` |
+| Folder-open sync task | `.vscode/tasks.json` |
+| How Chat should use the bot | `.github/instructions/bot.instructions.md` |
 
 ### Copilot config integration
 
@@ -73,28 +102,44 @@ paths to nothing, with no error. That outage has already happened in three other
 
 ## Platform-Managed Files — DO NOT MODIFY
 
-- `data/` — SQLite database, WAL and SHM sidecars, migrations output. Gitignored.
-- `reports/` — generated report output. Gitignored.
-- `~/Library/LaunchAgents/com.jayquach.bot.*.plist` — generated from the template by
-  `launchd/install.sh`. Edit the template, not the installed copy.
+- `data/` — SQLite database, WAL and SHM sidecars. Gitignored.
 - `.copilot-config/` — owned by the central config repo; change it there via PR, then bump the
   submodule pointer here. Never commit an edit made inside the submodule from this repo.
+
+## Things that will bite you
+
+- **Every relative import needs a literal `.ts` extension** (`moduleResolution: nodenext` with
+  `allowImportingTsExtensions`). Type-only imports must use `import type`
+  (`verbatimModuleSyntax`).
+- **`.vscode/mcp.json` and `.vscode/tasks.json` use an absolute node path.** They spawn in a
+  non-login shell where nvm has never run and a bare `node` is ENOENT — which looks exactly
+  like the server failing to start for no reason.
+- **`ai-guard.config.json` is Copilot-ignored.** Modify it from a terminal, not the edit tool.
+- **`tests/` is not a source root**, which is why the guards do not scan it.
+- **The quality guard caps parameters at 4 and nesting at 3.** Deeply nested object literals
+  count; hoist JSON schemas to module constants.
 
 ## Project Patterns
 
 These are the invariants from DESIGN.md §19, restated as absolutes.
 
-- **Tasks are pure.** A task observes and proposes. Only the executor causes side effects.
+- **Tasks are pure.** A task observes and proposes. Only `src/executor/` causes side effects.
   Break this and the whole audit trail becomes a guess.
 - **The default is queue.** An action is performed only if a rule explicitly allows it.
   Absence of a rule is never permission.
-- **The denylist is compiled in and not overridable by config.** Pushing to `main`, `--force`,
-  `--no-verify`, `reset --hard`, deleting branches, committing on a branch the bot did not
-  create, and opening a PR with no Jira link are prohibited regardless of configuration.
+- **The denylist is compiled in and not overridable by config** (`src/core/policy/denylist.ts`,
+  the only file under `src/` permitted to contain those strings). `--force`, `--no-verify`,
+  `--force-with-lease`, `--admin` and `reset --hard` are refused regardless of configuration.
+- **Guards run against freshly re-read state, never the mirror** (`src/core/policy/preflight.ts`).
+  The mirror can be an hour old and a reviewer may have objected in that hour.
+- **The audit row is written before the mutation, not after.** A crash mid-merge must still
+  leave a record.
 - **Every pre-approval carries an expiry and a rate limit.** A grant with neither is a
   permanent grant, which is what this system exists to avoid.
 - **Every applied action is traceable to the rule that authorized it.** If you cannot name
   the rule, the action must not run.
+- **`src/mcp/` is read-only and must never import `src/executor/`.** That import is what makes
+  "an agent cannot merge or resolve" a property of the code rather than a promise.
 - **`src/core/` imports no vendor package, no connector, and no Node builtin.** Enforced by
   `ai-guard.config.json`.
 - **The dashboard is a control panel, never a runtime dependency.** Cron must work with the
@@ -109,14 +154,17 @@ These are the invariants from DESIGN.md §19, restated as absolutes.
 
 ## Grounding — the expensive failures in this repo
 
-The shared `grounding.instructions.md` applies. Three specifics that have already bitten:
+The shared `grounding.instructions.md` applies. Four specifics that have already bitten:
 
 1. **`launchd`.** `StartInterval` silently loses runs across sleep. Use `StartCalendarInterval`.
    Cited in `STACK.md`.
 2. **`node:sqlite`.** Stable and unflagged in Node v24.18.0 despite widespread documentation
    to the contrary. Do not add `--experimental-sqlite`.
-3. **Jira and GHE shapes are unverified.** `STACK.md` has a "NOT YET VERIFIED" section.
-   Do not write parsing code against a remembered response shape.
+3. **Jira and GHE response shapes are verified, and some of what was "known" was wrong.**
+   Resolving a WS ticket needs `resolution` alone — an earlier note insisting it also required
+   `fixVersions` and an Epic Link was false. Read
+   `transitions?expand=transitions.fields` at the moment of use rather than trusting either
+   the note or this sentence.
 4. **The Copilot CLI is installed but blocked by org policy.** `copilot --version` succeeds,
    which makes it look available; every `-p` invocation returns `Access denied by policy
    settings`. There is no headless LLM on this machine and no alternative agent CLI installed.
@@ -127,12 +175,10 @@ The shared `grounding.instructions.md` applies. Three specifics that have alread
 Run before every claim of completion. Paste real output; never summarize it.
 
 ```bash
-node .copilot-config/scripts/validate-customizations.mjs "$PWD"
-node .copilot-config/scripts/arch-check.mjs
-node .copilot-config/scripts/quality-check.mjs
+npm run verify
 ```
 
-Once P0 lands, add `npm run typecheck` and `npm test` to the same block.
+That is `customizations → arch → quality → typecheck → test`, in that order.
 
 ## Git
 
