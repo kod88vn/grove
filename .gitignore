@@ -8,12 +8,11 @@ coverage/
 
 # Platform-managed runtime state (DESIGN: never commit)
 data/
-reports/
 
 # Local overrides
 .env
 .env.local
-bot.config.local.json
+central-command.config.local.json
 
 # OS noise
 .DS_Store

@@ -42,7 +42,7 @@ export function layout(title: string, activePath: string, body: string): string 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} · bot</title>
+<title>${escapeHtml(title)} · central command</title>
 <style>${STYLE}</style>
 </head>
 <body>

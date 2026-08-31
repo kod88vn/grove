@@ -8,12 +8,12 @@
       // `--max-age-seconds` makes this cheap and idempotent: reopening the window a few times
       // does not trigger a few more full syncs. Absolute node path because tasks run in a
       // non-login shell with no nvm on PATH.
-      "label": "bot: refresh mirror",
+      "label": "central-command: refresh mirror",
       "type": "shell",
       "command": "/Users/jay.quach/.nvm/versions/node/v24.18.0/bin/node",
       "args": [
         "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
-        "${workspaceFolder}/bin/bot.ts",
+        "${workspaceFolder}/bin/cc.ts",
         "sync",
         "all",
         "--max-age-seconds=900"
@@ -27,24 +27,24 @@
       "problemMatcher": []
     },
     {
-      "label": "bot: what needs a push",
+      "label": "central-command: what needs a push",
       "type": "shell",
       "command": "/Users/jay.quach/.nvm/versions/node/v24.18.0/bin/node",
       "args": [
         "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
-        "${workspaceFolder}/bin/bot.ts",
+        "${workspaceFolder}/bin/cc.ts",
         "stalls"
       ],
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": []
     },
     {
-      "label": "bot: dashboard",
+      "label": "central-command: dashboard",
       "type": "shell",
       "command": "/Users/jay.quach/.nvm/versions/node/v24.18.0/bin/node",
       "args": [
         "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
-        "${workspaceFolder}/bin/bot.ts",
+        "${workspaceFolder}/bin/cc.ts",
         "serve"
       ],
       "isBackground": true,

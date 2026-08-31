@@ -1,4 +1,4 @@
-# AGENTS.md — bot
+# AGENTS.md — central-command
 
 > Project layer. This file states **what is true here**. The shared layer
 > (`web-storefront-copilot-config`) states **how to work** and must never assert a version,
@@ -16,15 +16,15 @@ anything by default. The design document is [DESIGN.md](DESIGN.md).
 
 ## Current Status — read this before assuming anything exists
 
-The POC is built and works against live data. `bot sync` mirrors Jira, GitHub and local
-branches; `bot stalls` and the dashboard report what has stopped moving; `bot serve` offers
-Merge and Resolve buttons behind the guards; `bot mcp` answers questions in Chat, read-only.
+The POC is built and works against live data. `cc sync` mirrors Jira, GitHub and local
+branches; `cc stalls` and the dashboard report what has stopped moving; `cc serve` offers
+Merge and Resolve buttons behind the guards; `cc mcp` answers questions in Chat, read-only.
 
 What is **not** built: `launchd` scheduling, the chat handoff, notifications, and pre-approval
 rules with expiry and rate limits. Nothing runs unattended yet — every mutation today needs a
 button press.
 
-Sequencing lives in [agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
+Sequencing lives in [agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md](agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md).
 
 ## Commands
 
@@ -42,15 +42,15 @@ Sequencing lives in [agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md](age
 **`npm run verify` is the gate.** Run it before claiming anything is done, and paste the real
 output rather than summarizing it.
 
-### Running the bot
+### Running it
 
 | Task | Command |
 | --- | --- |
-| Check credentials and connectivity | `npm run bot -- doctor` |
-| Refresh the mirror | `npm run bot -- sync all` |
-| What has stopped moving | `npm run bot -- stalls` (add `--all` to lift the per-group cap) |
-| Dashboard | `npm run bot -- serve` → http://127.0.0.1:4747 |
-| MCP server (stdio) | `npm run bot -- mcp` |
+| Check credentials and connectivity | `npm run cc -- doctor` |
+| Refresh the mirror | `npm run cc -- sync all` |
+| What has stopped moving | `npm run cc -- stalls` (add `--all` to lift the per-group cap) |
+| Dashboard | `npm run cc -- serve` → http://127.0.0.1:4747 |
+| MCP server (stdio) | `npm run cc -- mcp` |
 
 The guards are plain `node` scripts with no dependencies and read `ai-guard.config.json` from
 the repo root — an absent config is a hard error by design ("an unconfigured guard is a guard
@@ -75,13 +75,13 @@ that lies").
 | Verified-fact ledger | `STACK.md` |
 | Glossary | `CONTEXT.md` |
 | Guard policy | `ai-guard.config.json` |
-| Roadmap | `agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md` |
+| Roadmap | `agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md` |
 | AI document root | `agent-docs/` |
 | Shared Copilot config | `.copilot-config/` (submodule) |
 | Chat discovery paths | `.vscode/settings.json` |
 | MCP server registration | `.vscode/mcp.json` |
 | Folder-open sync task | `.vscode/tasks.json` |
-| How Chat should use the bot | `.github/instructions/bot.instructions.md` |
+| How Chat should use it | `.github/instructions/central-command.instructions.md` |
 
 ### Copilot config integration
 
@@ -149,8 +149,8 @@ These are the invariants from DESIGN.md §19, restated as absolutes.
   into exactly one catch-up run, never a replay burst.
 - **The queue is a query, not a table.** Never introduce a second structure holding rows that
   already exist in `actions`.
-- **The bot never invokes a language model.** No phase may add one. Judgment work is prepared
-  by the bot as a `chat:handoff` and initiated by a human in VS Code Chat.
+- **It never invokes a language model.** No phase may add one. Judgment work is prepared
+  as a `chat:handoff` and initiated by a human in VS Code Chat.
 
 ## Grounding — the expensive failures in this repo
 
@@ -182,8 +182,12 @@ That is `customizations → arch → quality → typecheck → test`, in that or
 
 ## Git
 
-- Never commit to `main`. Current working branch: `feature/bot-poc-scaffold`.
-- Run `git rev-parse --abbrev-ref HEAD` before every commit.
-- Every PR carries a Jira link (`https://jira.corp.clover.com/browse/WS-XXXX`) and the ticket
-  is assigned to `jay.quach`.
-- Use `gh` for PRs. Remote protocol is SSH.
+**This repository is local only. There is no remote, and there are no pull requests.**
+Do not add one, do not run `git push`, and do not open a PR or a Jira ticket for work done
+here — the ticket-and-PR discipline that governs the storefront repositories does not apply
+to a repository nobody else can see.
+
+- Current working branch: `feature/central-command`. There is no `main`.
+- Run `git rev-parse --abbrev-ref HEAD` before every commit anyway; the habit is what keeps
+  it true in the repositories where it matters.
+- Commit messages still carry the reasoning. They are the only review this code gets.

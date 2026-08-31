@@ -1,13 +1,13 @@
-# `bot` — Personal Work Automation Runner
+# `central-command` — Personal Work Automation Runner
 
-**Design document.** This is the canonical description of what `bot` is and why it is built
+**Design document.** This is the canonical description of what `central-command` is and why it is built
 this way. Phase-by-phase delivery lives in
-[the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md).
+[the roadmap](agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md).
 
 - **Date:** 2026-08-28
 - **Status:** Draft, awaiting review
 - **Author:** jay.quach (with GitHub Copilot)
-- **Branch:** `feature/bot-poc-scaffold`
+- **Branch:** `feature/central-command`
 
 ---
 
@@ -32,7 +32,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 |---|---|---|
 | Copilot CLI | Installed (`1.0.81`, at `~/.nvm/versions/node/v24.18.0/bin/copilot`) but **BLOCKED and unusable** — every non-interactive run returns `Error: Access denied by policy settings`. Org policy; not ours to change. See §13. | `copilot -p … --allow-all-tools` |
 | Other agent CLIs | **None installed** — `claude`, `codex`, `aider`, `cursor-agent`, `gemini`, `ollama`, `llm` all absent | `command -v <name>` |
-| Headless LLM access | **None, in any phase.** The bot cannot invoke a model unattended. Judgment work is handed off to VS Code Chat and initiated by a human (§13). | derived from the two rows above |
+| Headless LLM access | **None, in any phase.** It cannot invoke a model unattended. Judgment work is handed off to VS Code Chat and initiated by a human (§13). | derived from the two rows above |
 | Node | `v24.18.0` | `node --version` |
 | `node:sqlite` | Available with **no experimental flag and no warning**; exports `DatabaseSync`, `StatementSync`, `Session`, `constants`, `backup` | `node -e "require('node:sqlite')"` |
 | Bundled SQLite | `3.53.1`, with **FTS5** and **json1** compiled in | `SELECT sqlite_version()`; `CREATE VIRTUAL TABLE … USING fts5`; `json_extract` |
@@ -52,7 +52,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 - Whether `gh pr list --author @me` supports the required `--json` fields on GHE 
   `github.corp.clover.com`; GHE field availability lags github.com.
 - The `read:org` / missing `write:org` scope means org-level writes will fail. Any task
-  needing them must fail loudly in `bot doctor`, not at 3am in a cron run.
+  needing them must fail loudly in `cc doctor`, not at 3am in a cron run.
 
 ## 3. Scope
 
@@ -64,7 +64,7 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 4. Pre-approval policy engine with a catalog of candidate rules, **all disabled by default**
 5. Local dashboard: observe, approve, trigger runs
 6. launchd hourly agent
-7. `bot doctor` preflight
+7. `cc doctor` preflight
 
 **Delivered as of 2026-09-01: 1, 2, 3, 5 and 7, plus an executor and a read-only MCP server.**
 4 and 6 are not built — see the roadmap. Item 5 is server-rendered rather than an SPA (§5).
@@ -103,8 +103,8 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 > the divergences from the original sketch are noted underneath.
 
 ```
-bot/
-  bin/bot.ts                    # doctor | sync | stalls | serve | mcp
+central-command/
+  bin/cc.ts                     # doctor | sync | stalls | serve | mcp
   src/
     core/                       # L0 — pure. No vendor package, no Node builtin, not even a clock.
       clock.ts
@@ -130,7 +130,7 @@ bot/
   dashboard/                    # L5 — binds 127.0.0.1, server-rendered
     server.ts  html.ts  actions.ts  pages/
   tests/                        # not a source root; the guards do not scan it
-  data/                         # gitignored — bot.db plus WAL and SHM sidecars
+  data/                         # gitignored — central-command.db plus WAL and SHM sidecars
 ```
 
 **Divergences from the original sketch, and why:**
@@ -226,7 +226,7 @@ Default is always `QUEUE`. Absence of a rule can never mean permission.
 - `--force` / `--force-with-lease`
 - `--no-verify`
 - `git reset --hard`, branch deletion, `rm -rf`
-- committing on a branch the bot did not create
+- committing on a branch it did not create
 - opening a PR whose body contains no Jira link
 - auto-applying the *outcome* of a `chat:handoff` — the executor may only prepare a handoff,
   never perform the judgment work itself, and never mark one applied on the agent's behalf
@@ -250,12 +250,12 @@ The third is the important one: the allowlist grows from actions you have actual
 | Comment staleness nudge on my own tickets | `jira:comment` | 5/run, 20/day | Visible to others — noise risk |
 | Move my ticket To Do → In Progress when a matching branch exists | `jira:transition` | 3/day | Depends on branch naming `feature/WS-1234-*` |
 | Create branch from ticket key | `git:branch-create` | 3/day | Local only, no push |
-| Push a branch the bot itself created | `git:push` | 1/run | Recommend keeping queued indefinitely |
+| Push a branch it created itself | `git:push` | 1/run | Recommend keeping queued indefinitely |
 | Open draft PR with Jira link | `github:pr-create` | 1/day | Recommend keeping queued |
 
 ## 8. Storage
 
-A single SQLite database at `data/bot.db`, accessed through the built-in `node:sqlite`
+A single SQLite database at `data/central-command.db`, accessed through the built-in `node:sqlite`
 module. No external dependency, no native build step.
 
 **Why SQLite over append-only JSONL:** the audit requirement (§11) is a *query* requirement —
@@ -314,11 +314,11 @@ Retention is configured **per table**, not globally, because these have differen
 | `logs` | **30 days** | Debugging aid; high volume; loses value quickly |
 | `runs`, `schedule_slots` | **30 days** | Operational history |
 | `actions` — proposed / rejected / queued | **30 days** | High volume, superseded once resolved |
-| `actions` — **applied mutations** | **365 days** | The record of what the bot *changed*. See below. |
+| `actions` — **applied mutations** | **365 days** | The record of what was *changed*. See below. |
 | `rules`, `rule_history`, `config` | **never pruned** | Tiny, and they explain every past decision |
 
 **Recommendation, flagged for explicit decision:** pruning applied mutations at 30 days would
-destroy the answer to "did the bot do this, and under what authority?" for anything older
+destroy the answer to "did this system do it, and under what authority?" for anything older
 than a month. That is the one question an audit trail exists to answer. Applied mutations are
 also extremely low volume — a handful per day at most — so retaining them for a year costs
 almost nothing, while the high-volume data that motivated SQLite (`logs`) *is* pruned at 30
@@ -337,7 +337,7 @@ Driven by the actual dashboard queries, not guessed: `actions(created_at)`,
 
 ### Escape hatch
 
-`bot export` dumps `config`, `rules`, and applied actions to JSON. This preserves the one
+`cc export` dumps `config`, `rules`, and applied actions to JSON. This preserves the one
 real advantage JSONL had — human-readable, diffable, backup-able state — without paying its
 query cost. Config and rules live in the database rather than in a hand-edited file so that
 edits are transactional and every change is captured in `rule_history`.
@@ -345,11 +345,11 @@ edits are transactional and every change is captured in `rule_history`.
 ## 9. Commands and CLI
 
 ```bash
-npm run bot -- doctor           # credentials and connectivity
-npm run bot -- sync all         # refresh the mirror (--max-age-seconds to skip a recent one)
-npm run bot -- stalls           # what has stopped moving (--all lifts the per-group cap)
-npm run bot -- serve            # dashboard on http://127.0.0.1:4747
-npm run bot -- mcp              # read-only MCP server over stdio
+npm run cc -- doctor           # credentials and connectivity
+npm run cc -- sync all         # refresh the mirror (--max-age-seconds to skip a recent one)
+npm run cc -- stalls           # what has stopped moving (--all lifts the per-group cap)
+npm run cc -- serve            # dashboard on http://127.0.0.1:4747
+npm run cc -- mcp              # read-only MCP server over stdio
 ```
 
 Nothing mutates from the CLI. `sync` and `stalls` read; `serve` mutates only when a button is
@@ -357,7 +357,7 @@ pressed, and only after the guards in `src/core/policy/preflight.ts` re-read liv
 decline to refuse. `--apply` does not exist and should not be added — a flag that authorizes
 every pending action at once is exactly the blast radius this design avoids.
 
-`bot doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, the database opens and its migrations are current. Exits non-zero on any failure.
+`cc doctor` verifies: `JIRA_DC_TOKEN` present, Jira reachable, `gh auth status` healthy for `github.corp.clover.com`, every configured repo path exists and is a git repo, `data/` writable, the database opens and its migrations are current. Exits non-zero on any failure.
 
 ## 10. What the mirror answers
 
@@ -394,7 +394,7 @@ separately, because they need a nudge rather than work.
 These two requirements are reconciled by making **the `config` table the single source of
 truth** and the dashboard merely an editor of it. Writes are transactional and
 schema-validated before commit; the scheduled run re-reads config at the start of every fire.
-The bot therefore runs correctly whether the dashboard has ever been opened, is running, or
+It therefore runs correctly whether the dashboard has ever been opened, is running, or
 has crashed. The dashboard is a control panel, never a dependency.
 
 Settings that must be dashboard-editable: per-job enable/disable, schedule and quiet hours,
@@ -417,7 +417,7 @@ filter to **applied mutations only**; full-text search over target and summary v
 (verified available, §2); and per-entry drill-down showing the exact payload sent, the
 authorizing rule, the run that produced it, and the outcome.
 
-Two pivots matter most in practice and should be first-class: **"what did the bot actually
+Two pivots matter most in practice and should be first-class: **"what did it actually
 change today"** and **"show me everything rule X ever authorized"** — the latter is what you
 need when deciding whether to revoke a pre-approval.
 
@@ -440,9 +440,9 @@ per waking hour (07:00–22:00)**. This delivers quiet hours structurally rather
 running and then deciding to do nothing.
 
 `RunAtLoad` stays false so installing the agent does not immediately fire. stdout/stderr to
-`~/Library/Logs/bot/`. Because launchd runs with a minimal environment, the agent must source
+`~/Library/Logs/central-command/`. Because launchd runs with a minimal environment, the agent must source
 credentials explicitly rather than assuming an interactive shell profile — a common and
-silent failure mode, and something `bot doctor` must be able to check *from inside* the agent
+silent failure mode, and something `cc doctor` must be able to check *from inside* the agent
 context, not just from a terminal.
 
 ### Do not rely on launchd alone for recovery
@@ -482,7 +482,7 @@ Error: Access denied by policy settings (Request ID: 5A74:32B222:30F7C3:36D5A4:6
 ```
 
 The entitlement exists in VS Code Chat but not on the CLI surface, and the policy is not ours
-to grant. No alternative agent CLI is installed either. So the bot has **no headless path to a
+to grant. No alternative agent CLI is installed either. So there is **no headless path to a
 language model, in any phase.** Any design that assumes one is wrong.
 
 This is a constraint, not a loss. It splits the "act" tier along a line that was always the
@@ -508,13 +508,13 @@ who applies it:
    facts it already gathered.
 2. On approval the executor performs only the **deterministic prep** — create the isolated
    `git worktree`, then write a briefing to `data/handoffs/<action-id>.md` containing
-   everything the agent needs, so the agent never re-fetches what the bot already knows.
+   everything the agent needs, so the agent never re-fetches what is already known.
 3. The action moves to resolution `awaiting-human`. The digest and the dashboard surface it
    as a copy-pasteable chat invocation.
 4. You open Chat and run the agent. **This step is manual by construction — that is the
    entire point of the model, not a workaround for the policy block.**
 5. The agent's mandatory closing step is
-   `npm run bot -- record-outcome --action <id> --status applied|abandoned --notes "…"`,
+   `npm run cc -- record-outcome --action <id> --status applied|abandoned --notes "…"`,
    which writes the result back into `actions`.
 
 Step 5 is the load-bearing one. Without it, work performed in Chat is invisible to the
@@ -525,7 +525,7 @@ happened. An agent that cannot run that command must not be given the handoff.
 
 `.github/agents/*.agent.md` in this repo. That directory is already a configured discovery
 target (`chat.promptFilesLocations` in `.vscode/settings.json`), so adding agents requires no
-submodule bump. They are bot-specific and must **not** go in `.copilot-config/agents/`, which
+submodule bump. They are specific to this repository and must **not** go in `.copilot-config/agents/`, which
 is shared across the storefront repos.
 
 Each agent stays narrow and reads its briefing file rather than rediscovering context —
@@ -549,7 +549,7 @@ now only ever perform mutations that were enumerable in advance.
 ## 15. Milestones
 
 Superseded by the phased roadmap in §18 and
-[the roadmap document](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md). An earlier
+[the roadmap document](agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md). An earlier
 M1–M8 list lived here and had drifted out of step with the roadmap's ordering; keeping two
 sequencing plans in one document guarantees one of them is wrong.
 
@@ -558,7 +558,7 @@ sequencing plans in one document guarantees one of them is wrong.
 | Risk | Mitigation |
 |---|---|
 | Jira DC API shape differs from assumptions | Verify live before parsing; fixtures from real responses |
-| Missing `write:org` scope breaks a future task | `bot doctor` checks scopes explicitly |
+| Missing `write:org` scope breaks a future task | `cc doctor` checks scopes explicitly |
 | launchd minimal env lacks credentials | Explicit credential sourcing; `doctor` run inside the agent |
 | Pre-approval creeps into de facto full autonomy | Mandatory expiry + rate limits + audit provenance |
 | Loopback dashboard later exposed remotely | Documented as a hard precondition; bind address asserted in code |
@@ -582,7 +582,7 @@ Resolved:
 
 ## 18. Roadmap
 
-Full detail in [the roadmap](agent-docs/superpowers/plans/2026-08-28-bot-roadmap.md), which
+Full detail in [the roadmap](agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md), which
 is the current source of truth for sequencing. The original P0–P10 table is superseded.
 
 | # | Phase | Delivers | State |
@@ -592,7 +592,7 @@ is the current source of truth for sequencing. The original P0–P10 table is su
 | R2 | Store | Mirror schema, migrations, WAL, FTS5 | Done |
 | R3 | Connectors & `doctor` | Jira, GitHub via `gh`, git, config | Done |
 | R4 | Sync engine | Mirror, events, issue↔PR correlation | Done |
-| R5 | Stall engine | The eighteen rules, plus `bot stalls` | Done |
+| R5 | Stall engine | The eighteen rules, plus `cc stalls` | Done |
 | R6 | Dashboard | Read-only control surface, hardened | Done |
 | R7 | Executor | Merge and resolve, guarded, audited | Done |
 | R8 | Triggers | Read-only MCP server, folder-open sync | Done |
@@ -618,7 +618,7 @@ These hold in every phase. A change that violates one is a bug regardless of wha
 6. `src/core/` imports no vendor package, no connector, and no Node builtin.
 7. The dashboard is a control panel, never a runtime dependency.
 8. Repository facts (endpoints, fields, flags) are verified against the live system or a fixture before code depends on them.
-9. **The bot never invokes a language model.** There is no headless path to one (§13), and no phase may introduce one. Judgment work is prepared by the bot and initiated by a human in Chat.
+9. **It never invokes a language model.** There is no headless path to one (§13), and no phase may introduce one. Judgment work is prepared here and initiated by a human in Chat.
 10. A `chat:handoff` is never resolved by the executor. It stays `awaiting-human` until the agent reports its own outcome back into `actions`.
 11. **Guards re-read live state, never the mirror.** The mirror can be an hour old and a
     reviewer may have objected in that hour.

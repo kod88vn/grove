@@ -1,4 +1,4 @@
-import type { BotConfig } from '../config/config.ts';
+import type { Config } from '../config/config.ts';
 import { systemClock } from '../config/config.ts';
 import type { Stall } from '../core/model/stall.ts';
 import { detect } from '../stalls/detect.ts';
@@ -37,14 +37,14 @@ const FIND_SCHEMA = {
   required: ['query'],
 };
 
-export function tools(db: Database, config: BotConfig): Tool[] {
+export function tools(db: Database, config: Config): Tool[] {
   return [statusTool(db, config), findTool(db, config)];
 }
 
-function statusTool(db: Database, config: BotConfig): Tool {
+function statusTool(db: Database, config: Config): Tool {
   return {
     definition: {
-      name: 'bot_status',
+      name: 'cc_status',
       title: 'What needs a push',
       description:
         'What has stopped moving across my Jira tickets, pull requests and branches, with ' +
@@ -56,7 +56,7 @@ function statusTool(db: Database, config: BotConfig): Tool {
   };
 }
 
-function status(db: Database, config: BotConfig, owner: string): string {
+function status(db: Database, config: Config, owner: string): string {
   const stalls = detect(snapshotFor(db, config), systemClock(), config.thresholds);
   const wanted = owner === 'all' ? stalls : stalls.filter((stall) => stall.owner === owner);
   if (wanted.length === 0) {
@@ -89,10 +89,10 @@ function subject(stall: Stall): string {
   }
 }
 
-function findTool(db: Database, config: BotConfig): Tool {
+function findTool(db: Database, config: Config): Tool {
   return {
     definition: {
-      name: 'bot_find',
+      name: 'cc_find',
       title: 'Find a ticket or pull request',
       description:
         'Search my mirrored Jira tickets and pull requests by text, issue key or repo. Use ' +
@@ -103,7 +103,7 @@ function findTool(db: Database, config: BotConfig): Tool {
   };
 }
 
-function find(db: Database, config: BotConfig, query: string): string {
+function find(db: Database, config: Config, query: string): string {
   const needle = query.trim().toLowerCase();
   if (needle === '') {
     return 'Give me something to search for.';
@@ -133,7 +133,7 @@ function matches(needle: string, ...fields: readonly string[]): boolean {
   return fields.some((field) => field.toLowerCase().includes(needle));
 }
 
-function snapshotFor(db: Database, config: BotConfig): ReturnType<typeof readSnapshot> {
+function snapshotFor(db: Database, config: Config): ReturnType<typeof readSnapshot> {
   return readSnapshot(db, { jira: config.jira.me, github: config.github.me });
 }
 

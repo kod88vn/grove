@@ -89,7 +89,8 @@ function toRun(row: RunRow): SyncRun {
  * sync — which is the bug this table exists to prevent.
  *
  * An expired lease is stolen rather than respected: the usual reason a lease outlives its holder
- * is that the holder was killed, and a crashed process must not lock the bot out forever.
+ * is that the holder was killed, and a crashed process must not lock every later run out
+ * forever.
  */
 export function acquireLease(
   db: DatabaseSync,

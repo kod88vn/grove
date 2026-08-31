@@ -167,7 +167,7 @@ export class JiraClient {
     });
   }
 
-  /** Whoever the token belongs to. Used by `bot doctor` to prove the token works. */
+  /** Whoever the token belongs to. Used by `cc doctor` to prove the token works. */
   async myself(): Promise<{ name: string; displayName: string }> {
     const raw = await jiraRequest<{ name?: string; displayName?: string }>(this.credentials, {
       method: 'GET',

@@ -59,7 +59,7 @@ export function readRecentEvents(db: DatabaseSync, limit = 100): BotEvent[] {
  * Mark a subject as read.
  *
  * Absence of a row means unseen, so anything new is unseen without needing a write. This is
- * the only per-subject state the bot owns that a re-sync must not touch.
+ * the only per-subject state owned locally that a re-sync must not touch.
  */
 export function markSeen(
   db: DatabaseSync,

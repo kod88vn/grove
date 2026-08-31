@@ -21,7 +21,7 @@ export interface WatchedRepo {
   readonly path: string | null;
 }
 
-export interface BotConfig {
+export interface Config {
   readonly jira: {
     readonly baseUrl: string;
     readonly token: string;
@@ -58,7 +58,7 @@ const DEFAULT_REPOS = [
  * Build configuration from the environment.
  *
  * The token is the only value with no default. Everything else falls back to the verified
- * values for this machine so that `bot` runs with no setup, while an override stays possible
+ * values for this machine so that `cc` runs with no setup, while an override stays possible
  * for a second board or a different checkout root.
  *
  * `requireToken: false` is for the read-only paths. The MCP server and the dashboard's read
@@ -69,29 +69,29 @@ const DEFAULT_REPOS = [
 export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
   requireToken = true,
-): BotConfig {
+): Config {
   const token = env['JIRA_DC_TOKEN'] ?? '';
   if (requireToken && token === '') {
     throw new ConfigError(
-      'JIRA_DC_TOKEN is not set. Export it in your shell profile; the bot never stores it.',
+      'JIRA_DC_TOKEN is not set. Export it in your shell profile; it is never stored.',
     );
   }
 
-  const checkoutRoot = env['BOT_CHECKOUT_ROOT'] ?? join(homedir(), 'dev');
+  const checkoutRoot = env['CC_CHECKOUT_ROOT'] ?? join(homedir(), 'dev');
 
   return {
     jira: {
-      baseUrl: env['BOT_JIRA_URL'] ?? 'https://jira.corp.clover.com',
+      baseUrl: env['CC_JIRA_URL'] ?? 'https://jira.corp.clover.com',
       token,
-      boardId: intFromEnv(env['BOT_JIRA_BOARD'], 1386),
-      projectKeys: (env['BOT_JIRA_PROJECTS'] ?? 'WS').split(',').map((key) => key.trim()),
-      me: env['BOT_JIRA_USER'] ?? 'jay.quach',
+      boardId: intFromEnv(env['CC_JIRA_BOARD'], 1386),
+      projectKeys: (env['CC_JIRA_PROJECTS'] ?? 'WS').split(',').map((key) => key.trim()),
+      me: env['CC_JIRA_USER'] ?? 'jay.quach',
     },
     github: {
-      me: env['BOT_GITHUB_USER'] ?? 'jay-quach',
+      me: env['CC_GITHUB_USER'] ?? 'jay-quach',
     },
-    repos: watchedRepos(env['BOT_REPOS'], checkoutRoot),
-    databasePath: env['BOT_DB'] ?? resolve(process.cwd(), 'data/bot.db'),
+    repos: watchedRepos(env['CC_REPOS'], checkoutRoot),
+    databasePath: env['CC_DB'] ?? resolve(process.cwd(), 'data/central-command.db'),
     thresholds: DEFAULT_THRESHOLDS,
   };
 }

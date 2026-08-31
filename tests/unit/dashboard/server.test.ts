@@ -9,16 +9,16 @@ import { DEFAULT_THRESHOLDS } from '../../../src/core/model/stall.ts';
 import { createDashboard } from '../../../dashboard/server.ts';
 import { openDatabase } from '../../../src/store/database.ts';
 import { upsertIssue } from '../../../src/store/repositories/issues.ts';
-import type { BotConfig } from '../../../src/config/config.ts';
+import type { Config } from '../../../src/config/config.ts';
 import type { Issue } from '../../../src/core/model/issue.ts';
 
 /** A ticket summary containing markup, which is what a real Jira summary is free to contain. */
 const HOSTILE_SUMMARY = '<script>alert(1)</script> & "quoted"';
 
-const directory = mkdtempSync(join(tmpdir(), 'bot-dashboard-'));
+const directory = mkdtempSync(join(tmpdir(), 'cc-dashboard-'));
 const databasePath = join(directory, 'test.db');
 
-const config: BotConfig = {
+const config: Config = {
   jira: {
     baseUrl: 'https://jira.example.invalid',
     token: 'unused',

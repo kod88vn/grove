@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | Node version | `v24.18.0` | 2026-08-28 | `node --version` |
 | Node install path | `~/.nvm/versions/node/v24.18.0/bin` | 2026-08-28 | `which copilot` |
-| Package manager | **none yet** — no `package.json` exists; P0 creates it | 2026-08-28 | `ls /Users/jay.quach/dev/bot` |
+| Package manager | npm; `package.json` is `central-command`, private, zero runtime dependencies | 2026-08-31 | `package.json` |
 
 ## Database
 
@@ -68,7 +68,7 @@ been observed to do anything. Retained only so a future re-test knows what to tr
 | Agent discovery paths | `.copilot-config/agents`, `.github/agents` (both under `chat.promptFilesLocations`) | 2026-08-28 | `.vscode/settings.json` |
 | Skill discovery path | `.copilot-config/skills` | 2026-08-28 | `.vscode/settings.json` |
 | Instruction discovery paths | `.copilot-config/instructions`, `.github/instructions` | 2026-08-28 | `.vscode/settings.json` |
-| `.github/` | Exists: `.github/instructions/bot.instructions.md`, telling Chat how to use the MCP server | 2026-09-01 | `ls .github/instructions` |
+| `.github/` | Exists: `.github/instructions/central-command.instructions.md`, telling Chat how to use the MCP server | 2026-08-31 | `ls .github/instructions` |
 | Shared agents present | 8: `builder`, `code-reviewer`, `docs-researcher`, `milestone-verifier`, `planner`, `reviewer`, `spec-lookup`, `validator` | 2026-08-28 | `ls .copilot-config/agents/` |
 
 ## Scheduling — VS Code tasks (launchd removed)
@@ -132,8 +132,8 @@ The site states the latest revision is **`2026-07-28`**.
 | `tools/call` result | `{content: [{type:'text', text}], isError}` | spec, tools |
 | Notifications | Have no `id` and **must not be answered** | spec, lifecycle |
 | Error codes used | `-32700` parse, `-32601` method not found, `-32602` invalid params / unknown tool | spec |
-| Live handshake | `initialize` → `notifications/initialized` → `tools/list` → `tools/call` all correct against `bot mcp`; `2026-07-28` echoed back; the notification correctly unanswered | live probe |
-| VS Code registration | `.vscode/mcp.json`, `{"servers":{"bot":{"type":"stdio","command":…,"args":…}}}` | `.vscode/mcp.json` |
+| Live handshake | `initialize` → `notifications/initialized` → `tools/list` → `tools/call` all correct against `cc mcp`; `2026-07-28` echoed back; the notification correctly unanswered | live probe |
+| VS Code registration | `.vscode/mcp.json`, `{"servers":{"central-command":{"type":"stdio","command":…,"args":…}}}` | `.vscode/mcp.json` |
 | Spawn shell | Same non-login constraint as tasks — absolute node path required | derived; see Scheduling above |
 
 ## NOT YET VERIFIED — do not state these as fact

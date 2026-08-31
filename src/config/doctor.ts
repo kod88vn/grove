@@ -5,7 +5,7 @@ import { currentBranch } from '../connectors/git.ts';
 import { openDatabase } from '../store/database.ts';
 import { currentVersion } from '../store/database.ts';
 import { latestVersion } from '../store/migrations/index.ts';
-import { loadConfig, ConfigError, type BotConfig } from './config.ts';
+import { loadConfig, ConfigError, type Config } from './config.ts';
 
 export interface CheckResult {
   readonly name: string;
@@ -23,7 +23,7 @@ export interface CheckResult {
 export async function doctor(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
 
-  let config: BotConfig;
+  let config: Config;
   try {
     config = loadConfig();
     results.push({ name: 'config', ok: true, detail: `board ${config.jira.boardId}, ${config.repos.length} repos` });
@@ -39,7 +39,7 @@ export async function doctor(): Promise<CheckResult[]> {
   return results;
 }
 
-async function checkJira(config: BotConfig): Promise<CheckResult> {
+async function checkJira(config: Config): Promise<CheckResult> {
   const client = new JiraClient(
     { baseUrl: config.jira.baseUrl, token: config.jira.token },
     config.jira.boardId,
@@ -59,7 +59,7 @@ async function checkJira(config: BotConfig): Promise<CheckResult> {
   }
 }
 
-async function checkGitHub(config: BotConfig): Promise<CheckResult> {
+async function checkGitHub(config: Config): Promise<CheckResult> {
   const client = new GitHubClient({ me: config.github.me, projectKeys: config.jira.projectKeys });
   try {
     await client.authStatus();
@@ -80,7 +80,7 @@ async function checkGitHub(config: BotConfig): Promise<CheckResult> {
   }
 }
 
-function checkDatabase(config: BotConfig): CheckResult {
+function checkDatabase(config: Config): CheckResult {
   try {
     const db = openDatabase({ path: config.databasePath });
     const version = currentVersion(db);
@@ -96,7 +96,7 @@ function checkDatabase(config: BotConfig): CheckResult {
   }
 }
 
-async function checkRepos(config: BotConfig): Promise<CheckResult[]> {
+async function checkRepos(config: Config): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   for (const repo of config.repos) {
     if (repo.path === null || !existsSync(repo.path)) {

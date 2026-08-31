@@ -8,7 +8,7 @@ import { handleMessage, SUPPORTED_VERSIONS, type ServerInfo, type Tool } from '.
  * notification makes the client disconnect with a parse error that says nothing about why.
  */
 
-const INFO: ServerInfo = { name: 'bot', version: '0.1.0' };
+const INFO: ServerInfo = { name: 'central-command', version: '0.1.0' };
 
 const echo: Tool = {
   definition: {

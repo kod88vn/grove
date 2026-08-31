@@ -9,7 +9,7 @@ import { createDashboard } from '../../../dashboard/server.ts';
 import { CSRF_TOKEN, originAllowed } from '../../../dashboard/actions.ts';
 import { openDatabase } from '../../../src/store/database.ts';
 import { readRecentActions } from '../../../src/store/repositories/actions.ts';
-import type { BotConfig } from '../../../src/config/config.ts';
+import type { Config } from '../../../src/config/config.ts';
 
 /**
  * The write path.
@@ -19,10 +19,10 @@ import type { BotConfig } from '../../../src/config/config.ts';
  * network: every case is rejected before the executor would call a client.
  */
 
-const directory = mkdtempSync(join(tmpdir(), 'bot-actions-'));
+const directory = mkdtempSync(join(tmpdir(), 'cc-actions-'));
 const databasePath = join(directory, 'test.db');
 
-const config: BotConfig = {
+const config: Config = {
   jira: {
     baseUrl: 'https://jira.example.invalid',
     token: 'unused',

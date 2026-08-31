@@ -92,7 +92,7 @@ describe('sync lease', () => {
     database.close();
   });
 
-  it('steals an expired lease, so a killed process cannot lock the bot out forever', () => {
+  it('steals an expired lease, so a killed process cannot lock later runs out forever', () => {
     const database = db();
     acquireLease(database, 'pid:1', NOW, '2026-08-31T12:00:01.000Z');
     expect(acquireLease(database, 'pid:2', '2026-08-31T12:30:00.000Z', later)).toBe(true);

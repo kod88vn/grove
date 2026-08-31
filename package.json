@@ -1,5 +1,5 @@
 {
-  "name": "bot",
+  "name": "central-command",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "customizations": "node .copilot-config/scripts/validate-customizations.mjs \"$PWD\"",
     "guards": "npm run customizations && npm run arch && npm run quality",
     "verify": "npm run guards && npm run typecheck && npm run test",
-    "bot": "tsx bin/bot.ts"
+    "cc": "tsx bin/cc.ts"
   },
   "devDependencies": {
     "@types/node": "26.4.0",

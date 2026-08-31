@@ -12,7 +12,7 @@ import { tools } from './tools.ts';
  * which the client shows in its output panel.
  */
 
-const INFO: ServerInfo = { name: 'bot', version: '0.1.0' };
+const INFO: ServerInfo = { name: 'central-command', version: '0.1.0' };
 const PARSE_ERROR = -32700;
 
 export function serveMcp(): void {
@@ -32,7 +32,7 @@ export function serveMcp(): void {
   lines.on('close', () => {
     db.close();
   });
-  process.stderr.write(`bot mcp ready, mirror at ${config.databasePath}\n`);
+  process.stderr.write(`central-command mcp ready, mirror at ${config.databasePath}\n`);
 }
 
 function respond(line: string, available: ReturnType<typeof tools>): void {

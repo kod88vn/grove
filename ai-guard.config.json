@@ -1,5 +1,5 @@
 {
-  "//": "Guard policy for the bot repo. Logic lives in web-storefront-copilot-config/scripts; the rules live here.",
+  "//": "Guard policy for the central-command repo. Logic lives in web-storefront-copilot-config/scripts; the rules live here.",
   "//layers": "Dependencies point DOWNWARD ONLY: a layer may import equal or lower levels, never higher. Enforced by arch-check.mjs.",
   "layers": [
     {

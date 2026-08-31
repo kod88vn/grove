@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import type { BotConfig } from '../src/config/config.ts';
+import type { Config } from '../src/config/config.ts';
 import { systemClock } from '../src/config/config.ts';
 import { detect } from '../src/stalls/detect.ts';
 import { openDatabase, type Database } from '../src/store/database.ts';
@@ -26,7 +26,7 @@ const HOST = '127.0.0.1';
 const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export interface DashboardOptions {
-  readonly config: BotConfig;
+  readonly config: Config;
   readonly port: number;
 }
 
@@ -101,7 +101,7 @@ function handle(
   request: IncomingMessage,
   response: ServerResponse,
   db: Database,
-  config: BotConfig,
+  config: Config,
 ): void {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     send(response, 405, layout('Not allowed', '', '<h1>Method not allowed</h1>'));
@@ -126,7 +126,7 @@ function hostAllowed(header: string | undefined): boolean {
   return ALLOWED_HOSTS.has(name);
 }
 
-function render(path: string, db: Database, config: BotConfig): string | null {
+function render(path: string, db: Database, config: Config): string | null {
   const issueUrl = (key: string): string => `${config.jira.baseUrl}/browse/${key}`;
   const snapshot = readSnapshot(db, { jira: config.jira.me, github: config.github.me });
 

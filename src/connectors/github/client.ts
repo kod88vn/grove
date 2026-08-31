@@ -90,7 +90,7 @@ export class GitHubClient {
     );
   }
 
-  /** `gh auth status`, used by `bot doctor` to prove the CLI is usable before a sync runs. */
+  /** `gh auth status`, used by `cc doctor` to prove the CLI is usable before a sync runs. */
   async authStatus(): Promise<string> {
     return run('gh', ['auth', 'status'], this.options);
   }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
-import type { BotConfig } from '../src/config/config.ts';
+import type { Config } from '../src/config/config.ts';
 import { systemClock } from '../src/config/config.ts';
 import { GitHubClient } from '../src/connectors/github/client.ts';
 import { JiraClient } from '../src/connectors/jira/client.ts';
@@ -34,7 +34,7 @@ export interface ActionResult {
 export async function performAction(
   form: URLSearchParams,
   db: Database,
-  config: BotConfig,
+  config: Config,
 ): Promise<ActionResult> {
   if (form.get('token') !== CSRF_TOKEN) {
     return { ok: false, message: 'Stale or forged form: token does not match this process.' };
