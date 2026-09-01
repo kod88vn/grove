@@ -126,7 +126,7 @@ export function table(
   const head = (copyable ? copyHeaderCell() : '') + columns.map((column) => header(column, query)).join('');
   const body = groupedBody(ordered, columns.length + (copyable ? 1 : 0), groupIndex);
   const tools = groupControls(columns, query) + (copyable ? copyButton() : '');
-  const markup = `<div class="table-tools">${tools}</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  const markup = `<div class="table-tools">${tools}</div><div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   return copyable ? `<div class="copy-table">${markup}</div>` : markup;
 }
 
@@ -221,18 +221,19 @@ const STYLE = `
 * { box-sizing: border-box; }
 body { margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; }
 nav { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: .35rem .5rem;
-  padding: .7rem 2rem; border-bottom: 1px solid var(--edge); background: Canvas;
+  justify-content: center; padding: .7rem clamp(1rem, 4vw, 2rem); border-bottom: 1px solid var(--edge); background: Canvas;
   box-shadow: 0 2px 12px color-mix(in srgb, CanvasText 8%, transparent); }
 nav a { text-decoration: none; color: inherit; opacity: .6; }
 nav a { padding: .35rem .65rem; border-radius: 999px; }
 nav a.current, nav a:hover { opacity: 1; }
 nav a.current { background: color-mix(in srgb, currentColor 12%, transparent); }
-main { padding: 2rem; max-width: 72rem; }
+main { width: min(100%, 72rem); margin: 0 auto; padding: clamp(1.25rem, 4vw, 2rem); }
 h1 { font-size: 1.5rem; margin: 0 0 1.5rem; }
 h2 { font-size: 1rem; margin: 2rem 0 .75rem; font-weight: 600; }
 .count { opacity: .5; font-weight: 400; }
 .empty { opacity: .6; }
-table { border-collapse: collapse; width: 100%; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 36rem; }
 th { text-align: left; font-weight: 600; opacity: .6; padding: .4rem .75rem .4rem 0; }
 th a { color: inherit; }
 td { padding: .4rem .75rem .4rem 0; border-top: 1px solid var(--edge); vertical-align: top; }
@@ -269,4 +270,10 @@ td.pick, th.pick { width: 1.5rem; padding-right: .5rem; }
 .pill.current { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent);
   border-color: currentColor; font-weight: 600; }
 .pill .count { opacity: .6; }
+@media (max-width: 40rem) {
+  nav { justify-content: flex-start; }
+  h1 { font-size: 1.35rem; }
+  .card { padding: 1rem; }
+  .table-tools .copy { margin-left: 0; }
+}
 `;
