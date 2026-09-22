@@ -28,6 +28,7 @@ SPEC="path/to/spec.test.ts"   # RELATIVE to $REPO. Checksum-locked; must be RED 
 BASELINE=0                    # current passing test count. Must GROW, never shrink.
 MAX_ITER=4                    # agent turns you are willing to buy
 POLL_LIMIT=72                 # x5s = 6 min of polling per iteration
+WORKER="loop-worker"          # the cheap model does the grinding. See .github/agents/
 
 # The command whose exit code IS "done". If you cannot write one that exits
 # non-zero today, stop: you have a wish, not a loop. Sets RC and TOTAL.
@@ -39,24 +40,31 @@ verify() {
 }
 
 # Written for a stranger who has never seen the ticket. Numbered requirements,
-# file paths not adjectives, and the prohibitions stated explicitly.
+# file paths not adjectives. The prohibitions are NOT here on purpose — they live
+# in the worker agent, so every dispatch carries them and this briefing does not
+# spend the worker's context restating rules it already has.
 TASK="Ticket $TICKET in this repo.
 
 The acceptance criteria are already written as an executable spec: $SPEC
-Make that spec pass. Concretely it requires:
+It is the definition of done. Make it pass. Concretely it requires:
   1. <requirement, with the file path it touches>
   2. <requirement>
 Follow the patterns already used in <path to imitate>.
 
-DO NOT modify $SPEC — it is checksum-locked and editing it fails the run.
-Do not add suppression comments. Do not delete or weaken any existing test.
 Verify with: cd $REPO && ./node_modules/.bin/jest"
 # ------------------------------------------------------------ END CHANGE THESE
 
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
 OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
+AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER.agent.md"
 mkdir -p "$OUT"
+
+# If the agent file is missing, `code chat -m` silently falls back to the default
+# agent on whatever model the window last used. The loop still runs; it just costs
+# what it was built not to cost. Fail loudly instead.
+[ -f "$AGENT" ] || { echo "ABORT — no agent file at $AGENT"; exit 1; }
+MODEL=$(grep -m1 '^model:' "$AGENT")
 
 echo "============================================================"
 echo " $TICKET  |  $REPO"
@@ -64,6 +72,7 @@ echo " branch  : $(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
 echo " spec    : $SPEC"
 echo " baseline: $BASELINE tests must grow"
 echo " budget  : $MAX_ITER iterations"
+echo " worker  : $WORKER — $MODEL"
 echo "============================================================"
 
 echo "--- iteration 0: confirm the work is genuinely undone ---"
@@ -86,8 +95,8 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
 
   "$CODE" "$REPO" >/dev/null 2>&1        # ensure a window on the target repo
   sleep 6
-  echo "dispatching agent turn..."
-  "$CODE" chat -m agent -r "$TASK
+  echo "dispatching $WORKER..."
+  "$CODE" chat -m "$WORKER" -r "$TASK
 
 Current verifier output:
 $FAILURES" > "$OUT/cli-$ITER.out" 2>&1

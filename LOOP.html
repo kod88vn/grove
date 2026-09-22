@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop engineering — how a ticket finishes itself</title>
+<style>
+  :root {
+    --ink: #17181c;
+    --muted: #5b6270;
+    --line: #dfe3ea;
+    --bg: #fbfbfd;
+    --card: #fff;
+    --accent: #2c5fd6;
+    --good: #0d7a4a;
+    --bad: #b3261e;
+    --warn: #8a6100;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 120px; }
+  h1 { font-size: 2.1rem; line-height: 1.15; margin: 0 0 .3em; letter-spacing: -.02em; }
+  h2 {
+    font-size: 1.35rem; margin: 3em 0 .6em; padding-top: 1.4em;
+    border-top: 1px solid var(--line); letter-spacing: -.01em;
+  }
+  h3 { font-size: 1.05rem; margin: 2em 0 .5em; }
+  .lede { font-size: 1.12rem; color: var(--muted); margin: 0 0 2em; }
+  p, li { margin: .7em 0; }
+  code { font-family: var(--mono); font-size: .875em; background: #eef0f4;
+         padding: .12em .38em; border-radius: 4px; }
+  pre {
+    background: #16181d; color: #e6e9ef; padding: 16px 18px; border-radius: 10px;
+    overflow-x: auto; font-family: var(--mono); font-size: .84rem; line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: .93rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  th { font-weight: 600; background: #f2f4f8; }
+  td code { white-space: nowrap; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 22px; margin: 1.4em 0;
+  }
+  .rule { border-left: 4px solid var(--accent); background: #f4f7fe; }
+  .warn { border-left: 4px solid var(--warn); background: #fdf8ec; }
+  .card h3 { margin-top: 0; }
+  .tag {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 5px; vertical-align: 2px;
+  }
+  .t-good { background: #dff3e8; color: var(--good); }
+  .t-bad  { background: #fce8e6; color: var(--bad); }
+  .t-warn { background: #fbf0d8; color: var(--warn); }
+  .t-info { background: #e4ebfb; color: var(--accent); }
+  .flow {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 1.6em 0;
+  }
+  .flow div {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; font-size: .85rem; text-align: center;
+  }
+  .flow b { display: block; font-size: .95rem; margin-bottom: 3px; }
+  .flow .who { color: var(--muted); font-size: .78rem; }
+  footer { margin-top: 4em; padding-top: 1.4em; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: .88rem; }
+  @media (max-width: 620px) { .flow { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Loop engineering</h1>
+<p class="lede">
+  How a ticket becomes merged code without you driving each turn — and why the expensive
+  model is deliberately kept out of the part that repeats.
+</p>
+
+<p>
+  This page assumes you have never run a loop. It explains the idea, the one property that
+  makes it trustworthy, and the exact commands. The reference material lives in
+  <code>LOOP.md</code>; this is the explanation.
+</p>
+
+<h2>1. The problem it solves</h2>
+
+<p>
+  Ask an agent to do something and it will tell you it is done. Sometimes it is. The
+  difficulty is that <em>"I have completed the task"</em> costs the model nothing to say and
+  reads identically whether it is true or not. So you check. Then you ask for a fix. Then you
+  check again. You are the loop, and you are the slowest part of it.
+</p>
+
+<p>
+  The fix is not a better prompt. It is to stop asking. Replace the question
+  <em>"are you done?"</em> with a command whose exit code answers it, and put that command
+  somewhere the agent cannot reach.
+</p>
+
+<div class="card rule">
+  <h3>The one load-bearing idea</h3>
+  <p style="margin-bottom:0">
+    <strong>The agent never says whether it succeeded. It is not asked.</strong> A script
+    outside the session runs the repository's own test suite and reads <code>$?</code>. That
+    single change is the entire difference between a loop and a prompt you sent hopefully.
+  </p>
+</div>
+
+<h2>2. Four roles, and only two of them are models</h2>
+
+<p>
+  The word "judge" hides an important split. Something has to decide <em>what</em> you want —
+  that takes real intelligence. Something has to decide <em>whether you got it</em> — and that
+  must not be a model at all, because a model can be argued into a yes.
+</p>
+
+<table>
+  <thead><tr><th>Role</th><th>Who</th><th>Runs</th><th>Decides</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Architect</strong></td>
+      <td><span class="tag t-info">Opus</span></td>
+      <td>once, up front</td>
+      <td>what "done" means — writes it as a failing test</td>
+    </tr>
+    <tr>
+      <td><strong>Worker</strong></td>
+      <td><span class="tag t-info">Luna</span></td>
+      <td>once per iteration</td>
+      <td>how to make that test pass</td>
+    </tr>
+    <tr>
+      <td><strong>Gate</strong></td>
+      <td><span class="tag t-good">no model</span></td>
+      <td>every 5 seconds</td>
+      <td><strong>whether it passed</strong> — exit code and checksums</td>
+    </tr>
+    <tr>
+      <td><strong>Referee</strong></td>
+      <td><span class="tag t-info">Opus</span></td>
+      <td>once, at the end</td>
+      <td>whether the pass is the one you wanted</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="card">
+  <h3>Why this is cheap</h3>
+  <p>
+    The Gate sits between the Worker and the Referee, and <strong>Opus never sees a red
+    run</strong>. It is not in the polling loop, it does not read failure output, and it is not
+    woken up between iterations. It thinks twice per ticket: once to decide what to build, once
+    to check what came back.
+  </p>
+  <table style="margin-bottom:0">
+    <thead><tr><th>Actor</th><th>Invocations per ticket</th><th>Scales with iterations?</th></tr></thead>
+    <tbody>
+      <tr><td>Opus</td><td>2 — Architect, Referee</td><td>no</td></tr>
+      <tr><td>Luna</td><td>up to <code>MAX_ITER</code>, typically 1–4</td><td>yes</td></tr>
+      <tr><td>Gate</td><td>up to 72 per iteration</td><td>yes — and free</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>
+  The models are pinned in frontmatter, not chosen at runtime.
+  <code>.github/agents/loop-worker.agent.md</code> declares
+  <code>model: ["GPT-5.6 Luna", "Claude Sonnet 5"]</code>, and the driver dispatches with
+  <code>code chat -m loop-worker</code>. Change the model by editing that one line.
+</p>
+
+<h2>3. The cycle</h2>
+
+<div class="flow">
+  <div><b>0–2</b><span class="who">Opus, in your chat</span>intake · spec · arm</div>
+  <div><b>3</b><span class="who">Luna + Gate, headless</span>grind until green</div>
+  <div><b>4</b><span class="who">Opus, in your chat</span>referee the diff</div>
+  <div><b>5</b><span class="who">Opus, in your chat</span>PR · close ticket</div>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Phase</th><th>What happens</th><th>You do</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>Intake</td>
+        <td>Reads the ticket, picks the branch, and <strong>asks you what Jira left vague</strong></td>
+        <td>answer the questions</td></tr>
+    <tr><td>1</td><td>Architect</td>
+        <td>Writes the acceptance criteria as a test, runs it, confirms it is <span class="tag t-bad">red</span>, commits it</td>
+        <td>sanity-check the assertions</td></tr>
+    <tr><td>2</td><td>Arm</td>
+        <td>Copies <code>scripts/loop.sh</code> to <code>tmp/</code> and fills it in</td>
+        <td>nothing</td></tr>
+    <tr><td>3</td><td>Grind</td>
+        <td>Dispatch Luna → poll → verdict → repeat, until terminal or out of budget</td>
+        <td>run one command, then watch</td></tr>
+    <tr><td>4</td><td>Referee</td>
+        <td>Opus reads the diff and accepts, re-arms, or abandons</td>
+        <td>agree or push back</td></tr>
+    <tr><td>5</td><td>Close</td>
+        <td>Commit, PR with the Jira link, resolve the ticket</td>
+        <td>approve the PR</td></tr>
+  </tbody>
+</table>
+
+<h2>4. Running one</h2>
+
+<p>Open Chat in the <code>bot</code> workspace, <strong>select Opus</strong>, and type:</p>
+
+<pre><code>/loop WS-1234</code></pre>
+
+<p>
+  That is the entry point. It loads
+  <code>.github/prompts/loop.prompt.md</code>, which walks Opus through phases 0–2, hands you
+  one command to run, and then does phases 4–5 when you come back.
+</p>
+
+<p>You can also skip the ticket and just describe the work — it will create the ticket for you:</p>
+
+<pre><code>/loop the fragments package has no storybook coverage and it should</code></pre>
+
+<p>Phase 2 ends by handing you this. Run it in a second terminal:</p>
+
+<pre><code>npm run cc -- serve          # watch at http://127.0.0.1:4747/loops
+bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
+
+<div class="card warn">
+  <h3>Why the start is a prompt and not a dashboard button</h3>
+  <p style="margin-bottom:0">
+    Phase 1 needs a model, and this system has a hard invariant that it never invokes one on
+    its own — a "Run loop" button would be a path from a scheduled job to an agent editing
+    another repository unattended. So a loop is always started by a person, in a chat session
+    they are looking at. The dashboard's job is to let you <em>watch</em>, which is the part
+    that was actually missing.
+  </p>
+</div>
+
+<h2>5. Cheating, and the four ways it is caught</h2>
+
+<p>
+  Exit code 0 is necessary but not sufficient. There are four cheap ways to make a test suite
+  pass without doing the work, and a worker under time pressure will find them. Each gets its
+  own terminal state, and every one is a <span class="tag t-bad">fail</span> — not a warning.
+</p>
+
+<table>
+  <thead><tr><th>State</th><th>The cheat</th><th>How it is caught</th></tr></thead>
+  <tbody>
+    <tr><td><code>tampered</code></td><td>edit the test until it matches the code</td>
+        <td>sha-256 over the spec, re-read on every poll</td></tr>
+    <tr><td><code>shrunk</code></td><td>delete the failing tests</td>
+        <td>total count must exceed the baseline</td></tr>
+    <tr><td><code>suppressed</code></td><td><code>eslint-disable</code> instead of a fix</td>
+        <td>occurrences counted before and after</td></tr>
+    <tr><td><code>cfg-tampered</code></td><td>raise the guard limit you are failing</td>
+        <td>sha-256 over the config file</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Two design details worth keeping. <strong>Integrity is checked before the exit code</strong>,
+  so a run that edited the spec is <code>tampered</code> even if the suite is green and the
+  test count went up. And the checks are cheap enough to <strong>re-run continuously</strong>,
+  so an invalid run is caught in seconds instead of after it has spent its whole budget.
+</p>
+
+<h2>6. Reading the verdict</h2>
+
+<pre><code>npm run cc -- loop status</code></pre>
+
+<table>
+  <thead><tr><th>Outcome</th><th>Means</th><th>Do next</th></tr></thead>
+  <tbody>
+    <tr><td><span class="tag t-good">passed</span></td>
+        <td>green, spec intact, tests grew</td><td>Opus referees the diff</td></tr>
+    <tr><td><span class="tag t-bad">the locked spec was edited</span></td>
+        <td>it tried to buy a green</td><td>read the diff before re-running</td></tr>
+    <tr><td><span class="tag t-bad">tests were removed</span></td>
+        <td>same</td><td>read the diff before re-running</td></tr>
+    <tr><td><span class="tag t-warn">budget exhausted</span></td>
+        <td>4 turns, still red</td><td>the spec is too big or too vague — split it</td></tr>
+  </tbody>
+</table>
+
+<p>
+  A failure is information, not a waste. <em>Budget exhausted</em> almost always means the
+  Architect wrote a spec covering three changes instead of one. Splitting it and re-running
+  usually costs less than one extra Opus turn.
+</p>
+
+<h2>7. What it will not do, on purpose</h2>
+
+<p>
+  The grind stops at a green verifier. It does not commit, push, open a PR, or touch Jira —
+  those are the steps where a mistake is expensive and hard to reverse, and they are exactly
+  where a human reading the diff once is worth the minute it takes.
+</p>
+
+<p>Two things that review must always cover, both learned the hard way here:</p>
+
+<ul>
+  <li><strong>Audit moved code for drift.</strong> Extracted expressions must be verbatim.
+      A subtly rewritten condition passes every test that did not think to check it.</li>
+  <li><strong>Regenerate tracked build output.</strong> Where <code>lib/</code> is committed,
+      a PR whose source and build disagree is broken on arrival.</li>
+</ul>
+
+<h2>8. Before your first loop</h2>
+
+<table>
+  <thead><tr><th>Question</th><th>If the answer is no</th></tr></thead>
+  <tbody>
+    <tr><td>Can you name one command whose exit code means "done"?</td>
+        <td>You have a wish, not a loop. Write the spec first.</td></tr>
+    <tr><td>Have you watched it fail?</td>
+        <td>A spec never red proves nothing. <code>loop start</code> will refuse it.</td></tr>
+    <tr><td>Is VS Code open on the target repo?</td>
+        <td>The dispatch will not fire. Every verified run had a window open.</td></tr>
+    <tr><td>Would you hand this repo to an agent anyway?</td>
+        <td>Do not loop on it. The sandbox is not a security boundary.</td></tr>
+  </tbody>
+</table>
+
+<div class="card warn">
+  <h3>One thing to check once, by hand</h3>
+  <p style="margin-bottom:0">
+    On your first run, confirm the worker really came up on the cheap model — open the chat
+    window the driver dispatched into and look at the model picker. If a custom agent name
+    does not resolve, <code>code chat</code> falls back to the default agent on whatever the
+    window last used, and the loop still works. It just quietly costs what this design exists
+    to avoid.
+  </p>
+</div>
+
+<h2>9. Known limits</h2>
+
+<table>
+  <thead><tr><th>Limit</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>Needs an open window</td>
+        <td>Every successful dispatch fired with VS Code already running. Cold start is unverified.</td></tr>
+    <tr><td>One repo at a time</td>
+        <td>The driver opens a window on the target. Two concurrent loops interleave windows.</td></tr>
+    <tr><td>Polling costs a full suite run</td>
+        <td>72 polls × 5s is up to 72 test runs per iteration. Fine at 90s; rethink at 10 minutes.</td></tr>
+    <tr><td>The <code>copilot</code> CLI is not an option</td>
+        <td>Installed, but org policy denies every <code>-p</code> invocation. <code>code chat</code> is a different binary and is not blocked.</td></tr>
+    <tr><td>Chat hooks are unavailable</td>
+        <td>The org flag forces them off, which is why the driver is bash outside the session rather than a hook inside it.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Reference: <code>LOOP.md</code> · entry point <code>.github/prompts/loop.prompt.md</code> ·
+  worker <code>.github/agents/loop-worker.agent.md</code> · driver <code>scripts/loop.sh</code> ·
+  ledger <code>cc loop status</code> and <code>/loops</code>.
+</footer>
+
+</div>
+</body>
+</html>

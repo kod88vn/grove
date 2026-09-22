@@ -10,14 +10,42 @@ bottom are two real loops against `~/dev/web-storefront-ui` that ended in PR #18
 
 ## 1. Using it again
 
-Copy the template in §1.3, change six values, run it. That is the whole workflow.
+```
+/loop WS-1234
+```
 
-### 1.1 The six values
+In Chat, in this workspace, **on Opus**. That is the entry point. It loads
+`.github/prompts/loop.prompt.md`, which runs the phases that need judgement, hands you one
+command to run, and referees the diff when it finishes. `LOOP.html` is the same thing
+explained for someone who has never done it.
+
+Four roles. Only two are models, and the one that decides pass or fail is not:
+
+| Role | Who | Runs | Decides |
+| --- | --- | --- | --- |
+| **Architect** | Opus, in your session | once | what "done" means — writes it as a failing test |
+| **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
+| **Gate** | no model | every 5s | **whether it passed** — exit code and checksums |
+| **Referee** | Opus, in your session | once | whether the pass is the one you wanted |
+
+The Gate sits between the Worker and the Referee, so **Opus never sees a red run**. It is not
+in the polling loop and is not woken between iterations. That is the whole reason a loop with
+a four-turn budget does not cost four expensive turns.
+
+The worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter and
+dispatched with `code chat -m loop-worker`. Change the model by editing that one line. If the
+agent name ever fails to resolve, `code chat` falls back to the default agent on whatever the
+window last used — the loop still runs, it just quietly costs what this design exists to
+avoid. Check the model picker on your first run.
+
+### 1.1 Driving the driver by hand
+
+The prompt does this for you. Do it yourself when you are debugging the loop itself.
 
 | Value | What it is | Example from WS-5985 |
 | --- | --- | --- |
 | `REPO` | absolute path to the target repo | `/Users/jay.quach/dev/web-storefront-ui` |
-| `LOCK` | the file the agent must not edit | `.../storybookCoverage.test.tsx` |
+| `SPEC` | the file the agent must not edit | `.../storybookCoverage.test.tsx` |
 | `verify()` | the command whose exit code *is* "done" | `./node_modules/.bin/jest` |
 | `BASELINE` | a number that must grow, never shrink | `787` tests |
 | `TASK` | the briefing, written for a stranger | see §3 |
