@@ -97,6 +97,12 @@ covers the working tree rather than the index, so if you stage a subset of your 
 stamp attests to what is on disk, not to what is being committed. Stage everything, or know
 the difference.
 
+Staging itself is invisible to the digest, which was not true until `sourceFileHashes` began
+sorting: `git ls-files --cached --others` emits untracked entries ahead of tracked ones, so
+`git add` reordered the list and the order-sensitive digest changed. A stamp expired for
+staging the very work it attested to. Covered by `tests/unit/executor/tree-digest.test.ts`,
+which stages a file and asserts the digest holds.
+
 ### Running it
 
 | Task | Command |

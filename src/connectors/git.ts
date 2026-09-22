@@ -104,13 +104,19 @@ export async function sourceFileHashes(
   );
 
   const paths = listed.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+  // Sort, because git's own order is not stable across `git add`: `--others` entries are
+  // emitted before `--cached` ones, so staging a file moves it in the list without changing
+  // a byte of it. The digest is order-sensitive, so that alone expired a stamp — a gate that
+  // fires when you stage your work is a gate people learn to route around.
+  paths.sort();
   if (paths.length === 0) return [];
 
   const hashed = await run('git', ['hash-object', '--', ...paths], { cwd: repoPath });
   const hashes = hashed.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
 
-  // Pair each hash with its path before returning. Order is git's, which is stable, but the
-  // path has to be in the digest too: renaming a file without changing its bytes is a change.
+  // Pair each hash with its path before returning. Order is the sort above, not git's, so the
+  // digest depends on names and contents alone. The path has to be in the digest too:
+  // renaming a file without changing its bytes is a change.
   return paths.map((path, index) => `${hashes[index] ?? ''}  ${path}`);
 }
 
