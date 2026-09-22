@@ -1,6 +1,7 @@
 {
   "chat.agentSkillsLocations": {
-    ".copilot-config/skills": true
+    ".copilot-config/skills": true,
+    ".github/skills": true
   },
   "chat.instructionsFilesLocations": {
     ".copilot-config/instructions": true,

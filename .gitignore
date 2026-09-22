@@ -14,5 +14,15 @@ data/
 .env.local
 central-command.config.local.json
 
+# Scratch space: throwaway clones/worktrees for reviewing OTHER repos' PRs.
+# Kept inside the workspace so tool permission prompts don't fire for paths
+# outside the trusted folder. See /memories/git-preferences.md.
+tmp/
+!tmp/.gitkeep
+
+# Generated weekly timesheet/summary reports — personal artifacts, not committed.
+reports/
+!reports/.gitkeep
+
 # OS noise
 .DS_Store

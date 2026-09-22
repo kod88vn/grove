@@ -2,6 +2,7 @@
 import { doctor, type CheckResult } from '../src/config/doctor.ts';
 import { createDashboard, listen } from '../dashboard/server.ts';
 import { loadConfig } from '../src/config/config.ts';
+import { loopCommand } from '../src/config/loop-command.ts';
 import { runResolve, type ResolveOutcome, type ResolveStatus } from '../src/config/run-resolve.ts';
 import { runStalls } from '../src/config/run-stalls.ts';
 import { runSync } from '../src/config/run-sync.ts';
@@ -18,7 +19,7 @@ import type { Stall } from '../src/core/model/stall.ts';
 import type { SyncScope } from '../src/sync/sync.ts';
 import { serveMcp } from '../src/mcp/serve.ts';
 
-const COMMANDS = ['doctor', 'sync', 'stalls', 'resolve', 'serve', 'mcp', 'step'] as const;
+const COMMANDS = ['doctor', 'sync', 'stalls', 'resolve', 'serve', 'mcp', 'step', 'loop'] as const;
 const DEFAULT_PORT = 4747;
 const SCOPES: readonly SyncScope[] = ['jira', 'github', 'branches', 'all'];
 
@@ -38,6 +39,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return serveCommand(argv.slice(1));
     case 'step':
       return stepCommand(argv.slice(1));
+    case 'loop':
+      return loopCommand(argv.slice(1));
     case 'mcp':
       // Returns immediately. The readline handle on stdin keeps the process alive until the
       // client closes the stream, which is how the stdio transport signals shutdown. Awaiting

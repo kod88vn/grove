@@ -32,7 +32,10 @@ Every fact below was confirmed by running the command shown, on 2026-08-28. Noth
 |---|---|---|
 | Copilot CLI | Installed (`1.0.81`, at `~/.nvm/versions/node/v24.18.0/bin/copilot`) but **BLOCKED and unusable** — every non-interactive run returns `Error: Access denied by policy settings`. Org policy; not ours to change. See §13. | `copilot -p … --allow-all-tools` |
 | Other agent CLIs | **None installed** — `claude`, `codex`, `aider`, `cursor-agent`, `gemini`, `ollama`, `llm` all absent | `command -v <name>` |
-| Headless LLM access | **None, in any phase.** It cannot invoke a model unattended. Judgment work is handed off to VS Code Chat and initiated by a human (§13). | derived from the two rows above |
+| **`code chat`** | **WORKS — not policy-blocked.** Re-probed 2026-09-14 on VS Code `1.121.0` / copilot-chat `0.49.0`. A different binary from `copilot`, and the entitlement it uses is the one VS Code Chat already has. `-m ask\|edit\|agent`, `-r` reuse window. **Exit code is meaningless** — observed `1` on a successful turn and `0` on another; read the transcript. | `code chat -m ask -r "Reply with exactly <TOKEN>"`, then the `<TOKEN>` in `workspaceStorage/<id>/chatSessions/*.jsonl` |
+| Headless LLM access | **Exists, with one caveat.** `code chat` drives the **running** VS Code instance. Whether it works with Code fully quit is **UNVERIFIED** — every successful probe so far fired with a window open. Until that resolves, treat unattended inference as "available while Code is running", not "available from cron". See §13. | `launchctl` one-shot LaunchAgent; job env had `PPID=1`, `TERM=dumb`, `VSCODE_IPC_HOOK_CLI` unset, and the turn still completed |
+| **Chat hooks** | **SHIPPED BUT DEAD HERE — disabled by org policy.** The Copilot org flag `chat_preview_features_enabled=false` forces the `ChatHooks`, `ChatToolsAutoApprove` and `BrowserChatTools` policies off. `chat.useHooks` is `disallowConfigurationDefault`, so **setting it `true` by hand changes nothing**. Measured: hooks explicitly on, `hooks.json` at both the workspace and user scope, turn ran (marker file in 16s), **zero hooks fired**. **No phase may design loop control on `PreToolUse`.** See §13. | `GitHub Copilot Chat.log`: `[warning] Copilot preview features are disabled by organizational policy`; policy mapping `value: a => a.chat_preview_features_enabled===false ? false : undefined` in the workbench bundle |
+| Auto-approve | **Unaffected by the flag above.** `ChatToolsAutoApprove` governs `chat.tools.global.autoApprove`, which is unset and unneeded. The working path is `chat.tools.terminal.autoApprove` + `chat.agent.sandbox.*`, gated by separate policies. | the auto-approve probe passes (marker file in 10s), with a negative control that held |
 | Node | `v24.18.0` | `node --version` |
 | `node:sqlite` | Available with **no experimental flag and no warning**; exports `DatabaseSync`, `StatementSync`, `Session`, `constants`, `backup` | `node -e "require('node:sqlite')"` |
 | Bundled SQLite | `3.53.1`, with **FTS5** and **json1** compiled in | `SELECT sqlite_version()`; `CREATE VIRTUAL TABLE … USING fts5`; `json_extract` |
@@ -473,20 +476,60 @@ quietly drops Jira looks identical to a digest with no Jira tickets.
 
 ## 13. Chat-initiated agent handoff (designed, not built)
 
-**The Copilot CLI is unusable here, and that is not going to change.** It is installed at
-`1.0.81`, but every non-interactive invocation is refused by org policy:
+> **Corrected 2026-09-14.** This section previously asserted that there was *"no headless path
+> to a language model, in any phase"* and built the handoff design on top of that. **The premise
+> was wrong.** It generalized from the `copilot` CLI being policy-blocked to every path being
+> blocked, without probing the others. `code chat` is a different binary, is not blocked, and
+> runs a real model turn from a `launchd` job. What follows has been rewritten; the *conclusion*
+> mostly survives, but it is now a **choice** rather than a constraint, and must be justified
+> as one.
+
+**The `copilot` CLI is unusable here.** It is installed at `1.0.81`, but every non-interactive
+invocation is refused by org policy:
 
 ```
 $ copilot -p "Reply with exactly: PROBE_OK" --allow-all-tools
 Error: Access denied by policy settings (Request ID: 5A74:32B222:30F7C3:36D5A4:6A91D982)
 ```
 
-The entitlement exists in VS Code Chat but not on the CLI surface, and the policy is not ours
-to grant. No alternative agent CLI is installed either. So there is **no headless path to a
-language model, in any phase.** Any design that assumes one is wrong.
+**`code chat` is not.** Verified 2026-09-14 by live run: a one-shot LaunchAgent fired
+`code chat -m ask -r`, and the transcript contained the exact token. The job's environment was
+`PPID=1 (/sbin/launchd)`, `TERM=dumb`, `PATH=/usr/bin:/bin:/usr/sbin:/sbin`, with
+`VSCODE_IPC_HOOK_CLI` unset — none of which stopped it. An agent-mode turn also completed a
+terminal command and a file write **with no human confirmation**, under this machine's existing
+`chat.agent.sandbox.*` settings; a negative control with those settings disabled produced no
+file in 90s, so the completion is attributable to the settings rather than to CLI mode skipping
+approvals.
 
-This is a constraint, not a loss. It splits the "act" tier along a line that was always the
-right one:
+**Open, and it decides the shape of R11+:** every successful probe fired with a VS Code window
+already open. Whether `code chat` works with Code fully quit is unverified. If it does, this is
+a cron agent. If it does not, it is a "while I am logged in with Code open" agent — still
+useful, but the scheduler must then detect a closed window and defer rather than record a
+silent no-op.
+
+**Chat hooks are not available to us.** Verified 2026-09-14. They exist in this build and would
+have been the obvious place to put loop control — `PreToolUse` can deny a tool call outright —
+but the Copilot org flag `chat_preview_features_enabled=false` forces the `ChatHooks` policy
+off, and `chat.useHooks` is `disallowConfigurationDefault`, so it cannot be re-enabled from
+settings. Five probes fired zero hooks; the last had the feature explicitly on, `hooks.json` at
+both the workspace and user scope, and a marker file proving the turn really ran. The log line
+is unambiguous:
+
+```
+[warning] Copilot preview features are disabled by organizational policy.
+```
+
+The consequence is concrete: **the loop's stop condition cannot be a hook.** It has to be the
+step gate — a stamped, sealed row in `work_steps` — read from outside the session. That is
+already how §19 defines "done", so this costs us a shortcut, not a design. It also means the
+denylist stays a property of `src/core/policy/`, not something delegated to a `PreToolUse`
+guard that would silently never run.
+
+### What actually follows from this
+
+The tier split below is still right, but for a different reason. It is no longer "the machine
+cannot do judgment work"; it is "the machine **should not** do judgment work unsupervised, and
+we are choosing to keep a human in that loop."
 
 | Tier | Needs judgment? | Who performs it |
 |---|---|---|
@@ -532,11 +575,32 @@ Each agent stays narrow and reads its briefing file rather than rediscovering co
 candidates are `implement-ticket`, `fix-pr-feedback`, `sprint-hygiene`. Defining them as
 agents rather than prompts means each one carries its own tool restrictions.
 
-### Why this is safer than what it replaces
+### Why keep the human in this loop, now that we no longer have to
 
-§16 lists "pre-approval creeps into de facto full autonomy" as a standing risk. Removing
-headless model access deletes that risk at the code-change tier outright: unattended runs can
-now only ever perform mutations that were enumerable in advance.
+§16 lists "pre-approval creeps into de facto full autonomy" as a standing risk. The previous
+version of this section claimed that risk was *deleted* at the code-change tier, because no
+headless model access existed. That is no longer true, so the risk is back and is now the
+sharpest one in the document.
+
+Three things measured on 2026-09-14 make it sharper than it looks:
+
+- **Approvals are already absent.** An agent-mode turn ran a terminal command and wrote a file
+  with no confirmation, because `chat.agent.sandbox.enabled` is `allowNetwork` and
+  `chat.agent.sandbox.autoApproveUnsandboxedCommands` is `true`.
+- **The sandbox is not a boundary.** Escalation out of it is per-command, silent, and observed:
+  a sandboxed run carries `@vscode/sandbox-runtime` in its process ancestry and an escalated
+  one does not. From an escalated run, `~/.ssh/id_ed25519` was readable, `~` was writable,
+  arbitrary network egress succeeded, and `$JIRA_DC_TOKEN` was in the environment.
+- **`chat.agent.maxRequests` is a budget, not a stop condition.** It cannot distinguish success
+  from a model looping confidently.
+
+So the handoff stays human-initiated **by choice**, and two things that §19 listed as later
+phases are now prerequisites for any unattended inference: pre-approval grants must carry an
+expiry and a rate limit, and the loop must terminate on a verifiable fact rather than a request
+count. The step gate already provides that fact — `step stamp` runs `npm run verify` itself and
+`step_stamps.exit_code` is `CHECK (exit_code = 0)`, so a failing run cannot be recorded as a
+pass, and `post-commit` is the only writer of `done`. A loop terminates when a step is stamped
+and sealed; that is a database row, not a model's claim.
 
 ## 14. Testing strategy
 
@@ -563,7 +627,9 @@ sequencing plans in one document guarantees one of them is wrong.
 | Pre-approval creeps into de facto full autonomy | Mandatory expiry + rate limits + audit provenance |
 | Loopback dashboard later exposed remotely | Documented as a hard precondition; bind address asserted in code |
 | Scope sprawl back into "automate everything" | Each new task is a separate spec; skeleton unchanged |
-| Copilot CLI blocked by org policy (§13) | Judgment work moves to human-initiated chat agents; deterministic mutations are unaffected |
+| `copilot` CLI blocked by org policy (§13) | Affects that binary only — `code chat` is not blocked. Judgment work still moves to chat agents, but by choice |
+| **Unattended inference now possible, and unapproved** (§13) | Pre-approval expiry + rate limits promoted from later phase to prerequisite; loop terminates on a stamped-and-sealed step, not a request count |
+| **Agent sandbox escalates silently** — it is not a containment boundary (§13) | Do not reason about reachability from `chat.agent.sandbox.enabled`; set `fileSystem.mac.denyRead` for credential paths and `autoApproveUnsandboxedCommands:false` for unattended contexts |
 | Work done in Chat escapes the audit trail | Every agent's mandatory final step is `record-outcome`; a handoff stays `awaiting-human` until it reports back |
 | SQLite contention between agent and dashboard | WAL + `busy_timeout`; single-writer discipline; per-run transactions |
 | Database file grows despite pruning | `DELETE` does not shrink the file — checkpoint after prune, periodic `VACUUM` |
@@ -574,6 +640,7 @@ sequencing plans in one document guarantees one of them is wrong.
 1. Staleness threshold — 3 days assumed. Correct?
 2. Should applied mutations really be pruned at 30 days along with everything else, or retained for 365 days as recommended in §8?
 3. On catch-up after a long gap (e.g. Monday morning after a weekend), should the digest cover the whole gap, or just report current state and note the gap?
+4. **Does `code chat` work with VS Code fully quit?** (§13) Unverified; a self-uninstalling `launchd` probe is recording `before=<vscode process count>` at each fire. If the answer is no, the scheduler must detect a closed window and defer, because a fire that silently does nothing is indistinguishable from a quiet day.
 
 Resolved:
 - Repo list starts at `web-storefront-engine` only (§4), configured as an array.

@@ -108,9 +108,17 @@ describe('dashboard routing', () => {
   });
 
   it('serves every page in the nav', async () => {
-    for (const path of ['/tickets', '/prs', '/sprint', '/activity']) {
+    for (const path of ['/tickets', '/prs', '/sprint', '/loops', '/activity']) {
       const response = await fetch(`${origin}${path}`);
       expect(response.status, path).toBe(200);
+    }
+  });
+
+  it('falls back to the loop list for an id that does not resolve', async () => {
+    for (const path of ['/loops/99', '/loops/abc']) {
+      const response = await fetch(`${origin}${path}`);
+      expect(response.status, path).toBe(200);
+      expect(await response.text(), path).toContain('No loop runs recorded');
     }
   });
 

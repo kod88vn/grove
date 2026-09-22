@@ -30,6 +30,7 @@ export const NAV: readonly NavItem[] = [
   { path: '/tickets', label: 'Tickets' },
   { path: '/prs', label: 'Pull requests' },
   { path: '/sprint', label: 'Sprint' },
+  { path: '/loops', label: 'Loops' },
   { path: '/activity', label: 'Activity' },
 ];
 

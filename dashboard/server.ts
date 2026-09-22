@@ -4,9 +4,11 @@ import { systemClock } from '../src/config/config.ts';
 import { detect } from '../src/stalls/detect.ts';
 import { openDatabase, type Database } from '../src/store/database.ts';
 import { readRecentEvents } from '../src/store/repositories/events.ts';
+import { listRuns, readRun } from '../src/store/repositories/loop-runs.ts';
 import { readLastRun } from '../src/store/repositories/sync-runs.ts';
 import { readSnapshot } from '../src/store/repositories/snapshot.ts';
 import { activityPage, sprintPage } from './pages/sprint.ts';
+import { loopRunPage, loopsPage } from './pages/loops.ts';
 import { COPY_SCRIPT, COPY_SCRIPT_PATH } from './copy.ts';
 import { escapeHtml, layout } from './html.ts';
 import { pullRequestsPage, ticketsPage } from './pages/work.ts';
@@ -147,6 +149,13 @@ function render(
     group: query.get('group'),
   };
 
+  // `/loops/<id>` is a path segment rather than `?run=`, because the table's own sort and
+  // group links are rebuilt from `path` plus fresh params — a query-string id would be
+  // dropped the moment anyone clicked a column header.
+  if (path.startsWith('/loops/')) {
+    return loopRunView(db, path.slice('/loops/'.length), tableQuery);
+  }
+
   switch (path) {
     case '/':
       return pushPage(
@@ -171,9 +180,19 @@ function render(
       });
     case '/activity':
       return activityPage(readRecentEvents(db, 100), readLastRun(db), tableQuery);
+    case '/loops':
+      return loopsPage(listRuns(db), tableQuery);
     default:
       return null;
   }
+}
+
+/** An unknown id falls back to the list: the link came from this same page, so a dead one
+ * means the run was deleted, not that the URL was typed wrong. */
+function loopRunView(db: Database, rawId: string, query: TableQuery): string {
+  const id = Number.parseInt(rawId, 10);
+  const detail = Number.isNaN(id) ? null : readRun(db, id);
+  return detail === null ? loopsPage(listRuns(db), { ...query, path: '/loops' }) : loopRunPage(detail, query);
 }
 
 function send(response: ServerResponse, status: number, body: string): void {

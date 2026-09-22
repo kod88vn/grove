@@ -155,6 +155,8 @@ that lies").
 | MCP server registration | `.vscode/mcp.json` |
 | Folder-open sync task | `.vscode/tasks.json` |
 | How Chat should use it | `.github/instructions/central-command.instructions.md` |
+| PR review gate (prove it, then fix it) | `.github/instructions/pr-review-verification.instructions.md` |
+| Scratch clones and worktrees | `.github/instructions/scratch-space.instructions.md` (`tmp/`) |
 
 ### Copilot config integration
 
@@ -233,11 +235,17 @@ The shared `grounding.instructions.md` applies. Four specifics that have already
    Cited in `STACK.md`.
 2. **`node:sqlite`.** Stable and unflagged in Node v24.18.0 despite widespread documentation
    to the contrary. Do not add `--experimental-sqlite`.
-3. **Jira and GHE response shapes are verified, and some of what was "known" was wrong.**
-   Resolving a WS ticket needs `resolution` alone — an earlier note insisting it also required
-   `fixVersions` and an Epic Link was false. Read
-   `transitions?expand=transitions.fields` at the moment of use rather than trusting either
-   the note or this sentence.
+3. **Jira needs more than the transition metadata admits.** Resolving a WS ticket requires
+   `resolution`, `fixVersions` **and** `customfield_10206` (Epic Link) — all three. A previous
+   version of this line claimed `resolution` alone was enough; that was falsified by a live
+   400 on WS-6375: `{"customfield_10206":"Epic Link is required for all issues"}`.
+   `transitions?expand=transitions.fields` reports only `resolution`, because workflow
+   validators are invisible to that endpoint — so reading the metadata is not enough, and
+   "the metadata disagrees" is not grounds to delete this note again. Read the 400 body.
+   **Every WS ticket must carry an Epic Link; the current default is `WS-5345`**
+   ("[26.Q3] Platform related Tasks for web-storefront-engine"). Set it at create time —
+   create does not enforce it, so tickets land with no epic and fail at resolve time weeks
+   later.
 4. **The Copilot CLI is installed but blocked by org policy.** `copilot --version` succeeds,
    which makes it look available; every `-p` invocation returns `Access denied by policy
    settings`. There is no headless LLM on this machine and no alternative agent CLI installed.
