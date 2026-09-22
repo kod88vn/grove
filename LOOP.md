@@ -29,10 +29,14 @@ You do not have a loop yet, you have a wish. Go write the spec first (§3).
 ### 1.2 Running one
 
 ```bash
-cp tmp/ws5985-loop.sh tmp/<ticket>-loop.sh   # start from a run that worked
-$EDITOR tmp/<ticket>-loop.sh                 # change the six values
-bash tmp/<ticket>-loop.sh                    # runs unattended; prints a verdict
+cp scripts/loop.sh tmp/<ticket>-loop.sh   # the template, with the ledger wired in
+$EDITOR tmp/<ticket>-loop.sh              # change the block marked CHANGE THESE
+bash tmp/<ticket>-loop.sh                 # runs unattended; prints a verdict
 ```
+
+`scripts/loop.sh` is the only driver to copy from. The two WS-5985 scripts left in `tmp/`
+predate the ledger and judge in bash — they still work, but they record nothing, so a run
+started from them will not appear at `/loops`.
 
 Run it from a VS Code terminal with a window open on **this** repo. The driver opens the
 *target* repo in its own window and talks to that one. Scratch files live in `tmp/`, which
@@ -41,76 +45,23 @@ is gitignored — see `.github/instructions/scratch-space.instructions.md`.
 It ends by printing `passed` or `failed` and the reason, and leaves the same verdict at
 `/loops` for later. There is no third outcome and no partial credit.
 
-### 1.3 The template
+### 1.3 What the template does
 
 The shell runs the verifier and reports two facts — an exit code and a test count. It does
 **not** decide whether the run passed. That judgement lives in `cc loop record`, which
 re-checksums the spec itself, so a driver script that has been edited mid-run cannot talk its
 way to a green.
 
-```bash
-#!/bin/bash
-set -u
+Its shape, so you know what you are editing:
 
-CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
-REPO="/absolute/path/to/target/repo"
-SPEC="path/to/spec.test.ts"                 # RELATIVE to $REPO — checksum-locked
-OUT="/Users/jay.quach/dev/bot/tmp/<ticket>"
-TICKET="WS-0000"
-BASELINE=0                                  # current test count; must GROW
-MAX_ITER=4
-POLL_LIMIT=72                               # x5s = 6 min per iteration
-
-mkdir -p "$OUT"
-
-# Sets RC and TOTAL. Judging happens in the ledger, not here.
-verify() {
-  ( cd "$REPO" && ./node_modules/.bin/jest --passWithNoTests > "$OUT/verify.txt" 2>&1 )
-  RC=$?
-  TOTAL=$(grep -oE "Tests:.*[0-9]+ total" "$OUT/verify.txt" | grep -oE "[0-9]+" | tail -1)
-  TOTAL=${TOTAL:-0}
-}
-
-TASK="<the briefing — see LOOP.md section 3>"
-
-echo "--- iteration 0: confirm the work is genuinely undone ---"
-verify
-RUN=$($CC loop start --ticket="$TICKET" --repo="$REPO" --spec="$SPEC" \
-        --verifier="jest" --exit="$RC" --tests="$BASELINE" --budget="$MAX_ITER") || {
-  echo "ABORT - refused to start: already green, or the spec is unreadable."; exit 1; }
-echo "run $RUN — watch it at http://127.0.0.1:4747/loops/$RUN"
-
-ITER=0
-STATE=red
-while [ "$ITER" -lt "$MAX_ITER" ]; do
-  ITER=$((ITER + 1))
-  echo "--- iteration $ITER of $MAX_ITER ---"
-  FAILURES="$(grep -E "^(  ●|Cannot find module|Tests:)" "$OUT/verify.txt" | head -25)"
-
-  "$CODE" "$REPO" >/dev/null 2>&1        # ensure a window on the target repo
-  sleep 6
-  "$CODE" chat -m agent -r "$TASK
-
-Current verifier output:
-$FAILURES" > "$OUT/cli-$ITER.out" 2>&1
-
-  POLLS=0
-  while [ "$POLLS" -lt "$POLL_LIMIT" ]; do
-    sleep 5; POLLS=$((POLLS + 1))
-    verify
-    [ "$RC" -eq 0 ] && break
-  done
-
-  STATE=$($CC loop record --run="$RUN" --iteration="$ITER" --exit="$RC" \
-            --tests="$TOTAL" --tail="$OUT/verify.txt")
-  echo "iteration $ITER: $STATE"
-  [ "$STATE" != "red" ] && break
-done
-
-$CC loop finish --run="$RUN"      # prints passed/failed and the reason
-git -C "$REPO" status --porcelain
-```
+| Section | What it is | Do you touch it? |
+| --- | --- | --- |
+| `CHANGE THESE` block | `REPO`, `TICKET`, `SPEC`, `BASELINE`, `MAX_ITER`, `POLL_LIMIT` | yes, every time |
+| `verify()` | the command whose exit code is "done"; sets `RC` and `TOTAL` | yes — it is jest by default |
+| `TASK` | the briefing sent each turn (§3) | yes, and it is the part that decides the outcome |
+| iteration 0 | runs `verify`, then `cc loop start` — which **refuses an already-green loop** | no |
+| the while loop | dispatch, poll, `cc loop record`, stop when the state is not `red` | no |
+| the tail | `cc loop finish`, then the diff | no |
 
 For a loop that also guards a config file — like loop 2 in §5, which had to stop the agent
 loosening the lint rules — add `--config=<path relative to $REPO>` to `loop start` and pass
