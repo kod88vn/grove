@@ -268,7 +268,62 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   so an invalid run is caught in seconds instead of after it has spent its whole budget.
 </p>
 
-<h2>6. Reading the verdict</h2>
+<h2>6. Most tickets are not loopable</h2>
+
+<p>
+  This is the part that saves you the most time, and it is the part everyone skips. A ticket
+  qualifies as a loop only if <strong>all four</strong> of these hold. Check them before you
+  write a spec, not after you have burned a budget finding out.
+</p>
+
+<table>
+  <thead><tr><th>Test</th><th>It fails when…</th><th>Example that fails</th></tr></thead>
+  <tbody>
+    <tr><td>The verifier is <strong>local</strong></td>
+        <td>"done" is decided by a remote system</td>
+        <td>"prove the Jenkins stage ran" — the answer is on a build server, not in <code>$?</code></td></tr>
+    <tr><td>The verifier is <strong>red today</strong></td>
+        <td>the named gate already passes</td>
+        <td><code>yarn lint &amp;&amp; yarn test</code> is green on <code>main</code>, so it can never signal completion</td></tr>
+    <tr><td>The deliverable is <strong>machine-checkable</strong></td>
+        <td>the output is prose</td>
+        <td>a design document — no exit code can judge an argument</td></tr>
+    <tr><td>The inputs <strong>exist</strong></td>
+        <td>the agent would have to invent data</td>
+        <td>a merchant cohort list nobody has supplied yet — it will make one up</td></tr>
+  </tbody>
+</table>
+
+<div class="card warn">
+  <h3>The most common mistake, by a distance</h3>
+  <p>
+    Naming the repository's existing suite as the gate. <code>yarn test</code> passing does not
+    mean your ticket is done — it means your ticket <em>is not represented in it</em>. A loop
+    needs a <strong>new assertion that fails right now</strong>.
+  </p>
+  <p style="margin-bottom:0">
+    <code>cc loop start</code> refuses to open a run whose verifier already exits 0. When you
+    see that refusal, the design is working. Go write the failing test.
+  </p>
+</div>
+
+<div class="card">
+  <h3>The subtle case: when the deliverable <em>is</em> tests</h3>
+  <p style="margin-bottom:0">
+    If the ticket is "write a Playwright smoke suite", the worker is writing the very thing a
+    spec would normally be — so there is nothing to lock. Lock a <strong>meta-spec</strong>
+    instead: a test asserting the suite exists, covers the four merchant types, finishes inside
+    its time budget, and hardcodes no selectors. <em>That</em> is the file the worker may not
+    touch.
+  </p>
+</div>
+
+<p>
+  A ticket that fails this triage is not a worse ticket. It is work for a normal chat session
+  with a human reading the output — which is most work, and that is fine.
+</p>
+
+<h2>7. Reading the verdict</h2>
 
 <pre><code>npm run cc -- loop status</code></pre>
 
@@ -292,7 +347,7 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   usually costs less than one extra Opus turn.
 </p>
 
-<h2>7. What it will not do, on purpose</h2>
+<h2>8. What it will not do, on purpose</h2>
 
 <p>
   The grind stops at a green verifier. It does not commit, push, open a PR, or touch Jira —
@@ -309,7 +364,7 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
       a PR whose source and build disagree is broken on arrival.</li>
 </ul>
 
-<h2>8. Before your first loop</h2>
+<h2>9. Before your first loop</h2>
 
 <table>
   <thead><tr><th>Question</th><th>If the answer is no</th></tr></thead>
@@ -336,13 +391,15 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   </p>
 </div>
 
-<h2>9. Known limits</h2>
+<h2>10. Known limits</h2>
 
 <table>
   <thead><tr><th>Limit</th><th>Detail</th></tr></thead>
   <tbody>
     <tr><td>Needs an open window</td>
         <td>Every successful dispatch fired with VS Code already running. Cold start is unverified.</td></tr>
+    <tr><td>The worker's model is unproven at dispatch</td>
+        <td><code>code chat</code> has <strong>no <code>--model</code> flag</strong> — only <code>-m</code>, which takes a mode or custom agent name. So the model is pinned in agent frontmatter. That the name resolves through <code>code chat</code> has <strong>not been proven</strong>; only a real run can show it. See the check above.</td></tr>
     <tr><td>One repo at a time</td>
         <td>The driver opens a window on the target. Two concurrent loops interleave windows.</td></tr>
     <tr><td>Polling costs a full suite run</td>

@@ -207,6 +207,32 @@ exactly why each is checked on every poll rather than once at the end.
 A design note worth keeping: the checks are all **cheap and re-run continuously**. Checking
 integrity only at the end lets a run burn its whole budget before you learn it was invalid.
 
+### 4.1 Work that cannot be looped
+
+Most tickets are not loopable, and filing them as loops wastes a budget discovering that.
+A ticket qualifies only if **all four** hold. Triage before you write a spec, not after.
+
+| Test | Fails when | Example |
+| --- | --- | --- |
+| The verifier is **local** | done is decided by a remote system | "prove the Jenkins stage ran" — the answer lives on a build server, not in `$?` |
+| The verifier is **red today** | the named gate already passes | `yarn lint && yarn test` is green on `main`, so it can never signal completion |
+| The deliverable is **machine-checkable** | the output is prose | a design document. No exit code can judge an argument. |
+| The inputs **exist** | the agent would have to invent data | a cohort list that has not been supplied. It will invent it. |
+
+Two consequences that are easy to get wrong:
+
+- **Naming the repo's existing suite as the gate is the most common error.** `yarn test`
+  passing does not mean your ticket is done; it means your ticket is not represented in it.
+  The loop needs a *new* assertion that fails now. `cc loop start` enforces this by refusing
+  a verifier that already exits 0 — that refusal is the design working, not a bug.
+- **When the deliverable IS tests, you cannot lock the tests.** Writing a Playwright suite
+  means the worker is writing the thing the spec would normally be. Lock a *meta-spec*
+  instead: a test asserting the suite exists, covers the required cases, runs inside its time
+  budget, and uses no hardcoded selectors. That file the worker must not touch.
+
+A ticket that fails the triage is not a worse ticket. It is work for a normal chat session
+with a human reading the output, which is most work.
+
 ---
 
 ## 5. Two real runs
@@ -282,6 +308,7 @@ Two things that review must cover, both learned the hard way in this repo:
 | Limit | Detail |
 | --- | --- |
 | Needs a window | every successful `code chat` probe fired with VS Code already open. Fully-quit behaviour is **unverified**. A cold-start probe is still outstanding. |
+| Worker model is unproven at dispatch | `code chat --help` on 1.121.0 offers `-m <mode-or-custom-agent>` and **no `--model` flag**, so the worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter. That the name resolves through `code chat` is **unverified** — it can only be proven by running a loop and reading the model picker. If it does not resolve, the fallback is the default agent on whatever the window last used: the loop still works and silently costs what the split exists to avoid. Check it once. |
 | One repo at a time | the driver opens a window on `REPO` and dispatches there. Two concurrent loops on two repos will interleave windows. |
 | `copilot` CLI is not an option | installed at `1.0.81`, but every `-p` invocation returns `Access denied by policy settings`. `code chat` is a different binary and is not blocked. |
 | The sandbox is not a boundary | escalation out of it is per-command and silent. From an escalated run, `~/.ssh/id_ed25519` was readable and `$JIRA_DC_TOKEN` was in the environment. Loop only on repos you would hand the agent anyway. |
