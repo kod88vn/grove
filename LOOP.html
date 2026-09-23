@@ -235,19 +235,28 @@
 
 <h2>4. Running one</h2>
 
-<p>Open Chat in the <code>bot</code> workspace, <strong>select Opus</strong>, and type:</p>
-
-<pre><code>/loop WS-1234</code></pre>
-
 <p>
-  That is the entry point. It loads
-  <code>.github/prompts/loop.prompt.md</code>, which walks Opus through phases 0–2, hands you
-  one command to run, and then does phases 4–5 when you come back.
+  Open Chat in the <code>bot</code> workspace, pick <strong>loop-architect</strong> in the
+  mode picker, and type what you need. A ticket key, or a sentence — both work:
 </p>
 
-<p>You can also skip the ticket and just describe the work — it will create the ticket for you:</p>
+<pre><code>WS-6673
+the fragments package has no storybook coverage and it should</code></pre>
 
-<pre><code>/loop the fragments package has no storybook coverage and it should</code></pre>
+<p>
+  That agent is the entry point. It runs phases 0–2, hands you the grind, and is still there
+  when you come back for phases 4–5. <code>/loop &lt;the same thing&gt;</code> also works from
+  any agent — it is a shim that reads the same file — but the agent is the better route:
+</p>
+
+<table>
+  <thead><tr><th></th><th><code>loop-architect</code> agent</th><th><code>/loop</code> prompt</th></tr></thead>
+  <tbody>
+    <tr><td>Model</td><td>pinned by the agent</td><td>whatever the picker happens to say</td></tr>
+    <tr><td>Lifetime</td><td>the whole job, referee pass included</td><td>one message</td></tr>
+    <tr><td>Where the rules live</td><td><code>.github/agents/loop-architect.agent.md</code></td><td>reads that same file</td></tr>
+  </tbody>
+</table>
 
 <p>Phase 2 ends by handing you this. Run it in a second terminal:</p>
 
@@ -255,7 +264,7 @@
 bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
 
 <div class="card warn">
-  <h3>Why the start is a prompt and not a dashboard button</h3>
+  <h3>Why the start is a chat session and not a dashboard button</h3>
   <p style="margin-bottom:0">
     Phase 1 needs a model, and this system has a hard invariant that it never invokes one on
     its own — a "Run loop" button would be a path from a scheduled job to an agent editing

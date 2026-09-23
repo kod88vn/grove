@@ -10,20 +10,31 @@ bottom are two real loops against `~/dev/web-storefront-ui` that ended in PR #18
 
 ## 1. Using it again
 
+Pick **`loop-architect`** in the Chat mode picker, in this workspace, and type what you need:
+
 ```
-/loop WS-1234
+WS-6673
+the fragments package has no storybook coverage and it should
 ```
 
-In Chat, in this workspace, **on Opus**. That is the entry point. It loads
-`.github/prompts/loop.prompt.md`, which runs the phases that need judgement, hands you one
-command to run, and referees the diff when it finishes. `LOOP.html` is the same thing
-explained for someone who has never done it.
+Either form works — a ticket key, or a sentence. `/loop <same thing>` still works from any
+agent and does the same job; it is a shim that reads the agent file. Prefer the agent: it
+pins the model and stays in force across phases 0–5, where the prompt governs one message.
+
+| | `loop-architect` agent | `/loop` prompt |
+| --- | --- | --- |
+| Model | pinned by the agent | whatever the picker says |
+| Lifetime | the whole job, including the referee pass | one message |
+| Source of truth | `.github/agents/loop-architect.agent.md` | reads that same file |
+
+The first thing it does is **triage** (§4.1) and then hand you a table of the assertions it
+intends to write. Correct a row or say yes. You are not asked to write a test — see §3.
 
 Four roles. Only two are models, and the one that decides pass or fail is not:
 
 | Role | Who | Runs | Decides |
 | --- | --- | --- | --- |
-| **Architect** | Opus, in your session | once | what "done" means — writes it as a failing test |
+| **Architect** | Opus, in your session | once | what "done" means — turns your requirements into a failing test |
 | **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
 | **Gate** | no model | every 5s | **whether it passed** — exit code and checksums |
 | **Referee** | Opus, in your session | once | whether the pass is the one you wanted |
@@ -31,6 +42,9 @@ Four roles. Only two are models, and the one that decides pass or fail is not:
 The Gate sits between the Worker and the Referee, so **Opus never sees a red run**. It is not
 in the polling loop and is not woken between iterations. That is the whole reason a loop with
 a four-turn budget does not cost four expensive turns.
+
+Architect and Referee are the same agent — `loop-architect`, phases 0–2 and 4–5.
+`LOOP.html` is all of this explained for someone who has never done it.
 
 The worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter and
 dispatched with `code chat -m loop-worker`. Change the model by editing that one line. If the

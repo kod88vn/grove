@@ -155,7 +155,8 @@ that lies").
 | Glossary | `CONTEXT.md` |
 | Loop engineering — reference | `LOOP.md` |
 | Loop engineering — explained for a newcomer | `LOOP.html` |
-| Loop entry point (`/loop`) | `.github/prompts/loop.prompt.md` |
+| Loop entry point (agent) | `.github/agents/loop-architect.agent.md` |
+| Loop entry point (`/loop` shim) | `.github/prompts/loop.prompt.md` |
 | Loop worker (pinned to a cheap model) | `.github/agents/loop-worker.agent.md` |
 | Loop driver template | `scripts/loop.sh` |
 | Guard policy | `ai-guard.config.json` |
