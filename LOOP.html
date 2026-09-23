@@ -187,11 +187,11 @@
   <thead><tr><th>#</th><th>Phase</th><th>What happens</th><th>You do</th></tr></thead>
   <tbody>
     <tr><td>0</td><td>Intake</td>
-        <td>Reads the ticket, picks the branch, and <strong>asks you what Jira left vague</strong></td>
-        <td>answer the questions</td></tr>
+        <td>Reads the ticket and <strong>drafts the assertions</strong>, then asks you once about anything Jira left ambiguous</td>
+        <td>confirm or correct</td></tr>
     <tr><td>1</td><td>Architect</td>
-        <td>Writes the acceptance criteria as a test, runs it, confirms it is <span class="tag t-bad">red</span>, commits it</td>
-        <td>sanity-check the assertions</td></tr>
+        <td>Writes those assertions as a real test, runs it, confirms it is <span class="tag t-bad">red</span>, commits it</td>
+        <td>nothing</td></tr>
     <tr><td>2</td><td>Arm</td>
         <td>Copies <code>scripts/loop.sh</code> to <code>tmp/</code> and fills it in</td>
         <td>nothing</td></tr>
@@ -206,6 +206,32 @@
         <td>approve the PR</td></tr>
   </tbody>
 </table>
+
+<div class="card">
+  <h3>You write requirements. It writes the spec.</h3>
+  <p>
+    This is the part that sounds harder than it is. Nowhere in the cycle are you asked to
+    write a test. You give it the ticket — ordinary prose, the same words you would type into
+    Jira — and phase 1 does the translation:
+  </p>
+  <table>
+    <thead><tr><th>What you write</th><th>What it writes</th></tr></thead>
+    <tbody>
+      <tr><td>“flag real differences, ignore noise”</td>
+          <td>a test feeding it fixture page pairs and checking the verdict it emits</td></tr>
+      <tr><td>“it should be fast”</td>
+          <td>a number — the suite must finish in under five minutes</td></tr>
+      <tr><td>“don’t hardcode selectors”</td>
+          <td>a test that fails if any <code>data-testid</code> is declared outside <code>pom.ts</code></td></tr>
+    </tbody>
+  </table>
+  <p style="margin-bottom:0">
+    That translation is the reason phase 0–1 runs on the expensive model. It is also the only
+    place your judgement is really needed: phase 0 shows you the draft assertions
+    <em>before</em> any code is written, with a proposed default next to every open question,
+    so settling it costs you a sentence. Everything after that is mechanical.
+  </p>
+</div>
 
 <h2>4. Running one</h2>
 

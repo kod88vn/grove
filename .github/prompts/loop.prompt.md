@@ -28,25 +28,33 @@ The argument is `${input}`. It is either a ticket key or a description.
 2. Establish the target repository and confirm it is not this one. Loops run against other
    repos; this repo is the driver.
 3. Check out a branch: `feature/<KEY>-<short-slug>`.
+4. **Translate the requirements into draft assertions before you ask anything.** The user
+   supplies requirements. Turning them into a spec is your job, not theirs — never hand that
+   back. Work through the ticket line by line and write down, for each requirement, the thing
+   a test could find true or false. Adjectives become numbers. Rules become greps.
 
-**Then stop and ask the user the questions you cannot answer from the ticket.** Acceptance
-criteria are almost never complete in Jira. The cost of a wrong assumption here is the whole
-loop budget, and the cost of asking is one message. Ask about:
+**Then send exactly one message** containing that draft as a table — *requirement · what I
+will assert · how* — followed by any gap you could not close from the ticket. Give every gap
+a **default you will use unless told otherwise**, so the user settles it in a word rather
+than writing a paragraph. You are asking for corrections, not for a specification.
 
-- what the observable behaviour should be, in terms a test can assert
-- which existing file or component the result should resemble
-- anything the ticket says in adjectives that you would have to turn into a number
+Only a gap that changes what the test asserts earns a question. Anything you can pick a
+defensible default for, pick it and say which. A guess stated out loud is fine; a guess
+buried in the spec is what burns the whole budget.
 
-Do not proceed on a guess. A vague spec produces a loop that burns four turns and fails.
+If the ticket contains no observable behaviour at all — the deliverable is a document, an
+opinion, or a remote CI verdict — say so and stop. See `LOOP.md` §4.1. That is triage
+succeeding, not the tooling failing.
 
 ## Phase 1 — Architect the spec
 
 This is the phase that decides whether the loop is worth running. Everything downstream is
 mechanical.
 
-1. **Write the acceptance criteria as an executable test** in the target repo. Assert
-   observable behaviour — rendered DOM, returned values, emitted files. Do not assert that a
-   function was called; a worker can satisfy that without building anything.
+1. **Write the acceptance criteria as an executable test** in the target repo, from the draft
+   you confirmed in phase 0. Assert observable behaviour — rendered DOM, returned values,
+   emitted files. Do not assert that a function was called; a worker can satisfy that without
+   building anything.
 2. **Run it and watch it fail.** Paste the failure output. A spec that has never been red
    proves nothing, and `cc loop start` will refuse to open a run whose verifier already
    exits 0.

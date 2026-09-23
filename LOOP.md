@@ -159,9 +159,28 @@ So the loop is driven by a process the agent does not control and cannot see.
 
 ---
 
-## 3. Writing the spec before the loop
+## 3. Requirements in, spec out
 
-A loop is only as good as the thing it polls. The ordering is not negotiable:
+**You do not write the spec.** You write requirements — the same prose you would put in a
+Jira ticket — and phase 1 of the prompt translates them into an executable spec. That
+translation is the Architect's entire job, and it is the reason the entry point runs on an
+expensive model while the grinding runs on a cheap one.
+
+| You supply, in prose | The Architect turns it into | When |
+| --- | --- | --- |
+| "flag real differences, ignore noise" | a test feeding fixture HTML pairs and asserting the emitted verdict | phase 1 |
+| an adjective — "fast" | a number: the suite must finish under five minutes | phase 1 |
+| a rule — "don't hardcode selectors" | a test that fails on any `data-testid` declared outside `pom.ts` | phase 1 |
+| something genuinely ambiguous | **one** message of questions, each carrying a proposed default | phase 0 |
+
+So a loop starts from a ticket, not from a test file. What the ticket has to contain is
+**observable behaviour** — something that is true or false about the running system. If the
+requirement is an opinion, no amount of model quality turns it into a spec; §4.1 is the
+triage that says so before you spend the budget.
+
+### The ordering phase 1 follows
+
+Not negotiable, and the driver enforces the second step whether you like it or not:
 
 1. **Write the acceptance criteria as an executable spec.** For WS-5985 that was
    `storybookCoverage.test.tsx` — a test asserting `.storybook/main.ts` scans the fragments
