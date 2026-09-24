@@ -51,9 +51,11 @@ describe('callAI', () => {
     const res = await callAI({ model: 'test-model', stream: false, messages: [] })
 
     expect(res.status).toBe(200)
+    expect(res.headers['X-AI-Offline']).toBe('true')
     const body = await res.json()
     expect(body.message.content).toBe(AI_OFFLINE_MESSAGE)
     expect(body.done).toBe(true)
+    expect(body.offline).toBe(true)
   })
 
   it('does not call fetch when LMSTUDIO_BASE_URL is unset', async () => {
@@ -66,28 +68,34 @@ describe('callAI', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('returns an offline stub stream with content and a done event for a streaming call when unconfigured', async () => {
+  it('returns an offline stub stream with content, an offline flag, and a done event for a streaming call when unconfigured', async () => {
     delete process.env.LMSTUDIO_BASE_URL
     const { callAI, AI_OFFLINE_MESSAGE } = require('./callAI')
 
     const res = await callAI({ model: 'test-model', stream: true, messages: [] })
     const text = await readStreamAsText(res._body)
 
+    expect(res.headers['X-AI-Offline']).toBe('true')
     expect(text).toContain(AI_OFFLINE_MESSAGE)
+    expect(text).toContain('"offline":true')
     expect(text).toContain('"done":true')
     expect(text).toContain('[DONE]')
   })
 
-  it('falls back to the offline stub when configured but unreachable', async () => {
+  it('falls back to the offline stub when configured but unreachable, logged at error level', async () => {
     process.env.LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234/v1'
     jest.spyOn(global, 'fetch').mockRejectedValue(new Error('connect ECONNREFUSED'))
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
     const { callAI, AI_OFFLINE_MESSAGE } = require('./callAI')
 
     const res = await callAI({ model: 'test-model', stream: false, messages: [] })
 
     expect(res.status).toBe(200)
+    expect(res.headers['X-AI-Offline']).toBe('true')
     const body = await res.json()
     expect(body.message.content).toBe(AI_OFFLINE_MESSAGE)
+    expect(body.offline).toBe(true)
+    expect(errorSpy).toHaveBeenCalled()
   })
 
   it('passes through the real response when configured and reachable', async () => {
@@ -109,8 +117,10 @@ describe('callAI', () => {
     const res = await callAI({ model: 'test-model', stream: false, messages: [] })
 
     expect(res.status).toBe(200)
+    expect(res.headers['X-AI-Offline']).toBeUndefined()
     const body = await res.json()
     expect(body.message.content).not.toBe(AI_OFFLINE_MESSAGE)
     expect(body.message.content).toBe('real answer')
+    expect(body.offline).toBeUndefined()
   })
 })

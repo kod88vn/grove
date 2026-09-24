@@ -187,6 +187,7 @@ jobs:
     timeout-minutes: 5
     if: |
       success() &&
+      needs.pr-review.outputs.verdict == 'APPROVE' &&
       !contains(github.event.pull_request.labels.*.name, 'do-not-merge') &&
       github.event.pull_request.author_association == 'OWNER'
     permissions:
