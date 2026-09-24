@@ -47,42 +47,46 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 REMOTE="${1:-}"
 REFS="${2:-}"
 
-# Get the list of changed app directories since HEAD~1
-CHANGED=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | \
+# Get the list of changed app directories across the entire branch.
+BASE=$(git merge-base origin/master HEAD 2>/dev/null || git rev-parse HEAD~1)
+CHANGED=$(git diff --name-only "$BASE"..HEAD 2>/dev/null | \
   grep -E '^apps/[^/]+' | \
   cut -d'/' -f1-2 | \
   sort -u)
 
 if [ -z "$CHANGED" ]; then
-	echo "husky - no app packages changed, skipping affected build check."
-	exit 0
+	echo "husky - no app packages changed, skipping affected checks."
+else
+	echo "husky - detected changed packages:"
+	echo "$CHANGED" | sed 's/^/    /'
+
+	# Build turbo filter from changed packages
+	FILTER=""
+	while IFS= read -r pkg; do
+	  app=$(basename "$pkg")
+	  case "$app" in
+	    games)        FILTER="$FILTER --filter=@grove/games" ;;
+	    gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
+	    grove)        FILTER="$FILTER --filter=@grove/grove" ;;
+	    homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
+	    nora)         FILTER="$FILTER --filter=nora" ;;
+	    orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
+	    reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
+	    shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
+	  esac
+	done <<EOF
+$CHANGED
+EOF
+
+	# Run tests for changed packages
+	echo "husky - running affected tests..."
+	yarn turbo test $FILTER || { echo "husky - FAILED: Tests did not pass for affected packages."; exit 1; }
+
+	# Run build for changed packages (fast check)
+	echo "husky - running affected build..."
+	yarn turbo build $FILTER || { echo "husky - FAILED: Build did not pass for affected packages."; exit 1; }
 fi
-
-echo "husky - detected changed packages:"
-echo "$CHANGED" | sed 's/^/    /'
-
-# Build turbo filter from changed packages
-FILTER=""
-while IFS= read -r pkg; do
-  app=$(basename "$pkg")
-  case "$app" in
-    games)        FILTER="$FILTER --filter=@grove/games" ;;
-    gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
-    grove)        FILTER="$FILTER --filter=@grove/grove" ;;
-    homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
-    nora)         FILTER="$FILTER --filter=nora" ;;
-    orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
-    reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
-    shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
-  esac
-done <<< "$CHANGED"
-
-# Run tests for changed packages
-echo "husky - running affected tests..."
 yarn turbo test $FILTER || { echo "husky - FAILED: Tests did not pass for affected packages."; exit 1; }
-
-# Run build for changed packages (fast check)
-echo "husky - running affected build..."
 yarn turbo build $FILTER || { echo "husky - FAILED: Build did not pass for affected packages."; exit 1; }
 
 # Run full production build (catches cross-app issues that affected builds might miss)

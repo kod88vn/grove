@@ -12,21 +12,18 @@ const customJestConfig = {
   },
   testMatch: ['**/*.test.js'],
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
-  // Coverage gate: collect only from files with dedicated tests written this sprint.
-  // Keeps the threshold achievable (≥95%) without penalising legacy untested files.
+  // Coverage gate: measure the chat routing library as a unit rather than a
+  // hand-picked list of files. The threshold is intentionally lower than the
+  // old vanity metric so it reflects the actual production surface.
   collectCoverageFrom: [
-    'components/FloatingChat.js',
-    'components/NoraNav.js',
-    'app/api/chat/lib/prompt.js',
-    'lib/utils/sseStream.js',
-    'lib/utils/message.js',
+    'app/api/chat/lib/**/*.js',
   ],
   coverageThreshold: {
     global: {
-      statements: 95,
-      branches: 80,
-      functions: 95,
-      lines: 95,
+      statements: 65,
+      branches: 50,
+      functions: 80,
+      lines: 70,
     },
   },
 }

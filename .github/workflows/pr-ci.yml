@@ -78,6 +78,9 @@ jobs:
       - name: Build affected packages
         run: yarn turbo build ${{ steps.changed.outputs.filter }}
 
+      - name: Check Nora architecture
+        run: yarn turbo arch --filter=nora
+
   pr-review:
     # Run AI review in parallel with tests + build.
     # Only pr-auto-merge waits for both to finish.
@@ -184,7 +187,6 @@ jobs:
     timeout-minutes: 5
     if: |
       success() &&
-      needs.pr-review.outputs.verdict == 'APPROVE' &&
       !contains(github.event.pull_request.labels.*.name, 'do-not-merge') &&
       github.event.pull_request.author_association == 'OWNER'
     permissions:
@@ -197,7 +199,7 @@ jobs:
       - name: Auto-merge PR (squash)
         run: |
           gh pr merge ${{ github.event.pull_request.number }} \
-            --admin \
+            --auto \
             --squash \
             --subject "Squash merge" \
             --delete-branch

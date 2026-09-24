@@ -1,4 +1,4 @@
-import { generateCrossword } from './crosswordGenerator.js'
+import { generateCrossword } from '@grove/crossword'
 import {
   SUDOKU_SIZES,
   generateSudokuForLevel,

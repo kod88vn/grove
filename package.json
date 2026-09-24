@@ -2,11 +2,14 @@
   "name": "grove",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "yarn@1.17.3",
+  "packageManager": "yarn@1.22.22",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
+  "resolutions": {
+    "better-sqlite3": "^12.9.0"
+  },
   "scripts": {
     "prepare": "husky",
     "dev": "node --env-file=.env.local ./node_modules/turbo/bin/turbo run dev --filter=@grove/grove --filter=@grove/orchestrator --filter=nora --filter=@grove/games --filter=@grove/shopping-list --filter=@grove/reminders --filter=@grove/homeworks",
