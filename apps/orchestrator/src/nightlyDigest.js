@@ -69,7 +69,7 @@ export function createNightlyDigestPayload(options = {}) {
 }
 
 export async function buildNightlyDigest(options = {}) {
-  const location = options.location || process.env.GROVE_LOCATION || 'Duluth, Georgia, USA'
+  const location = options.location || process.env.GROVE_LOCATION || 'Atlanta, Georgia, USA'
   const phoneNumber = options.phoneNumber || process.env.DIGEST_PHONE_NUMBER || ''
   const carrier = options.carrier || process.env.DIGEST_CARRIER || 'att'
 

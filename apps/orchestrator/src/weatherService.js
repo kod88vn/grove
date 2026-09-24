@@ -39,7 +39,7 @@ function toFahrenheit(celsius) {
 
 function normalizeLocation(rawLocation) {
   const input = String(rawLocation || '').trim()
-  return input || 'Duluth, GA'
+  return input || 'Atlanta, GA'
 }
 
 function weatherCodeLabel(code) {
@@ -80,20 +80,20 @@ async function geocodeLocation(locationLabel) {
     console.warn(`Geocoding error: ${err.message}. Using fallback.`)
   }
 
-  if (normalizedMatch.includes('duluth') || normalizedMatch.includes('30096')) {
+  if (normalizedMatch.includes('atlanta') || normalizedMatch.includes('30303')) {
     return {
-      label: 'Duluth, Georgia, US',
-      latitude: 33.9926,
-      longitude: -84.1535,
+      label: 'Atlanta, Georgia, US',
+      latitude: 33.749,
+      longitude: -84.388,
       timezone: 'America/New_York',
     }
   }
 
   // Final fallback if everything fails
   return {
-    label: 'Duluth, GA (unverified)',
-    latitude: 33.99,
-    longitude: -84.15,
+    label: 'Atlanta, GA (unverified)',
+    latitude: 33.749,
+    longitude: -84.388,
     timezone: 'America/New_York',
   }
 }

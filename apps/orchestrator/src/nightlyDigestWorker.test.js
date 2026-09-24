@@ -41,7 +41,7 @@ test('Given valid providers and sender, when running nightly digest job, then jo
         reminders: [],
         shoppingList: [],
         weather: {
-          location: { label: 'Duluth, Georgia, US' },
+          location: { label: 'Atlanta, Georgia, US' },
           current: { temperatureF: 72, condition: 'Clear' },
           today: { highF: 78, lowF: 61, precipChancePct: 10 },
           source: { provider: 'open-meteo' },

@@ -18,11 +18,11 @@ test('Given source providers, when building the nightly digest, then a structure
     generatedAt: '2026-05-12T04:00:00.000Z',
     phoneNumber: '7705551234',
     carrier: 'att',
-    location: 'Duluth, GA',
+    location: 'Atlanta, GA',
     remindersProvider: async () => [{ id: 'r1', title: 'Take out trash', dueLabel: 'Tonight', completed: false }],
     shoppingListProvider: async () => [{ id: 's1', label: 'Milk', checked: false, note: '2%' }],
     weatherProvider: async () => ({
-      location: { label: 'Duluth, Georgia, US' },
+      location: { label: 'Atlanta, Georgia, US' },
       current: { temperatureF: 73, condition: 'Partly cloudy' },
       today: { highF: 75, lowF: 61, precipChancePct: 20 },
       source: { provider: 'open-meteo' },
@@ -48,7 +48,7 @@ test('Given explicit delivery address, when creating payload, then phone gateway
     reminders: [],
     shoppingList: [],
     weather: {
-      location: { label: 'Duluth, Georgia, US' },
+      location: { label: 'Atlanta, Georgia, US' },
       current: { temperatureF: 73, condition: 'Partly cloudy' },
       today: { highF: 75, lowF: 61, precipChancePct: 20 },
       source: { provider: 'open-meteo' },

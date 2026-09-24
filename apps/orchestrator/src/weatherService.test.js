@@ -20,11 +20,11 @@ test('Given a location, when weather is requested, then payload is normalized JS
         json: async () => ({
           results: [
             {
-              name: 'Duluth',
+              name: 'Atlanta',
               admin1: 'Georgia',
               country_code: 'US',
-              latitude: 34.0,
-              longitude: -84.0,
+              latitude: 33.749,
+              longitude: -84.388,
               timezone: 'America/New_York',
             },
           ],
@@ -56,9 +56,9 @@ test('Given a location, when weather is requested, then payload is normalized JS
     }
   }
 
-  const payload = await getWeatherPayload('Duluth, GA')
+  const payload = await getWeatherPayload('Atlanta, GA')
 
-  assert.equal(payload.location.label, 'Duluth, Georgia, US')
+  assert.equal(payload.location.label, 'Atlanta, Georgia, US')
   assert.equal(payload.current.condition, 'Partly cloudy')
   assert.equal(payload.today.precipChancePct, 40)
   assert.equal(Array.isArray(payload.hourly), true)

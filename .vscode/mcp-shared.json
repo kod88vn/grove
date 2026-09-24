@@ -5,7 +5,7 @@
       "command": "node",
       "args": ["/Users/kod/Documents/Cline/MCP/context7-mcp/node_modules/@upstash/context7-mcp/dist/index.js"],
       "env": {
-        "CONTEXT7_API_KEY": "ctx7sk-45e07ef6-f341-4d44-9d3b-1969d6d42095"
+        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
       }
     },
     "github": {

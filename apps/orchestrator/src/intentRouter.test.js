@@ -50,7 +50,7 @@ test('Given a model classifier returning local_tool, when classifying with model
 })
 
 test('Given a model classifier returning factual_tool, when classifying with model, then route normalizes to factual_tool', async () => {
-  const result = await classifyIntentWithModel('what is the weather forecast in duluth tomorrow', {
+  const result = await classifyIntentWithModel('what is the weather forecast in atlanta tomorrow', {
     classifyWithModel: async () => ({ route: 'factual_tool', intent: 'weather', confidence: 'high' }),
   })
   assert.equal(result.route, 'factual_tool')
@@ -125,7 +125,7 @@ test('Given a classifier failure, when building plan via classifier, then plan f
 })
 
 test('Given weather widget surface, when building sync plan, then weather skill metadata is attached', () => {
-  const plan = buildExecutionPlan('what is the weather forecast in duluth tomorrow', { surface: 'weather_widget' })
+  const plan = buildExecutionPlan('what is the weather forecast in atlanta tomorrow', { surface: 'weather_widget' })
 
   assert.equal(plan.route, 'structured_data')
   assert.equal(plan.responseMode, 'structured_data')
