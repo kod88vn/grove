@@ -14,7 +14,7 @@ test('Given prose payload, when validating weather_v1, then validation fails', (
 
 test('Given normalized weather payload, when validating weather_v1, then validation succeeds', () => {
   const result = validateResponse('weather_v1', {
-    location: { label: 'Duluth, Georgia, US' },
+    location: { label: 'Atlanta, Georgia, US' },
     current: { temperatureF: 73, condition: 'Partly cloudy' },
     today: { highF: 74, lowF: 61, precipChancePct: 40 },
     source: { provider: 'open-meteo' },
@@ -61,7 +61,7 @@ test('Given structured nightly digest payload, when validating nightly_digest_v1
       reminders: [],
       shoppingList: [],
       weather: {
-        location: { label: 'Duluth, Georgia, US' },
+        location: { label: 'Atlanta, Georgia, US' },
         current: { temperatureF: 73, condition: 'Partly cloudy' },
         today: { highF: 75, lowF: 61, precipChancePct: 20 },
         source: { provider: 'open-meteo' },

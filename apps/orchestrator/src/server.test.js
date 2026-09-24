@@ -104,7 +104,7 @@ test('POST /plan for local action executes local tool directly', async () => {
 
 test('GET /weather returns normalized weather payload from provider', async () => {
   const mockPayload = {
-    location: { label: 'Duluth, Georgia, US', timezone: 'America/New_York' },
+    location: { label: 'Atlanta, Georgia, US', timezone: 'America/New_York' },
     observedAt: '2026-05-06T12:00',
     current: { temperatureF: 73, condition: 'Partly cloudy', windMph: 10 },
     today: { highF: 74, lowF: 61, precipChancePct: 40 },
@@ -117,7 +117,7 @@ test('GET /weather returns normalized weather payload from provider', async () =
 
   await new Promise((resolve) => weatherServer.listen(0, resolve))
   const address = weatherServer.address()
-  const url = `http://127.0.0.1:${address.port}/weather?location=Duluth%2C%20GA`
+  const url = `http://127.0.0.1:${address.port}/weather?location=Atlanta%2C%20GA`
   const res = await fetch(url)
   const body = await res.json()
 

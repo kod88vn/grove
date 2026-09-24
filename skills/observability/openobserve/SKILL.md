@@ -4,7 +4,7 @@
 
 OpenObserve is Grove's centralized logging infrastructure. It collects logs from **all apps** (Nora, Games, Homeworks, Shopping List, Reminders) into a single searchable store. AI agents use it to diagnose production issues, track error patterns, and verify fixes.
 
-**Access**: `http://grove:5081` (basic auth: `grove-admin` / `grove-password`) via Tailscale
+**Access**: `http://grove:5081` (basic auth: `$CADDY_BASIC_AUTH_USERNAME` / `$CADDY_BASIC_AUTH_PASSWORD`) via Tailscale
 **API endpoint**: `http://grove:5081/api/default/` (same auth)
 
 ---
@@ -52,11 +52,11 @@ For complex searches, use the OpenObserve API directly:
 GET http://grove:5081/api/default/grove_all_logs/_search?sql=true&q=select * from grove_all_logs where level='error' order by timestamp desc limit 50
 ```
 
-Auth header: `Basic bG9naW5nLWFkbWluOmdyb3ZlLXBhc3N3b3Jk` (base64 of `grove-admin:grove-password`)
+Auth header: `Basic <base64 of $CADDY_BASIC_AUTH_USERNAME:$CADDY_BASIC_AUTH_PASSWORD>`
 
 More conveniently, use curl with `-u`:
 ```bash
-curl -s -u grove-admin:grove-password \
+curl -s -u "$CADDY_BASIC_AUTH_USERNAME:$CADDY_BASIC_AUTH_PASSWORD" \
   "http://grove:5081/api/default/grove_all_logs/_search?sql=true&q=SELECT * FROM grove_all_logs WHERE level='error' AND timestamp > now() - INTERVAL '1 hour' ORDER BY timestamp DESC LIMIT 50"
 ```
 

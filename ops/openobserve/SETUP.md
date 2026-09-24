@@ -7,9 +7,9 @@ Run these commands on the production Windows machine:
 ```powershell
 # 1. Set environment variables for OpenObserve credentials (persistent across sessions)
 [Environment]::SetEnvironmentVariable('OPENOBSERVE_ROOT_USER_EMAIL', 'admin@grove.local', 'User')
-[Environment]::SetEnvironmentVariable('OPENOBSERVE_ROOT_USER_PASSWORD', 'grove-password', 'User')
-[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_USERNAME', 'grove-admin', 'User')
-[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_PASSWORD', 'grove-password', 'User')
+[Environment]::SetEnvironmentVariable('OPENOBSERVE_ROOT_USER_PASSWORD', '<choose-a-strong-password>', 'User')
+[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_USERNAME', '<choose-a-username>', 'User')
+[Environment]::SetEnvironmentVariable('CADDY_BASIC_AUTH_PASSWORD', '<choose-a-strong-password>', 'User')
 
 # 2. Create persistent Docker volume for log data
 docker volume create openobserve_openobserve-data
@@ -22,7 +22,7 @@ docker compose up -d
 docker compose ps
 ```
 
-**Dashboard:** `http://grove:5081` — user: `grove-admin`, password: `grove-password`
+**Dashboard:** `http://grove:5081` — user/password: values of `$CADDY_BASIC_AUTH_USERNAME` / `$CADDY_BASIC_AUTH_PASSWORD`
 
 ## GitHub Actions Variables Setup
 
@@ -33,7 +33,7 @@ Add these 4 variables to your GitHub repository:
 |---|---|
 | `OPENOBSERVE_ROOT_USER_EMAIL` | `admin@grove.local` |
 | `OPENOBSERVE_ROOT_USER_PASSWORD` | your-secure-password |
-| `CADDY_BASIC_AUTH_USERNAME` | `grove-admin` |
+| `CADDY_BASIC_AUTH_USERNAME` | your-chosen-username |
 | `CADDY_BASIC_AUTH_PASSWORD` | your-secure-password |
 
 The deploy workflow reads these from `${{ vars.VAR_NAME }}` and passes them to `docker compose`.

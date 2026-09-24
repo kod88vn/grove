@@ -1,4 +1,4 @@
-const GROVE_LOCATION = process.env.GROVE_LOCATION || 'Duluth, Gerogia, USA'
+const GROVE_LOCATION = process.env.GROVE_LOCATION || 'Atlanta, Georgia, USA'
 
 function buildFastPrompt(now) {
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })

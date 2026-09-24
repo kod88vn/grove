@@ -12,7 +12,7 @@ services:
     # No public ports — only accessible via Caddy reverse proxy on the bridge network
     environment:
       - ZO_ROOT_USER_EMAIL=${OPENOBSERVE_ROOT_USER_EMAIL:-admin@grove.local}
-      - ZO_ROOT_USER_PASSWORD=${OPENOBSERVE_ROOT_USER_PASSWORD:-grove-password}
+      - ZO_ROOT_USER_PASSWORD=${OPENOBSERVE_ROOT_USER_PASSWORD:?Set OPENOBSERVE_ROOT_USER_PASSWORD — no default, must not be a weak/shared value}
       - ZO_DATA_DIR=/data
       # 90-day log retention (in hours)
       - ZO_FILE_STORE_TYPE=local
@@ -36,8 +36,8 @@ services:
     ports:
       - "5081:5081"
     environment:
-      - CADDY_BASIC_AUTH_USERNAME=${CADDY_BASIC_AUTH_USERNAME:-grove-admin}
-      - CADDY_BASIC_AUTH_PASSWORD=${CADDY_BASIC_AUTH_PASSWORD:-grove-password}
+      - CADDY_BASIC_AUTH_USERNAME=${CADDY_BASIC_AUTH_USERNAME:?Set CADDY_BASIC_AUTH_USERNAME}
+      - CADDY_BASIC_AUTH_PASSWORD=${CADDY_BASIC_AUTH_PASSWORD:?Set CADDY_BASIC_AUTH_PASSWORD — no default, must not be a weak/shared value}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     networks:
