@@ -41,7 +41,18 @@ The argument is `${input}` — a ticket key, or a sentence.
    this verdict — read it, but re-check it rather than trusting it.
 3. **Establish the target repository** and confirm it is not this one. Loops run against other
    repos; this repo is the driver.
-4. **Check out a branch:** `feature/<KEY>-<short-slug>`.
+4. **Make a worktree of it under `tmp/`, on a new branch** `feature/<KEY>-<short-slug>`:
+
+   ```bash
+   git -C <source repo> worktree add -b feature/<KEY>-<slug> \
+       /Users/jay.quach/dev/bot/tmp/<KEY> <base branch>
+   ```
+
+   That path is what `REPO` must be. The driver refuses a `REPO` outside `tmp/`, one that
+   does not exist, and one that is a plain directory rather than a worktree root — the last
+   because a bare folder under `tmp/` is still inside this repo, so `git -C "$REPO"` would
+   silently act on central-command. The worktree also keeps the worker's file edits inside
+   the window's workspace, which is the only place its tools reach without a prompt.
 
 Then do the translation. Go through the requirement line by line and write down, for each
 statement, the thing a test could find **true or false**:
@@ -85,8 +96,9 @@ so. That is not a tooling failure. It means the requirement is not yet a piece o
 cp scripts/loop.sh tmp/<KEY>-loop.sh
 ```
 
-Fill in the `CHANGE THESE` block: `REPO`, `TICKET`, `SPEC` (relative to `REPO`), `BASELINE`,
-`MAX_ITER` (4 unless you have a reason), and `verify()` if the repo is not jest.
+Fill in the `CHANGE THESE` block: `REPO` (the `tmp/` worktree from phase 0, not the clone in
+`~/dev`), `TICKET`, `SPEC` (relative to `REPO`), `BASELINE`, `MAX_ITER` (4 unless you have a
+reason), and `verify()` if the repo is not jest.
 
 Then write `TASK` — your briefing to a model less capable than you, which reads it with no
 memory of this conversation:

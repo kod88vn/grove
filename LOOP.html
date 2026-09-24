@@ -174,6 +174,14 @@
   <code>code chat -m loop-worker</code>. Change the model by editing that one line.
 </p>
 
+<p>
+  That the pin is honoured was proven on 2026-09-23. Two probe agents identical except for the
+  <code>model:</code> line were dispatched back to back; VS Code's own session record — not the
+  model's self-report — came back <code>copilot/gpt-6-astra</code> and
+  <code>copilot/gemini-3.8-flash</code>. Had both said the same thing, the pin would have been
+  decorative and every cost claim on this page worthless.
+</p>
+
 <h2>3. The cycle</h2>
 
 <div class="flow">
@@ -408,21 +416,22 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
         <td>You have a wish, not a loop. Write the spec first.</td></tr>
     <tr><td>Have you watched it fail?</td>
         <td>A spec never red proves nothing. <code>loop start</code> will refuse it.</td></tr>
-    <tr><td>Is VS Code open on the target repo?</td>
-        <td>The dispatch will not fire. Every verified run had a window open.</td></tr>
+    <tr><td>Is the target a worktree under this repo's <code>tmp/</code>?</td>
+        <td>The driver refuses to start. The worker's tools are scoped to the window's workspace, so anything outside it stalls on a permission prompt.</td></tr>
     <tr><td>Would you hand this repo to an agent anyway?</td>
         <td>Do not loop on it. The sandbox is not a security boundary.</td></tr>
   </tbody>
 </table>
 
 <div class="card warn">
-  <h3>One thing to check once, by hand</h3>
+  <h3>Start it from a window open on <em>this</em> repo, and then leave that window alone</h3>
   <p style="margin-bottom:0">
-    On your first run, confirm the worker really came up on the cheap model — open the chat
-    window the driver dispatched into and look at the model picker. If a custom agent name
-    does not resolve, <code>code chat</code> falls back to the default agent on whatever the
-    window last used, and the loop still works. It just quietly costs what this design exists
-    to avoid.
+    The driver opens no window. <code>code chat -r</code> dispatches into the last active one,
+    and each dispatch starts a fresh chat session, so the worker never inherits the previous
+    attempt's context. Two consequences. <code>loop-worker</code> resolves only from this
+    workspace — <code>chat.promptFilesLocations</code> is workspace-relative and there is no
+    user-level loop agent — so a window rooted elsewhere silently runs the default agent. And
+    if you click into another VS Code window mid-run, the next dispatch follows you there.
   </p>
 </div>
 
@@ -433,10 +442,10 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   <tbody>
     <tr><td>Needs an open window</td>
         <td>Every successful dispatch fired with VS Code already running. Cold start is unverified.</td></tr>
-    <tr><td>The worker's model is unproven at dispatch</td>
-        <td><code>code chat</code> has <strong>no <code>--model</code> flag</strong> — only <code>-m</code>, which takes a mode or custom agent name. So the model is pinned in agent frontmatter. That the name resolves through <code>code chat</code> has <strong>not been proven</strong>; only a real run can show it. See the check above.</td></tr>
-    <tr><td>One repo at a time</td>
-        <td>The driver opens a window on the target. Two concurrent loops interleave windows.</td></tr>
+    <tr><td>One window, and it must be this one</td>
+        <td>The driver opens nothing; <code>-r</code> targets the last active window. So the loop is started from a window on this repo, with the target as a worktree under <code>tmp/</code>. Click elsewhere mid-run and the next dispatch follows you.</td></tr>
+    <tr><td>One loop at a time</td>
+        <td>Two concurrent loops would dispatch into the same window and interleave their turns.</td></tr>
     <tr><td>Polling costs a full suite run</td>
         <td>72 polls × 5s is up to 72 test runs per iteration. Fine at 90s; rethink at 10 minutes.</td></tr>
     <tr><td>The <code>copilot</code> CLI is not an option</td>

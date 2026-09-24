@@ -16,13 +16,21 @@
 # `code chat` prints nothing useful and its exit code is meaningless, so it is
 # never consulted. Everything is measured on disk.
 #
+# It does not open a window. Each iteration dispatches into the window you are
+# already in, and `code chat` starts a fresh chat session per invocation, so the
+# worker never inherits the previous attempt's context. Verified 2026-09-23: two
+# dispatches four minutes apart produced two new session files, one turn each.
+#
 # The full method, including the states that are neither red nor green, is in
 # LOOP.md.
 # ============================================================================
 set -u
 
 # ---------------------------------------------------------------- CHANGE THESE
-REPO="/absolute/path/to/target/repo"
+# REPO must be a worktree under tmp/ — see the guard below for why.
+#   git -C ~/dev/web-storefront-engine worktree add \
+#       /Users/jay.quach/dev/bot/tmp/WS-1234 feature/WS-1234-desc
+REPO="/Users/jay.quach/dev/bot/tmp/WS-0000"
 TICKET="WS-0000"
 SPEC="path/to/spec.test.ts"   # RELATIVE to $REPO. Checksum-locked; must be RED now.
 BASELINE=0                    # current passing test count. Must GROW, never shrink.
@@ -55,16 +63,48 @@ Verify with: cd $REPO && ./node_modules/.bin/jest"
 # ------------------------------------------------------------ END CHANGE THESE
 
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
-OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
-AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER.agent.md"
-mkdir -p "$OUT"
+BOT="/Users/jay.quach/dev/bot"
+CC="npm --prefix $BOT run --silent cc --"
+OUT="$BOT/tmp/loop-$TICKET"
+AGENT="$BOT/.github/agents/$WORKER.agent.md"
 
 # If the agent file is missing, `code chat -m` silently falls back to the default
-# agent on whatever model the window last used. The loop still runs; it just costs
+# agent on whatever the window last used. The loop still runs; it just costs
 # what it was built not to cost. Fail loudly instead.
 [ -f "$AGENT" ] || { echo "ABORT — no agent file at $AGENT"; exit 1; }
 MODEL=$(grep -m1 '^model:' "$AGENT")
+
+# The dispatch lands in the last active window, and the worker's tools are scoped
+# to THAT window's workspace. So the target must sit inside this one. Two
+# separate things break if it does not:
+#   - editing outside the workspace root raises a permission prompt per file, so
+#     an unattended loop stalls on the worker's first write;
+#   - $WORKER resolves only through this repo's .github/agents (chat.promptFiles
+#     Locations in .vscode/settings.json is workspace-relative, and the user-level
+#     prompts folder has no loop agent), so a window rooted elsewhere silently
+#     runs the default agent on whatever model it last used.
+# tmp/ is gitignored and is where .github/instructions/scratch-space.instructions.md
+# already requires throwaway clones and worktrees to live.
+#
+# These run BEFORE any mkdir, so the script cannot create the thing it validates.
+case "$REPO" in
+  "$BOT"/tmp/?*) ;;
+  *) echo "ABORT — REPO must be a worktree under $BOT/tmp/, got: $REPO"
+     echo "  git -C <source repo> worktree add $BOT/tmp/$TICKET <branch>"
+     exit 1 ;;
+esac
+[ -d "$REPO" ] || { echo "ABORT — no such directory: $REPO"; exit 1; }
+
+# A bare directory under tmp/ is still INSIDE the bot repo, so every `git -C
+# "$REPO"` would silently operate on central-command itself — the loop would
+# report bot's branch and diff bot's tree. Demand a real worktree root.
+TOP=$(git -C "$REPO" rev-parse --show-toplevel 2>/dev/null || true)
+[ "$TOP" = "$REPO" ] || {
+  echo "ABORT — $REPO is not a git worktree root (resolves to: ${TOP:-none})."
+  echo "  It is a plain directory inside $BOT, so git would act on central-command."
+  exit 1; }
+
+mkdir -p "$OUT"
 
 echo "============================================================"
 echo " $TICKET  |  $REPO"
@@ -93,8 +133,8 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
   # context on noise.
   FAILURES="$(grep -E "^(  ●|Cannot find module|Tests:)" "$OUT/verify.txt" | head -25)"
 
-  "$CODE" "$REPO" >/dev/null 2>&1        # ensure a window on the target repo
-  sleep 6
+  # No window is opened. `-r` targets the last active window, which is this one
+  # so long as you do not click into another VS Code window mid-run.
   echo "dispatching $WORKER..."
   "$CODE" chat -m "$WORKER" -r "$TASK
 
