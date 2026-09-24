@@ -385,6 +385,27 @@ One limit came **off** this list on 2026-09-23. "Worker model is unproven at dis
 resolved: `code chat -m <agent>` does honour the frontmatter pin. See §1 for the probe and
 its output.
 
+### 7.1 Why not subagents
+
+Every limit above except the last two comes from `code chat`. Dispatching `loop-worker` as a
+subagent instead would delete all of them at once — no window, no worktree rule, no "do not
+click away", and the model pin works there too. It is the obvious idea and it is the wrong
+one.
+
+**A subagent returns its result into the parent turn.** So something expensive is awake for
+every iteration, reading every red run. A four-iteration loop costs four expensive turns —
+precisely the cost §1 exists to delete. Forcing the parent to re-run the verifier itself does
+not help: the cost is the wake-up, not the judgement.
+
+Two smaller things go with it. The checksum lock works because the driver is **a file** — a
+model orchestrating inside a chat turn leaves no artifact to checksum, and nothing proves it
+ran the verifier every iteration rather than skipping one. And a subagent chain only exists
+inside a live turn, so there is nothing to start in a background terminal and walk away from.
+
+The one case where the trade flips: a two- or three-iteration job you intend to watch anyway.
+You are paying for the turns regardless, so the window rules are pure friction. For anything
+you start and leave, use the script.
+
 ---
 
 ## 8. Driving it from the dashboard

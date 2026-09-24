@@ -455,6 +455,24 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   </tbody>
 </table>
 
+<div class="card">
+  <h3>The obvious fix that is wrong: make the worker a subagent</h3>
+  <p>
+    Nearly every limit above comes from <code>code chat</code>. Dispatching the worker as a
+    subagent would delete all of them at once — no window, no worktree rule, no "do not click
+    away", and the model pin works there too.
+  </p>
+  <p style="margin-bottom:0">
+    But a subagent hands its result back to the turn that called it, so something expensive is
+    awake for every iteration, reading every red run. Four iterations would cost four expensive
+    turns — the exact cost §2 exists to delete. Two smaller losses follow: the checksum lock
+    works because the driver is a <em>file</em> that can be hashed, and a chat turn is not; and
+    a subagent chain only lives inside an open session, so there is nothing to start in a
+    background terminal and walk away from. If you were going to watch the run anyway, the
+    trade flips — but then it was never really a loop.
+  </p>
+</div>
+
 <footer>
   Reference: <code>LOOP.md</code> · entry point <code>.github/prompts/loop.prompt.md</code> ·
   worker <code>.github/agents/loop-worker.agent.md</code> · driver <code>scripts/loop.sh</code> ·
