@@ -194,7 +194,7 @@ Grove routing is layered. Do not treat app-local routes as globally reachable un
 - For any new top-level route alias (example: `/library`), update both:
 	- Gateway proxy mapping (`apps/gateway/platformatic.json`)
 	- Grove dev rewrites (`apps/grove/next.config.js`)
-- In Next.js UI code, use `next/link` (not raw `<a href>` for internal navigation) so `basePath` and app routing are handled correctly.
+- Within a single Next.js app, use `next/link` for internal navigation so `basePath` and client routing are handled correctly. Cross-app navigation through the gateway may use a normal `<a href>`.
 
 ## Homeworks App — Enterprise-Grade Standards (Non-Negotiable)
 
@@ -224,7 +224,7 @@ The `apps/homeworks` app is a production-grade data persistence system. All chan
 
 ### UI Guidelines
 - **Keep it simple.** The review page is the primary interface for reviewing daily submissions.
-- Remove unnecessary complexity: no SkillsLibrary, no complex ParentView state management for data persistence.
+- Remove unnecessary complexity from data persistence and review state. The SkillsLibrary is a supported feature at `/library`; do not couple it to submission persistence.
 - Components should be clean, readable, and focused on displaying data (exercises, answers, scores).
 
 ### Testing & Build

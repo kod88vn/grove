@@ -1,16 +1,5 @@
-import { execSync } from 'child_process'
-
-function getGitInfo() {
-  try {
-    const hash = execSync('git rev-parse --short HEAD', { cwd: new URL('.', import.meta.url).pathname }).toString().trim()
-    const date = execSync('git log -1 --format=%ci', { cwd: new URL('.', import.meta.url).pathname }).toString().trim()
-    return { hash, date }
-  } catch {
-    return { hash: 'unknown', date: 'unknown' }
-  }
-}
-
-const { hash, date } = getGitInfo()
+const hash = process.env.COMMIT_HASH || 'dev'
+const date = process.env.COMMIT_DATE || 'unknown'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@grove/games": "*",
+    "@grove/crossword": "*",
     "@grove/shell": "*",
     "@platformatic/next": "^3.52.4",
     "better-sqlite3": "^12.9.0",
@@ -36,10 +37,10 @@
     "build": "next build --webpack",
     "start": "next start",
     "link-skills": "sh link-skills.sh",
-    "test": "jest --ci --detectOpenHandles --runInBand --passWithNoTests",
-    "test:ci": "jest --ci --detectOpenHandles --runInBand --passWithNoTests",
-    "arch": "depcruise app/api/chat/lib --output-type mermaid",
-    "arch:check": "depcruise app/api/chat/lib --output-type err",
+    "test": "jest --ci --detectOpenHandles --runInBand",
+    "test:ci": "jest --ci --detectOpenHandles --runInBand",
+    "arch": "depcruise app/api/chat/lib --output-type err",
+    "arch:graph": "depcruise app/api/chat/lib --output-type mermaid",
     "prepare": "husky"
   }
 }

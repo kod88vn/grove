@@ -41,6 +41,10 @@
     {
       "id": "homeworks",
       "path": "./apps/homeworks"
+    },
+    {
+      "id": "orchestrator",
+      "path": "./apps/orchestrator"
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { callAI } from '@/app/api/chat/lib/callAI'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
-import { generateCrossword } from '@grove/games/src/crosswordGenerator.js'
+import { generateCrossword } from '@grove/crossword'
 
 const LEVEL_PROMPTS = {
   elementary: 'simple concrete vocabulary suitable for children aged 6–10',

@@ -58,7 +58,7 @@ Jest discovers co-located test files with `**/*.test.js` and ignores `.next/` an
 ### Architecture validation
 
 ```bash
-yarn arch:check   # fail on circular dependencies in app/api/chat/lib
+yarn arch         # fail on circular dependencies in app/api/chat/lib
 yarn arch         # print Mermaid module dependency graph
 ```
 
@@ -107,4 +107,4 @@ This will:
      -H "Content-Type: application/json" \
      -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Hi"}],"stream":true}'
    ```
-4. **Check architecture**: `yarn arch:check` to verify no circular deps were introduced
+4. **Check architecture**: `yarn arch` to verify no circular deps were introduced

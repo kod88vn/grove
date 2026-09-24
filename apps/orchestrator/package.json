@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
+    "start": "node src/server.js",
     "dev:mcp-bridge": "node src/mcpBridgeServer.js",
     "dev:bridge-mode": "ORCHESTRATOR_MCP_EXECUTE_URL=http://127.0.0.1:4020/execute node src/server.js",
     "dev:nightly-digest": "node src/nightlyDigestWorker.js",

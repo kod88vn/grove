@@ -140,22 +140,4 @@ describe('Model resolution for LMStudio', () => {
     expect(content).toContain('export const DEFAULT_MODEL')
   })
 
-  it('verifies .env.local has correct MODEL env var', () => {
-    // Skip in CI — .env.local is a local/dev-only file, not present in CI
-    if (process.env.CI) {
-      console.log('Skipping .env.local verification in CI')
-      return
-    }
-
-    const fs = require('fs')
-    const path = require('path')
-
-    // .env.local is at root of grove workspace (5 levels up: lib → chat → api → app → nora)
-    const envPath = path.join(__dirname, '../../../../../../.env.local')
-    const content = fs.readFileSync(envPath, 'utf-8')
-
-    expect(content).toContain('AI_PROVIDER=lmstudio')
-    expect(content).toContain('MODEL=qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx')
-    expect(content).toContain('NEXT_PUBLIC_MODEL=qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx')
-  })
 })

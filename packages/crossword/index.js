@@ -100,11 +100,7 @@ const WORD_POOLS = {
   ],
 }
 
-const TARGETS = {
-  elementary: 8,
-  middleschool: 12,
-  highschool: 16,
-}
+const TARGETS = { elementary: 8, middleschool: 12, highschool: 16 }
 
 function seededShuffle(array, seed) {
   const out = array.slice()
@@ -163,15 +159,8 @@ function tryPlaceWord(word, placed) {
       for (let j = 0; j < word.answer.length; j += 1) {
         if (p.answer[i] !== word.answer[j]) continue
         const newDirection = p.direction === 'across' ? 'down' : 'across'
-        let r
-        let c
-        if (p.direction === 'across') {
-          r = p.row - j
-          c = p.col + i
-        } else {
-          r = p.row + i
-          c = p.col - j
-        }
+        const r = p.direction === 'across' ? p.row - j : p.row + i
+        const c = p.direction === 'across' ? p.col + i : p.col - j
         if (canPlace(word.answer, r, c, newDirection, cells)) {
           return { row: r, col: c, direction: newDirection }
         }
@@ -183,10 +172,7 @@ function tryPlaceWord(word, placed) {
 
 function generateAttempt(pool, seed, target) {
   const order = seededShuffle(pool, seed)
-  const longestPool = order
-    .slice()
-    .sort((a, b) => b.answer.length - a.answer.length)
-    .slice(0, 5)
+  const longestPool = order.slice().sort((a, b) => b.answer.length - a.answer.length).slice(0, 5)
   const first = longestPool[Math.abs(Math.floor(seed * 100)) % longestPool.length]
   const placed = [{ ...first, row: 0, col: 0, direction: 'across' }]
   const remaining = order.filter((w) => w.answer !== first.answer)
@@ -206,7 +192,6 @@ function generateAttempt(pool, seed, target) {
       }
     }
   }
-
   return placed
 }
 
@@ -222,11 +207,7 @@ export function generateCrossword(level = 'elementary', seed = Math.random(), op
     if (placed.length > best.length) best = placed
     if (best.length >= target) break
   }
-
-  if (best.length < 4) {
-    // Should never happen with these pools, but be safe.
-    best = generateAttempt(pool, 0.1, 4)
-  }
+  if (best.length < 4) best = generateAttempt(pool, 0.1, 4)
 
   let minRow = Infinity
   let minCol = Infinity
@@ -242,7 +223,6 @@ export function generateCrossword(level = 'elementary', seed = Math.random(), op
     else downEntries.push(p)
   }
   const ordered = [...acrossEntries, ...downEntries]
-
   const entries = ordered.map((p, idx) => ({
     id: String(idx + 1),
     clue: p.clue,
@@ -251,18 +231,12 @@ export function generateCrossword(level = 'elementary', seed = Math.random(), op
     col: p.col - minCol,
     direction: p.direction,
   }))
-
   const titleByLevel = {
     elementary: 'Elementary Crossword',
     middleschool: 'Middle School Crossword',
     highschool: 'High School Crossword',
   }
-
-  return {
-    title: titleByLevel[level] ?? 'Crossword',
-    level,
-    entries,
-  }
+  return { title: titleByLevel[level] ?? 'Crossword', level, entries }
 }
 
 export const CROSSWORD_WORD_POOLS = WORD_POOLS

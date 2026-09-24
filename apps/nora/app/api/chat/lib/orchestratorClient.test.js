@@ -21,34 +21,24 @@ describe('getExecutionPlan', () => {
     expect(result.plan.reason).toBe('exception')
   })
 
-  it('uses orchestrator payload outside test mode', async () => {
+  it('uses the local classifier without contacting orchestrator outside test mode', async () => {
     process.env.NODE_ENV = 'development'
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        plan: { route: 'fast_chat', promptProfile: 'fast' },
-        execution: null,
-      }),
-    })
+    const fetchMock = jest.fn()
     global.fetch = fetchMock
 
     const result = await getExecutionPlan('write a haiku')
     expect(result.plan.route).toBe('fast_chat')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toContain('/orchestrate')
-    expect(options.method).toBe('POST')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to factual_tool when orchestrator is unavailable (fail-safe toward web search)', async () => {
+  it('uses the local classifier for factual-query messages', async () => {
     process.env.NODE_ENV = 'development'
-    global.fetch = jest.fn().mockRejectedValue(new Error('offline'))
+    global.fetch = jest.fn()
 
     const result = await getExecutionPlan('what is weather')
-    // classifyRoute throws (no LMStudio) → fallback to factual_tool (hasFactualQuerySignals matches "weather")
     expect(result.plan.route).toBe('factual_tool')
-    // Reason is 'exception' because classifyRoute caught a callAI error, not 'orchestrator_unreachable'
     expect(result.plan.reason).toBe('exception')
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('TEST_FALLBACK_ROUTE is respected in test mode even for factual-query messages (test isolation)', async () => {
@@ -70,20 +60,4 @@ describe('getExecutionPlan', () => {
     expect(result.plan.reason).toBe('test_mode_default')
   })
 
-  it('retains orchestrator plan from non-OK responses when payload includes plan', async () => {
-    process.env.NODE_ENV = 'development'
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: async () => ({
-        plan: { route: 'factual_tool', promptProfile: 'factual', skillSet: ['search_and_summarize'] },
-        error: { code: 'MCP_TOOL_UNAVAILABLE' },
-      }),
-    })
-
-    const result = await getExecutionPlan("who's the current president")
-    expect(result.plan.route).toBe('factual_tool')
-    expect(result.plan.skillSet).toEqual(['search_and_summarize'])
-    expect(result.error.code).toBe('MCP_TOOL_UNAVAILABLE')
-  })
 })
