@@ -47,19 +47,10 @@ Architect and Referee are the same agent — `loop-architect`, phases 0–2 and 
 `LOOP.html` is all of this explained for someone who has never done it.
 
 The worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter and
-dispatched with `code chat -m loop-worker`. Change the model by editing that one line.
-
-That the pin is actually honoured was **verified 2026-09-23** with two probe agents identical
-except for the `model:` line, dispatched back to back. VS Code's own session record — not the
-model's self-report — came back `copilot/gpt-6-astra` and `copilot/gemini-3.8-flash`, with
-`modeId: custom` rather than the default `agent`. Had they matched, the pin would have been
-dead and every cost claim here fiction.
-
-It holds only because the dispatch lands in a window rooted on **this** repo. `loop-worker`
-is discoverable through `chat.promptFilesLocations` in `.vscode/settings.json`, which is
-workspace-relative, and the user-level prompts folder has no loop agent. Dispatch from a
-window open on some other folder and the name silently resolves to nothing: you get the
-default agent on whatever that window last used, and the loop still runs.
+dispatched with `code chat -m loop-worker`. Change the model by editing that one line. If the
+agent name ever fails to resolve, `code chat` falls back to the default agent on whatever the
+window last used — the loop still runs, it just quietly costs what this design exists to
+avoid. Check the model picker on your first run.
 
 ### 1.1 Driving the driver by hand
 
@@ -67,21 +58,12 @@ The prompt does this for you. Do it yourself when you are debugging the loop its
 
 | Value | What it is | Example from WS-5985 |
 | --- | --- | --- |
-| `REPO` | the target, as a worktree **inside this workspace** | `/Users/jay.quach/dev/bot/tmp/WS-5985` |
+| `REPO` | absolute path to the target repo | `/Users/jay.quach/dev/web-storefront-ui` |
 | `SPEC` | the file the agent must not edit | `.../storybookCoverage.test.tsx` |
 | `verify()` | the command whose exit code *is* "done" | `./node_modules/.bin/jest` |
 | `BASELINE` | a number that must grow, never shrink | `787` tests |
 | `TASK` | the briefing, written for a stranger | see §3 |
 | `MAX_ITER` | how many agent turns you are willing to buy | `4` |
-
-`REPO` is not the repo you cloned to `~/dev`. Make a worktree of it under `tmp/` first:
-
-```bash
-git -C ~/dev/web-storefront-ui worktree add \
-    /Users/jay.quach/dev/bot/tmp/WS-5985 feature/WS-5985-desc
-```
-
-The driver refuses anything else, and §1.2 explains why.
 
 If you cannot fill in `verify()` as a **single command that exits non-zero today**, stop.
 You do not have a loop yet, you have a wish. Go write the spec first (§3).
@@ -98,25 +80,9 @@ bash tmp/<ticket>-loop.sh                 # runs unattended; prints a verdict
 predate the ledger and judge in bash — they still work, but they record nothing, so a run
 started from them will not appear at `/loops`.
 
-Run it from a VS Code terminal with a window open on **this** repo. It opens no window of its
-own: `code chat -r` dispatches into the last active window, which is the one you are sitting
-in, and each dispatch starts a **fresh chat session**, so the worker never inherits the
-previous attempt's context. Verified 2026-09-23 — two dispatches four minutes apart produced
-two new session files, one turn each.
-
-That is why `REPO` must be a worktree under `tmp/` rather than the clone in `~/dev`. The
-worker's tools are scoped to the window's workspace, so a target outside it raises a
-permission prompt on the worker's first write and an unattended loop stalls there. `tmp/` is
-gitignored and is already where `.github/instructions/scratch-space.instructions.md` puts
-throwaway worktrees.
-
-The driver refuses three ways, before it creates anything: a `REPO` outside `tmp/`, a `REPO`
-that does not exist, and a `REPO` that is a plain directory rather than a worktree root. The
-third matters most — a bare folder under `tmp/` is still inside this repo, so every
-`git -C "$REPO"` would report central-command's branch and diff central-command's tree.
-
-If you click into another VS Code window mid-run, the next dispatch follows you there. Leave
-it alone while it works.
+Run it from a VS Code terminal with a window open on **this** repo. The driver opens the
+*target* repo in its own window and talks to that one. Scratch files live in `tmp/`, which
+is gitignored — see `.github/instructions/scratch-space.instructions.md`.
 
 It ends by printing `passed` or `failed` and the reason, and leaves the same verdict at
 `/loops` for later. There is no third outcome and no partial credit.
@@ -375,22 +341,22 @@ Two things that review must cover, both learned the hard way in this repo:
 | Limit | Detail |
 | --- | --- |
 | Needs a window | every successful `code chat` probe fired with VS Code already open. Fully-quit behaviour is **unverified**. A cold-start probe is still outstanding. |
-| One window, and it must be this one | the driver opens no window; `code chat -r` dispatches into the last active one. So the loop must be started from a window rooted on this repo, with `REPO` a worktree under `tmp/` — otherwise the worker's tools are out of workspace scope and `loop-worker` does not resolve. Click into another window mid-run and the next dispatch follows you. |
-| One loop at a time | two concurrent loops would dispatch into the same window and interleave their turns. |
+| Worker model comes from frontmatter | `code chat --help` on 1.121.0 offers `-m <mode-or-custom-agent>` and **no `--model` flag**, so the worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter. Verified 2026-09-23 that the pin is honoured: `probe-astra` and `probe-gemini` (identical except `model:`) resolved to `copilot/gpt-6-astra` and `copilot/gemini-3.8-flash`, read from `result.metadata.resolvedModel` in the session record, not self-report. |
+| One repo at a time | the driver opens a window on `REPO` and dispatches there. Two concurrent loops on two repos will interleave windows. |
 | `copilot` CLI is not an option | installed at `1.0.81`, but every `-p` invocation returns `Access denied by policy settings`. `code chat` is a different binary and is not blocked. |
 | The sandbox is not a boundary | escalation out of it is per-command and silent. From an escalated run, `~/.ssh/id_ed25519` was readable and `$JIRA_DC_TOKEN` was in the environment. Loop only on repos you would hand the agent anyway. |
 | Polling costs a full suite run | `POLL_LIMIT=72` at 5s means up to 72 jest runs per iteration. Fine for a 90s suite; reconsider for a 10-minute one. |
 
-One limit came **off** this list on 2026-09-23. "Worker model is unproven at dispatch" is
-resolved: `code chat -m <agent>` does honour the frontmatter pin. See §1 for the probe and
-its output.
+Same-window dispatch (`code chat -r` into the window you are working in) was tried on
+2026-09-23 and reverted on 2026-09-24, after it was suspected in a VS Code crash. Every
+worker turn landed in the user's own window, so its chat history and renderer memory grew
+with the loop. The cause was never confirmed. The driver opens a separate window again.
 
 ### 7.1 Why not subagents
 
-Every limit above except the last two comes from `code chat`. Dispatching `loop-worker` as a
-subagent instead would delete all of them at once — no window, no worktree rule, no "do not
-click away", and the model pin works there too. It is the obvious idea and it is the wrong
-one.
+The first three limits above come from `code chat`. Dispatching `loop-worker` as a subagent
+instead would delete them all at once — no window, no one-repo rule, and the model pin works
+there too. It is the obvious idea and it is the wrong one.
 
 **A subagent returns its result into the parent turn.** So something expensive is awake for
 every iteration, reading every red run. A four-iteration loop costs four expensive turns —
@@ -406,7 +372,7 @@ The one case where the trade flips: a two- or three-iteration job you intend to 
 You are paying for the turns regardless, so the window rules are pure friction. For anything
 you start and leave, use the script.
 
----
+=======
 
 ## 8. Driving it from the dashboard
 
