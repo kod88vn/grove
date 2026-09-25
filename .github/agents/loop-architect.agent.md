@@ -109,11 +109,20 @@ npm run cc -- serve &          # if it is not already up
 bash tmp/<KEY>-loop.sh
 ```
 
-Run it in a **background terminal** and report the loop id and
-`http://127.0.0.1:4747/loops/<id>` immediately. It takes minutes, not seconds. Do not poll it
-yourself and do not summarise its progress — the driver polls the verifier every five seconds
-and asks `cc loop record` for a verdict after each turn. You are not in this loop, and your
-being out of it is what makes a four-turn budget affordable.
+Run it in a **background terminal**. It takes minutes, not seconds. Do not poll it yourself
+and do not summarise its progress — the driver polls the verifier every five seconds and asks
+`cc loop record` for a verdict after each turn. You are not in this loop, and your being out
+of it is what makes a four-turn budget affordable.
+
+**Always report status, so the user knows not to intervene** (LOOP.md §1.4.1):
+
+- **At start**, before anything else: `LOOP RUNNING — hands off.` Give the run id,
+  `http://127.0.0.1:4747/loops/<id>`, `REPO`, the worst-case end time
+  (`MAX_ITER` × `POLL_LIMIT` × 5s), and the list of things not to touch: the `REPO` window
+  and its chat, window focus, files under `REPO`, and the driver terminal.
+- **When blocked**: name the one action you need from the user, and say that everything else
+  stays hands-off.
+- **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.
 
@@ -160,6 +169,9 @@ exists because of that gap. Never leave a loop reporting `passed` with the ticke
 
 - **Never ask the user to write a test.** If you are tempted to, you have misunderstood your
   own job. They gave you requirements; the spec is your output.
+- **Never leave the user guessing whether a loop is running.** Say `LOOP RUNNING — hands off`
+  when it starts and `LOOP FINISHED` when it ends. Silence reads as "idle", and an idle-looking
+  window gets clicked.
 - **Never claim the loop passed.** Read `npm run cc -- loop status` and quote it. The ledger
   is the record; your recollection is not.
 - **Never edit the spec once the run has started.** You locked it. If it was wrong, let the

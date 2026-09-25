@@ -120,6 +120,31 @@ npm run cc -- loop status  # the same list, in a terminal
 a run shows each iteration and the verifier output from the last one — which is the thing you
 actually want when it failed. The page is read-only and always will be; see §8.
 
+### 1.4.1 Always report status — so the user knows not to intervene
+
+A running loop looks exactly like an idle window that someone forgot about. If the user
+cannot tell the difference, they click into it, type in its chat, or edit a file in `REPO`,
+and the next `code chat -r` dispatch lands somewhere else or the verifier reads a tree the
+worker did not write. So whoever starts a loop — the architect or a human — reports status
+at three points, every time, without being asked:
+
+| When | Say |
+| --- | --- |
+| **Start** | `LOOP RUNNING — hands off.` The run id and `http://127.0.0.1:4747/loops/<id>`, `REPO`, the worker window, and the worst-case end: `MAX_ITER` × `POLL_LIMIT` × 5s (defaults 4 × 72 × 5s ≈ 24 min). |
+| **Blocked** | Anything that needs the user — an unsandbox prompt, a trust prompt, an `ABORT`. Name the exact action, and say that everything else is still hands-off. |
+| **End** | `LOOP FINISHED — safe to use the windows again.` The verdict from `cc loop status`, quoted, not recalled. |
+
+Until the end message, the user should not touch these:
+
+- the VS Code window open on `REPO`, or its chat;
+- which VS Code window has focus — `code chat -r` sends the prompt to the last active window;
+- any file under `REPO`;
+- the terminal running the driver.
+
+This is not a running commentary. Say nothing between start and end unless something is
+blocked: the dashboard is the progress view, and the reporter polling on the user's behalf
+would put an expensive model back into the loop (§7.1).
+
 ### 1.5 After a PASS
 
 The loop stops at green. It deliberately does **not** commit, push, or open a PR — see §6.
