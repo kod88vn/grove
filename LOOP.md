@@ -145,6 +145,12 @@ This is not a running commentary. Say nothing between start and end unless somet
 blocked: the dashboard is the progress view, and the reporter polling on the user's behalf
 would put an expensive model back into the loop (§7.1).
 
+**A stray session is not a block.** If a dispatch lands somewhere else — an extra chat
+session, a session in the wrong window, or a duplicate from a double-run command — ignore
+it and discard it. Do not read it, resume it, or count its output, and do not stop to ask the
+user about it. The verifier alone decides each iteration, so a stray session costs at most
+one turn of budget, and the loop carries on. List it in the end message, as a one-liner.
+
 ### 1.5 After a PASS
 
 The loop stops at green. It deliberately does **not** commit, push, or open a PR — see §6.

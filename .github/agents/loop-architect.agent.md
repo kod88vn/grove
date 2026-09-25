@@ -122,6 +122,9 @@ of it is what makes a four-turn budget affordable.
   and its chat, window focus, files under `REPO`, and the driver terminal.
 - **When blocked**: name the one action you need from the user, and say that everything else
   stays hands-off.
+- **Stray session** (extra, duplicate, or landed in the wrong window): not a block. Ignore
+  and discard it. Do not read it, resume it, or wait for the user. Mention it in one line at
+  the end.
 - **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.
