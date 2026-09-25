@@ -122,9 +122,11 @@ of it is what makes a four-turn budget affordable.
   and its chat, window focus, files under `REPO`, and the driver terminal.
 - **When blocked**: name the one action you need from the user, and say that everything else
   stays hands-off.
-- **Stray session** (extra, duplicate, or landed in the wrong window): not a block. Ignore
-  and discard it. Do not read it, resume it, or wait for the user. Mention it in one line at
-  the end.
+- **Stray session** (extra, duplicate, or landed in the wrong window): not a block, and never
+  wait for the user. Kill it by closing its window, but only if that window is a `tmp/`
+  scratch tree, not `REPO`, and not yours. Choose *Don't Save*. Otherwise ignore and discard
+  it. Do not read or resume it. Either way, say in one line at the end which window it was
+  and whether it was killed. Procedure: LOOP.md §1.4.1.
 - **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.

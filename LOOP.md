@@ -145,11 +145,32 @@ This is not a running commentary. Say nothing between start and end unless somet
 blocked: the dashboard is the progress view, and the reporter polling on the user's behalf
 would put an expensive model back into the loop (§7.1).
 
-**A stray session is not a block.** If a dispatch lands somewhere else — an extra chat
-session, a session in the wrong window, or a duplicate from a double-run command — ignore
-it and discard it. Do not read it, resume it, or count its output, and do not stop to ask the
-user about it. The verifier alone decides each iteration, so a stray session costs at most
-one turn of budget, and the loop carries on. List it in the end message, as a one-liner.
+**A stray session is not a block — kill it if you safely can, and never wait for the user.**
+A stray is an extra chat session, one that landed in the wrong window, or a duplicate from a
+double-run command. The verifier alone decides each iteration, so a stray costs at most one
+turn of budget and the loop carries on regardless. The user may not be there, so nothing here
+waits on them:
+
+1. **Find it.** Look for a new `.jsonl` under any
+   `~/Library/Application Support/Code/User/workspaceStorage/*/chatSessions/` newer than the
+   dispatch. That hash folder's `workspace.json` names the window's folder — verified
+   2026-09-24, every store maps back (`"folder": "file:///…/harvester/tmp/trials/…"`). If the
+   folder is `REPO`, it is not a stray.
+2. **Kill it only if closing the window is safe:** its folder is inside a `tmp/` scratch tree,
+   it is not `REPO`, and it is not the window running the architect or the driver. Anything
+   else is someone's real work. Closing it kills more than the stray, so go to step 4.
+3. **Close the window.** `code` has no cancel, close, or run-command flag (checked against
+   `code --help` on 1.121.0), so use System Events: find the window whose title contains the
+   folder's basename, and press its `AXCloseButton`. `files.autoSave` and `files.hotExit` are
+   not set in user settings, so a save prompt may appear. Choose *Don't Save*: those are the
+   stray's edits, and discarding them is the point. The prompt behaviour and button label
+   are **unverified**.
+4. **Otherwise ignore and discard it.** Do not read it, resume it, or count its output. Do not
+   stop to ask.
+
+Whichever way it went, list it in the end message as a one-liner: the window, and whether it
+was killed or left. Nothing in `scripts/loop.sh` does this yet. Today it is the architect's
+job at the end-of-run report.
 
 ### 1.5 After a PASS
 
