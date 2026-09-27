@@ -55,6 +55,10 @@ export function parseReminderState(raw) {
   )) {
     throw new Error('Saved reminders must contain an id and title')
   }
+  const ids = parsed.map((item) => item.id)
+  if (new Set(ids).size !== ids.length) {
+    throw new Error('Saved reminders must contain unique ids')
+  }
   return createReminderState(parsed)
 }
 
