@@ -180,20 +180,20 @@ function SubmissionCard({ submission }) {
             <p className="text-xs text-gray-600">
               Score: {submission.score} / {submission.max_score} ({submission.percentage}%)
             </p>
-            {submission.feedback && (
+            {(submission.feedback || submission.details?.comment) && (
               <div>
                 <p className="text-xs font-semibold text-gray-600 uppercase">Feedback:</p>
-                <p className="text-gray-700 whitespace-pre-wrap mt-1">{submission.feedback}</p>
+                <p className="text-gray-700 whitespace-pre-wrap mt-1">{submission.feedback || submission.details.comment}</p>
               </div>
             )}
-            {submission.details && submission.subject === 'math' && submission.type === 'problem-set' &&
+            {submission.details && submission.subject === 'math' &&
              submission.details.problems && (
               <div>
                 <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Problem Results:</p>
                 <div className="space-y-1">
                   {submission.details.problems.map((problem, idx) => (
                     <p key={idx} className="text-xs text-gray-700">
-                      {problem.correct ? '✅' : '❌'} Problem {idx + 1}: {problem.prompt || problem.text}
+                      {problem.correct ? '✅' : '❌'} Problem {idx + 1}: {problem.problem || problem.prompt || problem.text || submission.exercise?.problems?.find(exerciseProblem => exerciseProblem.id === problem.id)?.problem || submission.exercise?.problems?.find(exerciseProblem => exerciseProblem.id === problem.id)?.prompt || submission.exercise?.problems?.find(exerciseProblem => exerciseProblem.id === problem.id)?.text}
                     </p>
                   ))}
                 </div>
@@ -228,7 +228,7 @@ function SubmissionCard({ submission }) {
           </div>
 
           {/* Render exercise content based on subject/type */}
-          {submission.subject === 'math' && submission.type === 'problem-set' ? (
+          {submission.subject === 'math' ? (
             <MathExerciseDetails exercise={submission.exercise} answers={submission.answers} />
           ) : submission.subject === 'english' && submission.type === 'writing' ? (
             <WritingExerciseDetails exercise={submission.exercise} answers={submission.answers} />
@@ -245,7 +245,7 @@ function MathExerciseDetails({ exercise, answers }) {
   if (!exercise) return <p className="text-gray-400">No exercise data available.</p>
 
   const problems = exercise.problems || []
-  const studentAnswersObj = answers // { [problemIndex]: 'student answer' }
+  const studentAnswers = Array.isArray(answers?.problems) ? answers.problems : null
 
   return (
     <div className="space-y-3">
@@ -254,13 +254,17 @@ function MathExerciseDetails({ exercise, answers }) {
           <h4 className="font-semibold text-gray-700">Problems & Answers</h4>
           {problems.map((problem, idx) => (
             <div key={idx} className="bg-white rounded p-3 space-y-1">
-              <p className="text-gray-800 font-medium">{problem.prompt || problem.text}</p>
-              {problem.answer && (
-                <p className="text-green-700 text-xs">✅ Correct answer: {problem.answer}</p>
+              <p className="text-gray-800 font-medium">{problem.problem || problem.prompt || problem.text}</p>
+              {(problem.expectedAnswer || problem.answer) && (
+                <p className="text-green-700 text-xs">✅ Correct answer: {problem.expectedAnswer || problem.answer}</p>
               )}
-              {studentAnswersObj && studentAnswersObj[idx] !== undefined && (
-                <p className="text-blue-700 text-xs">📝 Student answer: {studentAnswersObj[idx]}</p>
-              )}
+              {studentAnswers
+                ? studentAnswers.find(studentAnswer => studentAnswer.id === problem.id)?.answer !== undefined && (
+                  <p className="text-blue-700 text-xs">📝 Student answer: {studentAnswers.find(studentAnswer => studentAnswer.id === problem.id).answer}</p>
+                )
+                : answers && answers[idx] !== undefined && (
+                  <p className="text-blue-700 text-xs">📝 Student answer: {answers[idx]}</p>
+                )}
             </div>
           ))}
         </>
