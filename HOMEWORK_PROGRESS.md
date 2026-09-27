@@ -41,13 +41,13 @@ All resolved 2026-09-26.
 - [ ] P0.9 Acceptance: 8 pm America/New_York submission shows under the right day
 
 ## Phase 1 — Engine + vertical slice (Grade 5)
-- [ ] P1.1 `packages/curriculum` scaffold (mirror `packages/crossword` setup)
+- [ ] P1.1 `packages/curriculum` scaffold (`type: module`, `test: node --test`, like `packages/grove-shell`)
 - [ ] P1.2 `engine/rng.js`, `render.js`, `check.js`, `fraction.js` + tests
 - [ ] P1.3 Grade 5 maths catalog — 55 skills ported with `legacyId`
 - [ ] P1.4 Templates: `m5.nbt.long-multiplication`, `m5.nf.add-fractions-unlike`, `m5.oa.order-of-operations`
 - [ ] P1.5 `e5.l.context-clues` with 20 reviewed items
-- [ ] P1.6 Tables `students`, `practice_sessions`, `attempts` + `lib/db.js` tests
-- [ ] P1.7 APIs `/students`, `/problems`, `/problems/:id`, `/sessions`, `/attempts`
+- [ ] P1.6 Tables `students` (+ idempotent `public` seed), `practice_sessions`, `session_items`, `attempts` + `lib/db.js` tests
+- [ ] P1.7 APIs `/students`, `/problems`, `/problems/:skill/:template`, `/sessions`, `/hints`, `/attempts` (tries/hints server-side)
 - [ ] P1.8 Solve page + session runner (Check ✅, stars, "How Nora solved it")
 - [ ] P1.9 Acceptance: answer absent from payload before solve; review shows every problem + answer
 
@@ -68,7 +68,7 @@ All resolved 2026-09-26.
 | fraction / fraction-bar / number-line | B | [ ] | [ ] | [ ] |
 | text | B | [ ] | [ ] | [ ] |
 | table-fill | C | [ ] | [ ] | [ ] |
-| expression (+ form checks) | C–D | [ ] | [ ] | [ ] |
+| expression (exact polynomial/rational + form checks) | C–D | [ ] | [ ] | [ ] |
 | graph | C–D | [ ] | [ ] | [ ] |
 | steps | D | [ ] | [ ] | [ ] |
 | free-response (Nora rubric) | B–D | [ ] | [ ] | [ ] |
@@ -142,7 +142,7 @@ Grade 5 legacy categories (55):
 | 11 | 6e | | 0/3 | 0/2 | 0/3 | 0/2 | | | 0/2 | | 0/12 | 0 |
 | 12 | 6e | | 0/2 | 0/2 | 0/2 | 0/3 | | | | 0/2 | 0/11 | 0 |
 
-- [ ] P6.1 `scripts/draft-english.mjs` (via Nora HTTP, drafts only)
+- [ ] P6.1 `scripts/curriculum/draft-english.mjs` at repo root (via Nora HTTP, drafts only, outside the package)
 - [ ] P6.2 Dev content-review page + approve flow (`reviewedBy`)
 - [ ] P6.3 `engine/readability.js` + readability test gate
 - [ ] P6.4 Nora `type: 'rubric'` grading with grade-level parameter
@@ -166,5 +166,8 @@ Newest first. One entry per PR: date · PR · boxes ticked · verification comma
 
 | Date | PR | Ticked | Verification |
 | --- | --- | --- | --- |
+| 2026-09-27 | (this PR) | Plan fixes from #45 review: exact expression check, `public` seed, 2-segment problem route, POST `/hints`, `studentId` on sessions, server-side tries/hints, `node --test`, drafting tool outside package | `git diff --stat origin/master` — docs only |
+| 2026-09-27 | #48 | CI merge gate: bot approval on head, no open threads or change requests | `node --test .github/scripts` 10/10; gate passed on `e60d1c6` before merge |
+| 2026-09-27 | #45 | Plan + tracker merged (with 8 open Copilot findings, which led to #48) | pr-ci SUCCESS on `29afcc0` |
 | 2026-09-26 | — | P0.1 (D1–D7 decided) | — |
 | 2026-09-26 | — | Plan written | — |

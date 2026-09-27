@@ -120,8 +120,17 @@ Common to all bands:
 
 Pure JS, no React, no DB, no network. Imported by `apps/homeworks` server routes (generate,
 check) and by UI (catalog metadata only). Root `package.json` already has `"workspaces":
-["packages/*", "apps/*"]`, so it is picked up automatically. Mirror `packages/crossword`'s
-package/test setup (read it first; not inspected yet).
+["packages/*", "apps/*"]`, so it is picked up automatically.
+
+Package setup: `"type": "module"` and `"test": "node --test"`, the same runner
+`packages/grove-shell` uses, with no test dependencies. (`packages/crossword` has no test
+setup, so it is not the model.) Tests sit next to their modules as `src/**/*.test.js`,
+and turbo's `test` task picks them up.
+
+The Nora drafting tool is **not** part of this package. It calls the network, so it lives
+at the repo root in `scripts/curriculum/draft-english.mjs` (§10 Phase 6) and writes to a
+gitignored `scripts/curriculum/drafts/`. Nothing under `packages/curriculum` makes a
+network call.
 
 ```
 packages/curriculum/
@@ -133,6 +142,7 @@ packages/curriculum/
       render.js                    template + seed -> { prompt, visual, widget, answer, hints, explanation }
       check.js                     one checker per widget type
       expr.js                      tiny expression parser (shunting-yard) — NO eval / new Function
+      poly.js                      exact polynomial normal form over fractions (expression checker)
       fraction.js                  parse "3/4", "1 1/2", simplest-form test
       readability.js               Flesch–Kincaid grade estimate (English content tests)
     catalog/
@@ -143,8 +153,6 @@ packages/curriculum/
       english/g01/<skill>.js …     templates over reviewed item banks
     content/
       english/passages/g01/*.js    reviewed passages (original or public domain only)
-  scripts/
-    draft-english.mjs              calls Nora over HTTP to DRAFT items -> drafts/ (never shipped)
 ```
 
 ### 6.2 Identifiers and shapes
@@ -197,22 +205,42 @@ One component + one checker per type. Built in the order the grade bands need th
 | `fraction` / `fraction-bar` / `number-line` | fractions, decimals, integers | value equality + optional simplest form | B |
 | `text` | short answers with a closed accept list | normalized match | B |
 | `table-fill` | ratio tables, function tables | per-cell numeric | C |
-| `expression` | algebra | equivalence at 5 random points **plus** form check (e.g. "factored") | C–D |
+| `expression` | algebra | **exact** equivalence (see below) **plus** form check (e.g. "factored") | C–D |
 | `graph` (SVG coordinate plane) | plot points, lines, parabolas | points / slope-intercept within tolerance | C–D |
 | `steps` | multi-step equations, proofs | each step checked in order | D |
 | `free-response` | writing | Nora rubric (1–4 per criterion) | B–D |
+
+**Expression equivalence must be exact, not sampled.** Checking an answer at a few random
+points is not sound: two different expressions can agree on every sampled point, and a
+wrong answer would get credit. So the checker supports only grammars it can decide:
+
+- `grammar: 'polynomial'`: `+ − × ÷` by a constant, integer powers, and variables, with
+  rational coefficients. `poly.js` expands both sides to a canonical sorted-monomial form
+  with `fraction.js` coefficients and compares them for exact equality.
+- `grammar: 'rational'`: `P1/Q1 ≡ P2/Q2` iff `P1·Q2 = P2·Q1` as polynomials. Domain
+  restrictions (for example `x ≠ 1`) are asked as a separate `number` or `choice` step,
+  because rational-function equality ignores them.
+
+Every `expression` template must declare one of these two grammars, and a catalog test
+fails any template that does not. Skills that need radicals, exponentials, logs or trig in
+the answer use `choice`, `number` or `steps` with fixed canonical forms instead of
+free-form `expression`.
 
 ### 6.4 Data model (additions to `apps/homeworks/lib/db.js`; existing tables untouched)
 
 ```sql
 CREATE TABLE IF NOT EXISTS students (
-  id TEXT PRIMARY KEY,                       -- 'public' is seeded for backward compatibility
+  id TEXT PRIMARY KEY,                       -- 'public' is seeded below for backward compatibility
   display_name TEXT NOT NULL,
   avatar TEXT NOT NULL,
   grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 12),
   settings_json TEXT NOT NULL DEFAULT '{}',  -- sounds, font, read-aloud, tz
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
+-- Idempotent seed, run on every open, so fresh and existing databases both have the default
+-- profile before any session or attempt references it. Grade 5 matches today's only user.
+INSERT OR IGNORE INTO students (id, display_name, avatar, grade)
+  VALUES ('public', 'Explorer', '🌱', 5);
 
 CREATE TABLE IF NOT EXISTS practice_sessions (
   id TEXT PRIMARY KEY,
@@ -223,6 +251,20 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
   tz TEXT NOT NULL,                          -- IANA name from Intl.DateTimeFormat
   started_at INTEGER NOT NULL DEFAULT (unixepoch()),
   finished_at INTEGER
+);
+
+-- Server-side counters for one problem instance inside a session. The client never sends
+-- tries or hints; /attempts and /hints increment these rows, and the final attempt row
+-- copies them. That way stars and mastery cannot be inflated from the browser.
+CREATE TABLE IF NOT EXISTS session_items (
+  session_id TEXT NOT NULL REFERENCES practice_sessions(id),
+  problem_id TEXT NOT NULL,
+  seed INTEGER NOT NULL,
+  tries INTEGER NOT NULL DEFAULT 0,
+  hints_used INTEGER NOT NULL DEFAULT 0,
+  revealed INTEGER NOT NULL DEFAULT 0,
+  done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0,1)),
+  PRIMARY KEY (session_id, problem_id, seed)
 );
 
 CREATE TABLE IF NOT EXISTS attempts (
@@ -296,14 +338,18 @@ for when the mastery rule changes.
 | GET/POST | `/students` | list / create kid profiles |
 | GET | `/catalog?subject&grade&studentId` | strands + skills + stage for this kid |
 | GET | `/problems?subject&grade&skill&difficulty&status&studentId` | Quest Board list |
-| GET | `/problems/:id?seed` | rendered instance — **no answer, no explanation** |
-| GET | `/problems/:id/hint?seed&n` | hint *n* (records usage) |
-| POST | `/sessions` | start a session (`kind`, `local_date`, `tz`) |
-| POST | `/attempts` | `{ sessionId, problemId, seed, response, tries, hintsUsed, durationMs }` → server re-renders from seed, checks, stores, returns `{ correct, stars, feedback, explanation?, skillState }` |
+| GET | `/problems/:skill/:template?seed` | rendered instance — **no answer, no explanation**. Two path segments because a problem id is `<skill-id>/<template-slug>` (§6.2); route file `app/api/problems/[skill]/[template]/route.js` |
+| POST | `/sessions` | `{ studentId, kind, skillId?, localDate, tz }` → `{ sessionId }`; `studentId` must exist in `students` |
+| POST | `/hints` | `{ sessionId, problemId, seed }` → the next unused hint; increments `session_items.hints_used` on the server. POST, not GET, because it has a side effect |
+| POST | `/attempts` | `{ sessionId, problemId, seed, response, durationMs }` → server re-renders from seed, checks, increments `session_items.tries`, and on correct/reveal writes the `attempts` row using the **server's** tries and hints; returns `{ correct, stars, feedback, explanation?, skillState }` |
 | GET | `/next?studentId&skill?` | next problem per §6.5 |
 | GET | `/daily?grade&date` | Daily Seed (seed derived from `grade + date`) |
 | GET | `/garden?studentId` | skill states for the grove view |
 | GET | `/review?studentId&day` | **extended**: attempts grouped by `local_date`, with `shown_json` vs `response_json` vs `answer_json` |
+
+The student comes from `sessionId`, so `/hints` and `/attempts` never take a `studentId` of
+their own. With no auth (D1), picking a sibling's avatar is allowed by design; the counters
+exist so a kid cannot fake stars by replaying requests.
 
 Free-response attempts call Nora `POST /chat/api/nora-homework/grade` with a **new generic
 `type: 'rubric'`** that takes `{ grade, prompt, rubric, text }` — one small branch in Nora,
@@ -317,7 +363,7 @@ grade-level as a parameter instead of the hard-coded "Grade 5".
 | `/homeworks/today` | Daily Seed, Continue, "Water your trees", two suggestions |
 | `/homeworks/grove` | the garden: skills as trees, by subject and grade |
 | `/homeworks/quests` | Quest Board (LeetCode list) |
-| `/homeworks/q/[...id]` | solve page: prompt · 🔊 · widget · 💡 · Check ✅ · "How Nora solved it" |
+| `/homeworks/q/[skill]/[template]` | solve page: prompt · 🔊 · widget · 💡 · Check ✅ · "How Nora solved it" |
 | `/homeworks/play/[sessionId]` | session runner: progress bar, one problem at a time, end card |
 | `/homeworks/paths` | study paths + boss problems |
 | `/homeworks/review` | parent review (existing, extended) |
@@ -606,8 +652,9 @@ that band needs exist; they can run in parallel with each other.
   `m5.nbt.long-multiplication` (column), `m5.nf.add-fractions-unlike` (fraction),
   `m5.oa.order-of-operations` (number).
 - One English skill: `e5.l.context-clues` (cloze) with 20 reviewed items.
-- Add `students`, `practice_sessions`, `attempts` tables; `/students`, `/problems`,
-  `/problems/:id`, `/attempts`, `/sessions`.
+- Add `students` (with the `public` seed), `practice_sessions`, `session_items`, `attempts`
+  tables; `/students`, `/problems`, `/problems/:skill/:template`, `/sessions`, `/hints`,
+  `/attempts`.
 - Solve page + session runner with **Check ✅**, stars, "How Nora solved it".
 - Acceptance: a kid completes an 8-problem session of long multiplication, the answer never
   appears in the network payload before solving (verify in DevTools), and the review page
@@ -648,7 +695,8 @@ When 5a is done, switch the **Math** tab to the new engine and retire the LLM-gr
 rows into `attempts` via `legacyId` (D4).
 
 ### Phase 6 — English content (193 skills)
-- `scripts/draft-english.mjs` drafts items and passages per skill through Nora; a parent
+- `scripts/curriculum/draft-english.mjs` (repo root, outside the package) drafts items and
+  passages per skill through Nora; a parent
   reviews in a simple review page (`/homeworks/dev/content-review`, dev only) and approves into
   `content/`.
 - Add Nora `type: 'rubric'` grading with grade-level parameter; free-response widget.
