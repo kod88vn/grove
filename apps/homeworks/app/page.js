@@ -16,7 +16,7 @@ function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-slate-900">Daily Homeworks</h1>
-          <p className="text-slate-600">AI-powered learning for Grade 5</p>
+          <p className="text-slate-600">Nora-powered learning for Grade 5</p>
         </div>
         <Link href="/review" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
           📋 Review Submissions
