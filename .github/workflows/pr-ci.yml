@@ -72,6 +72,9 @@ jobs:
           echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
           echo "Changed packages: $CHANGED_DIRS or all ($FILTER)"
 
+      - name: Test CI scripts
+        run: node --test '.github/scripts/*.test.mjs'
+
       - name: Test affected packages
         run: yarn turbo test ${{ steps.changed.outputs.filter }}
 
@@ -191,17 +194,37 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'do-not-merge') &&
       github.event.pull_request.author_association == 'OWNER'
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Auto-merge PR (squash)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The verdict output above is not enough: PR #45 merged with 8 unresolved Copilot
+      # findings. Re-read the PR's real review state; any open thread, change request, or
+      # stale approval blocks the merge. Resolve threads and push to re-run.
+      - name: Merge gate (bot approved head, no open threads or change requests)
+        run: node .github/scripts/merge-gate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+
+      # No --auto: without branch protection it merges immediately anyway, and the gate
+      # above has already decided.
+      - name: Merge PR (squash)
         run: |
           gh pr merge ${{ github.event.pull_request.number }} \
-            --auto \
             --squash \
+            --match-head-commit ${{ github.event.pull_request.head.sha }} \
             --subject "Squash merge" \
             --delete-branch
         env:
