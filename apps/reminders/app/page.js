@@ -37,14 +37,18 @@ export default function RemindersPage() {
       <p className="mb-6 text-slate-500">Keep track of chores, school tasks, and routines.</p>
 
       <form onSubmit={handleAdd} className="mb-6 flex flex-col gap-2 sm:flex-row">
+        <label htmlFor="reminder-title" className="sr-only">Reminder</label>
         <input
+          id="reminder-title"
           type="text"
           value={draft.title}
           onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
           placeholder="Reminder…"
           className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
+        <label htmlFor="reminder-due" className="sr-only">When (optional)</label>
         <input
+          id="reminder-due"
           type="text"
           value={draft.dueLabel}
           onChange={(e) => setDraft((d) => ({ ...d, dueLabel: e.target.value }))}
@@ -72,6 +76,7 @@ export default function RemindersPage() {
                 type="checkbox"
                 checked={item.completed}
                 onChange={() => toggleReminder(item.id)}
+                aria-label={item.title}
                 className="h-4 w-4 rounded accent-indigo-600"
               />
               <div className="flex-1 min-w-0">
