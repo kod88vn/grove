@@ -57,6 +57,14 @@ Use the `terse-communication` skill by default in `full` mode:
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
 5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values.
 6. **No Direct Pushes to Master**: Never push directly to `master`. All changes go through pull requests. See [Push Safety Policy](../AGENTS.md#push-safety-policy) below.
+7. **A Loop Ends at Merge, One Loop at a Time**: See [Loop Engineering](../AGENTS.md#loop-engineering-non-negotiable).
+
+## Loop Engineering (Non-Negotiable)
+
+- A task (loop) is finished **when its PR is merged**. Deployment verification is not required. Pushed or PR-opened is not done.
+- Keep checking the PR (`gh pr view <n> --json state,mergeable,mergeStateStatus,headRefOid,reviewDecision,statusCheckRollup`, plus review and inline comments) and act on it on the same branch: fix failing checks, address and resolve every review comment, merge `master` in on conflicts (no force push). `pr-auto-merge` merges only when every [merge-gate](../AGENTS.md#loop-engineering-non-negotiable) condition holds: the AI review approved the current head, no other reviewer's latest review is `CHANGES_REQUESTED`, 0 unresolved threads, and no Copilot review run in progress.
+- Work on **one thing at a time**: one open loop per agent, one concern per PR. Do not start the next task until the current PR is merged or the owner parks it.
+- Report loop status ("PR #n: waiting on review"), never "done" for an unmerged PR.
 
 ## Push Safety Policy (Non-Negotiable)
 
@@ -89,9 +97,9 @@ When ANY bug, regression, or unexpected behavior is reported:
 
 **Reference**: See also [`skills/coding/debugging/SKILL.md`](../skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](../skills/coding/unit-testing/SKILL.md).
 
-## Post-Deploy Verification (Non-Negotiable)
+## Post-Deploy Verification (On Request)
 
-After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Before closing the task, verify the deployment succeeded:
+After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Verifying it is **not required to finish a task** — a merged PR finishes the loop. Run this only when the owner asks or a deploy failure is suspected:
 
 1. **Check deploy workflow status** — Use GitHub MCP `get_commit` to see if the "deploy" check run passed
 2. **Verify container health** — Check `docker logs grove-live --tail 50` for errors
