@@ -166,7 +166,7 @@ Newest first. One entry per PR: date · PR · boxes ticked · verification comma
 
 | Date | PR | Ticked | Verification |
 | --- | --- | --- | --- |
-| 2026-09-27 | (this PR) | P0.3 (F1: review page sends its IANA `tz`; `/api/review` buckets by local day, DST-aware, 400 on unknown zone) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 15 suites, 68/68 each (5 new tests red before the fix); `npx next build` OK |
+| 2026-09-27 | (this PR) | P0.3 (F1: review page sends its IANA `tz`; `/api/review` buckets by local day, DST-aware, 400 on unknown zone) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 16 suites, 87/87 each (5 new tests red before the fix; PR review follow-up GROVE-P03b: `lib/localDay.transitions.test.js` 12/19 red → green via loop run 14 — midnight DST changes and impossible dates); `npx next build` OK |
 | 2026-09-27 | #52 | P0.2 (AGENTS.md Homeworks: D1 avatar profiles with `'public'` default, D2 content as code) | `git diff --stat origin/master` — docs only; `grep -n "D1\|D2" AGENTS.md` |
 | 2026-09-27 | #49 | Plan fixes from #45 and #49 reviews: exact expression check (non-zero denominators), `public` seed, 2-segment problem route, POST `/hints`, `studentId` on sessions, server-issued seeds bound to `session_items`, server-side tries/hints, package `exports` + `node --test`, drafting tool outside package with `.gitignore` entry | `git diff --stat origin/master` — docs only |
 | 2026-09-27 | #48 | CI merge gate: bot approval on head, no open threads or change requests | `node --test .github/scripts` 10/10; gate passed on `e60d1c6` before merge |

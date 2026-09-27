@@ -25,12 +25,26 @@ function offsetAt(ms, timeZone) {
   return wallClockAsUtc - Math.floor(ms / 1000) * 1000
 }
 
-// The UTC instant of local midnight on year-month-day in `timeZone`. The second pass
-// corrects the guess when the offset at midnight differs from the offset at 00:00Z.
+// The first UTC instant whose local date in `timeZone` is year-month-day. That is local
+// midnight, or the moment the clocks jump when a zone skips midnight (PR #53 review).
 function localMidnight(year, month, day, timeZone) {
   const guess = Date.UTC(year, month - 1, day)
   const first = guess - offsetAt(guess, timeZone)
-  return guess - offsetAt(first, timeZone)
+  const estimate = guess - offsetAt(first, timeZone)
+  const targetDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  let low = estimate - 48 * 60 * 60 * 1000
+  let high = estimate + 48 * 60 * 60 * 1000
+
+  while (localDateOf(low, timeZone) >= targetDate) low -= 48 * 60 * 60 * 1000
+  while (localDateOf(high, timeZone) < targetDate) high += 48 * 60 * 60 * 1000
+
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2)
+    if (localDateOf(middle, timeZone) < targetDate) low = middle
+    else high = middle
+  }
+
+  return high
 }
 
 export function isValidTimeZone(timeZone) {
@@ -55,6 +69,14 @@ export function dayBoundsInZone(dayStr, timeZone) {
   const match = DAY_PATTERN.exec(dayStr)
   if (!match) throw new Error(`day must be YYYY-MM-DD, got "${dayStr}"`)
   const [year, month, day] = match.slice(1).map(Number)
+  const calendarDate = new Date(Date.UTC(year, month - 1, day))
+  if (
+    calendarDate.getUTCFullYear() !== year ||
+    calendarDate.getUTCMonth() !== month - 1 ||
+    calendarDate.getUTCDate() !== day
+  ) {
+    throw new Error(`invalid calendar date: "${dayStr}"`)
+  }
   const next = new Date(Date.UTC(year, month - 1, day + 1))
   return {
     start: localMidnight(year, month, day, timeZone),
