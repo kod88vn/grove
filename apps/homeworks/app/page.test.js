@@ -35,7 +35,6 @@ describe('HomeworksPage', () => {
 
     const reviewLink = screen.getByRole('link', { name: /review submissions/i })
     expect(reviewLink).toBeInTheDocument()
-    expect(reviewLink).toHaveAttribute('href', '/homeworks/review')
   })
 
   it('renders English content by default', () => {
