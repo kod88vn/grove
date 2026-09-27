@@ -6,6 +6,7 @@ export function EnglishExercise({ onSubmit, loading }) {
   const [exercise, setExercise] = useState(null)
   const [loading_, setLoading_] = useState(false)
   const [submitted, setSubmitted] = useState(null)
+  const [gradingError, setGradingError] = useState('')
   const [answers, setAnswers] = useState({})
   const [lessonKeyPoint, setLessonKeyPoint] = useState('')
   const [selectedDomainId, setSelectedDomainId] = useState(null) // null or topic id (null = random)
@@ -75,6 +76,7 @@ export function EnglishExercise({ onSubmit, loading }) {
         setLessonKeyPoint(data.lessonKeyPoint || '')
         setAnswers({})
         setSubmitted(null)
+        setGradingError('')
       } else {
         if (data.error) {
           console.error('Exercise generation failed:', data.error)
@@ -131,7 +133,22 @@ export function EnglishExercise({ onSubmit, loading }) {
         body: JSON.stringify({ subject: 'english', type: 'reading', exercise, answers }),
       })
 
+      if (!res.ok) {
+        let errorMessage = `Grading failed (${res.status})`
+        try {
+          const errorResult = await res.json()
+          if (typeof errorResult?.error === 'string' && errorResult.error) {
+            errorMessage = errorResult.error
+          }
+        } catch {
+          // Use the status fallback when the response is not JSON.
+        }
+        setGradingError(errorMessage)
+        return
+      }
+
       const result = await res.json()
+      setGradingError('')
       setSubmitted(result)
 
       // Save to reading history AND update local state immediately so counter stays fresh
@@ -170,6 +187,7 @@ export function EnglishExercise({ onSubmit, loading }) {
       onSubmit?.(result)
     } catch (error) {
       console.error('Failed to submit: ' + error.message)
+      setGradingError('Unable to submit answers. Please try again.')
     } finally {
       setLoading_(false)
     }
@@ -447,6 +465,8 @@ export function EnglishExercise({ onSubmit, loading }) {
             </div>
           ))}
         </div>
+
+        {gradingError && <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-800">{gradingError}</p>}
 
         <button type="submit" disabled={loading_} className="rounded bg-green-600 px-6 py-2 text-white hover:bg-green-700 disabled:bg-gray-400">
           {loading_ ? 'Grading...' : 'Submit Answers'}
