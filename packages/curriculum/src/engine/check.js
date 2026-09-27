@@ -40,10 +40,47 @@ function fraction(answer, response) {
   return right()
 }
 
+function normalize(text) {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function cloze(answer, response) {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.blanks) || answer.blanks.length === 0) {
+    throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+  }
+  for (let index = 0; index < answer.blanks.length; index++) {
+    const blank = answer.blanks[index]
+    if (!blank || typeof blank !== 'object' || Array.isArray(blank) || !Array.isArray(blank.accept) || blank.accept.length === 0) {
+      throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+    }
+    for (let acceptIndex = 0; acceptIndex < blank.accept.length; acceptIndex++) {
+      const entry = blank.accept[acceptIndex]
+      if (typeof entry !== 'string' || entry.trim().length === 0) {
+        throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+      }
+    }
+  }
+  if (!response || typeof response !== 'object' || Array.isArray(response) || !Array.isArray(response.blanks) || response.blanks.length !== answer.blanks.length) return invalid()
+  for (let index = 0; index < response.blanks.length; index++) {
+    const text = response.blanks[index]
+    if (typeof text !== 'string' || text.trim().length === 0) return invalid()
+  }
+  for (let index = 0; index < response.blanks.length; index++) {
+    const text = response.blanks[index]
+    let matches = false
+    for (let acceptIndex = 0; acceptIndex < answer.blanks[index].accept.length; acceptIndex++) {
+      if (normalize(answer.blanks[index].accept[acceptIndex]) === normalize(text)) matches = true
+    }
+    if (!matches) return wrong()
+  }
+  return right()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
   if (widget === 'column') return number(answer, response)
   if (widget === 'fraction') return fraction(answer, response)
+  if (widget === 'cloze') return cloze(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
