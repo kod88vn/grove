@@ -10,6 +10,40 @@ This document defines the roles and responsibilities of AI agents working within
 4. **Permanent Logs**: Maintain an audit log for non-deterministic bugs (gitignored).
 5. **No Silent Failures**: Never suppress errors, return empty fallbacks, or mask failures with default values. Surface problems clearly so they get fixed at the source.
 6. **No Direct Pushes to Master**: Never push directly to `master`. All changes MUST go through pull requests. See [Push Safety Policy](#push-safety-policy) below.
+7. **A Loop Ends at Merge, One Loop at a Time**: A task is not done until its PR is merged. Keep checking the PR and resolving feedback until then, and do not start another task meanwhile. See [Loop Engineering](#loop-engineering-non-negotiable) below.
+
+## Loop Engineering (Non-Negotiable)
+
+A **loop** is one task carried from branch to merged PR. Pushing a branch or opening a PR is the middle of the loop, not the end.
+
+**The loop finishes when the PR is merged.** Deployment verification is not part of the loop. Until the merge, the task is open, whatever the code looks like.
+
+**Keep checking the PR.** After every push, and again whenever you return to the task, read the PR's live state rather than assuming it:
+
+```bash
+gh pr view <n> -R kod88vn/grove \
+  --json state,mergeable,mergeStateStatus,headRefOid,reviewDecision,statusCheckRollup
+gh pr view <n> -R kod88vn/grove --comments            # conversation comments
+gh api repos/kod88vn/grove/pulls/<n>/comments         # inline review comments
+```
+
+Act on what it says, on the same branch (Branch Workflow Case B):
+
+| PR state | Next move |
+| --- | --- |
+| A check failed | Read the failing job's log, reproduce locally, fix, push. See [CI Monitoring](skills/ci/monitoring/SKILL.md). |
+| Checks pending | Wait, then check again. Pending is not passing. |
+| Review comments or `CHANGES_REQUESTED` | Address every comment: fix it, or reply with the reason it should not change. Resolve the thread and re-request review. See [GitHub PR Review](skills/coding/github-pr-review/SKILL.md). |
+| Merge conflict / `BEHIND` | Merge latest `master` into the branch (no force push), re-run tests, push. Also do this when the AI review flags code that only differs because `master` moved. |
+| Green, bot-approved, 0 unresolved threads | `pr-auto-merge` merges it via [`merge-gate.mjs`](.github/scripts/merge-gate.mjs). If the gate refuses, its log says why; fix that. The loop is finished once `state` is `MERGED`. |
+| Closed without merge | Stop and ask the owner. Do not reopen or recreate it on your own. |
+
+Check that `headRefOid` equals your local `git rev-parse HEAD` before trusting any check result; a green check on an older commit proves nothing about the current one.
+
+**Work on one thing at a time.**
+- Exactly one open loop per agent. Do not start a new task, branch or PR until the current PR is merged or the owner explicitly parks it.
+- One PR = one concern. Do not fold unrelated fixes into an open PR; note them and do them as the next loop.
+- When reporting, say where the loop stands ("PR #n: waiting on review", "PR #n: CI failing on `build`"). Never report "done" for a PR that is not merged.
 
 ## Push Safety Policy (Non-Negotiable)
 
@@ -24,8 +58,7 @@ AI agents MUST NEVER push directly to `master`. All code changes go through pull
 2. **Make changes, commit, and push the branch**: `git push origin <branch-name>`
 3. **Create a pull request** targeting `master` via GitHub (via the API or web UI)
 4. **CI must pass** — tests + build on affected packages, Docker build + health check
-5. **Merge the PR** — only then is `master` updated with verified code
-6. **Post-Deploy Verification** — after merge, verify the deploy workflow succeeded and the application is healthy. See [Post-Deploy Verification Skill](#post-deploy-verification) below.
+5. **Merge the PR** — only then is `master` updated with verified code. A merged PR finishes the task.
 
 **Pre-push hook**: The `.husky/pre-push` hook ([`.husky/pre-push`](.husky/pre-push)) automatically runs affected tests + builds before every push. If any test or build fails, the push is rejected with a clear error message.
 
@@ -73,9 +106,9 @@ When ANY bug, regression, or unexpected behavior is reported:
 
 **Reference**: See also [`skills/coding/debugging/SKILL.md`](skills/coding/debugging/SKILL.md) and [`skills/coding/unit-testing/SKILL.md`](skills/coding/unit-testing/SKILL.md).
 
-## Post-Deploy Verification (Non-Negotiable)
+## Post-Deploy Verification (On Request)
 
-After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Before closing the task, verify the deployment succeeded:
+After any PR is merged to `master`, the [`deploy.yml`](.github/workflows/deploy.yml) workflow triggers automatically. Verifying it is **not required to finish a task** — a merged PR finishes the loop. Run this only when the owner asks or a deploy failure is suspected:
 
 1. **Check deploy workflow status** — Use GitHub MCP `get_commit` to see if the "deploy" check run passed
 2. **Verify Nora container health** — Check `docker logs grove-live --tail 50` for errors

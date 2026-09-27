@@ -1,12 +1,13 @@
 # Post-Deploy Verification Skill
 
-After a merge to `master` triggers the deploy workflow, verify the deployment succeeded before closing the task.
+After a merge to `master` triggers the deploy workflow, verify the deployment succeeded.
+
+This is **not** required to finish a task: a merged PR finishes the loop (see Loop Engineering in `AGENTS.md`).
 
 ## When to Use
 
-- After any PR is merged and `deploy.yml` workflow runs
-- When a user asks you to deploy or merge changes
-- As the final step in any task that modifies production code
+- When the owner asks you to verify a deploy
+- When a deploy failure is suspected (failed `deploy` check, errors reported after a merge)
 
 ## Procedure
 
