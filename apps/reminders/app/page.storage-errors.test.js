@@ -37,6 +37,27 @@ describe('parseReminderState entry shape', () => {
     }
   })
 
+  // PR #75 review: an empty id is silently regenerated and an empty title
+  // renders a blank row. The add form never saves either, so both are corrupt.
+  it('rejects entries whose id or title is empty or only whitespace', () => {
+    for (const raw of [
+      '[{"id":"","title":""}]',
+      '[{"id":"","title":"Water plants"}]',
+      '[{"id":"r1","title":""}]',
+      '[{"id":"r1","title":"   "}]',
+      '[{"id":"  ","title":"Water plants"}]',
+    ]) {
+      expect(() => parseReminderState(raw)).toThrow()
+    }
+  })
+
+  it('alerts instead of showing a blank row for a reminder with an empty title', () => {
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, '[{"id":"r1","title":""}]')
+    render(<RemindersPage />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Saved reminders could not be loaded.')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
   it('still accepts entries with only an id and a title', () => {
     expect(parseReminderState('[{"id":"r1","title":"Water plants"}]').items).toEqual([
       { id: 'r1', title: 'Water plants', dueLabel: '', completed: false },

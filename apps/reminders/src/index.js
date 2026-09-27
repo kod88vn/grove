@@ -47,7 +47,12 @@ export function parseReminderState(raw) {
   if (parsed.some((item) => item === null || typeof item !== 'object' || Array.isArray(item))) {
     throw new Error('Saved reminders must contain objects')
   }
-  if (parsed.some((item) => typeof item.id !== 'string' || typeof item.title !== 'string')) {
+  if (parsed.some((item) =>
+    typeof item.id !== 'string' ||
+    typeof item.title !== 'string' ||
+    item.id.trim() === '' ||
+    item.title.trim() === ''
+  )) {
     throw new Error('Saved reminders must contain an id and title')
   }
   return createReminderState(parsed)
