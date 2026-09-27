@@ -45,11 +45,35 @@ function normalize(text) {
 }
 
 function cloze(answer, response) {
-  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.blanks) || answer.blanks.length === 0 || answer.blanks.some(blank => !blank || typeof blank !== 'object' || Array.isArray(blank) || !Array.isArray(blank.accept) || blank.accept.length === 0 || blank.accept.some(entry => typeof entry !== 'string' || entry.trim().length === 0))) {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.blanks) || answer.blanks.length === 0) {
     throw new TypeError('cloze answer must have non-empty accept lists for every blank')
   }
-  if (!response || typeof response !== 'object' || Array.isArray(response) || !Array.isArray(response.blanks) || response.blanks.length !== answer.blanks.length || response.blanks.some(text => typeof text !== 'string' || text.trim().length === 0)) return invalid()
-  return response.blanks.every((text, index) => answer.blanks[index].accept.some(entry => normalize(entry) === normalize(text))) ? right() : wrong()
+  for (let index = 0; index < answer.blanks.length; index++) {
+    const blank = answer.blanks[index]
+    if (!blank || typeof blank !== 'object' || Array.isArray(blank) || !Array.isArray(blank.accept) || blank.accept.length === 0) {
+      throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+    }
+    for (let acceptIndex = 0; acceptIndex < blank.accept.length; acceptIndex++) {
+      const entry = blank.accept[acceptIndex]
+      if (typeof entry !== 'string' || entry.trim().length === 0) {
+        throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+      }
+    }
+  }
+  if (!response || typeof response !== 'object' || Array.isArray(response) || !Array.isArray(response.blanks) || response.blanks.length !== answer.blanks.length) return invalid()
+  for (let index = 0; index < response.blanks.length; index++) {
+    const text = response.blanks[index]
+    if (typeof text !== 'string' || text.trim().length === 0) return invalid()
+  }
+  for (let index = 0; index < response.blanks.length; index++) {
+    const text = response.blanks[index]
+    let matches = false
+    for (let acceptIndex = 0; acceptIndex < answer.blanks[index].accept.length; acceptIndex++) {
+      if (normalize(answer.blanks[index].accept[acceptIndex]) === normalize(text)) matches = true
+    }
+    if (!matches) return wrong()
+  }
+  return right()
 }
 
 export function check(widget, answer, response) {

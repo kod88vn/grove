@@ -32,7 +32,7 @@ export const items = [
   {
     id: 'painted-wall',
     difficulty: 1,
-    sentence: 'Mia moved ____ near wet paint, taking slow steps and keeping her hands far from the wall.',
+    sentence: 'Mia was ____ near wet paint, taking slow steps and keeping her hands far from the wall.',
     answer: 'cautious',
     choices: ['cautious', 'careless', 'cheerful', 'hurried'],
     clue: 'taking slow steps',
@@ -257,7 +257,7 @@ export const items = [
   {
     id: 'beaded-costume',
     difficulty: 3,
-    sentence: 'The costume had an ____ design, with layered fabric, tiny beads, and careful stitching around every sleeve.',
+    sentence: 'The costume had a very ____ design, with layered fabric, tiny beads, and careful stitching around every sleeve.',
     answer: 'elaborate',
     choices: ['elaborate', 'simple', 'sudden', 'narrow'],
     clue: 'layered fabric, tiny beads, and careful stitching',
