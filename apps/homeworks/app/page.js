@@ -7,12 +7,8 @@ import dynamic from 'next/dynamic'
 const EnglishExerciseClient = dynamic(() => import('../components/EnglishExercise').then(mod => mod.EnglishExercise), { ssr: false })
 const MathExerciseClient = dynamic(() => import('../components/MathExercise').then(mod => mod.MathExercise), { ssr: false })
 
-function HomeworksContent() {
-  const searchParams = useSearchParams()
-  const isMathSection = searchParams?.get('section') === 'math'
-  const skillCategory = searchParams?.get('skillCategory')
-  const isPracticeMode = searchParams?.get('practice') === '1' && Boolean(skillCategory)
-  const [activeSection, setActiveSection] = useState(isMathSection ? 'math' : 'english')
+function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
+  const [activeSection, setActiveSection] = useState(initialSection)
   const [lastSubmission, setLastSubmission] = useState(null)
 
   return (
@@ -118,9 +114,32 @@ function HomeworksContent() {
   )
 }
 
+function HomeworksContent() {
+  const searchParams = useSearchParams()
+  const isMathSection = searchParams?.get('section') === 'math'
+  const skillCategory = searchParams?.get('skillCategory')
+  const isPracticeMode = searchParams?.get('practice') === '1' && Boolean(skillCategory)
+
+  return (
+    <HomeworksView
+      initialSection={isMathSection ? 'math' : 'english'}
+      skillCategory={skillCategory}
+      isPracticeMode={isPracticeMode}
+    />
+  )
+}
+
 export default function HomeworksPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <HomeworksView
+          initialSection="english"
+          skillCategory={null}
+          isPracticeMode={false}
+        />
+      }
+    >
       <HomeworksContent />
     </Suspense>
   )
