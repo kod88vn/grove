@@ -15,17 +15,30 @@ function gcd(a, b) {
   return a
 }
 
-function safeProduct(a, b) {
-  const value = a * b
-  if (!Number.isSafeInteger(value)) throw new RangeError('fraction arithmetic exceeded safe integers')
-  return value
+function bigGcd(a, b) {
+  if (a < 0n) a = -a
+  if (b < 0n) b = -b
+  while (b !== 0n) [a, b] = [b, a % b]
+  return a
 }
 
-function makeFraction(num, den) {
-  if (!validPart(num) || !validPart(den) || den === 0) {
+function makeBigFraction(num, den) {
+  if (den === 0n) {
     throw new RangeError('fraction arithmetic exceeded safe integers')
   }
-  return reduce({ num, den })
+  if (num === 0n) return { num: 0, den: 1 }
+  const divisor = bigGcd(num, den)
+  if (den < 0n) {
+    num = -num
+    den = -den
+  }
+  num /= divisor
+  den /= divisor
+  const limit = BigInt(Number.MAX_SAFE_INTEGER)
+  if (num < -limit || num > limit || den > limit) {
+    throw new RangeError('fraction arithmetic exceeded safe integers')
+  }
+  return { num: Number(num), den: Number(den) }
 }
 
 export function parseFraction(text) {
@@ -33,14 +46,15 @@ export function parseFraction(text) {
   const value = text.trim()
   let match = /^(-?)(\d+)\/(\d+)$/.exec(value)
   if (match) {
-    const num = Number(`${match[1]}${match[2]}`)
+    const num = Number(match[2]) * (match[1] === '-' ? -1 : 1)
     const den = Number(match[3])
-    return validPart(num) && validPart(den) && den !== 0 ? { num, den } : null
+    return validPart(num) && validPart(den) && den !== 0 ? { num: num === 0 ? 0 : num, den } : null
   }
   match = /^(-?)(\d+)(?: +(\d+)\/(\d+))?$/.exec(value)
   if (!match) return null
-  const whole = Number(`${match[1]}${match[2]}`)
-  if (!match[3]) return validPart(whole) ? { num: whole, den: 1 } : null
+  const sign = match[1] === '-' ? -1 : 1
+  const whole = Number(match[2]) * sign
+  if (!match[3]) return validPart(whole) ? { num: whole === 0 ? 0 : whole, den: 1 } : null
   const part = Number(match[3])
   const den = Number(match[4])
   if (!validPart(whole) || !validPart(part) || !validPart(den) || den === 0 || part === 0 || part >= den) return null
@@ -48,7 +62,7 @@ export function parseFraction(text) {
   if (!Number.isSafeInteger(product)) return null
   const numerator = product + part
   if (!Number.isSafeInteger(numerator)) return null
-  return { num: whole < 0 ? -numerator : numerator, den }
+  return { num: sign * numerator, den }
 }
 
 export function reduce(value) {
@@ -71,23 +85,27 @@ export function equals(left, right) {
 
 export function add(left, right) {
   validateFraction(left); validateFraction(right)
-  const numerator = safeProduct(left.num, right.den) + safeProduct(right.num, left.den)
-  return makeFraction(numerator, safeProduct(left.den, right.den))
+  const numerator = BigInt(left.num) * BigInt(right.den) + BigInt(right.num) * BigInt(left.den)
+  const denominator = BigInt(left.den) * BigInt(right.den)
+  return makeBigFraction(numerator, denominator)
 }
 
 export function sub(left, right) {
-  return add(left, { num: -right.num, den: right.den })
+  validateFraction(left); validateFraction(right)
+  const numerator = BigInt(left.num) * BigInt(right.den) - BigInt(right.num) * BigInt(left.den)
+  const denominator = BigInt(left.den) * BigInt(right.den)
+  return makeBigFraction(numerator, denominator)
 }
 
 export function mul(left, right) {
   validateFraction(left); validateFraction(right)
-  return makeFraction(safeProduct(left.num, right.num), safeProduct(left.den, right.den))
+  return makeBigFraction(BigInt(left.num) * BigInt(right.num), BigInt(left.den) * BigInt(right.den))
 }
 
 export function div(left, right) {
   validateFraction(left); validateFraction(right)
   if (right.num === 0) throw new RangeError('cannot divide by zero')
-  return makeFraction(safeProduct(left.num, right.den), safeProduct(left.den, right.num))
+  return makeBigFraction(BigInt(left.num) * BigInt(right.den), BigInt(left.den) * BigInt(right.num))
 }
 
 export function format(value) {
