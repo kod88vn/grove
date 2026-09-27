@@ -159,6 +159,7 @@ that lies").
 | Loop entry point (`/loop` shim) | `.github/prompts/loop.prompt.md` |
 | Loop worker (pinned to a cheap model) | `.github/agents/loop-worker.agent.md` |
 | Loop driver template | `scripts/loop.sh` |
+| Loop window/session reaper | `scripts/loop-reap.sh` |
 | Guard policy | `ai-guard.config.json` |
 | Roadmap | `agent-docs/superpowers/plans/2026-08-28-central-command-roadmap.md` |
 | AI document root | `agent-docs/` |

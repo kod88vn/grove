@@ -160,17 +160,26 @@ waits on them:
    it is not `REPO`, and it is not the window running the architect or the driver. Anything
    else is someone's real work. Closing it kills more than the stray, so go to step 4.
 3. **Close the window.** `code` has no cancel, close, or run-command flag (checked against
-   `code --help` on 1.121.0), so use System Events: find the window whose title contains the
-   folder's basename, and press its `AXCloseButton`. `files.autoSave` and `files.hotExit` are
-   not set in user settings, so a save prompt may appear. Choose *Don't Save*: those are the
-   stray's edits, and discarding them is the point. The prompt behaviour and button label
-   are **unverified**.
+   `code --help` on 1.121.0). System Events / `AXCloseButton` does **not** work either —
+   falsified 2026-09-27: loop windows open fullscreen (`AXFullScreen=true`, `AXCloseButton` is
+   `missing value`), and a window on another Space is invisible to System Events regardless.
+   Instead read the renderer PID from `code --status` (the `window [N] (<title>)` lines, field
+   3) and `kill -TERM` it: the window disappears from `--status` within ~4s, no crash dialog,
+   no save prompt. `scripts/loop-reap.sh <folder> [<archive-dir>]` does exactly this, then
+   deletes the matching `workspaceStorage` dir — archiving its `chatSessions/` to
+   `<archive-dir>/sessions/<hash>/` first when an archive dir is given. It refuses (exit 2)
+   on any folder without a `/tmp/` segment, so it can never close a real work window.
 4. **Otherwise ignore and discard it.** Do not read it, resume it, or count its output. Do not
    stop to ask.
 
 Whichever way it went, list it in the end message as a one-liner: the window, and whether it
-was killed or left. Nothing in `scripts/loop.sh` does this yet. Today it is the architect's
-job at the end-of-run report.
+was killed or left. `scripts/loop.sh` now handles this for **its own** window automatically:
+before the first dispatch it records whether a window on `$REPO` already existed, and on exit
+(`EXIT`/`INT`/`TERM`) it runs `scripts/loop-reap.sh "$REPO" "$OUT"` only when this run opened
+that window — closing it and archiving its chat sessions to `$OUT/sessions/` so the referee
+can still read them. A pre-existing window is left open and reported as such. The steps above
+still apply to a **stray** session that lands in some other window mid-run; that is not
+something the driver can see or own.
 
 ### 1.5 After a PASS
 

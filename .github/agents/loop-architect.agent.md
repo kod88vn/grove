@@ -126,7 +126,9 @@ of it is what makes a four-turn budget affordable.
   wait for the user. Kill it by closing its window, but only if that window is a `tmp/`
   scratch tree, not `REPO`, and not yours. Choose *Don't Save*. Otherwise ignore and discard
   it. Do not read or resume it. Either way, say in one line at the end which window it was
-  and whether it was killed. Procedure: LOOP.md §1.4.1.
+  and whether it was killed. Procedure: LOOP.md §1.4.1. (The run's own window/session on
+  `REPO` no longer needs this — the driver reaps it at exit and archives its transcript to
+  `$OUT/sessions/`; this is only for something that landed elsewhere.)
 - **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.

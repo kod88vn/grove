@@ -58,7 +58,45 @@ CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
 OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
 AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER.agent.md"
+REAP="/Users/jay.quach/dev/bot/scripts/loop-reap.sh"
 mkdir -p "$OUT"
+
+# Does a window on $REPO already exist? If so, it is someone's real work (or a
+# window from a previous run) and this run must never close it. Check this
+# BEFORE the first "$CODE" "$REPO" call below, so "already exists" cannot be
+# confused with "this run just opened it".
+BASE="$(basename "$REPO")"
+window_exists_for_base() {
+  local base="$1"
+  "$CODE" --status 2>/dev/null | while IFS= read -r line; do
+    case "$line" in
+      *"window ["*"("*")"*) ;;
+      *) continue ;;
+    esac
+    title="$(printf '%s\n' "$line" | sed -E 's/^.*window \[[0-9]+\] \((.*)\)[[:space:]]*$/\1/')"
+    folder_part="$title"
+    case "$title" in
+      *" — "*) folder_part="${title##*" — "}" ;;
+    esac
+    [ "$folder_part" = "$base" ] && { echo yes; break; }
+  done
+}
+OWNED_WINDOW=0
+[ -z "$(window_exists_for_base "$BASE")" ] && OWNED_WINDOW=1
+
+# Only close what this run opened. `scripts/loop-reap.sh` also archives the
+# window's chat sessions to $OUT/sessions/ before deleting its
+# workspaceStorage, so the referee can still read them after the window is
+# gone.
+reap_on_exit() {
+  if [ "$OWNED_WINDOW" -eq 1 ]; then
+    echo "reap: closing the window this run opened on $REPO"
+    bash "$REAP" "$REPO" "$OUT"
+  else
+    echo "reap: a window on ($BASE) predates this run — leaving it open"
+  fi
+}
+trap reap_on_exit EXIT INT TERM
 
 # If the agent file is missing, `code chat -m` silently falls back to the default
 # agent on whatever model the window last used. The loop still runs; it just costs
