@@ -20,6 +20,7 @@ export function ChatWorkspace() {
 
   const [activeChatId, setActiveChatId] = useState(null)
   const [initialMessages, setInitialMessages] = useState([])
+  const [selectError, setSelectError] = useState(null)
 
   const { messages, isStreaming, sendMessage, triggerGreeting, chatIdRef } = useChatMessages({
     model: selectedModel,
@@ -55,17 +56,24 @@ export function ChatWorkspace() {
 
   const handleSelectChat = useCallback(async (chat) => {
     if (isStreaming) return
-    const detail = await fetchChatDetail(chat.id)
-    if (!detail) return
-    setActiveChatId(chat.id)
-    lastSyncedChatIdRef.current = chat.id
-    setInitialMessages(detail.messages || [])
-    setInput('')
-    setMobileSidebarOpen(false)
+    try {
+      const detail = await fetchChatDetail(chat.id)
+      setSelectError(null)
+      setActiveChatId(chat.id)
+      lastSyncedChatIdRef.current = chat.id
+      setInitialMessages(detail.messages || [])
+      setInput('')
+      setMobileSidebarOpen(false)
+    } catch (err) {
+      console.error('Failed to open chat', err)
+      setSelectError("Couldn't open that chat. Please try again.")
+      return
+    }
   }, [isStreaming])
 
   const handleNewChat = useCallback(() => {
     if (isStreaming) return
+    setSelectError(null)
     setActiveChatId(null)
     lastSyncedChatIdRef.current = null
     setInitialMessages([])
@@ -95,7 +103,7 @@ export function ChatWorkspace() {
         onPin={pin}
         onRemove={handleRemove}
         loading={loading}
-        error={error}
+        error={selectError || error}
         isMobileOpen={isMobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
       />

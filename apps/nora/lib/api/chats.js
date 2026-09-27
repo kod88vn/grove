@@ -19,7 +19,8 @@ export async function createChat(title) {
 
 export async function fetchChatDetail(id) {
   const res = await fetch(apiPath(`/api/chats/${id}`))
-  return res.ok ? res.json() : null
+  if (!res.ok) throw new Error(`Failed to load chat: ${res.status}`)
+  return res.json()
 }
 
 export async function updateChat(id, updates) {
