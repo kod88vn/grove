@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
+import { memoryCardLabel } from './cellLabels'
 
 const EMOJIS = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼']
 
@@ -118,6 +119,7 @@ export default function MemoryGame() {
           return (
             <button
               key={card.id}
+              aria-label={memoryCardLabel({ index, symbol: card.symbol, faceUp: isFlipped, matched: isSolved })}
               onClick={() => handleFlip(index)}
               className={`aspect-square text-4xl flex items-center justify-center rounded-2xl transition-all duration-300 transform ${
                 isFlipped || isSolved 

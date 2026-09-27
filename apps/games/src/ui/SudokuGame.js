@@ -10,6 +10,7 @@ import {
   isMiniSudokuSolved,
   pickSudokuPuzzle,
 } from '../index.js'
+import { sudokuCellLabel } from './cellLabels'
 
 const LEVEL_META = {
   elementary: { label: 'Elementary', detail: '4×4 mini grid · more clues' },
@@ -123,6 +124,7 @@ export default function SudokuGame() {
               return (
                 <input
                   key={coordKey(rowIndex, colIndex)}
+                  aria-label={sudokuCellLabel(rowIndex, colIndex)}
                   inputMode="numeric"
                   maxLength={1}
                   value={value || ''}
