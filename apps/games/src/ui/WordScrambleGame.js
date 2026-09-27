@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
 import { SCRAMBLE_LEVELS, pickScrambleRound } from '../index.js'
+import { scrambleWord } from '../wordScramble.js'
 
 async function fetchWordFromAI(level) {
   const res = await fetch('/api/nora-word', {
@@ -15,15 +16,6 @@ async function fetchWordFromAI(level) {
   const json = await res.json()
   if (json.error || !json.word) throw new Error(json.error || 'bad_word')
   return json
-}
-
-function shuffle(word) {
-  const arr = word.split('')
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr.join('')
 }
 
 export default function WordScrambleGame() {
@@ -62,7 +54,7 @@ export default function WordScrambleGame() {
     }
     
     setCurrent(pick)
-    setScrambled(shuffle(pick.word))
+    setScrambled(scrambleWord(pick.word))
     setInput('')
     setRound(r => r + 1)
     setGameState('playing')
