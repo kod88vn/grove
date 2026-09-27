@@ -63,6 +63,24 @@ describe('parseReminderState entry shape', () => {
       { id: 'r1', title: 'Water plants', dueLabel: '', completed: false },
     ])
   })
+
+  // PR #77 review (same gap as shopping-list): two saved reminders sharing an
+  // id render duplicate React keys and toggle/delete together.
+  it('rejects saved reminders that share an id', () => {
+    expect(() =>
+      parseReminderState('[{"id":"r1","title":"Water plants"},{"id":"r1","title":"Feed the cat"}]')
+    ).toThrow()
+  })
+
+  it('alerts instead of showing linked rows for duplicate saved ids', () => {
+    window.localStorage.setItem(
+      REMINDERS_STORAGE_KEY,
+      '[{"id":"r1","title":"Water plants"},{"id":"r1","title":"Feed the cat"}]'
+    )
+    render(<RemindersPage />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Saved reminders could not be loaded.')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
 })
 
 describe('RemindersPage storage errors', () => {
