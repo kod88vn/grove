@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00Z')
   // Use UTC to avoid timezone shifts messing up the date display
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
 function getSubjectLabel(subject) {
