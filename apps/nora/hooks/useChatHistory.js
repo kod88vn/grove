@@ -10,6 +10,7 @@ import { fetchChats, updateChat, deleteChat } from '@/lib/api/chats'
 export function useChatHistory() {
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -26,14 +27,28 @@ export function useChatHistory() {
   }, [refresh])
 
   const pin = useCallback(async (id, pinned) => {
-    await updateChat(id, { pinned })
-    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, pinned } : c)))
+    try {
+      await updateChat(id, { pinned })
+      setChats((prev) => prev.map((c) => (c.id === id ? { ...c, pinned } : c)))
+      setError(null)
+      return true
+    } catch {
+      setError("Couldn't update the chat. Please try again.")
+      return false
+    }
   }, [])
 
   const remove = useCallback(async (id) => {
-    await deleteChat(id)
-    setChats((prev) => prev.filter((c) => c.id !== id))
+    try {
+      await deleteChat(id)
+      setChats((prev) => prev.filter((c) => c.id !== id))
+      setError(null)
+      return true
+    } catch {
+      setError("Couldn't delete the chat. Please try again.")
+      return false
+    }
   }, [])
 
-  return { chats, loading, refresh, pin, remove }
+  return { chats, loading, error, refresh, pin, remove }
 }

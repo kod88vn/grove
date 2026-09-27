@@ -16,7 +16,7 @@ const IS_DEV_MODE = process.env.NODE_ENV !== 'production'
 
 export function ChatWorkspace() {
   const { modelList, selectedModel, setSelectedModel } = useModels()
-  const { chats, refresh: refreshHistory, pin, remove } = useChatHistory()
+  const { chats, error, refresh: refreshHistory, pin, remove } = useChatHistory()
 
   const [activeChatId, setActiveChatId] = useState(null)
   const [initialMessages, setInitialMessages] = useState([])
@@ -75,8 +75,8 @@ export function ChatWorkspace() {
   }, [isStreaming])
 
   const handleRemove = useCallback(async (id) => {
-    await remove(id)
-    if (id === activeChatId) handleNewChat()
+    const removed = await remove(id)
+    if (removed && id === activeChatId) handleNewChat()
   }, [remove, activeChatId, handleNewChat])
 
   const handleSend = () => {
@@ -94,6 +94,7 @@ export function ChatWorkspace() {
         onNew={handleNewChat}
         onPin={pin}
         onRemove={handleRemove}
+        error={error}
         isMobileOpen={isMobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
       />
