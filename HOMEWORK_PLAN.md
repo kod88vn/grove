@@ -122,15 +122,19 @@ Pure JS, no React, no DB, no network. Imported by `apps/homeworks` server routes
 check) and by UI (catalog metadata only). Root `package.json` already has `"workspaces":
 ["packages/*", "apps/*"]`, so it is picked up automatically.
 
-Package setup: `"type": "module"` and `"test": "node --test"`, the same runner
-`packages/grove-shell` uses, with no test dependencies. (`packages/crossword` has no test
-setup, so it is not the model.) Tests sit next to their modules as `src/**/*.test.js`,
-and turbo's `test` task picks them up.
+Package setup: `"type": "module"`, `"exports": { ".": "./src/index.js" }` and
+`"test": "node --test"`, the same runner `packages/grove-shell` uses, with no test
+dependencies. The explicit `exports` entry is required: without it Node looks for a root
+`index.js` and `import '@grove/curriculum'` from `apps/homeworks` fails. P1.1 includes a
+smoke test that the package resolves by name. (`packages/crossword` has no test setup, so
+it is not the model.) Tests sit next to their modules as `src/**/*.test.js`, and turbo's
+`test` task picks them up.
 
 The Nora drafting tool is **not** part of this package. It calls the network, so it lives
-at the repo root in `scripts/curriculum/draft-english.mjs` (§10 Phase 6) and writes to a
-gitignored `scripts/curriculum/drafts/`. Nothing under `packages/curriculum` makes a
-network call.
+at the repo root in `scripts/curriculum/draft-english.mjs` (§10 Phase 6) and writes to
+`scripts/curriculum/drafts/`. The root `.gitignore` has no rule for that path today, so
+P6.1 adds `scripts/curriculum/drafts/` to it in the same PR as the script. Nothing under
+`packages/curriculum` makes a network call.
 
 ```
 packages/curriculum/
@@ -217,9 +221,12 @@ wrong answer would get credit. So the checker supports only grammars it can deci
 - `grammar: 'polynomial'`: `+ − × ÷` by a constant, integer powers, and variables, with
   rational coefficients. `poly.js` expands both sides to a canonical sorted-monomial form
   with `fraction.js` coefficients and compares them for exact equality.
-- `grammar: 'rational'`: `P1/Q1 ≡ P2/Q2` iff `P1·Q2 = P2·Q1` as polynomials. Domain
-  restrictions (for example `x ≠ 1`) are asked as a separate `number` or `choice` step,
-  because rational-function equality ignores them.
+- `grammar: 'rational'`: first reduce both denominators to canonical form and **reject**
+  the answer if either `Q1` or `Q2` is the zero polynomial (e.g. `0/(x-x)` is undefined,
+  and would otherwise pass the cross-product test against anything). Then
+  `P1/Q1 ≡ P2/Q2` iff `P1·Q2 = P2·Q1` as polynomials. Domain restrictions (for example
+  `x ≠ 1`) are still asked as a separate `number` or `choice` step, because
+  rational-function equality ignores them.
 
 Every `expression` template must declare one of these two grammars, and a catalog test
 fails any template that does not. Skills that need radicals, exponentials, logs or trig in
@@ -253,9 +260,10 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
   finished_at INTEGER
 );
 
--- Server-side counters for one problem instance inside a session. The client never sends
--- tries or hints; /attempts and /hints increment these rows, and the final attempt row
--- copies them. That way stars and mastery cannot be inflated from the browser.
+-- Server-side counters for one problem instance inside a session. The server creates the
+-- row and picks the seed (POST /sessions/:id/items); the client never chooses a seed and
+-- never sends tries or hints. /attempts and /hints increment these rows, and the final
+-- attempt row copies them. That way stars and mastery cannot be inflated from the browser.
 CREATE TABLE IF NOT EXISTS session_items (
   session_id TEXT NOT NULL REFERENCES practice_sessions(id),
   problem_id TEXT NOT NULL,
@@ -340,6 +348,7 @@ for when the mastery rule changes.
 | GET | `/problems?subject&grade&skill&difficulty&status&studentId` | Quest Board list |
 | GET | `/problems/:skill/:template?seed` | rendered instance — **no answer, no explanation**. Two path segments because a problem id is `<skill-id>/<template-slug>` (§6.2); route file `app/api/problems/[skill]/[template]/route.js` |
 | POST | `/sessions` | `{ studentId, kind, skillId?, localDate, tz }` → `{ sessionId }`; `studentId` must exist in `students` |
+| POST | `/sessions/:id/items` | `{ problemId }` → server picks the seed (Daily Seed: derived from grade + date), inserts the `session_items` row, returns `{ seed, instance }` with no answer. The only way a seed enters a session |
 | POST | `/hints` | `{ sessionId, problemId, seed }` → the next unused hint; increments `session_items.hints_used` on the server. POST, not GET, because it has a side effect |
 | POST | `/attempts` | `{ sessionId, problemId, seed, response, durationMs }` → server re-renders from seed, checks, increments `session_items.tries`, and on correct/reveal writes the `attempts` row using the **server's** tries and hints; returns `{ correct, stars, feedback, explanation?, skillState }` |
 | GET | `/next?studentId&skill?` | next problem per §6.5 |
@@ -350,6 +359,13 @@ for when the mastery rule changes.
 The student comes from `sessionId`, so `/hints` and `/attempts` never take a `studentId` of
 their own. With no auth (D1), picking a sibling's avatar is allowed by design; the counters
 exist so a kid cannot fake stars by replaying requests.
+
+**Seed-binding invariant.** `/hints` and `/attempts` reject (409) any
+`(sessionId, problemId, seed)` that has no `session_items` row, and `/attempts` rejects a
+row that is already `done`. So a client cannot reset tries or hints by sending a new seed;
+a fresh seed only comes from `/sessions/:id/items`, and that is a genuinely new problem.
+`GET /problems/:skill/:template?seed` stays a read-only preview; its instances earn nothing
+because they have no `session_items` row. An API test covers each rejection.
 
 Free-response attempts call Nora `POST /chat/api/nora-homework/grade` with a **new generic
 `type: 'rubric'`** that takes `{ grade, prompt, rubric, text }` — one small branch in Nora,
@@ -653,8 +669,8 @@ that band needs exist; they can run in parallel with each other.
   `m5.oa.order-of-operations` (number).
 - One English skill: `e5.l.context-clues` (cloze) with 20 reviewed items.
 - Add `students` (with the `public` seed), `practice_sessions`, `session_items`, `attempts`
-  tables; `/students`, `/problems`, `/problems/:skill/:template`, `/sessions`, `/hints`,
-  `/attempts`.
+  tables; `/students`, `/problems`, `/problems/:skill/:template`, `/sessions`,
+  `/sessions/:id/items`, `/hints`, `/attempts`, with the seed-binding invariant (§6.6).
 - Solve page + session runner with **Check ✅**, stars, "How Nora solved it".
 - Acceptance: a kid completes an 8-problem session of long multiplication, the answer never
   appears in the network payload before solving (verify in DevTools), and the review page
@@ -695,7 +711,8 @@ When 5a is done, switch the **Math** tab to the new engine and retire the LLM-gr
 rows into `attempts` via `legacyId` (D4).
 
 ### Phase 6 — English content (193 skills)
-- `scripts/curriculum/draft-english.mjs` (repo root, outside the package) drafts items and
+- `scripts/curriculum/draft-english.mjs` (repo root, outside the package; add
+  `scripts/curriculum/drafts/` to the root `.gitignore` in the same PR) drafts items and
   passages per skill through Nora; a parent
   reviews in a simple review page (`/homeworks/dev/content-review`, dev only) and approves into
   `content/`.
