@@ -287,6 +287,41 @@ test('the off-grade skills carry ccss: [] and are noted in the catalog', () => {
   assert.match(source, /off-grade/i, 'the catalog must note why those skills have no code')
 })
 
+/**
+ * GROVE-P13C — review follow-up on PR #79, thread on `grade-05.js` line 584 (`line-graphs`,
+ * which shipped with `ccss: []`).
+ *
+ * Its legacy description is "Read and create line plots, bar graphs, line graphs", and 5.MD.B.2
+ * reads "Make a line plot to display a data set of measurements in fractions of a unit (1/2, 1/4,
+ * 1/8). Use operations on fractions for this grade to solve problems involving information
+ * presented in line plots." The skill is therefore on-grade, and leaving it untagged both reads as
+ * unaligned and drops the code for catalog consumers.
+ *
+ * The pin is derived from the legacy descriptions rather than written against one id, so a skill
+ * added later that also teaches line plots cannot slip through untagged. It is deliberately not an
+ * entry in REQUIRED_CCSS: that table pins codes whose own *standard text* names the skill, this
+ * one is pinned by what the *legacy catalog* says the skill teaches.
+ */
+const LINE_PLOT_CODE = '5.MD.B.2'
+
+test('every skill whose legacy description names line plots cites 5.MD.B.2', () => {
+  const namedByDescription = [...legacySkills.values()].filter((legacy) =>
+    /line plot/i.test(legacy.description ?? ''),
+  )
+  assert.ok(
+    namedByDescription.length > 0,
+    'no legacy description mentions line plots, so this test would pass vacuously',
+  )
+  for (const legacy of namedByDescription) {
+    const skill = byLegacyId.get(legacy.id)
+    assert.ok(skill, `${legacy.id} was not ported`)
+    assert.ok(
+      skill.ccss.includes(LINE_PLOT_CODE),
+      `${skill.id} ("${legacy.description}") must cite ${LINE_PLOT_CODE}`,
+    )
+  }
+})
+
 test('skills named by the standard text carry the matching code', () => {
   for (const [legacyId, codes] of Object.entries(REQUIRED_CCSS)) {
     const { id, ccss } = byLegacyId.get(legacyId)

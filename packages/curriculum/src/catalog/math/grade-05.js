@@ -581,7 +581,7 @@ export const skills = [
     strand: 'md',
     name: 'Interpret & Create Graphs',
     label: '📈 Graphs & Line Plots',
-    ccss: [],
+    ccss: ['5.MD.B.2'],
     prerequisites: ['m5.md.data-analysis'],
     legacyId: 'line-graphs',
   },
