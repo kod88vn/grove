@@ -80,6 +80,14 @@ describe('shopping list storage helpers', () => {
     }
   })
 
+  // PR #77 review: two saved items sharing an id render duplicate React keys
+  // and toggle/delete together, because both handlers match by id.
+  it('throws when two saved entries share an id', () => {
+    expect(() =>
+      parseShoppingListState('[{"id":"i1","label":"Milk"},{"id":"i1","label":"Bread"}]')
+    ).toThrow()
+  })
+
   it('picks an id not already in the list', () => {
     expect(nextShoppingItemId(createShoppingListState([]), 5)).toBe('item-5')
     const taken = createShoppingListState([
@@ -159,7 +167,12 @@ describe('ShoppingListPage load errors', () => {
   })
 
   it('alerts instead of showing a blank row for a corrupt saved entry', () => {
-    for (const raw of ['["corrupt"]', '[{"foo":1}]', '[{"id":"i1","label":""}]']) {
+    for (const raw of [
+      '["corrupt"]',
+      '[{"foo":1}]',
+      '[{"id":"i1","label":""}]',
+      '[{"id":"i1","label":"Milk"},{"id":"i1","label":"Bread"}]',
+    ]) {
       window.localStorage.setItem(SHOPPING_LIST_STORAGE_KEY, raw)
       const view = render(<ShoppingListPage />)
       expect(screen.getByRole('alert')).toHaveTextContent('Saved items could not be loaded.')

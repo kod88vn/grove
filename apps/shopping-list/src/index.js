@@ -55,6 +55,10 @@ export function parseShoppingListState(raw) {
   )) {
     throw new Error('Saved shopping items must contain an id and label')
   }
+  const ids = parsed.map((item) => item.id)
+  if (new Set(ids).size !== ids.length) {
+    throw new Error('Saved shopping items must have unique ids')
+  }
   return createShoppingListState(parsed)
 }
 
