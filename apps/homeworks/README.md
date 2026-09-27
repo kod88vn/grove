@@ -36,22 +36,19 @@ Nora must be running and reachable for exercise generation and grading to work.
 - **Revise & Resubmit**: Students can correct work and submit updated solutions without loading a new set
 
 ### 📊 Progress Review
-- **Comprehensive Tracking**: Track completion and scores over time
-- **Subject-Specific Stats**: Separate progress dashboards for English and Math
-- **Recent Submissions**: View recent homework attempts and scores
-- **Performance Visualization**: Progress bars showing average performance
+- **Review Page** (`/review`): Every submission and reading session, grouped by the viewer's local day
+- **Per-Submission Detail**: Score, percentage, graded answers and feedback for each attempt
 
 ## Architecture
 
 ### API Routes
 - `GET /api/exercises?subject=english&type=reading` - Generate an exercise
 - `POST /api/grade` - Grade a submission
-- `GET /api/progress` - Get progress statistics
+- `GET /api/review?tz=<IANA zone>` - Submissions and reading sessions grouped by the viewer's local day (`&day=YYYY-MM-DD` for one day)
 
 ### Components
 - `EnglishExercise.js` - Reading passage and comprehension quiz
 - `MathExercise.js` - Math problems with column-method digit grid and standard-answer mode
-- `ProgressReview.js` - Progress tracking and analytics
 
 ### Libraries
 - `lib/ollama.js` - Nora API client for exercise generation and grading
