@@ -15,6 +15,7 @@ export default function RemindersPage() {
   const [state, setState] = useState(() => createReminderState([]))
   const [draft, setDraft] = useState({ title: '', dueLabel: '' })
   const [loadError, setLoadError] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   useEffect(() => {
     try {
@@ -24,6 +25,15 @@ export default function RemindersPage() {
       setLoadError(true)
     }
   }, [])
+
+  function persist(next) {
+    try {
+      window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
+      setSaveError(false)
+    } catch {
+      setSaveError(true)
+    }
+  }
 
   function handleAdd(e) {
     e.preventDefault()
@@ -36,7 +46,7 @@ export default function RemindersPage() {
       completed: false,
     })
     setState(next)
-    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
+    persist(next)
     setDraft({ title: '', dueLabel: '' })
   }
 
@@ -48,13 +58,13 @@ export default function RemindersPage() {
       ),
     }
     setState(next)
-    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
+    persist(next)
   }
 
   function deleteReminder(id) {
     const next = removeReminder(state, id)
     setState(next)
-    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
+    persist(next)
   }
 
   return (
@@ -91,6 +101,9 @@ export default function RemindersPage() {
 
       {loadError && (
         <p role="alert" className="mb-2 text-sm text-red-600">Saved reminders could not be loaded.</p>
+      )}
+      {saveError && (
+        <p role="alert" className="mb-2 text-sm text-red-600">Changes could not be saved.</p>
       )}
 
       {state.items.length === 0 ? (
