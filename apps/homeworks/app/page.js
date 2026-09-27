@@ -17,7 +17,7 @@ export default function HomeworksPage() {
           <h1 className="mb-2 text-4xl font-bold text-slate-900">Daily Homeworks</h1>
           <p className="text-slate-600">AI-powered learning for Grade 5</p>
         </div>
-        <Link href="/homeworks/review" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
+        <Link href="/review" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
           📋 Review Submissions
         </Link>
       </div>
