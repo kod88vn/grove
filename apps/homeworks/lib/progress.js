@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import {
   insertSubmission,
   insertReading,
@@ -8,7 +9,7 @@ import { dayBoundsInZone } from './localDay.js'
 
 // Record a graded submission to SQLite
 export function recordSubmission(studentId, subject, type, exerciseData, score, maxScore, details) {
-  const id = `${subject}-${Date.now()}`
+  const id = `${subject}-${randomUUID()}`
   const percentage = maxScore ? Math.round((score / maxScore) * 100) : 0
 
   // Normalize exerciseData: could be a string (exerciseId), an object, or undefined
@@ -36,7 +37,7 @@ export function recordSubmission(studentId, subject, type, exerciseData, score, 
 
 // Record a reading session to SQLite
 export function recordReading(studentId, passage, questions, lessonKeyPoint, domain, score, maxScore, answers) {
-  const id = `reading-${Date.now()}`
+  const id = `reading-${randomUUID()}`
   const percentage = maxScore ? Math.round((score / maxScore) * 100) : null
 
   insertReading({
