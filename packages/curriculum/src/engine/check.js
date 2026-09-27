@@ -43,6 +43,7 @@ function fraction(answer, response) {
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
+  if (widget === 'column') return number(answer, response)
   if (widget === 'fraction') return fraction(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
