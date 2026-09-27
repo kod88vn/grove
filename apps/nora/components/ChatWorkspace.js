@@ -20,6 +20,7 @@ export function ChatWorkspace() {
 
   const [activeChatId, setActiveChatId] = useState(null)
   const [initialMessages, setInitialMessages] = useState([])
+  const [selectError, setSelectError] = useState(null)
 
   const { messages, isStreaming, sendMessage, triggerGreeting, chatIdRef } = useChatMessages({
     model: selectedModel,
@@ -33,6 +34,7 @@ export function ChatWorkspace() {
   const bottomRef = useRef(null)
   const lastSyncedChatIdRef = useRef(activeChatId)
   const wasStreamingRef = useRef(false)
+  const selectRequestId = useRef(0)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -55,17 +57,28 @@ export function ChatWorkspace() {
 
   const handleSelectChat = useCallback(async (chat) => {
     if (isStreaming) return
-    const detail = await fetchChatDetail(chat.id)
-    if (!detail) return
-    setActiveChatId(chat.id)
-    lastSyncedChatIdRef.current = chat.id
-    setInitialMessages(detail.messages || [])
-    setInput('')
-    setMobileSidebarOpen(false)
+    const requestId = ++selectRequestId.current
+    try {
+      const detail = await fetchChatDetail(chat.id)
+      if (requestId !== selectRequestId.current) return
+      setSelectError(null)
+      setActiveChatId(chat.id)
+      lastSyncedChatIdRef.current = chat.id
+      setInitialMessages(detail.messages || [])
+      setInput('')
+      setMobileSidebarOpen(false)
+    } catch (err) {
+      if (requestId !== selectRequestId.current) return
+      console.error('Failed to open chat', err)
+      setSelectError("Couldn't open that chat. Please try again.")
+      return
+    }
   }, [isStreaming])
 
   const handleNewChat = useCallback(() => {
     if (isStreaming) return
+    selectRequestId.current += 1
+    setSelectError(null)
     setActiveChatId(null)
     lastSyncedChatIdRef.current = null
     setInitialMessages([])
@@ -95,7 +108,7 @@ export function ChatWorkspace() {
         onPin={pin}
         onRemove={handleRemove}
         loading={loading}
-        error={error}
+        error={selectError || error}
         isMobileOpen={isMobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
       />
