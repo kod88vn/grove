@@ -4,7 +4,7 @@
 > A box is ticked only when its acceptance check has been **run** and passed — paste the
 > command in the Log, not a summary.
 
-**Current phase:** 1 — Phase 0 done (D1–D7 applied, F1–F6 closed, acceptance passed)
+**Current phase:** 1 — engine + vertical slice (P1.1 done)
 **Last updated:** 2026-09-27
 
 ## Totals
@@ -41,7 +41,7 @@ All resolved 2026-09-26.
 - [x] P0.9 Acceptance: 8 pm America/New_York submission shows under the right day
 
 ## Phase 1 — Engine + vertical slice (Grade 5)
-- [ ] P1.1 `packages/curriculum` scaffold (`type: module`, `exports: ./src/index.js`, `test: node --test`, like `packages/grove-shell`) + resolve-by-name smoke test
+- [x] P1.1 `packages/curriculum` scaffold (`type: module`, `exports: ./src/index.js`, `test: node --test`, like `packages/grove-shell`) + resolve-by-name smoke test
 - [ ] P1.2 `engine/rng.js`, `render.js`, `check.js`, `fraction.js` + tests
 - [ ] P1.3 Grade 5 maths catalog — 55 skills ported with `legacyId`
 - [ ] P1.4 Templates: `m5.nbt.long-multiplication`, `m5.nf.add-fractions-unlike`, `m5.oa.order-of-operations`
@@ -166,7 +166,8 @@ Newest first. One entry per PR: date · PR · boxes ticked · verification comma
 
 | Date | PR | Ticked | Verification |
 | --- | --- | --- | --- |
-| 2026-09-27 | (this PR) | P0.9 (Phase 0 acceptance: rows saved at 8 pm New York time in real SQLite — EDT and EST, plus 23:59:59 and 00:00 on the New York midnight — are served to the page's own `?tz=` request by the real review route and render under the New York day. Test only; nothing to fix) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 25 suites, 108/108 each; `app/review/page.acceptance.test.js` 2/2, and 2/2 red with the pre-F1 `route.js` and `page.js` (from `ec4f864^`) restored; `npx next build` OK |
+| 2026-09-27 | (this PR) | P1.1 (`packages/curriculum`: private ES module package `@grove/curriculum`, `exports: ./src/index.js`, `test: node --test`, no dependencies; `src/index.js` is an empty module naming the future exports. `apps/homeworks` depends on it as `"*"`, and yarn links it with `yarn.lock` unchanged) | `node --test` in `packages/curriculum`: 3/3 (`src/index.test.js`, red before with `ERR_MODULE_NOT_FOUND`); `npx turbo run test --filter=@grove/curriculum` from the root runs it; `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 26 suites, 111/111 each (`lib/curriculum.resolve.test.js` red before with "Cannot find module", green via loop run 38); `npx next build` OK |
+| 2026-09-27 | #72 | P0.9 (Phase 0 acceptance: rows saved at 8 pm New York time in real SQLite — EDT and EST, plus 23:59:59 and 00:00 on the New York midnight — are served to the page's own `?tz=` request by the real review route and render under the New York day. Test only; nothing to fix) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 25 suites, 108/108 each; `app/review/page.acceptance.test.js` 2/2, and 2/2 red with the pre-F1 `route.js` and `page.js` (from `ec4f864^`) restored; `npx next build` OK |
 | 2026-09-27 | #68 | P0.8 (F6: real — reproduced through the real grade route, SQLite and review route. `MathExercise` saves type `'mixed'` with problems `{problem, expectedAnswer}` and answers `{problems:[{id, answer}]}`, but `/review` rendered math only for type `'problem-set'` and read `prompt`/`answer`/`answers[idx]`; the math grader's `comment` was never kept as feedback. `/review` now reads the real shape for every math row and falls back to `details.comment` for rows already saved; `recordSubmission` keeps `comment` as feedback) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 23 suites, 105/105 each (`app/review/page.math.test.js` 2/2 red before, green via loop run 33); `npx next build` OK |
 | 2026-09-27 | #66 | P0.7 (F5: not a live bug — `apps/gateway/platformatic.json` and the grove dev rewrite both map `/api/*` to Nora `/chat/api/*`, and on a local dev stack the bare `/api/nora-homework/library?view=catalog` returned the same 200 JSON as `/chat/api/…`; `SkillsLibrary` now calls the canonical `/chat/api/nora-homework/library` like `MathExercise`, so it no longer depends on the catch-all alias) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 22 suites, 103/103 each (`components/SkillsLibrary.prefix.test.js` 2/2 red before, green via loop run 31; it also guards that no homeworks source fetches a bare `/api/` path); `npx next build` OK |
 | 2026-09-27 | #59 | P0.6 (F4: `ParentView.js` and `ProgressReview.js` deleted — nothing imported either, and the routes they fetched (`/api/parent`, `/homeworks/api/progress`) never existed; README now documents the real `/review` page and `GET /api/review`) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 21 suites, 101/101 each (`components/fetchTargets.test.js` 3/3 red before, green via loop run 20; it also guards that every `/homeworks/api/<name>` fetch has a `route.js`); `npx next build` OK |

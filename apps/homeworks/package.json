@@ -10,6 +10,7 @@
     "test": "jest --ci --detectOpenHandles --runInBand"
   },
   "dependencies": {
+    "@grove/curriculum": "*",
     "@grove/shell": "*",
     "@platformatic/next": "^3.52.4",
     "better-sqlite3": "^11.6.0",
