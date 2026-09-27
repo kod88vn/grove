@@ -1,13 +1,23 @@
 // Gomoku AI — Threat Detection Test Suite
 // Verifies AI responds immediately to human threats (4-in-a-row, live 3) at all difficulty levels.
+// Math.random is pinned to "no mistake" so these tests check the best move
+// deterministically; mistake behaviour is covered by gomoku-live3-block.test.js.
 
-import { describe, it } from 'node:test'
+import { describe, it, beforeEach, afterEach, mock } from 'node:test'
 import assert from 'node:assert'
 
 import {
   chooseGomokuAIMove,
   getGomokuWinner,
 } from './gomokuAI.js'
+
+beforeEach(() => {
+  mock.method(Math, 'random', () => 0.999)
+})
+
+afterEach(() => {
+  mock.restoreAll()
+})
 
 function K(x, y) {
   return `${x},${y}`
