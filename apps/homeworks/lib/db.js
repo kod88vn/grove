@@ -38,6 +38,64 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_readings_student ON readings(student_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_readings_date ON readings(created_at);
+
+  CREATE TABLE IF NOT EXISTS students (
+    id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    avatar TEXT NOT NULL,
+    grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 12),
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS practice_sessions (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL REFERENCES students(id),
+    kind TEXT NOT NULL CHECK (kind IN ('daily','skill','review','path','free')),
+    skill_id TEXT,
+    local_date TEXT NOT NULL,
+    tz TEXT NOT NULL,
+    started_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    finished_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS session_items (
+    session_id TEXT NOT NULL REFERENCES practice_sessions(id),
+    problem_id TEXT NOT NULL,
+    seed INTEGER NOT NULL,
+    tries INTEGER NOT NULL DEFAULT 0,
+    hints_used INTEGER NOT NULL DEFAULT 0,
+    revealed INTEGER NOT NULL DEFAULT 0,
+    done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0,1)),
+    PRIMARY KEY (session_id, problem_id, seed)
+  );
+
+  CREATE TABLE IF NOT EXISTS attempts (
+    id TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES practice_sessions(id),
+    student_id TEXT NOT NULL REFERENCES students(id),
+    subject TEXT NOT NULL CHECK (subject IN ('math','english')),
+    grade INTEGER NOT NULL,
+    skill_id TEXT NOT NULL,
+    problem_id TEXT NOT NULL,
+    content_version INTEGER NOT NULL,
+    seed INTEGER NOT NULL,
+    difficulty INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 3),
+    shown_json TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    answer_json TEXT NOT NULL,
+    correct INTEGER NOT NULL CHECK (correct IN (0,1)),
+    tries INTEGER NOT NULL CHECK (tries >= 1),
+    hints_used INTEGER NOT NULL DEFAULT 0,
+    revealed INTEGER NOT NULL DEFAULT 0,
+    stars INTEGER NOT NULL CHECK (stars BETWEEN 0 AND 3),
+    rubric_json TEXT,
+    duration_ms INTEGER,
+    local_date TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE INDEX IF NOT EXISTS idx_attempts_student_date ON attempts(student_id, local_date DESC);
+  CREATE INDEX IF NOT EXISTS idx_attempts_student_skill ON attempts(student_id, skill_id, created_at DESC);
 `
 
 export function createDatabase(dbPath) {
@@ -49,6 +107,10 @@ export function createDatabase(dbPath) {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+  db.prepare(`
+    INSERT OR IGNORE INTO students (id, display_name, avatar, grade)
+    VALUES ('public', 'Explorer', '🌱', 5)
+  `).run()
 
   // Migrate: ensure answers_json column exists on existing databases
   try {
@@ -82,6 +144,21 @@ const stmts = {
   insertReading: null,
   getReadingsByDateRange: null,
   getReadingById: null,
+  insertStudent: null,
+  getStudentById: null,
+  listStudents: null,
+  insertSession: null,
+  getSessionById: null,
+  finishSession: null,
+  insertSessionItem: null,
+  getSessionItem: null,
+  incrementSessionItemTries: null,
+  incrementSessionItemHints: null,
+  markSessionItemRevealed: null,
+  markSessionItemDone: null,
+  insertAttempt: null,
+  getAttemptsBySession: null,
+  getAttemptsByStudentDay: null,
 }
 
 function initStatements(db) {
@@ -113,6 +190,77 @@ function initStatements(db) {
 
   stmts.getReadingById = db.prepare(`
     SELECT * FROM readings WHERE id = ?
+  `)
+
+  stmts.insertStudent = db.prepare(`
+    INSERT INTO students (id, display_name, avatar, grade, settings_json)
+    VALUES (?, ?, ?, ?, ?)
+  `)
+
+  stmts.getStudentById = db.prepare(`
+    SELECT * FROM students WHERE id = ?
+  `)
+
+  stmts.listStudents = db.prepare(`
+    SELECT * FROM students ORDER BY created_at ASC, id ASC
+  `)
+
+  stmts.insertSession = db.prepare(`
+    INSERT INTO practice_sessions (id, student_id, kind, skill_id, local_date, tz)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+
+  stmts.getSessionById = db.prepare(`
+    SELECT * FROM practice_sessions WHERE id = ?
+  `)
+
+  stmts.finishSession = db.prepare(`
+    UPDATE practice_sessions SET finished_at = unixepoch() WHERE id = ?
+  `)
+
+  stmts.insertSessionItem = db.prepare(`
+    INSERT INTO session_items (session_id, problem_id, seed)
+    VALUES (?, ?, ?)
+  `)
+
+  stmts.getSessionItem = db.prepare(`
+    SELECT * FROM session_items
+    WHERE session_id = ? AND problem_id = ? AND seed = ?
+  `)
+
+  stmts.incrementSessionItemTries = db.prepare(`
+    UPDATE session_items SET tries = tries + 1
+    WHERE session_id = ? AND problem_id = ? AND seed = ?
+  `)
+
+  stmts.incrementSessionItemHints = db.prepare(`
+    UPDATE session_items SET hints_used = hints_used + 1
+    WHERE session_id = ? AND problem_id = ? AND seed = ?
+  `)
+
+  stmts.markSessionItemRevealed = db.prepare(`
+    UPDATE session_items SET revealed = 1
+    WHERE session_id = ? AND problem_id = ? AND seed = ?
+  `)
+
+  stmts.markSessionItemDone = db.prepare(`
+    UPDATE session_items SET done = 1
+    WHERE session_id = ? AND problem_id = ? AND seed = ?
+  `)
+
+  stmts.insertAttempt = db.prepare(`
+    INSERT INTO attempts (id, session_id, student_id, subject, grade, skill_id, problem_id,
+      content_version, seed, difficulty, shown_json, response_json, answer_json, correct,
+      tries, hints_used, revealed, stars, rubric_json, duration_ms, local_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  stmts.getAttemptsBySession = db.prepare(`
+    SELECT * FROM attempts WHERE session_id = ? ORDER BY created_at DESC
+  `)
+
+  stmts.getAttemptsByStudentDay = db.prepare(`
+    SELECT * FROM attempts WHERE student_id = ? AND local_date = ? ORDER BY created_at DESC
   `)
 }
 
@@ -201,6 +349,108 @@ export function getReadingById(id) {
   }
 }
 
+function parseStudent(row) {
+  return { ...row, settings: JSON.parse(row.settings_json) }
+}
+
+function parseAttempt(row) {
+  return {
+    ...row,
+    shown: JSON.parse(row.shown_json),
+    response: JSON.parse(row.response_json),
+    answer: JSON.parse(row.answer_json),
+    rubric: row.rubric_json === null ? null : JSON.parse(row.rubric_json),
+  }
+}
+
+export function insertStudent(data) {
+  ensureStatements()
+  const { id, display_name, avatar, grade, settings } = data
+  return stmts.insertStudent.run(id, display_name, avatar, grade, JSON.stringify(settings || {}))
+}
+
+export function getStudentById(id) {
+  ensureStatements()
+  const row = stmts.getStudentById.get(id)
+  return row ? parseStudent(row) : null
+}
+
+export function listStudents() {
+  ensureStatements()
+  return stmts.listStudents.all().map(parseStudent)
+}
+
+export function insertSession(data) {
+  ensureStatements()
+  const { id, student_id, kind, skill_id, local_date, tz } = data
+  return stmts.insertSession.run(id, student_id, kind, skill_id || null, local_date, tz)
+}
+
+export function getSessionById(id) {
+  ensureStatements()
+  return stmts.getSessionById.get(id) || null
+}
+
+export function finishSession(id) {
+  ensureStatements()
+  return stmts.finishSession.run(id)
+}
+
+export function insertSessionItem({ session_id, problem_id, seed }) {
+  ensureStatements()
+  return stmts.insertSessionItem.run(session_id, problem_id, seed)
+}
+
+export function getSessionItem(sessionId, problemId, seed) {
+  ensureStatements()
+  return stmts.getSessionItem.get(sessionId, problemId, seed) || null
+}
+
+export function incrementSessionItemTries(sessionId, problemId, seed) {
+  ensureStatements()
+  return stmts.incrementSessionItemTries.run(sessionId, problemId, seed)
+}
+
+export function incrementSessionItemHints(sessionId, problemId, seed) {
+  ensureStatements()
+  return stmts.incrementSessionItemHints.run(sessionId, problemId, seed)
+}
+
+export function markSessionItemRevealed(sessionId, problemId, seed) {
+  ensureStatements()
+  return stmts.markSessionItemRevealed.run(sessionId, problemId, seed)
+}
+
+export function markSessionItemDone(sessionId, problemId, seed) {
+  ensureStatements()
+  return stmts.markSessionItemDone.run(sessionId, problemId, seed)
+}
+
+export function insertAttempt(data) {
+  ensureStatements()
+  const {
+    id, session_id, student_id, subject, grade, skill_id, problem_id, content_version,
+    seed, difficulty, shown, response, answer, correct, tries, hints_used, revealed, stars,
+    rubric, duration_ms, local_date,
+  } = data
+  return stmts.insertAttempt.run(
+    id, session_id, student_id, subject, grade, skill_id, problem_id, content_version,
+    seed, difficulty, JSON.stringify(shown), JSON.stringify(response), JSON.stringify(answer),
+    correct ? 1 : 0, tries, hints_used, revealed, stars,
+    rubric == null ? null : JSON.stringify(rubric), duration_ms, local_date,
+  )
+}
+
+export function getAttemptsBySession(sessionId) {
+  ensureStatements()
+  return stmts.getAttemptsBySession.all(sessionId).map(parseAttempt)
+}
+
+export function getAttemptsByStudentDay(studentId, localDate) {
+  ensureStatements()
+  return stmts.getAttemptsByStudentDay.all(studentId, localDate).map(parseAttempt)
+}
+
 export function getAllSubmissions(startDateMs, endDateMs) {
   ensureAllStatements()
   const startSec = Math.floor(startDateMs / 1000)
@@ -263,6 +513,21 @@ export function initDb(customPath) {
   stmts.insertReading = null
   stmts.getReadingsByDateRange = null
   stmts.getReadingById = null
+  stmts.insertStudent = null
+  stmts.getStudentById = null
+  stmts.listStudents = null
+  stmts.insertSession = null
+  stmts.getSessionById = null
+  stmts.finishSession = null
+  stmts.insertSessionItem = null
+  stmts.getSessionItem = null
+  stmts.incrementSessionItemTries = null
+  stmts.incrementSessionItemHints = null
+  stmts.markSessionItemRevealed = null
+  stmts.markSessionItemDone = null
+  stmts.insertAttempt = null
+  stmts.getAttemptsBySession = null
+  stmts.getAttemptsByStudentDay = null
 
   dbInstance = createDatabase(customPath || getDbPath())
   return dbInstance
@@ -280,6 +545,21 @@ export function resetDatabase(customPath) {
   stmts.insertReading = null
   stmts.getReadingsByDateRange = null
   stmts.getReadingById = null
+  stmts.insertStudent = null
+  stmts.getStudentById = null
+  stmts.listStudents = null
+  stmts.insertSession = null
+  stmts.getSessionById = null
+  stmts.finishSession = null
+  stmts.insertSessionItem = null
+  stmts.getSessionItem = null
+  stmts.incrementSessionItemTries = null
+  stmts.incrementSessionItemHints = null
+  stmts.markSessionItemRevealed = null
+  stmts.markSessionItemDone = null
+  stmts.insertAttempt = null
+  stmts.getAttemptsBySession = null
+  stmts.getAttemptsByStudentDay = null
 
   dbInstance = createDatabase(customPath || getDbPath())
 }
@@ -294,6 +574,21 @@ export function closeDb() {
     stmts.insertReading = null
     stmts.getReadingsByDateRange = null
     stmts.getReadingById = null
+    stmts.insertStudent = null
+    stmts.getStudentById = null
+    stmts.listStudents = null
+    stmts.insertSession = null
+    stmts.getSessionById = null
+    stmts.finishSession = null
+    stmts.insertSessionItem = null
+    stmts.getSessionItem = null
+    stmts.incrementSessionItemTries = null
+    stmts.incrementSessionItemHints = null
+    stmts.markSessionItemRevealed = null
+    stmts.markSessionItemDone = null
+    stmts.insertAttempt = null
+    stmts.getAttemptsBySession = null
+    stmts.getAttemptsByStudentDay = null
   }
 }
 
