@@ -6,6 +6,7 @@ import {
   createReminderState,
   addReminder,
   removeReminder,
+  nextReminderId,
   parseReminderState,
   serializeReminderState,
 } from '../src/index.js'
@@ -29,7 +30,7 @@ export default function RemindersPage() {
     const title = draft.title.trim()
     if (!title) return
     const next = addReminder(state, {
-      id: `reminder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: nextReminderId(state, Date.now()),
       title,
       dueLabel: draft.dueLabel.trim(),
       completed: false,

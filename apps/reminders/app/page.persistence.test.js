@@ -7,6 +7,7 @@ import {
   removeReminder,
   parseReminderState,
   serializeReminderState,
+  nextReminderId,
 } from '../src/index.js'
 
 // Reminders lived only in React state: a reload wiped the whole list, and
@@ -42,6 +43,21 @@ describe('reminder storage helpers', () => {
     expect(typeof parseReminderState).toBe('function')
     expect(() => parseReminderState('{not json')).toThrow()
     expect(() => parseReminderState('{"items":[]}')).toThrow()
+  })
+
+  it('throws when any saved entry is not a reminder object', () => {
+    for (const raw of ['["corrupt"]', '[1]', '[null]', '[[]]', '[{"id":"r1","title":"ok"},"x"]']) {
+      expect(() => parseReminderState(raw)).toThrow()
+    }
+  })
+
+  it('picks an id not already in the list', () => {
+    expect(nextReminderId(createReminderState([]), 5)).toBe('reminder-5')
+    const taken = createReminderState([
+      { id: 'reminder-5', title: 'a' },
+      { id: 'reminder-5-2', title: 'b' },
+    ])
+    expect(nextReminderId(taken, 5)).toBe('reminder-5-3')
   })
 
   it('removes only the reminder with the given id', () => {
@@ -103,6 +119,13 @@ describe('RemindersPage persistence', () => {
     expect(window.localStorage.getItem(REMINDERS_STORAGE_KEY)).toBe('{broken')
   })
 
+  it('alerts instead of showing a blank row for a corrupt saved entry', () => {
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, '["corrupt"]')
+    render(<RemindersPage />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Saved reminders could not be loaded.')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
   it('shows no alert when storage is fine', () => {
     save([WATER])
     render(<RemindersPage />)
@@ -148,5 +171,20 @@ describe('RemindersPage delete', () => {
     }
     const ids = stored().map((r) => r.id)
     expect(new Set(ids).size).toBe(2)
+  })
+
+  it('keeps ids distinct without relying on randomness', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1700000000000)
+    const rand = jest.spyOn(Math, 'random').mockReturnValue(0.5)
+    try {
+      render(<RemindersPage />)
+      add('Do laundry')
+      add('Feed the cat')
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Do laundry' }))
+    } finally {
+      now.mockRestore()
+      rand.mockRestore()
+    }
+    expect(stored().map((r) => r.title)).toEqual(['Feed the cat'])
   })
 })

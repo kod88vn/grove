@@ -44,5 +44,18 @@ export function parseReminderState(raw) {
 
   const parsed = JSON.parse(raw)
   if (!Array.isArray(parsed)) throw new Error('Saved reminders must be an array')
+  if (parsed.some((item) => item === null || typeof item !== 'object' || Array.isArray(item))) {
+    throw new Error('Saved reminders must contain objects')
+  }
   return createReminderState(parsed)
+}
+
+export function nextReminderId(state, now) {
+  const base = `reminder-${now}`
+  const usedIds = new Set(state.items.map((item) => item.id))
+  if (!usedIds.has(base)) return base
+
+  let suffix = 2
+  while (usedIds.has(`${base}-${suffix}`)) suffix += 1
+  return `${base}-${suffix}`
 }
