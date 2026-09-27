@@ -16,7 +16,7 @@ export function SkillsLibrary({ studentId = 'default' }) {
   useEffect(() => {
     async function fetchCatalog() {
       try {
-        const res = await fetch('/api/nora-homework/library?view=catalog')
+        const res = await fetch('/chat/api/nora-homework/library?view=catalog')
         if (res.ok) {
           const data = await res.json()
           const categories = data.categories || []
@@ -32,7 +32,7 @@ export function SkillsLibrary({ studentId = 'default' }) {
 
     async function fetchSummary() {
       try {
-        const res = await fetch(`/api/nora-homework/library?studentId=${studentId}&view=summary`)
+        const res = await fetch(`/chat/api/nora-homework/library?studentId=${studentId}&view=summary`)
         if (res.ok) {
           const data = await res.json()
           setSummary(data.summary || [])
@@ -44,7 +44,7 @@ export function SkillsLibrary({ studentId = 'default' }) {
 
     async function fetchStats() {
       try {
-        const res = await fetch(`/api/nora-homework/library?studentId=${studentId}&view=stats`)
+        const res = await fetch(`/chat/api/nora-homework/library?studentId=${studentId}&view=stats`)
         if (res.ok) {
           const data = await res.json()
           setStats(data.stats)
@@ -65,7 +65,7 @@ export function SkillsLibrary({ studentId = 'default' }) {
       setLoadingItems(true)
       try {
         const res = await fetch(
-          `/api/nora-homework/library?studentId=${studentId}&skillCategory=${selectedCategory}`
+          `/chat/api/nora-homework/library?studentId=${studentId}&skillCategory=${selectedCategory}`
         )
         if (res.ok) {
           const data = await res.json()
