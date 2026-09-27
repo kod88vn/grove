@@ -17,6 +17,10 @@ export function useChatHistory() {
     try {
       const data = await fetchChats()
       setChats(data)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to load chats', err)
+      setError("Couldn't load your chats. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -32,7 +36,8 @@ export function useChatHistory() {
       setChats((prev) => prev.map((c) => (c.id === id ? { ...c, pinned } : c)))
       setError(null)
       return true
-    } catch {
+    } catch (err) {
+      console.error('Failed to update chat', err)
       setError("Couldn't update the chat. Please try again.")
       return false
     }
@@ -44,7 +49,8 @@ export function useChatHistory() {
       setChats((prev) => prev.filter((c) => c.id !== id))
       setError(null)
       return true
-    } catch {
+    } catch (err) {
+      console.error('Failed to delete chat', err)
       setError("Couldn't delete the chat. Please try again.")
       return false
     }

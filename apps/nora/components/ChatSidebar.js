@@ -28,6 +28,7 @@ function formatDate(unixSec) {
  * @param {{ chats: object[], selectedId: string|null, onSelect: function,
  *           onNew: function, onPin: function, onRemove: function,
  *           error?: string|null,
+ *           loading?: boolean,
  *           isMobileOpen?: boolean, onClose?: function }} props
  */
 export function ChatSidebar({
@@ -38,6 +39,7 @@ export function ChatSidebar({
   onPin,
   onRemove,
   error = null,
+  loading = false,
   isMobileOpen = false,
   onClose = () => {},
 }) {
@@ -74,7 +76,10 @@ export function ChatSidebar({
       {error && <p role="alert" className="mx-4 mt-2 text-xs text-red-600">{error}</p>}
 
       <div className="flex-1 overflow-y-auto py-2">
-        {chats.length === 0 && (
+        {chats.length === 0 && loading && (
+          <p role="status" className="text-xs text-gray-400 text-center mt-8 px-4">Loading chats…</p>
+        )}
+        {chats.length === 0 && !loading && !error && (
           <p className="text-xs text-gray-400 text-center mt-8 px-4">No chats yet</p>
         )}
         {chats.map((chat) => (

@@ -4,7 +4,8 @@ import { apiPath } from './path.js'
 
 export async function fetchChats() {
   const res = await fetch(apiPath('/api/chats'))
-  return res.ok ? res.json() : []
+  if (!res.ok) throw new Error(`Failed to load chats: ${res.status}`)
+  return res.json()
 }
 
 export async function createChat(title) {
