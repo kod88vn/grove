@@ -86,7 +86,7 @@ export function ChatSidebar({
           <div
             key={chat.id}
             className={[
-              'group flex items-start gap-2 px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors',
+              'group flex items-start gap-2 px-3 py-2.5 mx-2 rounded-lg transition-colors',
               selectedId === chat.id
                 ? 'bg-blue-50 text-blue-800'
                 : 'hover:bg-gray-100 text-gray-700',
@@ -109,8 +109,8 @@ export function ChatSidebar({
               <span className="block text-xs text-gray-400 mt-0.5">{formatDate(chat.updated_at)}</span>
             </button>
 
-            {/* Actions — only visible on hover */}
-            <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions — revealed on hover or focus; always visible on touch */}
+            <div className="flex-shrink-0 flex items-center gap-1 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100">
               <button
                 onClick={(e) => handlePin(e, chat)}
                 title={chat.pinned ? 'Unpin' : 'Pin'}
