@@ -3,6 +3,7 @@ import RemindersPage from './page.js'
 
 // Mock the functions
 jest.mock('../src/index.js', () => ({
+  ...jest.requireActual('../src/index.js'),
   createReminderState: jest.fn(() => ({ appId: 'reminders', items: [] })),
   addReminder: jest.fn((state, reminder) => ({ ...state, items: [...state.items, reminder] })),
 }))

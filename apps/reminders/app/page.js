@@ -1,34 +1,60 @@
 'use client'
 
-import { useState } from 'react'
-import { createReminderState, addReminder } from '../src/index.js'
+import { useEffect, useState } from 'react'
+import {
+  REMINDERS_STORAGE_KEY,
+  createReminderState,
+  addReminder,
+  removeReminder,
+  nextReminderId,
+  parseReminderState,
+  serializeReminderState,
+} from '../src/index.js'
 
 export default function RemindersPage() {
   const [state, setState] = useState(() => createReminderState([]))
   const [draft, setDraft] = useState({ title: '', dueLabel: '' })
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = parseReminderState(window.localStorage.getItem(REMINDERS_STORAGE_KEY))
+      setState(saved)
+    } catch {
+      setLoadError(true)
+    }
+  }, [])
 
   function handleAdd(e) {
     e.preventDefault()
     const title = draft.title.trim()
     if (!title) return
-    setState((prev) =>
-      addReminder(prev, {
-        id: `reminder-${Date.now()}`,
-        title,
-        dueLabel: draft.dueLabel.trim(),
-        completed: false,
-      })
-    )
+    const next = addReminder(state, {
+      id: nextReminderId(state, Date.now()),
+      title,
+      dueLabel: draft.dueLabel.trim(),
+      completed: false,
+    })
+    setState(next)
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
     setDraft({ title: '', dueLabel: '' })
   }
 
   function toggleReminder(id) {
-    setState((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
+    const next = {
+      ...state,
+      items: state.items.map((item) =>
         item.id === id ? { ...item, completed: !item.completed } : item
       ),
-    }))
+    }
+    setState(next)
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
+  }
+
+  function deleteReminder(id) {
+    const next = removeReminder(state, id)
+    setState(next)
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, serializeReminderState(next))
   }
 
   return (
@@ -63,6 +89,10 @@ export default function RemindersPage() {
         </button>
       </form>
 
+      {loadError && (
+        <p role="alert" className="mb-2 text-sm text-red-600">Saved reminders could not be loaded.</p>
+      )}
+
       {state.items.length === 0 ? (
         <p className="text-sm text-slate-400">No reminders yet.</p>
       ) : (
@@ -87,6 +117,14 @@ export default function RemindersPage() {
                   <p className="text-xs text-slate-400">{item.dueLabel}</p>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => deleteReminder(item.id)}
+                aria-label={`Delete ${item.title}`}
+                className="text-xs text-slate-400 hover:text-red-600"
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
