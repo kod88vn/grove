@@ -3,6 +3,7 @@ import ShoppingListPage from './page.js'
 
 // Mock the functions
 jest.mock('../src/index.js', () => ({
+  ...jest.requireActual('../src/index.js'),
   createShoppingListState: jest.fn(() => ({ appId: 'shopping-list', items: [] })),
   addShoppingItem: jest.fn((state, item) => ({ ...state, items: [...state.items, item] })),
 }))
