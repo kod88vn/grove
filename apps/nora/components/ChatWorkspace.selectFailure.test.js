@@ -79,7 +79,7 @@ describe('ChatWorkspace when opening a past chat fails', () => {
     mockFetchChatDetail.mockRejectedValue(new Error('Failed to load chat: 500'))
     render(<ChatWorkspace />)
     await clickFractions()
-    await waitFor(() => expect(consoleError).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getAllByRole('alert')[0]).toHaveTextContent(MESSAGE))
     expect(openChatId()).toBeNull()
   })
 
