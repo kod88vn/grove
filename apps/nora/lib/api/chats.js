@@ -22,13 +22,17 @@ export async function fetchChatDetail(id) {
 }
 
 export async function updateChat(id, updates) {
-  return fetch(apiPath(`/api/chats/${id}`), {
+  const res = await fetch(apiPath(`/api/chats/${id}`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   })
+  if (!res.ok) throw new Error(`Failed to update chat: ${res.status}`)
+  return res
 }
 
 export async function deleteChat(id) {
-  return fetch(apiPath(`/api/chats/${id}`), { method: 'DELETE' })
+  const res = await fetch(apiPath(`/api/chats/${id}`), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Failed to delete chat: ${res.status}`)
+  return res
 }

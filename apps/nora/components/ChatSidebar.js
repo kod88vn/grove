@@ -27,6 +27,7 @@ function formatDate(unixSec) {
  *
  * @param {{ chats: object[], selectedId: string|null, onSelect: function,
  *           onNew: function, onPin: function, onRemove: function,
+ *           error?: string|null,
  *           isMobileOpen?: boolean, onClose?: function }} props
  */
 export function ChatSidebar({
@@ -36,6 +37,7 @@ export function ChatSidebar({
   onNew,
   onPin,
   onRemove,
+  error = null,
   isMobileOpen = false,
   onClose = () => {},
 }) {
@@ -68,6 +70,8 @@ export function ChatSidebar({
           </button>
         </div>
       </div>
+
+      {error && <p role="alert" className="mx-4 mt-2 text-xs text-red-600">{error}</p>}
 
       <div className="flex-1 overflow-y-auto py-2">
         {chats.length === 0 && (
