@@ -62,7 +62,7 @@ Use the `terse-communication` skill by default in `full` mode:
 ## Loop Engineering (Non-Negotiable)
 
 - A task (loop) is finished **when its PR is merged**. Deployment verification is not required. Pushed or PR-opened is not done.
-- Keep checking the PR (`gh pr view <n> --json state,mergeable,mergeStateStatus,headRefOid,reviewDecision,statusCheckRollup`, plus review and inline comments) and act on it on the same branch: fix failing checks, address and resolve every review comment, merge `master` in on conflicts (no force push). `pr-auto-merge` merges once the AI review approves the head and no threads are open.
+- Keep checking the PR (`gh pr view <n> --json state,mergeable,mergeStateStatus,headRefOid,reviewDecision,statusCheckRollup`, plus review and inline comments) and act on it on the same branch: fix failing checks, address and resolve every review comment, merge `master` in on conflicts (no force push). `pr-auto-merge` merges only when every [merge-gate](../AGENTS.md#loop-engineering-non-negotiable) condition holds: the AI review approved the current head, no other reviewer's latest review is `CHANGES_REQUESTED`, 0 unresolved threads, and no Copilot review run in progress.
 - Work on **one thing at a time**: one open loop per agent, one concern per PR. Do not start the next task until the current PR is merged or the owner parks it.
 - Report loop status ("PR #n: waiting on review"), never "done" for an unmerged PR.
 

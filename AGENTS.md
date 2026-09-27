@@ -35,8 +35,15 @@ Act on what it says, on the same branch (Branch Workflow Case B):
 | Checks pending | Wait, then check again. Pending is not passing. |
 | Review comments or `CHANGES_REQUESTED` | Address every comment: fix it, or reply with the reason it should not change. Resolve the thread and re-request review. See [GitHub PR Review](skills/coding/github-pr-review/SKILL.md). |
 | Merge conflict / `BEHIND` | Merge latest `master` into the branch (no force push), re-run tests, push. Also do this when the AI review flags code that only differs because `master` moved. |
-| Green, bot-approved, 0 unresolved threads | `pr-auto-merge` merges it via [`merge-gate.mjs`](.github/scripts/merge-gate.mjs). If the gate refuses, its log says why; fix that. The loop is finished once `state` is `MERGED`. |
+| Checks green and the merge gate's conditions all hold (see below) | `pr-auto-merge` merges it. If the gate refuses, its log lists every failed condition; fix those. The loop is finished once `state` is `MERGED`. |
 | Closed without merge | Stop and ask the owner. Do not reopen or recreate it on your own. |
+
+[`merge-gate.mjs`](.github/scripts/merge-gate.mjs) merges only when **all** of these hold, and refuses otherwise:
+- the latest AI Code Review verdict from `github-actions[bot]` is `APPROVED`,
+- that approval is for the current head SHA,
+- no other reviewer's latest review is `CHANGES_REQUESTED`,
+- there are 0 unresolved review threads,
+- no Copilot Code Review run is still in progress.
 
 Check that `headRefOid` equals your local `git rev-parse HEAD` before trusting any check result; a green check on an older commit proves nothing about the current one.
 
@@ -80,7 +87,7 @@ This prevents merge conflicts caused by stale branches based on outdated master 
 ### Case B — Open PR already exists (fixing a broken PR or addressing code review)
 1. **Run Branch-PR Check** — Use the [Branch-PR Check Skill](#branch-pr-check-skill) to verify the open PR is still active
 2. **Check out the existing branch**: `git checkout <existing-branch>`
-3. **Rebase onto latest master if needed**: `git fetch origin master && git rebase origin/master`
+3. **Bring in latest master if needed**: `git fetch origin master && git merge origin/master`. Do not rebase a branch that already has a PR: rebasing rewrites pushed history and would need a force push.
 4. **Commit the fix/changes and push**: `git push origin <existing-branch>`
 
 The open PR auto-updates — do NOT create a new branch or a new PR. Creating a new PR for a fix that belongs to an existing one fragments review history and leaves the original PR dangling.
