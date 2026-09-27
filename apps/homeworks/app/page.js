@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 const EnglishExerciseClient = dynamic(() => import('../components/EnglishExercise').then(mod => mod.EnglishExercise), { ssr: false })
 const MathExerciseClient = dynamic(() => import('../components/MathExercise').then(mod => mod.MathExercise), { ssr: false })
 
-export default function HomeworksPage() {
-  const [activeSection, setActiveSection] = useState('english')
+function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
+  const [activeSection, setActiveSection] = useState(initialSection)
   const [lastSubmission, setLastSubmission] = useState(null)
 
   return (
@@ -81,7 +82,11 @@ export default function HomeworksPage() {
               Solve math problems by showing your work step-by-step. Covers addition, subtraction,
               multiplication, and division. Remember to show all your steps!
             </p>
-            <MathExerciseClient onSubmit={setLastSubmission} />
+            <MathExerciseClient
+              onSubmit={setLastSubmission}
+              skillCategory={isPracticeMode ? skillCategory : undefined}
+              autoStart={isPracticeMode}
+            />
           </div>
         )}
       </div>
@@ -106,5 +111,36 @@ export default function HomeworksPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function HomeworksContent() {
+  const searchParams = useSearchParams()
+  const isMathSection = searchParams?.get('section') === 'math'
+  const skillCategory = searchParams?.get('skillCategory')
+  const isPracticeMode = searchParams?.get('practice') === '1' && Boolean(skillCategory)
+
+  return (
+    <HomeworksView
+      initialSection={isMathSection ? 'math' : 'english'}
+      skillCategory={skillCategory}
+      isPracticeMode={isPracticeMode}
+    />
+  )
+}
+
+export default function HomeworksPage() {
+  return (
+    <Suspense
+      fallback={
+        <HomeworksView
+          initialSection="english"
+          skillCategory={null}
+          isPracticeMode={false}
+        />
+      }
+    >
+      <HomeworksContent />
+    </Suspense>
   )
 }

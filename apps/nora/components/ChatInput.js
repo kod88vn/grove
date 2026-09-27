@@ -13,6 +13,10 @@ export function ChatInput({ value, onChange, onSubmit, isLoading }) {
   }, [value])
 
   const handleKeyDown = (e) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) {
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       onSubmit()
