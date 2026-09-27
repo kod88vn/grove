@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CROSSWORD_LEVELS, pickCrosswordPuzzle, scoreCrosswordAnswers } from '../index.js'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
+import { crosswordCellLabel } from './cellLabels'
 
 async function fetchCrosswordFromAI(level) {
   const res = await fetch('/api/nora-crossword', {
@@ -232,6 +233,7 @@ export default function CrosswordGame() {
                       )}
                       <input
                         value={cells[key] || ''}
+                        aria-label={crosswordCellLabel(row, col, startEntry?.number ?? startEntry?.id)}
                         onChange={(event) => applyCellValue(row, col, event.target.value)}
                         disabled={loading}
                         autoComplete="off"
