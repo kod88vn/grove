@@ -105,8 +105,8 @@ export function ChatSidebar({
               aria-current={selectedId === chat.id ? 'true' : undefined}
               className="flex-1 min-w-0 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <p className="text-sm font-medium truncate">{chat.title}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{formatDate(chat.updated_at)}</p>
+              <span className="block text-sm font-medium truncate">{chat.title}</span>
+              <span className="block text-xs text-gray-400 mt-0.5">{formatDate(chat.updated_at)}</span>
             </button>
 
             {/* Actions — only visible on hover */}
