@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { createBurstParticles, playArcadeEffect } from './arcadeFx'
+import { useCountdown } from './useCountdown.js'
 import {
   MATH_LIGHTNING_LEVELS,
   adjustMathLightningLevel,
@@ -15,7 +16,7 @@ export default function MathQuizGame() {
   const [question, setQuestion] = useState({ a: 0, b: 0, answer: 0 })
   const [userInput, setUserInput] = useState('')
   const [score, setScore] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(10)
+  const [questionId, setQuestionId] = useState(0)
   const [round, setRound] = useState(0)
   const [history, setHistory] = useState([])
   const [burst, setBurst] = useState([])
@@ -27,10 +28,9 @@ export default function MathQuizGame() {
   }, [])
 
   const applyQuestion = useCallback((levelIndex) => {
-    const config = MATH_LIGHTNING_LEVELS[levelIndex]
     const next = generateMathLightningQuestion(levelIndex)
     setQuestion(next)
-    setTimeLeft(config.time)
+    setQuestionId((id) => id + 1)
     setUserInput('')
   }, [])
 
@@ -43,6 +43,13 @@ export default function MathQuizGame() {
     playArcadeEffect('start')
     applyQuestion(0)
   }
+
+  const timeLeft = useCountdown({
+    duration: MATH_LIGHTNING_LEVELS[level].time,
+    running: gameState === 'playing',
+    resetKey: questionId,
+    onExpire: () => handleAnswer(true),
+  })
 
   const handleAnswer = useCallback((isTimeout = false) => {
     const { isCorrect, points } = scoreMathLightningAnswer({
@@ -81,23 +88,6 @@ export default function MathQuizGame() {
       applyQuestion(nextLevel)
     }
   }, [userInput, question, timeLeft, level, round, applyQuestion, celebrate])
-
-  useEffect(() => {
-    if (gameState !== 'playing') {
-      return
-    }
-
-    if (timeLeft <= 0) {
-      handleAnswer(true)
-      return
-    }
-
-    const timer = setTimeout(() => {
-      setTimeLeft((previous) => Math.max(0, Number((previous - 0.1).toFixed(1))))
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [timeLeft, gameState, handleAnswer])
 
   if (gameState === 'menu') {
     return (
