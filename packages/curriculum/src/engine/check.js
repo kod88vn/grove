@@ -40,10 +40,23 @@ function fraction(answer, response) {
   return right()
 }
 
+function normalize(text) {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function cloze(answer, response) {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.blanks) || answer.blanks.length === 0 || answer.blanks.some(blank => !blank || typeof blank !== 'object' || Array.isArray(blank) || !Array.isArray(blank.accept) || blank.accept.length === 0 || blank.accept.some(entry => typeof entry !== 'string' || entry.trim().length === 0))) {
+    throw new TypeError('cloze answer must have non-empty accept lists for every blank')
+  }
+  if (!response || typeof response !== 'object' || Array.isArray(response) || !Array.isArray(response.blanks) || response.blanks.length !== answer.blanks.length || response.blanks.some(text => typeof text !== 'string' || text.trim().length === 0)) return invalid()
+  return response.blanks.every((text, index) => answer.blanks[index].accept.some(entry => normalize(entry) === normalize(text))) ? right() : wrong()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
   if (widget === 'column') return number(answer, response)
   if (widget === 'fraction') return fraction(answer, response)
+  if (widget === 'cloze') return cloze(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
