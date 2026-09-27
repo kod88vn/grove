@@ -16,10 +16,11 @@ function coordKey(x, y) {
 /**
  * Simulates the cell disabled logic from GomokuGame JSX.
  * Matches: disabled={occupied || aiThinking || winner}
+ * React treats the attribute as a boolean, so the helper coerces the same way.
  */
 function isCellDisabled(stones, aiThinking, winner, x, y) {
   const occupied = Boolean(stones[coordKey(x, y)])
-  return occupied || aiThinking || winner
+  return Boolean(occupied || aiThinking || winner)
 }
 
 /**
@@ -167,8 +168,8 @@ describe('Gomoku Turn Engine — Human Cannot Move Bug', () => {
     assert.strictEqual(isCellDisabled(stones, aiThinking, winner, 1, 0), false, 'cell (1,0) should be enabled')
     assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, 1, 0), true, 'human can play after AI starts')
     assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, -2, 0), true, 'human can play negative coords')
-    assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, 4, 0), true, 'human can play at distance 3')
-    assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, 5, 0), false, 'human CANNOT play beyond distance 3')
+    assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, 3, 0), true, 'human can play at distance 3')
+    assert.strictEqual(canPlayHumanMove(stones, aiThinking, winner, 4, 0), false, 'human CANNOT play beyond distance 3')
   })
 
   it('should handle consecutive rounds with loser always going first', () => {
