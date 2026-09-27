@@ -59,6 +59,31 @@ test('ignores non-review comments from the bot account when picking its verdict'
   assert.deepEqual(result, { mergeable: true, reasons: [] })
 })
 
+test('refuses when the bot\'s latest approval was dismissed, even if an older one stands', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [botApprovedHead, review(BOT, 'DISMISSED', HEAD, '2026-09-27T02:32:00Z')],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+  })
+  assert.equal(result.mergeable, false)
+  assert.match(result.reasons.join('\n'), /latest AI Code Review is DISMISSED/)
+})
+
+test('a dismissed change request no longer blocks, even after an older one', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [
+      botApprovedHead,
+      review('kod88vn', 'CHANGES_REQUESTED', HEAD, '2026-09-27T02:27:00Z', 'no'),
+      review('kod88vn', 'DISMISSED', HEAD, '2026-09-27T02:28:00Z', 'no'),
+    ],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+  })
+  assert.deepEqual(result, { mergeable: true, reasons: [] })
+})
+
 test('refuses when any other reviewer\'s latest review requests changes', () => {
   const result = evaluateMergeGate({
     headSha: HEAD,

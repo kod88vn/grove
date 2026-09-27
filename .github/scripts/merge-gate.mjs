@@ -7,7 +7,9 @@ import { execFileSync } from 'node:child_process'
 const BOT_LOGIN = 'github-actions[bot]'
 const BOT_REVIEW_MARKER = '## AI Code Review'
 const REVIEW_WORKFLOW_PATTERN = /Copilot Code Review/i
-const VERDICT_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED'])
+// DISMISSED supersedes: a dismissed approval must not let an older one stand, and a
+// dismissed change request must stop blocking.
+const VERDICT_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'])
 
 const short = (sha) => (sha || '').slice(0, 7)
 const byTime = (a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at)

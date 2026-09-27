@@ -198,8 +198,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout repository
+      # Check out the BASE commit, not the PR: this job holds a write token, so the gate
+      # script must come from master, where the PR cannot change it. The job no longer
+      # checks out any code from the PR.
+      - name: Checkout base (trusted gate script)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
