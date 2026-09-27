@@ -16,7 +16,7 @@ const IS_DEV_MODE = process.env.NODE_ENV !== 'production'
 
 export function ChatWorkspace() {
   const { modelList, selectedModel, setSelectedModel } = useModels()
-  const { chats, error, refresh: refreshHistory, pin, remove } = useChatHistory()
+  const { chats, loading, error, refresh: refreshHistory, pin, remove } = useChatHistory()
 
   const [activeChatId, setActiveChatId] = useState(null)
   const [initialMessages, setInitialMessages] = useState([])
@@ -94,6 +94,7 @@ export function ChatWorkspace() {
         onNew={handleNewChat}
         onPin={pin}
         onRemove={handleRemove}
+        loading={loading}
         error={error}
         isMobileOpen={isMobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
