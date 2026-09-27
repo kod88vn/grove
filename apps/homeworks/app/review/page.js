@@ -25,7 +25,8 @@ export default function ReviewPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const res = await fetch('/homeworks/api/review')
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const res = await fetch(`/homeworks/api/review?tz=${encodeURIComponent(tz)}`)
       const json = await res.json()
       if (!json.error) {
         setDays(json.days || [])

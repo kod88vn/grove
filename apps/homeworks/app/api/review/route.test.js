@@ -92,4 +92,50 @@ describe('GET /api/review', () => {
     expect(response.status).toBe(502)
     expect(body.error).toBe('DB connection failed')
   })
+
+  // F1: an 8 pm America/New_York submission is 00:00Z the next day. Grouping by the
+  // UTC date put it on the wrong day for the kid who did it.
+  it('groups an 8 pm America/New_York submission under that local day when tz is given', async () => {
+    const { getAll, getAllReadingsUnbounded } = jest.requireMock('../../../lib/progress.js')
+    getAll.mockReturnValue([
+      { id: 's3', subject: 'math', type: 'problem-set', percentage: 100, date: '2026-05-25T00:00:00.000Z' },
+    ])
+    getAllReadingsUnbounded.mockReturnValue([
+      { id: 'r3', percentage: 60, date: '2026-05-25T03:59:59.000Z' },
+    ])
+
+    const request = { url: 'http://localhost:3000/homeworks/api/review?tz=America%2FNew_York' }
+    const response = await GET(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.days.map((d) => d.date)).toEqual(['2026-05-24'])
+    expect(body.days[0].submissions.map((s) => s.id)).toEqual(['s3'])
+    expect(body.days[0].readings.map((r) => r.id)).toEqual(['r3'])
+  })
+
+  it('passes tz through to the single-day lookups', async () => {
+    const { getSubmissionsForDay, getReadingsForDay } = jest.requireMock('../../../lib/progress.js')
+    getSubmissionsForDay.mockReturnValue([])
+    getReadingsForDay.mockReturnValue([])
+
+    const request = { url: 'http://localhost:3000/homeworks/api/review?day=2026-05-24&tz=America%2FNew_York' }
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(getSubmissionsForDay).toHaveBeenCalledWith('2026-05-24', 'America/New_York')
+    expect(getReadingsForDay).toHaveBeenCalledWith('2026-05-24', 'America/New_York')
+  })
+
+  it('rejects an unknown tz with 400 instead of silently bucketing in UTC', async () => {
+    const { getAll } = jest.requireMock('../../../lib/progress.js')
+
+    const request = { url: 'http://localhost:3000/homeworks/api/review?tz=Mars%2FOlympus' }
+    const response = await GET(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body.error).toMatch(/Mars\/Olympus/)
+    expect(getAll).not.toHaveBeenCalled()
+  })
 })

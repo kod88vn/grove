@@ -1,13 +1,19 @@
 import { getSubmissionsForDay, getReadingsForDay } from '../../../lib/progress.js'
+import { isValidTimeZone, localDateOf } from '../../../lib/localDay.js'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const day = searchParams.get('day')
+  // Days are the viewer's calendar days; without a zone they are UTC days.
+  const tz = searchParams.get('tz') ?? 'UTC'
+  if (!isValidTimeZone(tz)) {
+    return Response.json({ error: `Unknown time zone: ${tz}` }, { status: 400 })
+  }
 
   try {
     if (day) {
-      const submissions = getSubmissionsForDay(day)
-      const readings = getReadingsForDay(day)
+      const submissions = getSubmissionsForDay(day, tz)
+      const readings = getReadingsForDay(day, tz)
       return Response.json({ submissions, readings })
     }
 
@@ -19,12 +25,12 @@ export async function GET(request) {
     // Group by day
     const byDay = {}
     for (const s of submissions) {
-      const d = s.date.split('T')[0]
+      const d = localDateOf(s.date, tz)
       if (!byDay[d]) byDay[d] = { date: d, submissions: [], readings: [] }
       byDay[d].submissions.push(s)
     }
     for (const r of readings) {
-      const d = r.date.split('T')[0]
+      const d = localDateOf(r.date, tz)
       if (!byDay[d]) byDay[d] = { date: d, submissions: [], readings: [] }
       byDay[d].readings.push(r)
     }

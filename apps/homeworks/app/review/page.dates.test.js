@@ -46,4 +46,13 @@ describe('ReviewPage day headers for a viewer west of UTC', () => {
     expect(screen.queryByText('Sat, May 23, 2026')).not.toBeInTheDocument()
     expect(screen.queryByText('Wed, Dec 31, 2025')).not.toBeInTheDocument()
   })
+
+  // F1: the server can only bucket by the viewer's local day if it is told the zone.
+  it("asks the API to group by the viewer's own time zone", async () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    render(<ReviewPage />)
+
+    await screen.findByText('Sun, May 24, 2026')
+    expect(global.fetch).toHaveBeenCalledWith(`/homeworks/api/review?tz=${encodeURIComponent(tz)}`)
+  })
 })
