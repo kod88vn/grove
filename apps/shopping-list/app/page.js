@@ -1,34 +1,70 @@
 'use client'
 
-import { useState } from 'react'
-import { createShoppingListState, addShoppingItem } from '../src/index.js'
+import { useEffect, useState } from 'react'
+import {
+  SHOPPING_LIST_STORAGE_KEY,
+  createShoppingListState,
+  addShoppingItem,
+  removeShoppingItem,
+  nextShoppingItemId,
+  parseShoppingListState,
+  serializeShoppingListState,
+} from '../src/index.js'
 
 export default function ShoppingListPage() {
   const [state, setState] = useState(() => createShoppingListState([]))
   const [draft, setDraft] = useState('')
+  const [loadError, setLoadError] = useState(false)
+  const [saveError, setSaveError] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = parseShoppingListState(window.localStorage.getItem(SHOPPING_LIST_STORAGE_KEY))
+      setState(saved)
+    } catch {
+      setLoadError(true)
+    }
+  }, [])
+
+  function persist(next) {
+    try {
+      window.localStorage.setItem(SHOPPING_LIST_STORAGE_KEY, serializeShoppingListState(next))
+      setSaveError(false)
+    } catch {
+      setSaveError(true)
+    }
+  }
 
   function handleAdd(e) {
     e.preventDefault()
     const label = draft.trim()
     if (!label) return
-    setState((prev) =>
-      addShoppingItem(prev, {
-        id: `item-${Date.now()}`,
-        label,
-        checked: false,
-        note: '',
-      })
-    )
+    const next = addShoppingItem(state, {
+      id: nextShoppingItemId(state, Date.now()),
+      label,
+      checked: false,
+      note: '',
+    })
+    setState(next)
+    persist(next)
     setDraft('')
   }
 
   function toggleItem(id) {
-    setState((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
+    const next = {
+      ...state,
+      items: state.items.map((item) =>
         item.id === id ? { ...item, checked: !item.checked } : item
       ),
-    }))
+    }
+    setState(next)
+    persist(next)
+  }
+
+  function deleteItem(id) {
+    const next = removeShoppingItem(state, id)
+    setState(next)
+    persist(next)
   }
 
   return (
@@ -54,6 +90,13 @@ export default function ShoppingListPage() {
         </button>
       </form>
 
+      {loadError && (
+        <p role="alert" className="mb-2 text-sm text-red-600">Saved items could not be loaded.</p>
+      )}
+      {saveError && (
+        <p role="alert" className="mb-2 text-sm text-red-600">Changes could not be saved.</p>
+      )}
+
       {state.items.length === 0 ? (
         <p className="text-sm text-slate-400">No items yet.</p>
       ) : (
@@ -73,6 +116,14 @@ export default function ShoppingListPage() {
               <span className={`text-sm ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                 {item.label}
               </span>
+              <button
+                type="button"
+                onClick={() => deleteItem(item.id)}
+                aria-label={`Delete ${item.label}`}
+                className="ml-auto text-xs text-slate-400 hover:text-red-600"
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
