@@ -58,13 +58,10 @@ CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
 OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
 AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER.agent.md"
-REAP="/Users/jay.quach/dev/bot/scripts/loop-reap.sh"
 mkdir -p "$OUT"
 
-# Does a window on $REPO already exist? If so, it is someone's real work (or a
-# window from a previous run) and this run must never close it. Check this
-# BEFORE the first "$CODE" "$REPO" call below, so "already exists" cannot be
-# confused with "this run just opened it".
+# Does a window on $REPO already exist? Checked BEFORE the first "$CODE" "$REPO"
+# call below, which then only focuses that window.
 BASE="$(basename "$REPO")"
 window_exists_for_base() {
   local base="$1"
@@ -81,22 +78,17 @@ window_exists_for_base() {
     [ "$folder_part" = "$base" ] && { echo yes; break; }
   done
 }
-OWNED_WINDOW=0
-[ -z "$(window_exists_for_base "$BASE")" ] && OWNED_WINDOW=1
-
-# Only close what this run opened. `scripts/loop-reap.sh` also archives the
-# window's chat sessions to $OUT/sessions/ before deleting its
-# workspaceStorage, so the referee can still read them after the window is
-# gone.
-reap_on_exit() {
-  if [ "$OWNED_WINDOW" -eq 1 ]; then
-    echo "reap: closing the window this run opened on $REPO"
-    bash "$REAP" "$REPO" "$OUT"
-  else
-    echo "reap: a window on ($BASE) predates this run — leaving it open"
-  fi
-}
-trap reap_on_exit EXIT INT TERM
+# Reuse an already-open window; never open a new one. A window this script
+# opens cannot be closed reliably, so every new folder left an orphan behind
+# (nine of them on 2026-09-27). Point REPO at a folder whose window is open —
+# switch branches inside it rather than adding a fresh worktree per item.
+if [ -z "$(window_exists_for_base "$BASE")" ]; then
+  echo "ABORT — no open window on ($BASE). Reuse an existing loop folder"
+  echo "        (git -C <folder> switch -c <branch> <base>) instead of opening a new one."
+  exit 1
+fi
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # If the agent file is missing, `code chat -m` silently falls back to the default
 # agent on whatever model the window last used. The loop still runs; it just costs
@@ -131,7 +123,7 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
   # context on noise.
   FAILURES="$(grep -E "^(  ●|Cannot find module|Tests:)" "$OUT/verify.txt" | head -25)"
 
-  "$CODE" "$REPO" >/dev/null 2>&1        # ensure a window on the target repo
+  "$CODE" "$REPO" >/dev/null 2>&1        # focus the existing window on the target repo
   sleep 6
   echo "dispatching $WORKER..."
   "$CODE" chat -m "$WORKER" -r "$TASK

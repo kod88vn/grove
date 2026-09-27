@@ -80,9 +80,12 @@ bash tmp/<ticket>-loop.sh                 # runs unattended; prints a verdict
 predate the ledger and judge in bash — they still work, but they record nothing, so a run
 started from them will not appear at `/loops`.
 
-Run it from a VS Code terminal with a window open on **this** repo. The driver opens the
-*target* repo in its own window and talks to that one. Scratch files live in `tmp/`, which
-is gitignored — see `.github/instructions/scratch-space.instructions.md`.
+Run it from a VS Code terminal with a window open on **this** repo. The driver talks to an
+**already-open** window on the *target* repo and refuses to start (`ABORT — no open window`)
+without one: a window it opens itself cannot be closed reliably, and one folder per item left
+nine orphan windows on 2026-09-27. Keep one loop folder per repo and switch branches inside it
+(`git -C <folder> switch -c <branch> <base>`) rather than adding a worktree per item. Scratch
+files live in `tmp/`, which is gitignored — see `.github/instructions/scratch-space.instructions.md`.
 
 It ends by printing `passed` or `failed` and the reason, and leaves the same verdict at
 `/loops` for later. There is no third outcome and no partial credit.
@@ -145,7 +148,8 @@ This is not a running commentary. Say nothing between start and end unless somet
 blocked: the dashboard is the progress view, and the reporter polling on the user's behalf
 would put an expensive model back into the loop (§7.1).
 
-**A stray session is not a block — kill it if you safely can, and never wait for the user.**
+**A stray session is not a block — ignore it, never close a window, and never wait for the
+user.**
 A stray is an extra chat session, one that landed in the wrong window, or a duplicate from a
 double-run command. The verifier alone decides each iteration, so a stray costs at most one
 turn of budget and the loop carries on regardless. The user may not be there, so nothing here
@@ -156,30 +160,15 @@ waits on them:
    dispatch. That hash folder's `workspace.json` names the window's folder — verified
    2026-09-24, every store maps back (`"folder": "file:///…/harvester/tmp/trials/…"`). If the
    folder is `REPO`, it is not a stray.
-2. **Kill it only if closing the window is safe:** its folder is inside a `tmp/` scratch tree,
-   it is not `REPO`, and it is not the window running the architect or the driver. Anything
-   else is someone's real work. Closing it kills more than the stray, so go to step 4.
-3. **Close the window.** `code` has no cancel, close, or run-command flag (checked against
-   `code --help` on 1.121.0). System Events / `AXCloseButton` does **not** work either —
-   falsified 2026-09-27: loop windows open fullscreen (`AXFullScreen=true`, `AXCloseButton` is
-   `missing value`), and a window on another Space is invisible to System Events regardless.
-   Instead read the renderer PID from `code --status` (the `window [N] (<title>)` lines, field
-   3) and `kill -TERM` it: the window disappears from `--status` within ~4s, no crash dialog,
-   no save prompt. `scripts/loop-reap.sh <folder> [<archive-dir>]` does exactly this, then
-   deletes the matching `workspaceStorage` dir — archiving its `chatSessions/` to
-   `<archive-dir>/sessions/<hash>/` first when an archive dir is given. It refuses (exit 2)
-   on any folder without a `/tmp/` segment, so it can never close a real work window.
-4. **Otherwise ignore and discard it.** Do not read it, resume it, or count its output. Do not
-   stop to ask.
+2. **Ignore and discard it.** Do not close its window — no automated close is safe: `code` has
+   no close flag, System Events cannot reach fullscreen or other-Space windows, and
+   `kill -TERM` on the renderer raises a confirmation box on a real loop window (2026-09-27).
+   Do not read it, resume it, or count its output. Do not stop to ask.
 
-Whichever way it went, list it in the end message as a one-liner: the window, and whether it
-was killed or left. `scripts/loop.sh` now handles this for **its own** window automatically:
-before the first dispatch it records whether a window on `$REPO` already existed, and on exit
-(`EXIT`/`INT`/`TERM`) it runs `scripts/loop-reap.sh "$REPO" "$OUT"` only when this run opened
-that window — closing it and archiving its chat sessions to `$OUT/sessions/` so the referee
-can still read them. A pre-existing window is left open and reported as such. The steps above
-still apply to a **stray** session that lands in some other window mid-run; that is not
-something the driver can see or own.
+Whichever way it went, list it in the end message as a one-liner: the window, and that it was
+left open. The run's **own** window is never closed: `scripts/loop.sh` only runs
+against a window that was already open on `$REPO` (see §1.2), and reuses it for the next item.
+The steps above apply only to a **stray** session that lands in some other window mid-run.
 
 ### 1.5 After a PASS
 

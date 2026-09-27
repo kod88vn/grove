@@ -123,12 +123,12 @@ of it is what makes a four-turn budget affordable.
 - **When blocked**: name the one action you need from the user, and say that everything else
   stays hands-off.
 - **Stray session** (extra, duplicate, or landed in the wrong window): not a block, and never
-  wait for the user. Kill it by closing its window, but only if that window is a `tmp/`
-  scratch tree, not `REPO`, and not yours. Choose *Don't Save*. Otherwise ignore and discard
-  it. Do not read or resume it. Either way, say in one line at the end which window it was
-  and whether it was killed. Procedure: LOOP.md §1.4.1. (The run's own window/session on
-  `REPO` no longer needs this — the driver reaps it at exit and archives its transcript to
-  `$OUT/sessions/`; this is only for something that landed elsewhere.)
+  wait for the user. Never close its window — no close mechanism is safe (LOOP.md §1.4.1).
+  Ignore and discard it; do not read or resume it. Say in one line at the end which window it
+  was. Procedure: LOOP.md §1.4.1.
+- **Reuse the window.** Point `REPO` at a loop folder whose window is already open and switch
+  branches inside it for each new item. Never add a worktree or folder just to run a loop:
+  its window cannot be closed and becomes an orphan. The driver aborts without an open window.
 - **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.
