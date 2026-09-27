@@ -4,10 +4,12 @@
 /**
  * P1.6 — practice tables.
  *
- * HOMEWORK_PLAN.md §6.4 adds `students`, `practice_sessions` and `attempts` to
- * apps/homeworks/lib/db.js, with "existing tables untouched". §10 Phase 1 names exactly
- * those three; `skill_state` is Phase 4 and `badges` is Phase 3, so neither is in scope
- * here. The plan's `students.id` comment says 'public' is seeded for backward
+ * HOMEWORK_PLAN.md §6.4 adds `students`, `practice_sessions`, `session_items` and
+ * `attempts` to apps/homeworks/lib/db.js, with "existing tables untouched". §10 Phase 1
+ * names exactly those four; `skill_state` is Phase 4 and `badges` is Phase 3, so neither
+ * is in scope here. `session_items` gets its own columns-and-constraints coverage in
+ * db.session-items.test.js; this file pins the created-table set and the other three.
+ * The plan's `students.id` comment says 'public' is seeded for backward
  * compatibility — every row already in `submissions` and `readings` carries that id, and
  * the new foreign keys point at it, so the seed has to exist before anything references
  * it and must survive re-initialisation.
@@ -99,7 +101,7 @@ afterAll(() => {
   }
 })
 
-describe('P1.6 schema — the three tables of plan §6.4', () => {
+describe('P1.6 schema — the four tables of plan §6.4 (students, practice_sessions, session_items, attempts)', () => {
   let conn
 
   beforeAll(() => {
@@ -110,7 +112,7 @@ describe('P1.6 schema — the three tables of plan §6.4', () => {
     try { conn.close() } catch {}
   })
 
-  it('creates students, practice_sessions and attempts', () => {
+  it('creates students, practice_sessions, session_items and attempts', () => {
     expect(tableNames(conn).sort()).toEqual(
       ['attempts', 'practice_sessions', 'readings', 'session_items', 'students', 'submissions'],
     )

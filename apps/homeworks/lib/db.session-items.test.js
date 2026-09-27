@@ -6,8 +6,8 @@
  *
  * HOMEWORK_PLAN.md §6.4 defines four tables for Phase 1, and §10 line 671 lists all four by
  * name: students, practice_sessions, session_items, attempts. HOMEWORK_PROGRESS.md's P1.6
- * box names the same four. The first spec asserted a three-table result, so the loop that
- * satisfied it could not have built this one.
+ * box names the same four. The first version of that spec asserted a three-table result, so
+ * the loop that satisfied it could not have built this one.
  *
  * It is the load-bearing one. Plan §6.6 has the server pick the seed and create the row
  * (POST /sessions/:id/items), /hints increment hints_used on it, /attempts increment tries
