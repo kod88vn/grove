@@ -37,7 +37,9 @@ export default function ShoppingListPage() {
       <p className="mb-6 text-slate-500">Add items and check them off as you shop.</p>
 
       <form onSubmit={handleAdd} className="mb-6 flex gap-2">
+        <label htmlFor="shopping-new-item" className="sr-only">New item</label>
         <input
+          id="shopping-new-item"
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -65,6 +67,7 @@ export default function ShoppingListPage() {
                 type="checkbox"
                 checked={item.checked}
                 onChange={() => toggleItem(item.id)}
+                aria-label={item.label}
                 className="h-4 w-4 rounded accent-indigo-600"
               />
               <span className={`text-sm ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>
