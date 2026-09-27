@@ -247,10 +247,16 @@ The `apps/homeworks` app is a production-grade data persistence system. All chan
 - Use `better-sqlite3` with prepared statements, WAL mode, and foreign keys enabled.
 - All API routes (grade, reading-history, review) MUST use the SQLite layer in `lib/db.js` and `lib/progress.js`.
 
-### Public Access (No Auth)
+### Content Is Code, Student Data Is SQLite (D2)
+- **Curriculum content** (skills catalog, problem templates, checkers, passages, hints) lives as **code** in `packages/curriculum` (`@grove/curriculum`): JavaScript modules, reviewed in PRs, covered by tests. It is not "homework data", so the file-based-JSON ban above does not apply to it.
+- **Student data** (submissions, readings, profiles, sessions, attempts, mastery state) is SQLite only, per the rules above. Never write student data into `packages/curriculum` or any other file.
+- Content modules make no network calls. Drafting content with Nora happens in a repo-root script, and its output is reviewed before it is committed as code. See [HOMEWORK_PLAN.md](HOMEWORK_PLAN.md) §6.1.
+
+### Public Access and Kid Profiles (No Auth, D1)
 - All homework data is **public**. No authentication or authorization is needed.
 - The review page at `/homeworks/review` shows all submissions from the last 30 days.
-- Every submission stores `student_id = 'public'`.
+- Kids pick a profile from an **avatar picker** ("Who's practicing?"): no password, no login, no session auth. Picking a sibling's avatar is allowed by design; profiles exist for per-kid progress, not access control.
+- `'public'` stays the **default profile**. Existing rows keep `student_id = 'public'`, and a request without a profile is stored as `'public'`. Until the `students` table lands (HOMEWORK_PLAN.md Phase 1), every submission stores `student_id = 'public'`.
 
 ### Required Data Model
 - **`submissions` table**: id, student_id, subject (math/english), type (reading/writing/problem-set), exercise_json, answers_json, score, max_score, percentage, feedback, details_json, created_at.
@@ -273,5 +279,5 @@ The `apps/homeworks` app is a production-grade data persistence system. All chan
 
 ### AGENTS.md Enforcement
 - Every AI agent working on homeworks MUST read this section before making changes.
-- If a change would introduce file-based JSON or in-memory storage for homework data, reject it immediately.
-- If a change adds auth complexity to the review page, reject it — data is public by design.
+- If a change would introduce file-based JSON or in-memory storage for homework data, reject it immediately. (Curriculum content as code in `packages/curriculum` is not homework data; see D2 above.)
+- If a change adds auth complexity to the review page, reject it — data is public by design. Avatar-picker profiles are not auth; a change that adds passwords, logins or per-profile access checks is auth complexity.

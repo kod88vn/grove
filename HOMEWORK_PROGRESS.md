@@ -4,8 +4,8 @@
 > A box is ticked only when its acceptance check has been **run** and passed — paste the
 > command in the Log, not a summary.
 
-**Current phase:** 0 — decisions made, defects not started
-**Last updated:** 2026-09-26
+**Current phase:** 0 — decisions made and applied to AGENTS.md, defects not started
+**Last updated:** 2026-09-27
 
 ## Totals
 
@@ -31,7 +31,7 @@ All resolved 2026-09-26.
 
 ## Phase 0 — Hygiene and decisions
 - [x] P0.1 Resolve D1–D7
-- [ ] P0.2 Update grove `AGENTS.md` Homeworks section for D1 (profiles) and D2 (content as code)
+- [x] P0.2 Update grove `AGENTS.md` Homeworks section for D1 (profiles) and D2 (content as code)
 - [ ] P0.3 F1 UTC day bucketing — failing test, fix, pass
 - [ ] P0.4 F2 submission id collision — failing test, fix, pass
 - [ ] P0.5 F3 `getDailyStats` `.first()` — check callers, fix or delete
@@ -166,6 +166,7 @@ Newest first. One entry per PR: date · PR · boxes ticked · verification comma
 
 | Date | PR | Ticked | Verification |
 | --- | --- | --- | --- |
+| 2026-09-27 | (this PR) | P0.2 (AGENTS.md Homeworks: D1 avatar profiles with `'public'` default, D2 content as code) | `git diff --stat origin/master` — docs only; `grep -n "D1\|D2" AGENTS.md` |
 | 2026-09-27 | #49 | Plan fixes from #45 and #49 reviews: exact expression check (non-zero denominators), `public` seed, 2-segment problem route, POST `/hints`, `studentId` on sessions, server-issued seeds bound to `session_items`, server-side tries/hints, package `exports` + `node --test`, drafting tool outside package with `.gitignore` entry | `git diff --stat origin/master` — docs only |
 | 2026-09-27 | #48 | CI merge gate: bot approval on head, no open threads or change requests | `node --test .github/scripts` 10/10; gate passed on `e60d1c6` before merge |
 | 2026-09-27 | #45 | Plan + tracker merged (with 8 open Copilot findings, which led to #48) | pr-ci SUCCESS on `29afcc0` |
