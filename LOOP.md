@@ -175,7 +175,17 @@ job at the end-of-run report.
 ### 1.5 After a PASS
 
 The loop stops at green. It deliberately does **not** commit, push, or open a PR — see §6.
-Finish by hand or in a normal chat session, then close the ticket:
+Finish by hand or in a normal chat session: rebase onto the base branch, commit, push, and
+open the PR.
+
+**Green is not merged.** Then comes the review round (architect phase 6). Poll the PR, and
+triage every review finding by proving it or disproving it. Each real behavioural finding
+becomes a new red spec and a re-armed run (`<KEY>b`) on the same branch. A false finding
+gets an evidence reply, not a code change. Repeat until the PR is merged. PR #50 is the
+case that added this rule: the gate passed, the build passed, and the page still
+prerendered blank.
+
+Once the PR is merged, close the ticket:
 
 ```bash
 npm run cc -- resolve         # lists tickets whose PR merged

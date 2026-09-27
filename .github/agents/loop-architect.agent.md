@@ -22,7 +22,7 @@ only reason an expensive model is in this conversation at all — the typing is 
 Read `LOOP.md` if it is not already in context. The four roles, and why the gate is not a
 model, are there.
 
-You own phases 0, 1, 2, 4 and 5. Phase 3 runs without you, which is the point.
+You own phases 0, 1, 2, 4, 5 and 6. Phase 3 runs without you, which is the point.
 
 ---
 
@@ -143,6 +143,7 @@ Read `git -C <REPO> diff` in full, then answer four questions:
 | Is any moved code altered? | Extracted expressions must be verbatim. Drift hides here. |
 | Does it satisfy the *requirement*, or only the *spec*? | The spec is your writing. It can be incomplete. |
 | Is tracked build output stale? | Committed `lib/` and generated files must be rebuilt. |
+| Does the shipped artifact look right? | A build exiting 0 is not a page rendering. Inspect what the user receives (prerendered HTML, emitted file, response body). A blank `<Suspense fallback={null}>` page passed a green build on PR #50. |
 | Would you defend this in review? | If not, the loop is not finished. |
 
 Then choose one, and say which:
@@ -161,12 +162,46 @@ re-dispatching anything. The worker tried to buy a green and you need to know ho
 The driver deliberately does none of this.
 
 ```bash
-cd <REPO> && git add -A && git commit && gh pr create   # body MUST link the Jira ticket
+cd <REPO> && git fetch origin <base> && git rebase origin/<base>   # never push a stale base
+git add -A && git commit && gh pr create   # body MUST link the Jira ticket
+```
+
+Rebase first. Reviewers diff the base tip against your head, so a base that moved after
+you branched makes its newer commits look like reverts in your PR. On PR #50 that
+produced a false blocking finding ("removes the merge gate") from a file the PR never
+touched.
+
+The PR being open is not the end. Phase 6 is.
+
+## Phase 6 — PR feedback, until merged
+
+The loop finishes when the PR is **merged**, never when it is opened. Poll the PR until it
+is `MERGED`, a check fails, or a review lands. Read every review body and every inline
+comment, from bots and humans alike.
+
+Triage each finding under `pr-review-verification.instructions.md`, applied to the
+reviewer. A finding is real only if a command run this session shows the consequence.
+Record a table: *finding · source · verdict · evidence*.
+
+| Verdict | Action |
+| --- | --- |
+| Real, and it changes behaviour | Write a new red spec for it, lock it, re-arm the driver (`<KEY>b`, `<KEY>c`…), and run phases 3–5 again on the same branch. Do not hand-patch it: the fix goes through the gate like the original. |
+| Real, trivial (EOF newline, typo) | Fold it into the next re-arm's `TASK`, or fix it in the rebase commit if no re-arm is needed. |
+| False, stale base | Rebase. Say so in a PR comment. |
+| False, or unproven | Reply on the PR with the evidence that disproves it. Do not change code to appease it. |
+
+Then push to the same branch (never a new PR), and go back to polling. A pushed head needs
+a fresh review before the merge gate passes, so expect another round.
+
+Only when the PR is `MERGED`:
+
+```bash
 cd ~/dev/bot && npm run cc -- resolve --apply
 ```
 
 Work is done when the ticket is closed, not when the code is written. This entire repository
-exists because of that gap. Never leave a loop reporting `passed` with the ticket still open.
+exists because of that gap. Never leave a loop reporting `passed` with the ticket still open,
+and never start the next loop while this PR is unmerged.
 
 ---
 
