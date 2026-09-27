@@ -157,7 +157,7 @@ Grade 5 legacy categories (55):
 
 ## Phase 8 — Retire old surfaces
 - [ ] P8.1 Redirect `/homeworks/library` → `/homeworks/grove`
-- [ ] P8.2 Remove unused `SkillsLibrary`, `ParentView`, `ProgressReview`
+- [ ] P8.2 Remove unused `SkillsLibrary`
 - [ ] P8.3 Update `apps/homeworks/README.md` and grove `AGENTS.md`
 
 ## Log
