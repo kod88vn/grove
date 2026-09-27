@@ -8,7 +8,7 @@ globalThis.window = dom.window
 globalThis.document = dom.window.document
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
-const { createElement, act } = await import('react')
+const { createElement, act, useState } = await import('react')
 const { createRoot } = await import('react-dom/client')
 const { useCountdown } = await import('./useCountdown.js')
 
@@ -114,6 +114,34 @@ describe('useCountdown', () => {
     await advance(2000)
     assert.equal(mounted.seen.timeLeft, 1)
     assert.equal(onExpire.mock.callCount(), 0)
+  })
+
+  // onExpire must run from a timer or effect, never inside a state updater:
+  // updaters run during render, so an onExpire that sets another component's
+  // state would trigger React's render-phase update warning.
+  it('calls onExpire outside render, so it can update other components', async () => {
+    const errors = []
+    const spy = mock.method(console, 'error', (...args) => errors.push(String(args[0])))
+    const seen = { parentExpiries: 0 }
+    function Child({ onExpire }) {
+      useCountdown({ duration: 0.3, running: true, resetKey: 1, onExpire })
+      return null
+    }
+    function Parent() {
+      const [expiries, setExpiries] = useState(0)
+      seen.parentExpiries = expiries
+      return createElement(Child, { onExpire: () => setExpiries((n) => n + 1) })
+    }
+    const root = createRoot(document.createElement('div'))
+    mounted = { unmount: () => act(() => root.unmount()) }
+    await act(async () => {
+      root.render(createElement(Parent))
+    })
+
+    await advance(1000)
+    spy.mock.restore()
+    assert.equal(seen.parentExpiries, 1)
+    assert.deepEqual(errors.filter((message) => message.includes('while rendering a different component')), [])
   })
 })
 

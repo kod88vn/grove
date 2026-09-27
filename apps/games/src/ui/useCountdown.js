@@ -20,14 +20,7 @@ export function useCountdown({ duration, running, resetKey, onExpire }) {
 
     intervalRef.current = setInterval(() => {
       setTimeLeft((previous) => {
-        const next = Math.max(0, Number((previous - 0.1).toFixed(1)))
-        if (next === 0 && !expiredRef.current) {
-          expiredRef.current = true
-          onExpireRef.current()
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-        return next
+        return Math.max(0, Number((previous - 0.1).toFixed(1)))
       })
     }, 100)
 
@@ -36,6 +29,15 @@ export function useCountdown({ duration, running, resetKey, onExpire }) {
       intervalRef.current = null
     }
   }, [duration, resetKey, running])
+
+  useEffect(() => {
+    if (running && timeLeft <= 0 && !expiredRef.current) {
+      expiredRef.current = true
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+      onExpireRef.current()
+    }
+  }, [timeLeft, running])
 
   return timeLeft
 }
