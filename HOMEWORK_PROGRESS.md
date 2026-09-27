@@ -36,7 +36,7 @@ All resolved 2026-09-26.
 - [x] P0.4 F2 submission id collision — failing test, fix, pass
 - [x] P0.5 F3 `getDailyStats` `.first()` — check callers, fix or delete (no callers: deleted)
 - [x] P0.6 F4 `/api/progress`, `/api/parent` missing — check reachability, fix or delete
-- [ ] P0.7 F5 library URL prefix mismatch — verify in browser, fix
+- [x] P0.7 F5 library URL prefix mismatch — verify in browser, fix
 - [ ] P0.8 F6 math review shows only score — reproduce, fix if real
 - [ ] P0.9 Acceptance: 8 pm America/New_York submission shows under the right day
 
@@ -166,7 +166,8 @@ Newest first. One entry per PR: date · PR · boxes ticked · verification comma
 
 | Date | PR | Ticked | Verification |
 | --- | --- | --- | --- |
-| 2026-09-27 | (this PR) | P0.6 (F4: `ParentView.js` and `ProgressReview.js` deleted — nothing imported either, and the routes they fetched (`/api/parent`, `/homeworks/api/progress`) never existed; README now documents the real `/review` page and `GET /api/review`) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 21 suites, 101/101 each (`components/fetchTargets.test.js` 3/3 red before, green via loop run 20; it also guards that every `/homeworks/api/<name>` fetch has a `route.js`); `npx next build` OK |
+| 2026-09-27 | (this PR) | P0.7 (F5: not a live bug — `apps/gateway/platformatic.json` and the grove dev rewrite both map `/api/*` to Nora `/chat/api/*`, and on a local dev stack the bare `/api/nora-homework/library?view=catalog` returned the same 200 JSON as `/chat/api/…`; `SkillsLibrary` now calls the canonical `/chat/api/nora-homework/library` like `MathExercise`, so it no longer depends on the catch-all alias) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 22 suites, 103/103 each (`components/SkillsLibrary.prefix.test.js` 2/2 red before, green via loop run 31; it also guards that no homeworks source fetches a bare `/api/` path); `npx next build` OK |
+| 2026-09-27 | #59 | P0.6 (F4: `ParentView.js` and `ProgressReview.js` deleted — nothing imported either, and the routes they fetched (`/api/parent`, `/homeworks/api/progress`) never existed; README now documents the real `/review` page and `GET /api/review`) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 21 suites, 101/101 each (`components/fetchTargets.test.js` 3/3 red before, green via loop run 20; it also guards that every `/homeworks/api/<name>` fetch has a `route.js`); `npx next build` OK |
 | 2026-09-27 | #58 | P0.5 (F3: `getDailyStats` deleted — `git grep` found no caller in `apps/` or `packages/`; it called the non-existent `Statement.first()` and divided ms as seconds) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 20 suites, 98/98 each (`lib/db.exports.test.js` 2/2 red before, green via loop run 18); `npx next build` OK |
 | 2026-09-27 | #56 | P0.4 (F2: submission and reading ids use `crypto.randomUUID()` instead of `Date.now()`, so same-millisecond saves no longer hit the PRIMARY KEY) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 19 suites, 96/96 each (`lib/progress.ids.test.js` 3/3 red before — `UNIQUE constraint failed` — green via loop run 16, real in-memory SQLite); `npx next build` OK |
 | 2026-09-27 | #53 | P0.3 (F1: review page sends its IANA `tz`; `/api/review` buckets by local day, DST-aware, 400 on unknown zone) | `TZ=UTC npx jest --ci --runInBand` and `TZ=America/New_York …` in `apps/homeworks`: 16 suites, 87/87 each (5 new tests red before the fix; PR review follow-up GROVE-P03b: `lib/localDay.transitions.test.js` 12/19 red → green via loop run 14 — midnight DST changes and impossible dates); `npx next build` OK |
