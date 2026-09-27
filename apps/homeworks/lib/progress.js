@@ -4,6 +4,7 @@ import {
   getAllSubmissions,
   getAllReadings,
 } from './db.js'
+import { dayBoundsInZone } from './localDay.js'
 
 // Record a graded submission to SQLite
 export function recordSubmission(studentId, subject, type, exerciseData, score, maxScore, details) {
@@ -64,19 +65,15 @@ export function getReadings(startDateMs, endDateMs) {
   return getAllReadings(startDateMs, endDateMs)
 }
 
-// Get submissions for a specific day (date string like "2026-05-19")
-export function getSubmissionsForDay(dayStr) {
-  const date = new Date(dayStr + 'T00:00:00Z')
-  const start = date.getTime()
-  const end = start + 86400 * 1000
+// Get submissions for a local calendar day ("2026-05-19") in an IANA time zone
+export function getSubmissionsForDay(dayStr, timeZone = 'UTC') {
+  const { start, end } = dayBoundsInZone(dayStr, timeZone)
   return getAllSubmissions(start, end)
 }
 
-// Get readings for a specific day
-export function getReadingsForDay(dayStr) {
-  const date = new Date(dayStr + 'T00:00:00Z')
-  const start = date.getTime()
-  const end = start + 86400 * 1000
+// Get readings for a local calendar day in an IANA time zone
+export function getReadingsForDay(dayStr, timeZone = 'UTC') {
+  const { start, end } = dayBoundsInZone(dayStr, timeZone)
   return getAllReadings(start, end)
 }
 
