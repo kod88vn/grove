@@ -675,11 +675,20 @@ function chooseGomokuAIMove(stones, options) {
     }
   }
 
+  // Make an own open four before blocking a human open three.
+  const aiThreats = scanBoardThreats(stones, 'ai')
+  for (const threatPos of aiThreats.live3Positions) {
+    const threat = positionCreatesThreat(stones, threatPos.x, threatPos.y, 'ai')
+    if (threat === 'live4') {
+      return { ...threatPos }
+    }
+  }
+
   // Block live 3 (becomes unblockable live 4 if not blocked)
   for (const threatPos of humanThreats.live3Positions) {
     const next = { ...stones, [coordKey(threatPos.x, threatPos.y)]: 'human' }
     const threat = positionCreatesThreat(stones, threatPos.x, threatPos.y, 'human')
-    if (threat === 'live3' || getGomokuWinner(next, threatPos)) {
+    if (threat === 'live4' || threat === 'sleep4' || threat === 'live3' || getGomokuWinner(next, threatPos)) {
       return { ...threatPos }
     }
   }
