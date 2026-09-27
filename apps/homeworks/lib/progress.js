@@ -28,7 +28,7 @@ export function recordSubmission(studentId, subject, type, exerciseData, score, 
     score,
     max_score: maxScore,
     percentage,
-    feedback: (details && details.overallFeedback) || '',
+    feedback: (details && (details.overallFeedback || details.comment)) || '',
     details,
   })
 
