@@ -201,26 +201,6 @@ export function getReadingById(id) {
   }
 }
 
-// Stats helpers
-export function getDailyStats(dateMs) {
-  ensureStatements()
-  const db = getDatabase()
-  const startSec = Math.floor(dateMs / 86400) * 86400
-  const endSec = startSec + 86400
-
-  const submissions = db.prepare(`
-    SELECT subject, type, COUNT(*) as count, AVG(percentage) as avg_score, SUM(CASE WHEN percentage >= 80 THEN 1 ELSE 0 END) as passed
-    FROM submissions WHERE created_at >= ? AND created_at < ? GROUP BY subject, type
-  `).all(startSec, endSec)
-
-  const readings = db.prepare(`
-    SELECT COUNT(*) as count, AVG(percentage) as avg_score
-    FROM readings WHERE created_at >= ? AND created_at < ?
-  `).first(startSec, endSec)
-
-  return { submissions, readings: readings || { count: 0, avg_score: null } }
-}
-
 export function getAllSubmissions(startDateMs, endDateMs) {
   ensureAllStatements()
   const startSec = Math.floor(startDateMs / 1000)
