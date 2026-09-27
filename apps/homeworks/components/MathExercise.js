@@ -447,9 +447,11 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
   const [work, setWork] = useState({})
   const [columnDigits, setColumnDigits] = useState({})
   const [carries, setCarries] = useState({})
+  const [submitError, setSubmitError] = useState(null)
 
   async function loadExercise() {
     setLoading_(true)
+    setSubmitError(null)
     try {
       const query = new URLSearchParams({ subject: 'math', type: 'mixed' })
       if (skillCategory) {
@@ -483,6 +485,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
     if (!exercise) return
 
     setLoading_(true)
+    setSubmitError(null)
     try {
       const res = await fetch('/homeworks/api/grade', {
         method: 'POST',
@@ -511,6 +514,11 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
       })
 
       const result = await res.json()
+      if (!res.ok) {
+        setSubmitError(result?.error || `Grading failed (${res.status})`)
+        return
+      }
+
       setSubmitted(result)
 
       // Save each problem to skills library
@@ -556,7 +564,7 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
 
       onSubmit?.(result)
     } catch (error) {
-      throw new Error(`Failed to submit problems: ${error.message}`)
+      setSubmitError(error.message || 'Failed to submit problems')
     } finally {
       setLoading_(false)
     }
@@ -750,6 +758,12 @@ export function MathExercise({ onSubmit, loading, skillCategory, autoStart = fal
           )}
         </div>
       ))}
+
+      {submitError && (
+        <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+          {submitError}
+        </p>
+      )}
 
       <button
         type="submit"
