@@ -69,6 +69,36 @@ function reorderTo(ids) {
   }
 }
 
+/** The `sort` cards on screen, in the order they were dealt. */
+const sortItemIds = () => [...document.body.querySelectorAll('[data-sort-item]')].map((card) => card.dataset.sortItem)
+
+/**
+ * Put a `sort` card in a bucket with the button, not with a drag.
+ *
+ * Everything the drag can do must also be reachable without one: a kid on a keyboard, or
+ * on a screen reader, or with a trackpad they cannot hold steady, is still expected to
+ * finish the exercise. So the spec drives the buttons, and the drag is pinned separately
+ * in `SortWidget.test.js` where the pointer sequence can be built by hand.
+ */
+function placeInto(itemId, bucketId) {
+  const button = document.body.querySelector(
+    `[data-sort-place-item="${itemId}"][data-sort-place-bucket="${bucketId}"]`,
+  )
+  if (button === null) throw new Error(`no control to put ${itemId} in ${bucketId}`)
+  fireEvent.click(button)
+}
+
+/** Which bucket a `sort` card is sitting in, or null while it is still in the tray. */
+function bucketOf(itemId) {
+  const card = document.body.querySelector(`[data-sort-item="${itemId}"]`)
+  const region = card.closest('[data-sort-bucket]')
+  return region === null ? null : region.dataset.sortBucket
+}
+
+/** Every card, and the bucket it belongs in — flattened out of the answer. */
+const sortPlacements = (answer) =>
+  Object.entries(answer.buckets).flatMap(([bucketId, ids]) => ids.map((id) => [id, bucketId]))
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
   if (instance.widget === 'choice') {
@@ -77,6 +107,10 @@ function enterCorrect(instance, answer) {
   }
   if (instance.widget === 'order') {
     reorderTo(answer.sequence)
+    return
+  }
+  if (instance.widget === 'sort') {
+    for (const [itemId, bucketId] of sortPlacements(answer)) placeInto(itemId, bucketId)
     return
   }
   if (instance.widget === 'cloze') {
@@ -100,6 +134,16 @@ function enterWrong(instance, answer) {
   if (instance.widget === 'order') {
     // A real arrangement, just not the right one — so the checker must say `wrong`.
     reorderTo([...answer.sequence].reverse())
+    return
+  }
+  if (instance.widget === 'sort') {
+    // Every card placed, each one in the next bucket along — a finished board that is
+    // misfiled, so the checker must say `wrong` rather than `invalid`. Nothing may be
+    // left in the tray: an unfinished board is a different verdict and would hide this one.
+    const bucketIds = Object.keys(answer.buckets)
+    for (const [itemId, bucketId] of sortPlacements(answer)) {
+      placeInto(itemId, bucketIds[(bucketIds.indexOf(bucketId) + 1) % bucketIds.length])
+    }
     return
   }
   if (instance.widget === 'cloze') {
@@ -128,6 +172,9 @@ function residueOf(text, instance) {
   if (visual.kind === 'cloze') sent.push(visual.sentence, ...visual.choices)
   if (visual.kind === 'choice') sent.push(...visual.options.map((option) => option.label))
   if (visual.kind === 'order') sent.push(...visual.items.map((item) => item.label))
+  if (visual.kind === 'sort') {
+    sent.push(...visual.items.map((item) => item.label), ...visual.buckets.map((bucket) => bucket.label))
+  }
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -136,7 +183,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(12)
   })
@@ -165,6 +212,21 @@ describe('P1.8 — answer widgets', () => {
         // Sent in one order, shown in that order — the widget does not rearrange them.
         expect(orderedIds()).toEqual(instance.visual.items.map((item) => item.id))
         for (const item of instance.visual.items) expect(text).toContain(item.label)
+      }
+      if (instance.visual.kind === 'sort') {
+        // The cards are dealt in the order they arrived, and every card starts in the
+        // tray — the widget must not pre-sort any of them, which would be answering for
+        // the kid. The buckets are named on screen, because a kid cannot classify into
+        // categories they cannot read.
+        expect(sortItemIds()).toEqual(instance.visual.items.map((item) => item.id))
+        for (const item of instance.visual.items) {
+          expect(text).toContain(item.label)
+          expect(bucketOf(item.id)).toBeNull()
+        }
+        for (const bucket of instance.visual.buckets) {
+          expect(text).toContain(bucket.label)
+          expect(document.body.querySelector(`[data-sort-bucket="${bucket.id}"]`)).not.toBeNull()
+        }
       }
       if (instance.visual.kind === 'column') {
         for (const operand of instance.visual.operands) expect(text).toContain(String(operand))
@@ -280,6 +342,9 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'order') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[1])
+      } else if (widget === 'sort') {
+        for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
+        fireEvent.click(screen.getAllByRole('button')[0])
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
         fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: '5' } })
@@ -312,6 +377,13 @@ describe('P1.8 — answer widgets', () => {
         // not the answer — so an untouched card is graded wrong, never right by luck.
         expect(value).toEqual(instance.visual.items.map((item) => item.id))
         expect(value).not.toEqual(rendered(problem.id, SEEDS[0]).answer.sequence)
+      } else if (problem.widget === 'sort') {
+        // "Empty" for a board of buckets is every card still in the tray. It cannot be a
+        // guess at the answer the way an arrangement can, because nothing has been
+        // classified yet — and an unfinished board grades `invalid`, not `wrong`.
+        expect(Array.isArray(value)).toBe(true)
+        expect(value.length).toBe(instance.visual.items.length)
+        expect(value.every((entry) => entry === null)).toBe(true)
       } else {
         expect(value).toBe('')
       }

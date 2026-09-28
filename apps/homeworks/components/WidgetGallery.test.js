@@ -65,6 +65,16 @@ function enter(card, sample, value) {
     }
     return
   }
+  if (sample.widget === 'sort') {
+    // The value is one bucket id per card, in the order the cards were dealt, so the
+    // gallery drives the same place-buttons a kid without a usable drag would press.
+    for (const [index, bucketId] of value.entries()) {
+      if (bucketId === null) continue
+      const itemId = sample.instance.visual.items[index].id
+      fireEvent.click(card.querySelector(`[data-sort-place-item="${itemId}"][data-sort-place-bucket="${bucketId}"]`))
+    }
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -104,6 +114,12 @@ describe('the gallery shows every widget', () => {
       } else if (sample.widget === 'order') {
         expect(within(card).getAllByRole('listitem')).toHaveLength(sample.instance.visual.items.length)
         expect(card.querySelectorAll('[data-move-up]')).toHaveLength(sample.instance.visual.items.length)
+      } else if (sample.widget === 'sort') {
+        expect(card.querySelectorAll('[data-sort-item]')).toHaveLength(sample.instance.visual.items.length)
+        expect(card.querySelectorAll('[data-sort-bucket]')).toHaveLength(sample.instance.visual.buckets.length)
+        expect(card.querySelectorAll('[data-sort-place-item]')).toHaveLength(
+          sample.instance.visual.items.length * sample.instance.visual.buckets.length,
+        )
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)

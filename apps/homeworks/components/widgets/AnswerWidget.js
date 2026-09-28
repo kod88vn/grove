@@ -1,6 +1,6 @@
 'use client'
 
-import { ChoiceWidget, ClozeWidget, ColumnWidget, FractionWidget, NumberWidget, OrderWidget } from './widgets'
+import { ChoiceWidget, ClozeWidget, ColumnWidget, FractionWidget, NumberWidget, OrderWidget, SortWidget } from './widgets'
 
 export function AnswerWidget({ instance, value, onChange, disabled }) {
   if (instance.widget === 'number') {
@@ -20,6 +20,9 @@ export function AnswerWidget({ instance, value, onChange, disabled }) {
   }
   if (instance.widget === 'order') {
     return <OrderWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'sort') {
+    return <SortWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   throw new Error(`unknown widget: ${instance.widget}`)
 }

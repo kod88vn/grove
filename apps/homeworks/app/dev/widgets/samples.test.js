@@ -44,9 +44,9 @@ describe('the gallery covers every widget that has a sample problem', () => {
     expect(covered).toEqual(producible)
   })
 
-  test('today that is number, column, fraction, cloze, choice and order', () => {
+  test('today that is number, column, fraction, cloze, choice, order and sort', () => {
     const covered = [...new Set(samples.map((sample) => sample.widget))].sort()
-    expect(covered).toEqual(['choice', 'cloze', 'column', 'fraction', 'number', 'order'])
+    expect(covered).toEqual(['choice', 'cloze', 'column', 'fraction', 'number', 'order', 'sort'])
   })
 
   test('one sample per widget, each naming the widget it demonstrates', () => {

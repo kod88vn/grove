@@ -7,6 +7,7 @@ import { templates as multiplicationTemplates } from './problems/math/g05/long-m
 import { templates as orderOfOperationsTemplates } from './problems/math/g05/order-of-operations.js'
 import { templates as orderDecimalsTemplates } from './problems/math/g05/order-decimals.js'
 import { templates as primeCompositeTemplates } from './problems/math/g05/prime-composite.js'
+import { templates as sortQuadrilateralsTemplates } from './problems/math/g05/sort-quadrilaterals.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
@@ -19,6 +20,7 @@ const problemTemplates = [
   ...orderOfOperationsTemplates,
   ...orderDecimalsTemplates,
   ...primeCompositeTemplates,
+  ...sortQuadrilateralsTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 
@@ -83,6 +85,7 @@ const visualFields = {
   cloze: ['kind', 'sentence', 'choices'],
   choice: ['kind', 'options'],
   order: ['kind', 'items'],
+  sort: ['kind', 'items', 'buckets'],
 }
 
 export function toInstance(rendered) {

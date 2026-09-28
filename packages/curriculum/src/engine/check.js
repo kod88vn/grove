@@ -90,6 +90,58 @@ function order(answer, response) {
   return response.sequence.every((id, index) => id === answer.sequence[index]) ? right() : wrong()
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function sort(answer, response) {
+  if (!isPlainObject(answer) || !isPlainObject(answer.buckets) || Object.keys(answer.buckets).length === 0) {
+    throw new TypeError('sort answer must have non-empty buckets')
+  }
+
+  const answerIds = new Set()
+  let answerCount = 0
+  for (const ids of Object.values(answer.buckets)) {
+    if (!Array.isArray(ids)) throw new TypeError('sort answer buckets must be arrays of unique non-empty ids')
+    for (const id of ids) {
+      if (typeof id !== 'string' || id.length === 0 || answerIds.has(id)) {
+        throw new TypeError('sort answer buckets must be arrays of unique non-empty ids')
+      }
+      answerIds.add(id)
+      answerCount++
+    }
+  }
+  if (answerCount === 0) throw new TypeError('sort answer must contain at least one item id')
+
+  if (!isPlainObject(response) || !isPlainObject(response.buckets)) return invalid()
+  const answerBucketIds = Object.keys(answer.buckets)
+  const responseBucketIds = Object.keys(response.buckets)
+  if (responseBucketIds.length !== answerBucketIds.length || responseBucketIds.some((id) => !Object.hasOwn(answer.buckets, id))) {
+    return invalid()
+  }
+
+  const responseIds = new Set()
+  let responseCount = 0
+  for (const ids of Object.values(response.buckets)) {
+    if (!Array.isArray(ids)) return invalid()
+    for (const id of ids) {
+      if (typeof id !== 'string' || !answerIds.has(id) || responseIds.has(id)) return invalid()
+      responseIds.add(id)
+      responseCount++
+    }
+  }
+  if (responseCount !== answerCount) return invalid()
+
+  for (const bucketId of answerBucketIds) {
+    const expected = new Set(answer.buckets[bucketId])
+    const actual = new Set(response.buckets[bucketId])
+    if (expected.size !== actual.size || [...expected].some((id) => !actual.has(id))) return wrong()
+  }
+  return right()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
@@ -97,5 +149,6 @@ export function check(widget, answer, response) {
   if (widget === 'fraction') return fraction(answer, response)
   if (widget === 'cloze') return cloze(answer, response)
   if (widget === 'order') return order(answer, response)
+  if (widget === 'sort') return sort(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
