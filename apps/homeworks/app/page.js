@@ -21,6 +21,9 @@ function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
         <Link href="/review" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
           📋 Review Submissions
         </Link>
+        <Link href="/settings" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
+          ⚙️ Settings
+        </Link>
       </div>
 
       {/* Navigation Tabs */}

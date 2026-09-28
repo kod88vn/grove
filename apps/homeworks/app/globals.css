@@ -1,3 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* The real easy-read face is a Phase 7 decision; use an available fallback for now. */
+html[data-font='dyslexic'] body {
+	font-family: 'Comic Sans MS', 'Chalkboard SE', 'Trebuchet MS', Verdana, sans-serif;
+	letter-spacing: 0.02em;
+	word-spacing: 0.08em;
+	line-height: 1.6;
+}
+
+html[data-motion='reduced'] *, html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+	animation: none !important;
+	transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@keyframes verdict-correct {
+	0% { opacity: 1; transform: translateY(0) scale(1); }
+	50% { opacity: 1; transform: translateY(-0.2rem) scale(1.03); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes verdict-wrong {
+	0%, 100% { opacity: 1; transform: translateX(0); }
+	25% { opacity: 1; transform: translateX(-0.2rem); }
+	75% { opacity: 1; transform: translateX(0.2rem); }
+}
+
+[data-animate='correct'], [data-animate='stars'] {
+	animation: verdict-correct 320ms ease-out;
+}
+
+[data-animate='wrong'] {
+	animation: verdict-wrong 280ms ease-in-out;
+}
