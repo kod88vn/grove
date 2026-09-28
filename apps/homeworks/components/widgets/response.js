@@ -8,6 +8,7 @@ export function emptyValue(instance) {
   if (widget === 'choice') return ''
   if (widget === 'order') return instance.visual.items.map((item) => item.id)
   if (widget === 'sort') return instance.visual.items.map(() => null)
+  if (widget === 'match') return instance.visual.right.map(() => null)
   throw new Error(`unknown widget: ${widget}`)
 }
 
@@ -25,6 +26,13 @@ export function toResponse(instance, value) {
       if (bucketId !== null) buckets[bucketId].push(item.id)
     })
     return { buckets }
+  }
+  if (widget === 'match') {
+    return {
+      pairs: instance.visual.right.flatMap((card, index) => (
+        value[index] === null ? [] : [{ left: value[index], right: card.id }]
+      )),
+    }
   }
   throw new Error(`unknown widget: ${widget}`)
 }

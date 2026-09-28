@@ -75,6 +75,16 @@ function enter(card, sample, value) {
     }
     return
   }
+  if (sample.widget === 'match') {
+    // The value is one description id per card, in the order the cards were dealt, so the
+    // gallery drives the same pair-buttons a kid without a usable drag would press.
+    for (const [index, leftId] of value.entries()) {
+      if (leftId === null) continue
+      const rightId = sample.instance.visual.right[index].id
+      fireEvent.click(card.querySelector(`[data-match-pair-card="${rightId}"][data-match-pair-slot="${leftId}"]`))
+    }
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -120,6 +130,14 @@ describe('the gallery shows every widget', () => {
         expect(card.querySelectorAll('[data-sort-place-item]')).toHaveLength(
           sample.instance.visual.items.length * sample.instance.visual.buckets.length,
         )
+      } else if (sample.widget === 'match') {
+        expect(card.querySelectorAll('[data-match-card]')).toHaveLength(sample.instance.visual.right.length)
+        expect(card.querySelectorAll('[data-match-slot]')).toHaveLength(sample.instance.visual.left.length)
+        expect(card.querySelectorAll('[data-match-pair-card]')).toHaveLength(
+          sample.instance.visual.right.length * sample.instance.visual.left.length,
+        )
+        // A pairing board answers by pairing. A text field here would be the P2.6 bug back.
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)

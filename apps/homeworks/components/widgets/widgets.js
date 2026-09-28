@@ -349,4 +349,117 @@ function SortWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget }
+function MatchWidget({ instance, value, onChange, disabled }) {
+  const promptId = useId()
+  const root = useRef(null)
+  const drag = useRef(null)
+  const { left, right } = instance.visual
+
+  const leftLabelOf = (leftId) => left.find((item) => item.id === leftId)?.label ?? leftId
+  const rightLabelOf = (rightId) => right.find((item) => item.id === rightId)?.label ?? rightId
+
+  const place = (rightId, leftId) => {
+    if (disabled) return
+    const cardIndex = right.findIndex((card) => card.id === rightId)
+    if (cardIndex < 0) return
+    const next = [...value]
+    const sittingIndex = next.findIndex((entry) => entry === leftId)
+    if (sittingIndex >= 0 && sittingIndex !== cardIndex) next[sittingIndex] = null
+    next[cardIndex] = leftId
+    onChange(next)
+  }
+
+  const dropAt = (event) => {
+    const rightId = drag.current
+    if (disabled || rightId === null || root.current === null) return
+    const regions = [...root.current.querySelectorAll('[data-match-tray], [data-match-slot]')]
+    const region = regions.find((entry) => {
+      const rect = entry.getBoundingClientRect()
+      return event.clientX >= rect.left && event.clientX < rect.right
+        && event.clientY >= rect.top && event.clientY < rect.bottom
+    })
+    if (region !== undefined) place(rightId, region.dataset.matchSlot ?? null)
+  }
+
+  const regionFor = (leftId) => (
+    <div
+      key={leftId ?? 'tray'}
+      {...(leftId === null ? { 'data-match-tray': true } : { 'data-match-slot': leftId })}
+      role="region"
+      aria-label={leftId === null ? 'Cards waiting to be matched' : `Match slot ${leftLabelOf(leftId)}`}
+      className="flex min-h-24 flex-wrap gap-2 rounded border border-dashed border-slate-300 p-2"
+    >
+      {leftId !== null && <span>{leftLabelOf(leftId)}</span>}
+      {right.map((card, index) => {
+        if (value[index] !== leftId) return null
+        const cardLabel = rightLabelOf(card.id)
+        const sitting = leftId === null ? 'in the tray' : `with ${leftLabelOf(leftId)}`
+        return (
+          <div
+            key={card.id}
+            data-match-card={card.id}
+            aria-label={`${cardLabel}, ${sitting}`}
+            className="flex flex-col gap-2 rounded border border-slate-300 p-2 touch-none"
+            onPointerDown={(event) => {
+              if (disabled) return
+              if (event.target.closest('button') !== null) return
+              event.currentTarget.setPointerCapture?.(event.pointerId)
+              drag.current = card.id
+            }}
+            onPointerUp={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              dropAt(event)
+              drag.current = null
+            }}
+            onPointerCancel={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              drag.current = null
+            }}
+          >
+            <span>{cardLabel}</span>
+            <div className="flex flex-wrap gap-1">
+              {left.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-match-pair-card={card.id}
+                  data-match-pair-slot={item.id}
+                  disabled={disabled || value[index] === item.id}
+                  aria-label={`Pair ${cardLabel} with ${item.label}`}
+                  onClick={() => place(card.id, item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                data-match-return-card={card.id}
+                disabled={disabled || value[index] === null}
+                aria-label={`Return ${cardLabel} to the tray`}
+                onClick={() => {
+                  const next = [...value]
+                  next[index] = null
+                  onChange(next)
+                }}
+              >
+                Return to tray
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <div ref={root} className="flex flex-col gap-3" aria-labelledby={promptId}>
+      <div id={promptId} className="text-slate-700">{instance.prompt}</div>
+      {regionFor(null)}
+      {left.map((item) => regionFor(item.id))}
+    </div>
+  )
+}
+
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget }

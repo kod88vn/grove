@@ -230,6 +230,12 @@ const VISUAL_KEYS = {
   // mapping between them. `sort-quadrilaterals.test.js` additionally measures that the
   // display order is not that mapping, and that no bucket's id list appears in the envelope.
   sort: ['buckets', 'items', 'kind'],
+  // P2.9 — `match` (plan §6.3, Band A). Both columns are public for the same reason both
+  // sides of a `sort` board are: a kid cannot join two things they cannot read. What stays
+  // on the server is which left card goes with which right card.
+  // `match-expressions.test.js` additionally measures that neither column's display order
+  // nor the ids' own numbering reproduce that pairing.
+  match: ['kind', 'left', 'right'],
 }
 
 const walk = (value, visit, path = '$') => {

@@ -46,6 +46,13 @@ export function correctValueFor(sample) {
     }
     return value
   }
+  if (sample.widget === 'match') {
+    return sample.instance.visual.right.map((card) => {
+      const pair = sample.answer.pairs.find((entry) => entry.right === card.id)
+      if (pair === undefined) throw new Error(`no correct match for ${card.id}`)
+      return pair.left
+    })
+  }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -77,6 +84,14 @@ export function wrongValueFor(sample) {
     value[first] = secondBucket
     value[second] = firstBucket
     return value
+  }
+  if (sample.widget === 'match') {
+    const value = correctValueFor(sample)
+    return value.map((leftId) => {
+      const index = sample.instance.visual.left.findIndex((item) => item.id === leftId)
+      if (index < 0) throw new Error(`no wrong match for ${leftId}`)
+      return sample.instance.visual.left[(index + 1) % sample.instance.visual.left.length].id
+    })
   }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
