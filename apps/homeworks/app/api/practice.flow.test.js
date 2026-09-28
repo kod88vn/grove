@@ -65,6 +65,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'cloze') return { blanks: answer.blanks.map((blank) => blank.accept[0]) }
   if (widget === 'choice') return { id: answer.id }
   if (widget === 'order') return { sequence: answer.sequence }
+  if (widget === 'sort') return { buckets: answer.buckets }
   return { value: answer.value }
 }
 
@@ -74,6 +75,11 @@ const wrongResponse = (widget, answer) => {
   if (widget === 'choice') return { id: 'zzzzzzz' }
   // A real arrangement of the real cards, just backwards — `wrong`, not `invalid`.
   if (widget === 'order') return { sequence: [...answer.sequence].reverse() }
+  if (widget === 'sort') {
+    // Every card placed, each in the next bucket along: finished, and misfiled.
+    const ids = Object.keys(answer.buckets)
+    return { buckets: Object.fromEntries(ids.map((id, index) => [id, answer.buckets[ids[(index + 1) % ids.length]]])) }
+  }
   return { value: -999999 }
 }
 

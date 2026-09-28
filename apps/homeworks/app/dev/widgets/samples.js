@@ -39,6 +39,13 @@ export function correctValueFor(sample) {
     return option.id
   }
   if (sample.widget === 'order') return [...sample.answer.sequence]
+  if (sample.widget === 'sort') {
+    const value = sample.instance.visual.items.map(() => null)
+    for (const [bucketId, ids] of Object.entries(sample.answer.buckets)) {
+      for (const id of ids) value[sample.instance.visual.items.findIndex((item) => item.id === id)] = bucketId
+    }
+    return value
+  }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -61,6 +68,16 @@ export function wrongValueFor(sample) {
     return option.id
   }
   if (sample.widget === 'order') return [...sample.answer.sequence].reverse()
+  if (sample.widget === 'sort') {
+    const value = correctValueFor(sample)
+    const [firstBucket, secondBucket] = sample.instance.visual.buckets.map((bucket) => bucket.id)
+    const first = value.findIndex((bucketId) => bucketId === firstBucket)
+    const second = value.findIndex((bucketId) => bucketId === secondBucket)
+    if (first < 0 || second < 0) throw new Error(`no wrong value for ${sample.widget}`)
+    value[first] = secondBucket
+    value[second] = firstBucket
+    return value
+  }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 

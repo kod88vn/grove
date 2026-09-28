@@ -225,6 +225,11 @@ const VISUAL_KEYS = {
   // stays on the server. `order-decimals.test.js` additionally measures that the ids
   // themselves cannot be sorted back into the answer.
   order: ['items', 'kind'],
+  // P2.8 — `sort` (plan §6.3, Band A). Both the cards AND the buckets are public: a kid
+  // cannot classify into categories they cannot read. What stays on the server is the
+  // mapping between them. `sort-quadrilaterals.test.js` additionally measures that the
+  // display order is not that mapping, and that no bucket's id list appears in the envelope.
+  sort: ['buckets', 'items', 'kind'],
 }
 
 const walk = (value, visit, path = '$') => {

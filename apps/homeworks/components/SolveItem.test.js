@@ -43,6 +43,7 @@ const COLUMN = pick('column').id
 const CLOZE = pick('cloze').id
 const CHOICE = pick('choice').id
 const ORDER = pick('order').id
+const SORT = pick('sort').id
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -90,6 +91,17 @@ function enterCorrect(id) {
     }
     return visual
   }
+  if (widget === 'sort') {
+    // Driven through the same place-buttons a keyboard user presses, never a drag.
+    for (const [bucketId, ids] of Object.entries(answer.buckets)) {
+      for (const itemId of ids) {
+        fireEvent.click(
+          document.body.querySelector(`[data-sort-place-item="${itemId}"][data-sort-place-bucket="${bucketId}"]`),
+        )
+      }
+    }
+    return visual
+  }
   if (widget === 'cloze') {
     fireEvent.click(screen.getByRole('radio', { name: answer.blanks[0].accept[0] }))
     return
@@ -124,6 +136,7 @@ describe('P1.8 — SolveItem', () => {
     ['cloze', CLOZE],
     ['choice', CHOICE],
     ['order', ORDER],
+    ['sort', SORT],
   ])('%s', (widget, id) => {
     it('says nothing about the solution before the kid has solved it', () => {
       const view = mount(id, fakeFetch({}))
@@ -194,6 +207,8 @@ describe('P1.8 — SolveItem', () => {
         for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
       } else if (widget === 'order') {
         for (const button of screen.getAllByRole('button', { name: /move/i })) expect(button).toBeDisabled()
+      } else if (widget === 'sort') {
+        for (const button of document.body.querySelectorAll('[data-sort-place-item]')) expect(button).toBeDisabled()
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
       }

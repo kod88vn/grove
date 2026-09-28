@@ -243,4 +243,110 @@ function OrderWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget }
+function SortWidget({ instance, value, onChange, disabled }) {
+  const promptId = useId()
+  const root = useRef(null)
+  const drag = useRef(null)
+  const { items, buckets } = instance.visual
+
+  const labelOf = (itemId) => items.find((item) => item.id === itemId)?.label ?? itemId
+  const bucketLabelOf = (bucketId) => buckets.find((bucket) => bucket.id === bucketId)?.label ?? bucketId
+
+  const place = (itemId, bucketId) => {
+    if (disabled) return
+    const index = items.findIndex((item) => item.id === itemId)
+    if (index < 0) return
+    const next = [...value]
+    next[index] = bucketId
+    onChange(next)
+  }
+
+  const dropAt = (event) => {
+    const itemId = drag.current
+    if (disabled || itemId === null || root.current === null) return
+    const regions = [...root.current.querySelectorAll('[data-sort-tray], [data-sort-bucket]')]
+    const region = regions.find((entry) => {
+      const rect = entry.getBoundingClientRect()
+      return event.clientX >= rect.left && event.clientX < rect.right
+        && event.clientY >= rect.top && event.clientY < rect.bottom
+    })
+    if (region !== undefined) place(itemId, region.dataset.sortBucket ?? null)
+  }
+
+  const regionFor = (bucketId) => (
+    <div
+      key={bucketId ?? 'tray'}
+      {...(bucketId === null ? { 'data-sort-tray': true } : { 'data-sort-bucket': bucketId })}
+      role="region"
+      aria-label={bucketId === null ? 'Cards waiting to be sorted' : `Bucket ${bucketLabelOf(bucketId)}`}
+      className="flex min-h-24 flex-wrap gap-2 rounded border border-dashed border-slate-300 p-2"
+    >
+      {items.map((item, index) => {
+        if (value[index] !== bucketId) return null
+        const itemLabel = labelOf(item.id)
+        const sitting = bucketId === null ? 'in the tray' : `in ${bucketLabelOf(bucketId)}`
+        return (
+          <div
+            key={item.id}
+            data-sort-item={item.id}
+            aria-label={`${itemLabel}, ${sitting}`}
+            className="flex flex-col gap-2 rounded border border-slate-300 p-2 touch-none"
+            onPointerDown={(event) => {
+              if (disabled) return
+              if (event.target.closest('button') !== null) return
+              event.currentTarget.setPointerCapture?.(event.pointerId)
+              drag.current = item.id
+            }}
+            onPointerUp={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              dropAt(event)
+              drag.current = null
+            }}
+            onPointerCancel={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              drag.current = null
+            }}
+          >
+            <span>{itemLabel}</span>
+            <div className="flex flex-wrap gap-1">
+              {buckets.map((bucket) => (
+                <button
+                  key={bucket.id}
+                  type="button"
+                  data-sort-place-item={item.id}
+                  data-sort-place-bucket={bucket.id}
+                  disabled={disabled || value[index] === bucket.id}
+                  aria-label={`Place ${itemLabel} in ${bucket.label}`}
+                  onClick={() => place(item.id, bucket.id)}
+                >
+                  {bucket.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                data-sort-return-item={item.id}
+                disabled={disabled || value[index] === null}
+                aria-label={`Return ${itemLabel} to the tray`}
+                onClick={() => place(item.id, null)}
+              >
+                Return to tray
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <div ref={root} className="flex flex-col gap-3" aria-labelledby={promptId}>
+      <div id={promptId} className="text-slate-700">{instance.prompt}</div>
+      {regionFor(null)}
+      {buckets.map((bucket) => regionFor(bucket.id))}
+    </div>
+  )
+}
+
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget }
