@@ -38,6 +38,7 @@ export function correctValueFor(sample) {
     if (option === undefined) throw new Error(`no correct choice for ${sample.widget}`)
     return option.id
   }
+  if (sample.widget === 'order') return [...sample.answer.sequence]
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -59,6 +60,7 @@ export function wrongValueFor(sample) {
     if (option === undefined) throw new Error(`no wrong choice for ${sample.widget}`)
     return option.id
   }
+  if (sample.widget === 'order') return [...sample.answer.sequence].reverse()
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 

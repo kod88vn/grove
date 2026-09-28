@@ -6,6 +6,7 @@ export function emptyValue(instance) {
     return blanks.map(() => null)
   }
   if (widget === 'choice') return ''
+  if (widget === 'order') return instance.visual.items.map((item) => item.id)
   throw new Error(`unknown widget: ${widget}`)
 }
 
@@ -15,5 +16,6 @@ export function toResponse(instance, value) {
   if (widget === 'fraction') return { text: value }
   if (widget === 'cloze') return { blanks: value.map((entry) => entry ?? '') }
   if (widget === 'choice') return { id: value }
+  if (widget === 'order') return { sequence: value }
   throw new Error(`unknown widget: ${widget}`)
 }

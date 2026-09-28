@@ -220,6 +220,11 @@ const VISUAL_KEYS = {
   // P2.6 — `choice` (plan §6.3, Band A). The options are the whole question, so they are
   // public; the answer is one of their ids and stays on the server.
   choice: ['kind', 'options'],
+  // P2.7 — `order` (plan §6.3, Band A). The cards and their labels are the question, in the
+  // shuffled order they are to be shown in; which order they belong in is the answer and
+  // stays on the server. `order-decimals.test.js` additionally measures that the ids
+  // themselves cannot be sorted back into the answer.
+  order: ['items', 'kind'],
 }
 
 const walk = (value, visit, path = '$') => {
