@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 
+import { ReadAloudButton } from './ReadAloudButton'
 import { AnswerWidget } from './widgets/AnswerWidget'
 import { emptyValue, toResponse } from './widgets/response'
 
@@ -86,6 +87,7 @@ export function SolveItem({ sessionId, instance, onSolved }) {
       <AnswerWidget instance={instance} value={value} onChange={setValue} disabled={solved} />
 
       <div className="flex flex-wrap gap-3">
+        <ReadAloudButton text={instance.prompt} />
         <button
           type="button"
           onClick={requestHint}
