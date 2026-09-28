@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { localDateOf } from '@/lib/localDay'
 
@@ -26,6 +26,7 @@ export function SoloPractice({ skill, template }) {
   const [solved, setSolved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const startedFor = useRef(null)
 
   async function drawItem(activeSessionId) {
     const result = await postJson(`${SESSIONS_URL}/${activeSessionId}/items`, {
@@ -71,6 +72,9 @@ export function SoloPractice({ skill, template }) {
   }
 
   useEffect(() => {
+    const dependencies = [skill, template]
+    if (startedFor.current?.every((value, index) => value === dependencies[index])) return
+    startedFor.current = dependencies
     startSession()
   }, [skill, template])
 

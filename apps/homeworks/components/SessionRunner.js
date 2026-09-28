@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { SolveItem } from './SolveItem'
 
@@ -27,6 +27,7 @@ export function SessionRunner({ sessionId, skill, count }) {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [finished, setFinished] = useState(false)
+  const startedFor = useRef(null)
 
   const itemsUrl = `/homeworks/api/sessions/${sessionId}/items`
 
@@ -73,6 +74,9 @@ export function SessionRunner({ sessionId, skill, count }) {
   }
 
   useEffect(() => {
+    const dependencies = [sessionId, skill, count]
+    if (startedFor.current?.every((value, index) => value === dependencies[index])) return
+    startedFor.current = dependencies
     start()
   }, [sessionId, skill, count])
 

@@ -25,6 +25,8 @@ async function postJson(url, body) {
 
 export function SolveItem({ sessionId, instance, onSolved }) {
   const mountedAt = useRef(Date.now())
+  const checkInFlight = useRef(false)
+  const hintInFlight = useRef(false)
   const [value, setValue] = useState(() => emptyValue(instance))
   const [attempt, setAttempt] = useState(null)
   const [error, setError] = useState(null)
@@ -34,6 +36,8 @@ export function SolveItem({ sessionId, instance, onSolved }) {
   const solved = attempt?.correct === true
 
   async function checkAnswer() {
+    if (checkInFlight.current) return
+    checkInFlight.current = true
     setError(null)
     try {
       const result = await postJson(ATTEMPTS_URL, {
@@ -48,10 +52,14 @@ export function SolveItem({ sessionId, instance, onSolved }) {
     } catch {
       setAttempt(null)
       setError(RETRY_MESSAGE)
+    } finally {
+      checkInFlight.current = false
     }
   }
 
   async function requestHint() {
+    if (hintInFlight.current) return
+    hintInFlight.current = true
     setError(null)
     try {
       const result = await postJson(HINTS_URL, {
@@ -68,6 +76,8 @@ export function SolveItem({ sessionId, instance, onSolved }) {
       } else {
         setError(RETRY_MESSAGE)
       }
+    } finally {
+      hintInFlight.current = false
     }
   }
 
