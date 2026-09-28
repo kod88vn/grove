@@ -52,8 +52,15 @@ const mount = (instance, { disabled = false } = {}) => {
 
 const rendered = (id, seed) => renderProblem(getProblem(id), seed)
 
+/** The label a kid taps to pick the option with this id. */
+const labelOf = (instance, id) => instance.visual.options.find((option) => option.id === id).label
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
+  if (instance.widget === 'choice') {
+    fireEvent.click(screen.getByRole('radio', { name: labelOf(instance, answer.id) }))
+    return
+  }
   if (instance.widget === 'cloze') {
     for (let index = 0; index < answer.blanks.length; index++) {
       fireEvent.click(screen.getAllByRole('radio', { name: answer.blanks[index].accept[0] })[index])
@@ -67,6 +74,11 @@ function enterCorrect(instance, answer) {
 
 /** Type something a kid could plausibly type that is simply not right. */
 function enterWrong(instance, answer) {
+  if (instance.widget === 'choice') {
+    const other = instance.visual.options.find((option) => option.id !== answer.id)
+    fireEvent.click(screen.getByRole('radio', { name: other.label }))
+    return
+  }
   if (instance.widget === 'cloze') {
     const accepted = new Set(answer.blanks[0].accept.map((word) => word.toLowerCase()))
     const other = instance.visual.choices.find((choice) => !accepted.has(choice.toLowerCase()))
@@ -91,6 +103,7 @@ function residueOf(text, instance) {
     for (const addend of visual.addends) sent.push(`${addend.num}/${addend.den}`, String(addend.num), String(addend.den))
   }
   if (visual.kind === 'cloze') sent.push(visual.sentence, ...visual.choices)
+  if (visual.kind === 'choice') sent.push(...visual.options.map((option) => option.label))
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -99,7 +112,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(12)
   })
@@ -117,6 +130,11 @@ describe('P1.8 — answer widgets', () => {
       if (instance.visual.kind === 'cloze') {
         for (const choice of instance.visual.choices) {
           expect(screen.getAllByRole('radio', { name: choice }).length).toBeGreaterThan(0)
+        }
+      }
+      if (instance.visual.kind === 'choice') {
+        for (const option of instance.visual.options) {
+          expect(screen.getByRole('radio', { name: option.label })).toBeInTheDocument()
         }
       }
       if (instance.visual.kind === 'column') {
@@ -189,6 +207,31 @@ describe('P1.8 — answer widgets', () => {
         expect(instance.visual.sentence).not.toContain(right)
       }
 
+      if (widget === 'choice') {
+        // Both options are on screen by design — they are the question. What must not be
+        // on screen is any mark that separates them, so the two labels must render as the
+        // same markup once their own text is taken out.
+        const right = labelOf(instance, full.answer.id)
+        const wrongLabel = instance.visual.options.find((option) => option.id !== full.answer.id).label
+        const shapeOf = (label) => {
+          const option = instance.visual.options.find((entry) => entry.label === label)
+          return screen
+            .getByRole('radio', { name: label })
+            .closest('label')
+            // The grouping attributes carry the problem id, which itself contains the word
+            // "prime" — blank them before the option's own text is taken out, or the two
+            // labels differ for a reason that has nothing to do with correctness.
+            .outerHTML.replaceAll(/(id|for|name|aria-labelledby)="[^"]*"/g, '$1="«ID»"')
+            .split(label)
+            .join('«OPTION»')
+            .split(option.id)
+            .join('«OPTION»')
+        }
+        expect(shapeOf(right)).toBe(shapeOf(wrongLabel))
+        // Nor may it start with the right one already picked.
+        for (const radio of screen.getAllByRole('radio')) expect(radio).not.toBeChecked()
+      }
+
       expect(text).not.toMatch(/\bAI\b/)
       expect(html).not.toContain('correct')
     })
@@ -200,6 +243,9 @@ describe('P1.8 — answer widgets', () => {
       const before = JSON.stringify(spy.value)
 
       if (widget === 'cloze') {
+        for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+        fireEvent.click(screen.getAllByRole('radio')[0])
+      } else if (widget === 'choice') {
         for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
         fireEvent.click(screen.getAllByRole('radio')[0])
       } else {

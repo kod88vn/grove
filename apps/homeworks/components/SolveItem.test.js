@@ -41,6 +41,7 @@ const NUMBER = pick('number').id
 const FRACTION = pick('fraction').id
 const COLUMN = pick('column').id
 const CLOZE = pick('cloze').id
+const CHOICE = pick('choice').id
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -70,6 +71,11 @@ const missed = { body: { correct: false, stars: 0, feedback: 'Keep going—you c
 function enterCorrect(id) {
   const answer = full(id).answer
   const { widget, visual } = instanceOf(id)
+  if (widget === 'choice') {
+    const option = visual.options.find((entry) => entry.id === answer.id)
+    fireEvent.click(screen.getByRole('radio', { name: option.label }))
+    return visual
+  }
   if (widget === 'cloze') {
     fireEvent.click(screen.getByRole('radio', { name: answer.blanks[0].accept[0] }))
     return
@@ -102,6 +108,7 @@ describe('P1.8 — SolveItem', () => {
     ['column', COLUMN],
     ['fraction', FRACTION],
     ['cloze', CLOZE],
+    ['choice', CHOICE],
   ])('%s', (widget, id) => {
     it('says nothing about the solution before the kid has solved it', () => {
       const view = mount(id, fakeFetch({}))
@@ -167,7 +174,8 @@ describe('P1.8 — SolveItem', () => {
       await screen.findByText(HEADING)
       expect(screen.getByRole('button', { name: /Check/ })).toBeDisabled()
       expect(hintButton()).toBeDisabled()
-      if (widget === 'cloze') {
+      // Widgets that answer by tapping have no text field to disable — their radios carry it.
+      if (widget === 'cloze' || widget === 'choice') {
         for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()

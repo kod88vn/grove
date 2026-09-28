@@ -5,6 +5,7 @@ import { templates as contextClueTemplates } from './problems/english/g05/contex
 import { templates as fractionsTemplates } from './problems/math/g05/add-fractions-unlike.js'
 import { templates as multiplicationTemplates } from './problems/math/g05/long-multiplication.js'
 import { templates as orderOfOperationsTemplates } from './problems/math/g05/order-of-operations.js'
+import { templates as primeCompositeTemplates } from './problems/math/g05/prime-composite.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
@@ -15,6 +16,7 @@ const problemTemplates = [
   ...fractionsTemplates,
   ...multiplicationTemplates,
   ...orderOfOperationsTemplates,
+  ...primeCompositeTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 
@@ -77,6 +79,7 @@ const visualFields = {
   'fraction-sum': ['kind', 'operator', 'addends'],
   expression: ['kind', 'expression'],
   cloze: ['kind', 'sentence', 'choices'],
+  choice: ['kind', 'options'],
 }
 
 export function toInstance(rendered) {

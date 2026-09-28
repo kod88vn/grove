@@ -217,6 +217,9 @@ const VISUAL_KEYS = {
   'fraction-sum': ['addends', 'kind', 'operator'],
   expression: ['expression', 'kind'],
   cloze: ['choices', 'kind', 'sentence'],
+  // P2.6 — `choice` (plan §6.3, Band A). The options are the whole question, so they are
+  // public; the answer is one of their ids and stays on the server.
+  choice: ['kind', 'options'],
 }
 
 const walk = (value, visit, path = '$') => {

@@ -49,6 +49,11 @@ function enter(card, sample, value) {
     fireEvent.click(within(card).getByRole('radio', { name: value[0] }))
     return
   }
+  if (sample.widget === 'choice') {
+    const option = sample.instance.visual.options.find((entry) => entry.id === value)
+    fireEvent.click(within(card).getByRole('radio', { name: option.label }))
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -83,6 +88,8 @@ describe('the gallery shows every widget', () => {
       const card = cardFor(sample)
       if (sample.widget === 'cloze') {
         expect(within(card).getAllByRole('radio')).toHaveLength(sample.instance.visual.choices.length)
+      } else if (sample.widget === 'choice') {
+        expect(within(card).getAllByRole('radio')).toHaveLength(sample.instance.visual.options.length)
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)
