@@ -3,6 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { getStudentById, insertSession } from '../../../lib/db.js'
 import { isValidTimeZone } from '../../../lib/localDay.js'
 
+function isLeapYear(year) {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+function daysInMonth(year, month) {
+  return [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+}
+
 export async function POST(request) {
   let body
   try {
@@ -38,8 +46,12 @@ export async function POST(request) {
     return Response.json({ error: 'localDate must be a valid YYYY-MM-DD date' }, { status: 400 })
   }
 
-  const [, month, day] = body.localDate.match(/^\d{4}-(\d{2})-(\d{2})$/)
+  const [, year, month, day] = body.localDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) {
+    return Response.json({ error: 'localDate must be a valid YYYY-MM-DD date' }, { status: 400 })
+  }
+
+  if (Number(day) > daysInMonth(Number(year), Number(month))) {
     return Response.json({ error: 'localDate must be a valid YYYY-MM-DD date' }, { status: 400 })
   }
 
