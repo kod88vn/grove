@@ -74,7 +74,7 @@ All resolved 2026-09-26.
 | free-response (Nora rubric) | B–D | [ ] | [ ] | [ ] |
 
 - [x] P2.1 🔊 read-aloud (`speechSynthesis`)
-- [x] P2.2 Maths keypad (fraction, exponent, √, π) — digits, fraction bar, ⌫ and Clear shipped; `^`, `√` and `π` deferred, see the Log — digits, `/`, ⌫, Clear shipped; `^`, `√`, `π` deferred to Band C (no Grade 5 consumer; checker grades them invalid)
+- [x] P2.2 Maths keypad (fraction, exponent, √, π) — digits `0`–`9`, the fraction bar `/`, ⌫ and Clear shipped; `^`, `√` and `π` deferred to Band C (no Grade 5 consumer; the shipped checker grades them invalid), see the Log
 - [ ] P2.3 Feedback animations, reduced motion, sounds toggle, dyslexia font
 - [ ] P2.4 D5 installed and version pinned
 - [ ] P2.5 Acceptance: `/homeworks/dev/widgets` gallery renders every widget
