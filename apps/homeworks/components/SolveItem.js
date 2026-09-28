@@ -2,8 +2,10 @@
 
 import { useRef, useState } from 'react'
 
+import { useKidSettings } from './KidSettingsProvider'
 import { MathKeypad } from './MathKeypad'
 import { ReadAloudButton } from './ReadAloudButton'
+import { getAudioContext, playFeedbackTone } from '../lib/feedbackSound'
 import { AnswerWidget } from './widgets/AnswerWidget'
 import { emptyValue, toResponse } from './widgets/response'
 
@@ -29,12 +31,15 @@ export function SolveItem({ sessionId, instance, onSolved }) {
   const mountedAt = useRef(Date.now())
   const checkInFlight = useRef(false)
   const hintInFlight = useRef(false)
+  const audioContext = useRef(null)
   const [value, setValue] = useState(() => emptyValue(instance))
   const [attempt, setAttempt] = useState(null)
+  const [verdictSeq, setVerdictSeq] = useState(0)
   const [error, setError] = useState(null)
   const [hints, setHints] = useState([])
   const [hintsUsed, setHintsUsed] = useState(null)
   const [hintsExhausted, setHintsExhausted] = useState(false)
+  const { motionAllowed, soundsAllowed } = useKidSettings()
   const solved = attempt?.correct === true
 
   async function checkAnswer() {
@@ -50,6 +55,15 @@ export function SolveItem({ sessionId, instance, onSolved }) {
         durationMs: Math.max(0, Math.round(Date.now() - mountedAt.current)),
       })
       setAttempt(result)
+      setVerdictSeq((sequence) => sequence + 1)
+      if (soundsAllowed) {
+        try {
+          if (!audioContext.current) audioContext.current = getAudioContext()
+          if (audioContext.current) playFeedbackTone(audioContext.current, result.correct)
+        } catch {
+          // Losing a sound must not lose the verdict.
+        }
+      }
       if (result.correct) onSolved?.(result)
     } catch {
       setAttempt(null)
@@ -111,9 +125,23 @@ export function SolveItem({ sessionId, instance, onSolved }) {
       {hintsUsed !== null && <div>Hints used: {hintsUsed}</div>}
       {hints.map((hint, index) => <div key={`${hint}-${index}`}>{hint}</div>)}
       {error && <div>{error}</div>}
-      {attempt && <div>{attempt.feedback}</div>}
+      {attempt && (
+        <div
+          key={`verdict-${verdictSeq}`}
+          data-testid="verdict"
+          {...(motionAllowed ? { 'data-animate': attempt.correct ? 'correct' : 'wrong' } : {})}
+        >
+          {attempt.feedback}
+        </div>
+      )}
       {attempt?.correct === true && (
-        <div aria-label={`${attempt.stars} of 3 stars`}>{'⭐'.repeat(attempt.stars)}</div>
+        <div
+          key={`stars-${verdictSeq}`}
+          aria-label={`${attempt.stars} of 3 stars`}
+          {...(motionAllowed ? { 'data-animate': 'stars' } : {})}
+        >
+          {'⭐'.repeat(attempt.stars)}
+        </div>
       )}
       {solved && (
         <div>
