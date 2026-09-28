@@ -45,6 +45,7 @@ const CHOICE = pick('choice').id
 const ORDER = pick('order').id
 const SORT = pick('sort').id
 const MATCH = pick('match').id
+const CLOCK = pick('clock').id
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -112,6 +113,17 @@ function enterCorrect(id) {
     }
     return visual
   }
+  if (widget === 'clock') {
+    // Driven through the same steppers a keyboard user presses, never a drag.
+    const [hourNow, minuteNow] = document.body.querySelector('[data-clock]').dataset.clockTime.split(':').map(Number)
+    const step = (which, times) => {
+      const button = document.body.querySelector(`[data-clock-step="${which}"]`)
+      for (let index = 0; index < times; index++) fireEvent.click(button)
+    }
+    step('hour-forward', (answer.hour - hourNow + 12) % 12)
+    step('minute-forward', ((answer.minute - minuteNow + 60) % 60) / 5)
+    return visual
+  }
   if (widget === 'cloze') {
     fireEvent.click(screen.getByRole('radio', { name: answer.blanks[0].accept[0] }))
     return
@@ -148,6 +160,7 @@ describe('P1.8 — SolveItem', () => {
     ['order', ORDER],
     ['sort', SORT],
     ['match', MATCH],
+    ['clock', CLOCK],
   ])('%s', (widget, id) => {
     it('says nothing about the solution before the kid has solved it', () => {
       const view = mount(id, fakeFetch({}))
@@ -222,6 +235,8 @@ describe('P1.8 — SolveItem', () => {
         for (const button of document.body.querySelectorAll('[data-sort-place-item]')) expect(button).toBeDisabled()
       } else if (widget === 'match') {
         for (const button of document.body.querySelectorAll('[data-match-pair-card]')) expect(button).toBeDisabled()
+      } else if (widget === 'clock') {
+        for (const button of document.body.querySelectorAll('[data-clock-step]')) expect(button).toBeDisabled()
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
       }

@@ -2,6 +2,7 @@
 
 import {
   ChoiceWidget,
+  ClockWidget,
   ClozeWidget,
   ColumnWidget,
   FractionWidget,
@@ -35,6 +36,9 @@ export function AnswerWidget({ instance, value, onChange, disabled }) {
   }
   if (instance.widget === 'match') {
     return <MatchWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'clock') {
+    return <ClockWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   throw new Error(`unknown widget: ${instance.widget}`)
 }

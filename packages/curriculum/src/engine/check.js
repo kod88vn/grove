@@ -177,6 +177,18 @@ function match(answer, response) {
   return right()
 }
 
+function clockTime(value) {
+  return isPlainObject(value) && Object.keys(value).length === 2 &&
+    Number.isInteger(value.hour) && value.hour >= 1 && value.hour <= 12 &&
+    Number.isInteger(value.minute) && value.minute >= 0 && value.minute < 60
+}
+
+function clock(answer, response) {
+  if (!clockTime(answer)) throw new TypeError('clock answer must have a valid hour and minute')
+  if (!clockTime(response)) return invalid()
+  return response.hour === answer.hour && response.minute === answer.minute ? right() : wrong()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
@@ -186,5 +198,6 @@ export function check(widget, answer, response) {
   if (widget === 'order') return order(answer, response)
   if (widget === 'sort') return sort(answer, response)
   if (widget === 'match') return match(answer, response)
+  if (widget === 'clock') return clock(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }

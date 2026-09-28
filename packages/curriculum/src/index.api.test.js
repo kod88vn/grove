@@ -236,6 +236,11 @@ const VISUAL_KEYS = {
   // `match-expressions.test.js` additionally measures that neither column's display order
   // nor the ids' own numbering reproduce that pairing.
   match: ['kind', 'left', 'right'],
+  // P2.10 — `clock` (plan §6.3, Band A). The face carries the time the problem STARTS at,
+  // which is the question and so is public; the time it ends at is the answer and stays on
+  // the server. `clock-elapsed-time.test.js` additionally measures that both hands always
+  // have to move, so the start can never be mistaken for a hint at the end.
+  clock: ['kind', 'start'],
 }
 
 const walk = (value, visit, path = '$') => {

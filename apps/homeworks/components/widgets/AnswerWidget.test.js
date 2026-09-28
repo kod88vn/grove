@@ -122,6 +122,29 @@ function slotOf(rightId) {
   return slot === null ? null : slot.dataset.matchSlot
 }
 
+/** What the `clock` hands are showing, read off the control rather than out of React. */
+const clockShowing = () => document.body.querySelector('[data-clock]').dataset.clockTime
+
+/**
+ * Walk the `clock` hands round to a time with the steppers, not with a drag.
+ *
+ * Same reasoning as `sort` and `match`: everything the drag can do must also be reachable
+ * without one, so the generic spec drives the buttons and the pointer sequence is pinned
+ * separately in `ClockWidget.test.js`, where the events can be built by hand. Both hands
+ * are walked forwards only, because a stepper that can reach every time going one way is
+ * the property worth leaning on here.
+ */
+function setClockTo({ hour, minute }) {
+  const [hourNow, minuteNow] = clockShowing().split(':').map(Number)
+  const step = (which, times) => {
+    const button = document.body.querySelector(`[data-clock-step="${which}"]`)
+    if (button === null) throw new Error(`no control to move the ${which}`)
+    for (let index = 0; index < times; index++) fireEvent.click(button)
+  }
+  step('hour-forward', (hour - hourNow + 12) % 12)
+  step('minute-forward', ((minute - minuteNow + 60) % 60) / 5)
+}
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
   if (instance.widget === 'choice') {
@@ -138,6 +161,10 @@ function enterCorrect(instance, answer) {
   }
   if (instance.widget === 'match') {
     for (const pair of answer.pairs) pairInto(pair.right, pair.left)
+    return
+  }
+  if (instance.widget === 'clock') {
+    setClockTo(answer)
     return
   }
   if (instance.widget === 'cloze') {
@@ -181,6 +208,14 @@ function enterWrong(instance, answer) {
     pairs.forEach((pair, index) => pairInto(pair.right, pairs[(index + 1) % pairs.length].left))
     return
   }
+  if (instance.widget === 'clock') {
+    // Both hands set, then the minute hand pushed one mark past — a real time on the face,
+    // just not the right one, so the checker must say `wrong` rather than `invalid`. A
+    // half-set face is a different verdict and would hide this one.
+    setClockTo(answer)
+    fireEvent.click(document.body.querySelector('[data-clock-step="minute-forward"]'))
+    return
+  }
   if (instance.widget === 'cloze') {
     const accepted = new Set(answer.blanks[0].accept.map((word) => word.toLowerCase()))
     const other = instance.visual.choices.find((choice) => !accepted.has(choice.toLowerCase()))
@@ -193,6 +228,24 @@ function enterWrong(instance, answer) {
 }
 
 const problems = listProblems()
+
+/**
+ * What the reader sees, minus the clock's dial.
+ *
+ * The twelve numerals are furniture, not a message: `ClockWidget.test.js` pins them as
+ * exactly one to twelve and byte-identical at every seed, so a dial cannot be smuggling
+ * anything seed-dependent. But they are digits, and the residue rule below is deliberately
+ * a blanket ban on digits rather than a hunt for the answer string. Removing the element is
+ * the safe way to exempt them: subtracting the STRING "12" would also eat half of a leaked
+ * "12:40" and let the leak through, which is exactly the class of bug the ban exists for.
+ *
+ * For every other widget this is `container.textContent` and nothing else.
+ */
+function visibleText(container) {
+  const clone = container.cloneNode(true)
+  for (const numerals of clone.querySelectorAll('[data-clock-dial]')) numerals.remove()
+  return clone.textContent
+}
 
 /** Everything the server sent, removed. What survives is the widget's own doing. */
 function residueOf(text, instance) {
@@ -221,9 +274,9 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock']),
     )
-    expect(problems.length).toBeGreaterThanOrEqual(12)
+    expect(problems.length).toBeGreaterThanOrEqual(13)
   })
 
   describe.each(problems.map((problem) => [problem.id, problem.widget]))('%s (%s)', (id, widget) => {
@@ -280,6 +333,19 @@ describe('P1.8 — answer widgets', () => {
           expect(document.body.querySelector(`[data-match-slot="${item.id}"]`)).not.toBeNull()
         }
       }
+      if (instance.visual.kind === 'clock') {
+        // The hands start on the time the problem counts on FROM. That is the question,
+        // not the answer: the template never uses a whole number of hours, so both hands
+        // always have to move. The time itself is never written down — it reaches a screen
+        // reader through the group's name and a test through the attribute, but never as
+        // text, so `visibleText` has nothing to forgive but the twelve dial numerals.
+        const { hour, minute } = instance.visual.start
+        expect(clockShowing()).toBe(`${hour}:${String(minute).padStart(2, '0')}`)
+        expect(document.body.querySelector('[data-clock-hand="hour"]')).not.toBeNull()
+        expect(document.body.querySelector('[data-clock-hand="minute"]')).not.toBeNull()
+        expect(document.body.querySelectorAll('[data-clock-step]')).toHaveLength(4)
+        expect(document.body.querySelector('[data-clock-dial]')).not.toBeNull()
+      }
       if (instance.visual.kind === 'column') {
         for (const operand of instance.visual.operands) expect(text).toContain(String(operand))
         expect(text).toContain(instance.visual.operator)
@@ -332,7 +398,7 @@ describe('P1.8 — answer widgets', () => {
       // widget's own invention, and it must not contain a single digit — a stronger
       // rule than hunting for the answer string, and one that cannot be passed by
       // coincidence when an operand happens to equal the answer.
-      expect(residueOf(view.container.textContent, instance)).not.toMatch(/\d/)
+      expect(residueOf(visibleText(view.container), instance)).not.toMatch(/\d/)
 
       if (widget === 'cloze') {
         // The word is on screen by design. What must not be on screen is which one it is:
@@ -394,7 +460,7 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'order') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[1])
-      } else if (widget === 'sort' || widget === 'match') {
+      } else if (widget === 'sort' || widget === 'match' || widget === 'clock') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
       } else {
@@ -444,6 +510,14 @@ describe('P1.8 — answer widgets', () => {
         expect(Array.isArray(value)).toBe(true)
         expect(value.length).toBe(instance.visual.right.length)
         expect(value.every((entry) => entry === null)).toBe(true)
+      } else if (problem.widget === 'clock') {
+        // "Empty" for a clock is the time the problem starts at. The hands have to point
+        // somewhere, and the question is "count on from here" — an empty face would be a
+        // different exercise. It still cannot be a lucky guess: the template never uses a
+        // whole number of hours, so the minute hand is always wrong until the kid moves it.
+        expect(value).toEqual([instance.visual.start.hour, instance.visual.start.minute])
+        const { answer } = rendered(problem.id, SEEDS[0])
+        expect(value).not.toEqual([answer.hour, answer.minute])
       } else {
         expect(value).toBe('')
       }

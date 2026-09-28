@@ -462,4 +462,112 @@ function MatchWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget }
+function ClockWidget({ instance, value, onChange, disabled }) {
+  const drag = useRef(null)
+  const [hour, minute] = value
+  const time = `${hour}:${String(minute).padStart(2, '0')}`
+
+  const updateFromPointer = (event) => {
+    const current = drag.current
+    if (disabled || current === null) return
+    const face = event.currentTarget
+    const rect = face.getBoundingClientRect()
+    const angle = ((Math.atan2(event.clientX - (rect.left + rect.width / 2), (rect.top + rect.height / 2) - event.clientY) * 180) / Math.PI + 360) % 360
+    const next = [...value]
+    if (current.which === 'minute') next[1] = (Math.round(angle / 30) % 12) * 5
+    else next[0] = Math.floor(angle / 30) || 12
+    onChange(next)
+  }
+
+  const stepHour = (amount) => {
+    if (disabled) return
+    const next = [...value]
+    next[0] = ((hour - 1 + amount + 12) % 12) + 1
+    onChange(next)
+  }
+
+  const stepMinute = (amount) => {
+    if (disabled) return
+    const next = [...value]
+    next[1] = (minute + amount + 60) % 60
+    onChange(next)
+  }
+
+  return (
+    <div className="flex flex-col gap-4" data-clock role="group" aria-live="polite" data-clock-time={time} aria-label={`Clock, hands showing ${time}`}>
+      <div className="text-slate-700">{instance.prompt}</div>
+      <svg
+        data-clock-face
+        viewBox="0 0 200 200"
+        role="img"
+        aria-label="Clock face"
+        className="h-64 w-64 touch-none rounded-full border border-slate-300"
+        onPointerDown={(event) => {
+          if (disabled) return
+          if (event.target.closest('button') !== null) return
+          const handElement = event.target.closest('[data-clock-hand]')
+          if (handElement === null) return
+          handElement.setPointerCapture?.(event.pointerId)
+          drag.current = { which: handElement.dataset.clockHand, original: [...value], hand: handElement }
+        }}
+        onPointerMove={updateFromPointer}
+        onPointerUp={(event) => {
+          if (disabled || drag.current === null) return
+          const current = drag.current
+          drag.current = null
+          current.hand.releasePointerCapture?.(event.pointerId)
+        }}
+        onPointerCancel={(event) => {
+          const current = drag.current
+          if (disabled || current === null) return
+          onChange(current.original)
+          drag.current = null
+          current.hand.releasePointerCapture?.(event.pointerId)
+        }}
+      >
+        <circle cx="100" cy="100" r="88" fill="white" />
+        <g data-clock-dial textAnchor="middle" dominantBaseline="middle" className="fill-slate-700 text-sm">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((number) => {
+            const angle = number * 30
+            const x = 100 + 70 * Math.sin((angle * Math.PI) / 180)
+            const y = 100 - 70 * Math.cos((angle * Math.PI) / 180)
+            return <text key={number} x={x} y={y}> {number} </text>
+          })}
+        </g>
+        <line
+          data-clock-hand="hour"
+          aria-hidden="true"
+          x1="100"
+          y1="100"
+          x2="100"
+          y2="48"
+          stroke="currentColor"
+          strokeWidth="6"
+          strokeLinecap="round"
+          transform={`rotate(${(hour % 12) * 30 + minute * 0.5} 100 100)`}
+        />
+        <line
+          data-clock-hand="minute"
+          aria-hidden="true"
+          x1="100"
+          y1="100"
+          x2="100"
+          y2="28"
+          stroke="currentColor"
+          strokeWidth="4"
+          strokeLinecap="round"
+          transform={`rotate(${minute * 6} 100 100)`}
+        />
+        <circle cx="100" cy="100" r="5" fill="currentColor" />
+      </svg>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" data-clock-step="hour-back" aria-label={`Move the hour hand back, from ${time}`} disabled={disabled} onClick={() => stepHour(-1)}>Hour back</button>
+        <button type="button" data-clock-step="hour-forward" aria-label={`Move the hour hand forward, from ${time}`} disabled={disabled} onClick={() => stepHour(1)}>Hour on</button>
+        <button type="button" data-clock-step="minute-back" aria-label={`Move the minute hand back, from ${time}`} disabled={disabled} onClick={() => stepMinute(-5)}>Minute back</button>
+        <button type="button" data-clock-step="minute-forward" aria-label={`Move the minute hand forward, from ${time}`} disabled={disabled} onClick={() => stepMinute(5)}>Minute on</button>
+      </div>
+    </div>
+  )
+}
+
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget }

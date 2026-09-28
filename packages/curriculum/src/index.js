@@ -2,6 +2,7 @@
 import { skills as englishSkills } from './catalog/english/grade-05.js'
 import { skills as mathSkills } from './catalog/math/grade-05.js'
 import { templates as contextClueTemplates } from './problems/english/g05/context-clues.js'
+import { templates as clockElapsedTimeTemplates } from './problems/math/g05/clock-elapsed-time.js'
 import { templates as fractionsTemplates } from './problems/math/g05/add-fractions-unlike.js'
 import { templates as multiplicationTemplates } from './problems/math/g05/long-multiplication.js'
 import { templates as matchExpressionsTemplates } from './problems/math/g05/match-expressions.js'
@@ -16,6 +17,7 @@ export { check } from './engine/check.js'
 const catalogSkills = [...mathSkills, ...englishSkills]
 const problemTemplates = [
   ...contextClueTemplates,
+  ...clockElapsedTimeTemplates,
   ...fractionsTemplates,
   ...multiplicationTemplates,
   ...matchExpressionsTemplates,
@@ -89,6 +91,7 @@ const visualFields = {
   order: ['kind', 'items'],
   sort: ['kind', 'items', 'buckets'],
   match: ['kind', 'left', 'right'],
+  clock: ['kind', 'start'],
 }
 
 export function toInstance(rendered) {

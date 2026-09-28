@@ -85,6 +85,19 @@ function enter(card, sample, value) {
     }
     return
   }
+  if (sample.widget === 'clock') {
+    // The value is the hour and the minute the hands are to show, so the gallery walks the
+    // same steppers a kid without a usable drag would press. Both hands go forwards only:
+    // every one of the 144 times the face can show is reachable that way.
+    const step = (which, times) => {
+      const button = card.querySelector(`[data-clock-step="${which}"]`)
+      for (let index = 0; index < times; index++) fireEvent.click(button)
+    }
+    const [hourNow, minuteNow] = card.querySelector('[data-clock]').dataset.clockTime.split(':').map(Number)
+    step('hour-forward', (value[0] - hourNow + 12) % 12)
+    step('minute-forward', ((value[1] - minuteNow + 60) % 60) / 5)
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -137,6 +150,12 @@ describe('the gallery shows every widget', () => {
           sample.instance.visual.right.length * sample.instance.visual.left.length,
         )
         // A pairing board answers by pairing. A text field here would be the P2.6 bug back.
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
+      } else if (sample.widget === 'clock') {
+        expect(card.querySelectorAll('[data-clock-hand]')).toHaveLength(2)
+        expect(card.querySelectorAll('[data-clock-dial]')).toHaveLength(1)
+        expect(card.querySelectorAll('[data-clock-step]')).toHaveLength(4)
+        // A clock answers by moving hands. A text field here would be the P2.6 bug back.
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
