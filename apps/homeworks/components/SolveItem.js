@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 
+import { MathKeypad } from './MathKeypad'
 import { ReadAloudButton } from './ReadAloudButton'
 import { AnswerWidget } from './widgets/AnswerWidget'
 import { emptyValue, toResponse } from './widgets/response'
@@ -85,6 +86,7 @@ export function SolveItem({ sessionId, instance, onSolved }) {
   return (
     <section className="flex flex-col gap-4">
       <AnswerWidget instance={instance} value={value} onChange={setValue} disabled={solved} />
+      <MathKeypad widget={instance.widget} value={value} onChange={setValue} disabled={solved} />
 
       <div className="flex flex-wrap gap-3">
         <ReadAloudButton text={instance.prompt} />
