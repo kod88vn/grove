@@ -66,6 +66,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'choice') return { id: answer.id }
   if (widget === 'order') return { sequence: answer.sequence }
   if (widget === 'sort') return { buckets: answer.buckets }
+  if (widget === 'match') return { pairs: answer.pairs }
   return { value: answer.value }
 }
 
@@ -79,6 +80,11 @@ const wrongResponse = (widget, answer) => {
     // Every card placed, each in the next bucket along: finished, and misfiled.
     const ids = Object.keys(answer.buckets)
     return { buckets: Object.fromEntries(ids.map((id, index) => [id, answer.buckets[ids[(index + 1) % ids.length]]])) }
+  }
+  if (widget === 'match') {
+    // Every card joined to something, each to the next one along: finished, and misjoined.
+    const { pairs } = answer
+    return { pairs: pairs.map((pair, index) => ({ left: pairs[(index + 1) % pairs.length].left, right: pair.right })) }
   }
   return { value: -999999 }
 }

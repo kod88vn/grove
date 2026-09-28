@@ -99,6 +99,29 @@ function bucketOf(itemId) {
 const sortPlacements = (answer) =>
   Object.entries(answer.buckets).flatMap(([bucketId, ids]) => ids.map((id) => [id, bucketId]))
 
+/** The `match` cards on screen, in the order they were dealt. */
+const matchCardIds = () => [...document.body.querySelectorAll('[data-match-card]')].map((card) => card.dataset.matchCard)
+
+/**
+ * Join a `match` card to a slot with the button, not with a drag.
+ *
+ * Same reasoning as `sort`: everything the drag can do must also be reachable without one,
+ * so the generic spec drives the buttons and the pointer sequence is pinned separately in
+ * `MatchWidget.test.js`, where the events can be built by hand.
+ */
+function pairInto(rightId, leftId) {
+  const button = document.body.querySelector(`[data-match-pair-card="${rightId}"][data-match-pair-slot="${leftId}"]`)
+  if (button === null) throw new Error(`no control to join ${rightId} to ${leftId}`)
+  fireEvent.click(button)
+}
+
+/** Which slot a `match` card is sitting in, or null while it is still in the tray. */
+function slotOf(rightId) {
+  const card = document.body.querySelector(`[data-match-card="${rightId}"]`)
+  const slot = card.closest('[data-match-slot]')
+  return slot === null ? null : slot.dataset.matchSlot
+}
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
   if (instance.widget === 'choice') {
@@ -111,6 +134,10 @@ function enterCorrect(instance, answer) {
   }
   if (instance.widget === 'sort') {
     for (const [itemId, bucketId] of sortPlacements(answer)) placeInto(itemId, bucketId)
+    return
+  }
+  if (instance.widget === 'match') {
+    for (const pair of answer.pairs) pairInto(pair.right, pair.left)
     return
   }
   if (instance.widget === 'cloze') {
@@ -146,6 +173,14 @@ function enterWrong(instance, answer) {
     }
     return
   }
+  if (instance.widget === 'match') {
+    // Every card joined to something, each to the next description along — a finished board
+    // that is misjoined, so the checker must say `wrong` rather than `invalid`. Leaving a
+    // card in the tray is a different verdict and would hide this one.
+    const { pairs } = answer
+    pairs.forEach((pair, index) => pairInto(pair.right, pairs[(index + 1) % pairs.length].left))
+    return
+  }
   if (instance.widget === 'cloze') {
     const accepted = new Set(answer.blanks[0].accept.map((word) => word.toLowerCase()))
     const other = instance.visual.choices.find((choice) => !accepted.has(choice.toLowerCase()))
@@ -175,6 +210,9 @@ function residueOf(text, instance) {
   if (visual.kind === 'sort') {
     sent.push(...visual.items.map((item) => item.label), ...visual.buckets.map((bucket) => bucket.label))
   }
+  if (visual.kind === 'match') {
+    sent.push(...visual.left.map((item) => item.label), ...visual.right.map((card) => card.label))
+  }
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -183,7 +221,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(12)
   })
@@ -226,6 +264,20 @@ describe('P1.8 — answer widgets', () => {
         for (const bucket of instance.visual.buckets) {
           expect(text).toContain(bucket.label)
           expect(document.body.querySelector(`[data-sort-bucket="${bucket.id}"]`)).not.toBeNull()
+        }
+      }
+      if (instance.visual.kind === 'match') {
+        // Both columns are on screen by design — a kid cannot join two things they cannot
+        // read. The cards are dealt in the order they arrived and every one starts in the
+        // tray: pre-joining even one would be answering part of the exercise for the kid.
+        expect(matchCardIds()).toEqual(instance.visual.right.map((card) => card.id))
+        for (const card of instance.visual.right) {
+          expect(text).toContain(card.label)
+          expect(slotOf(card.id)).toBeNull()
+        }
+        for (const item of instance.visual.left) {
+          expect(text).toContain(item.label)
+          expect(document.body.querySelector(`[data-match-slot="${item.id}"]`)).not.toBeNull()
         }
       }
       if (instance.visual.kind === 'column') {
@@ -342,7 +394,7 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'order') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[1])
-      } else if (widget === 'sort') {
+      } else if (widget === 'sort' || widget === 'match') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
       } else {
@@ -383,6 +435,14 @@ describe('P1.8 — answer widgets', () => {
         // classified yet — and an unfinished board grades `invalid`, not `wrong`.
         expect(Array.isArray(value)).toBe(true)
         expect(value.length).toBe(instance.visual.items.length)
+        expect(value.every((entry) => entry === null)).toBe(true)
+      } else if (problem.widget === 'match') {
+        // "Empty" for a pairing board is every card still in the tray — one entry per card
+        // on the right, holding the id of the description it has been joined to. Nothing is
+        // joined yet, so it cannot be a lucky guess the way an arrangement can, and an
+        // unfinished board grades `invalid` rather than `wrong`.
+        expect(Array.isArray(value)).toBe(true)
+        expect(value.length).toBe(instance.visual.right.length)
         expect(value.every((entry) => entry === null)).toBe(true)
       } else {
         expect(value).toBe('')

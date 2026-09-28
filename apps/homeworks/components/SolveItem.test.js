@@ -44,6 +44,7 @@ const CLOZE = pick('cloze').id
 const CHOICE = pick('choice').id
 const ORDER = pick('order').id
 const SORT = pick('sort').id
+const MATCH = pick('match').id
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -102,6 +103,15 @@ function enterCorrect(id) {
     }
     return visual
   }
+  if (widget === 'match') {
+    // Driven through the same pair-buttons a keyboard user presses, never a drag.
+    for (const pair of answer.pairs) {
+      fireEvent.click(
+        document.body.querySelector(`[data-match-pair-card="${pair.right}"][data-match-pair-slot="${pair.left}"]`),
+      )
+    }
+    return visual
+  }
   if (widget === 'cloze') {
     fireEvent.click(screen.getByRole('radio', { name: answer.blanks[0].accept[0] }))
     return
@@ -137,6 +147,7 @@ describe('P1.8 — SolveItem', () => {
     ['choice', CHOICE],
     ['order', ORDER],
     ['sort', SORT],
+    ['match', MATCH],
   ])('%s', (widget, id) => {
     it('says nothing about the solution before the kid has solved it', () => {
       const view = mount(id, fakeFetch({}))
@@ -209,6 +220,8 @@ describe('P1.8 — SolveItem', () => {
         for (const button of screen.getAllByRole('button', { name: /move/i })) expect(button).toBeDisabled()
       } else if (widget === 'sort') {
         for (const button of document.body.querySelectorAll('[data-sort-place-item]')) expect(button).toBeDisabled()
+      } else if (widget === 'match') {
+        for (const button of document.body.querySelectorAll('[data-match-pair-card]')) expect(button).toBeDisabled()
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
       }

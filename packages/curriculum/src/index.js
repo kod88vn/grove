@@ -4,6 +4,7 @@ import { skills as mathSkills } from './catalog/math/grade-05.js'
 import { templates as contextClueTemplates } from './problems/english/g05/context-clues.js'
 import { templates as fractionsTemplates } from './problems/math/g05/add-fractions-unlike.js'
 import { templates as multiplicationTemplates } from './problems/math/g05/long-multiplication.js'
+import { templates as matchExpressionsTemplates } from './problems/math/g05/match-expressions.js'
 import { templates as orderOfOperationsTemplates } from './problems/math/g05/order-of-operations.js'
 import { templates as orderDecimalsTemplates } from './problems/math/g05/order-decimals.js'
 import { templates as primeCompositeTemplates } from './problems/math/g05/prime-composite.js'
@@ -17,6 +18,7 @@ const problemTemplates = [
   ...contextClueTemplates,
   ...fractionsTemplates,
   ...multiplicationTemplates,
+  ...matchExpressionsTemplates,
   ...orderOfOperationsTemplates,
   ...orderDecimalsTemplates,
   ...primeCompositeTemplates,
@@ -86,6 +88,7 @@ const visualFields = {
   choice: ['kind', 'options'],
   order: ['kind', 'items'],
   sort: ['kind', 'items', 'buckets'],
+  match: ['kind', 'left', 'right'],
 }
 
 export function toInstance(rendered) {

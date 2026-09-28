@@ -142,6 +142,41 @@ function sort(answer, response) {
   return right()
 }
 
+function match(answer, response) {
+  if (!isPlainObject(answer) || !Array.isArray(answer.pairs) || answer.pairs.length === 0) {
+    throw new TypeError('match answer must have non-empty pairs')
+  }
+
+  const answerPairs = new Map()
+  const answerRightIds = new Set()
+  for (const pair of answer.pairs) {
+    if (!isPlainObject(pair) || Object.keys(pair).length !== 2 || typeof pair.left !== 'string' || pair.left.length === 0 || typeof pair.right !== 'string' || pair.right.length === 0 || answerPairs.has(pair.left) || answerRightIds.has(pair.right)) {
+      throw new TypeError('match answer pairs must have unique non-empty left and right ids')
+    }
+    answerPairs.set(pair.left, pair.right)
+    answerRightIds.add(pair.right)
+  }
+
+  if (!isPlainObject(response) || !Array.isArray(response.pairs)) return invalid()
+
+  const responseLeftIds = new Set()
+  const responseRightIds = new Set()
+  for (const pair of response.pairs) {
+    if (!isPlainObject(pair) || Object.keys(pair).length !== 2 || typeof pair.left !== 'string' || pair.left.length === 0 || typeof pair.right !== 'string' || pair.right.length === 0 || !answerPairs.has(pair.left) || !answerRightIds.has(pair.right) || responseLeftIds.has(pair.left) || responseRightIds.has(pair.right)) {
+      return invalid()
+    }
+    responseLeftIds.add(pair.left)
+    responseRightIds.add(pair.right)
+  }
+  if (responseLeftIds.size !== answerPairs.size || responseRightIds.size !== answerRightIds.size) return invalid()
+
+  for (const [left, right] of answerPairs) {
+    const pair = response.pairs.find((entry) => entry.left === left)
+    if (pair.right !== right) return wrong()
+  }
+  return right()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
@@ -150,5 +185,6 @@ export function check(widget, answer, response) {
   if (widget === 'cloze') return cloze(answer, response)
   if (widget === 'order') return order(answer, response)
   if (widget === 'sort') return sort(answer, response)
+  if (widget === 'match') return match(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
