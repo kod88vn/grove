@@ -42,6 +42,7 @@ const FRACTION = pick('fraction').id
 const COLUMN = pick('column').id
 const CLOZE = pick('cloze').id
 const CHOICE = pick('choice').id
+const ORDER = pick('order').id
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -74,6 +75,19 @@ function enterCorrect(id) {
   if (widget === 'choice') {
     const option = visual.options.find((entry) => entry.id === answer.id)
     fireEvent.click(screen.getByRole('radio', { name: option.label }))
+    return visual
+  }
+  if (widget === 'order') {
+    // Driven through the same move buttons a keyboard user presses.
+    const orderedIds = () =>
+      [...document.body.querySelectorAll('[data-order-item]')].map((row) => row.dataset.orderItem)
+    for (let target = 0; target < answer.sequence.length; target++) {
+      let at = orderedIds().indexOf(answer.sequence[target])
+      while (at > target) {
+        fireEvent.click(document.body.querySelector(`[data-move-up="${answer.sequence[target]}"]`))
+        at -= 1
+      }
+    }
     return visual
   }
   if (widget === 'cloze') {
@@ -109,6 +123,7 @@ describe('P1.8 — SolveItem', () => {
     ['fraction', FRACTION],
     ['cloze', CLOZE],
     ['choice', CHOICE],
+    ['order', ORDER],
   ])('%s', (widget, id) => {
     it('says nothing about the solution before the kid has solved it', () => {
       const view = mount(id, fakeFetch({}))
@@ -177,6 +192,8 @@ describe('P1.8 — SolveItem', () => {
       // Widgets that answer by tapping have no text field to disable — their radios carry it.
       if (widget === 'cloze' || widget === 'choice') {
         for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+      } else if (widget === 'order') {
+        for (const button of screen.getAllByRole('button', { name: /move/i })) expect(button).toBeDisabled()
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
       }

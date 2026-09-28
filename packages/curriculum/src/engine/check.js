@@ -76,11 +76,26 @@ function cloze(answer, response) {
   return right()
 }
 
+function order(answer, response) {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.sequence) || answer.sequence.length === 0) {
+    throw new TypeError('order answer must have a non-empty sequence of unique ids')
+  }
+  const answerIds = new Set(answer.sequence)
+  if (answerIds.size !== answer.sequence.length || answer.sequence.some((id) => typeof id !== 'string' || id.length === 0)) {
+    throw new TypeError('order answer must have a non-empty sequence of unique ids')
+  }
+  if (!response || typeof response !== 'object' || Array.isArray(response) || !Array.isArray(response.sequence) || response.sequence.length !== answer.sequence.length) return invalid()
+  const responseIds = new Set(response.sequence)
+  if (responseIds.size !== response.sequence.length || response.sequence.some((id) => typeof id !== 'string' || !answerIds.has(id))) return invalid()
+  return response.sequence.every((id, index) => id === answer.sequence[index]) ? right() : wrong()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
   if (widget === 'column') return number(answer, response)
   if (widget === 'fraction') return fraction(answer, response)
   if (widget === 'cloze') return cloze(answer, response)
+  if (widget === 'order') return order(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }

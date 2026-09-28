@@ -55,10 +55,28 @@ const rendered = (id, seed) => renderProblem(getProblem(id), seed)
 /** The label a kid taps to pick the option with this id. */
 const labelOf = (instance, id) => instance.visual.options.find((option) => option.id === id).label
 
+/** The `order` cards on screen, top to bottom — the whole answer is this list. */
+const orderedIds = () => [...document.body.querySelectorAll('[data-order-item]')].map((row) => row.dataset.orderItem)
+
+/** Put the `order` cards in this sequence using the real move buttons. */
+function reorderTo(ids) {
+  for (let target = 0; target < ids.length; target++) {
+    let at = orderedIds().indexOf(ids[target])
+    while (at > target) {
+      fireEvent.click(document.body.querySelector(`[data-move-up="${ids[target]}"]`))
+      at -= 1
+    }
+  }
+}
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
   if (instance.widget === 'choice') {
     fireEvent.click(screen.getByRole('radio', { name: labelOf(instance, answer.id) }))
+    return
+  }
+  if (instance.widget === 'order') {
+    reorderTo(answer.sequence)
     return
   }
   if (instance.widget === 'cloze') {
@@ -77,6 +95,11 @@ function enterWrong(instance, answer) {
   if (instance.widget === 'choice') {
     const other = instance.visual.options.find((option) => option.id !== answer.id)
     fireEvent.click(screen.getByRole('radio', { name: other.label }))
+    return
+  }
+  if (instance.widget === 'order') {
+    // A real arrangement, just not the right one — so the checker must say `wrong`.
+    reorderTo([...answer.sequence].reverse())
     return
   }
   if (instance.widget === 'cloze') {
@@ -104,6 +127,7 @@ function residueOf(text, instance) {
   }
   if (visual.kind === 'cloze') sent.push(visual.sentence, ...visual.choices)
   if (visual.kind === 'choice') sent.push(...visual.options.map((option) => option.label))
+  if (visual.kind === 'order') sent.push(...visual.items.map((item) => item.label))
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -112,7 +136,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(12)
   })
@@ -136,6 +160,11 @@ describe('P1.8 — answer widgets', () => {
         for (const option of instance.visual.options) {
           expect(screen.getByRole('radio', { name: option.label })).toBeInTheDocument()
         }
+      }
+      if (instance.visual.kind === 'order') {
+        // Sent in one order, shown in that order — the widget does not rearrange them.
+        expect(orderedIds()).toEqual(instance.visual.items.map((item) => item.id))
+        for (const item of instance.visual.items) expect(text).toContain(item.label)
       }
       if (instance.visual.kind === 'column') {
         for (const operand of instance.visual.operands) expect(text).toContain(String(operand))
@@ -248,6 +277,9 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'choice') {
         for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
         fireEvent.click(screen.getAllByRole('radio')[0])
+      } else if (widget === 'order') {
+        for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
+        fireEvent.click(screen.getAllByRole('button')[1])
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
         fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: '5' } })
@@ -275,6 +307,11 @@ describe('P1.8 — answer widgets', () => {
         expect(Array.isArray(value)).toBe(true)
         expect(value.every((entry) => entry === null)).toBe(true)
         expect(value.length).toBe(rendered(problem.id, SEEDS[0]).answer.blanks.length)
+      } else if (problem.widget === 'order') {
+        // "Empty" for a list is the order it arrived in, which the template guarantees is
+        // not the answer — so an untouched card is graded wrong, never right by luck.
+        expect(value).toEqual(instance.visual.items.map((item) => item.id))
+        expect(value).not.toEqual(rendered(problem.id, SEEDS[0]).answer.sequence)
       } else {
         expect(value).toBe('')
       }

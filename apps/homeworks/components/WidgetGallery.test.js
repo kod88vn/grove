@@ -43,7 +43,7 @@ const cardFor = (sample) => {
   return found[0]
 }
 
-/** Put a value into a card the way a child would: click a choice, or type. */
+/** Put a value into a card the way a child would: click a choice, drag a card, or type. */
 function enter(card, sample, value) {
   if (sample.widget === 'cloze') {
     fireEvent.click(within(card).getByRole('radio', { name: value[0] }))
@@ -52,6 +52,17 @@ function enter(card, sample, value) {
   if (sample.widget === 'choice') {
     const option = sample.instance.visual.options.find((entry) => entry.id === value)
     fireEvent.click(within(card).getByRole('radio', { name: option.label }))
+    return
+  }
+  if (sample.widget === 'order') {
+    const orderedIds = () => [...card.querySelectorAll('[data-order-item]')].map((row) => row.dataset.orderItem)
+    for (let target = 0; target < value.length; target++) {
+      let at = orderedIds().indexOf(value[target])
+      while (at > target) {
+        fireEvent.click(card.querySelector(`[data-move-up="${value[target]}"]`))
+        at -= 1
+      }
+    }
     return
   }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
@@ -90,6 +101,9 @@ describe('the gallery shows every widget', () => {
         expect(within(card).getAllByRole('radio')).toHaveLength(sample.instance.visual.choices.length)
       } else if (sample.widget === 'choice') {
         expect(within(card).getAllByRole('radio')).toHaveLength(sample.instance.visual.options.length)
+      } else if (sample.widget === 'order') {
+        expect(within(card).getAllByRole('listitem')).toHaveLength(sample.instance.visual.items.length)
+        expect(card.querySelectorAll('[data-move-up]')).toHaveLength(sample.instance.visual.items.length)
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)
@@ -185,9 +199,8 @@ describe('the answer is dev-only, and hidden until asked for', () => {
       fireEvent.click(revealButton(card))
       const revealed = card.querySelector('[data-dev-only]')
       expect(revealed).not.toBeNull()
-      const shown = sample.widget === 'cloze'
-        ? correctValueFor(sample)[0]
-        : correctValueFor(sample)
+      const right = correctValueFor(sample)
+      const shown = sample.widget === 'cloze' ? right[0] : Array.isArray(right) ? right.join(', ') : right
       expect(revealed.textContent).toContain(shown)
     }
   })

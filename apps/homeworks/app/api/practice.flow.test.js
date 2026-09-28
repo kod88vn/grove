@@ -64,13 +64,16 @@ const rightResponse = (answer, widget) => {
   if (widget === 'fraction') return { text: `${answer.num}/${answer.den}` }
   if (widget === 'cloze') return { blanks: answer.blanks.map((blank) => blank.accept[0]) }
   if (widget === 'choice') return { id: answer.id }
+  if (widget === 'order') return { sequence: answer.sequence }
   return { value: answer.value }
 }
 
-const wrongResponse = (widget) => {
+const wrongResponse = (widget, answer) => {
   if (widget === 'fraction') return { text: '999/1000' }
   if (widget === 'cloze') return { blanks: ['zzzzzzz'] }
   if (widget === 'choice') return { id: 'zzzzzzz' }
+  // A real arrangement of the real cards, just backwards — `wrong`, not `invalid`.
+  if (widget === 'order') return { sequence: [...answer.sequence].reverse() }
   return { value: -999999 }
 }
 
@@ -107,7 +110,7 @@ async function walkTheCorridor(meta) {
         sessionId,
         problemId: meta.id,
         seed,
-        response: wrongResponse(meta.widget),
+        response: wrongResponse(meta.widget, render(getProblem(meta.id), seed).answer),
         durationMs: 8000,
       })
     )
@@ -236,6 +239,31 @@ describe('the options never say which one is right', () => {
       // nowhere else in the envelope.
       const elsewhere = JSON.stringify({ ...payloads.item.instance, visual: { ...visual, options: [] } })
       expect(elsewhere).not.toContain(`"${solution.answer.id}"`)
+    }
+  )
+})
+
+describe('the cards never arrive already in order', () => {
+  it.each(listProblems().filter((meta) => meta.widget === 'order').map((meta) => [meta.id, meta]))(
+    '%s sends four interchangeable cards, shuffled',
+    async (_id, meta) => {
+      const { seed, payloads } = await walkTheCorridor(meta)
+      const solution = render(getProblem(meta.id), seed)
+      const { visual } = payloads.item.instance
+
+      expect(visual.kind).toBe('order')
+      expect(visual.items.length).toBeGreaterThan(1)
+      // Every card carries the same keys, so there is no extra field on the first one for
+      // a curious kid to read off in the network tab.
+      for (const item of visual.items) expect(Object.keys(item).sort()).toEqual(['id', 'label'])
+      // The ids are the answer alphabet, so what must not be on the wire is their order.
+      const sent = visual.items.map((item) => item.id)
+      expect(sent).not.toEqual(solution.answer.sequence)
+      const envelope = JSON.stringify(payloads.item.instance)
+      for (const separator of ['", "', '","', ',', ' ', '']) {
+        expect(envelope).not.toContain(solution.answer.sequence.join(separator))
+      }
+      expect(envelope).not.toContain('sequence')
     }
   )
 })

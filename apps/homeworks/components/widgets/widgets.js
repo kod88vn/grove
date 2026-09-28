@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 
 function inputId(instance) {
   return `answer-${instance.seed}-${instance.problemId}`
@@ -167,4 +167,80 @@ function ChoiceWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget }
+function OrderWidget({ instance, value, onChange, disabled }) {
+  const promptId = useId()
+  const drag = useRef(null)
+  const labelOf = (id) => instance.visual.items.find((item) => item.id === id)?.label ?? id
+
+  const move = (from, to) => {
+    if (disabled || from === to || from < 0 || to < 0 || from >= value.length || to >= value.length) return
+    const next = [...value]
+    const [id] = next.splice(from, 1)
+    next.splice(to, 0, id)
+    onChange(next)
+  }
+
+  const moveToPointer = (event) => {
+    const current = drag.current
+    if (disabled || current === null) return
+    const rows = [...event.currentTarget.parentElement.querySelectorAll('[data-order-item]')]
+    const target = rows.findIndex((row) => {
+      const rect = row.getBoundingClientRect()
+      return event.clientY >= rect.top && event.clientY < rect.bottom
+    })
+    if (target < 0) return
+    const from = value.indexOf(current.id)
+    if (from >= 0 && from !== target) move(from, target)
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div id={promptId} className="text-slate-700">{instance.prompt}</div>
+      <ol data-order-list aria-labelledby={promptId} className="flex flex-col gap-2">
+        {value.map((id, index) => (
+          <li
+            key={id}
+            data-order-item={id}
+            aria-label={`${labelOf(id)}, position ${index + 1} of ${value.length}`}
+            className="flex items-center justify-between gap-2 touch-none rounded border border-slate-300 p-2"
+            onPointerDown={(event) => {
+              if (disabled) return
+              if (event.target.closest('button') !== null) return
+              event.currentTarget.setPointerCapture?.(event.pointerId)
+              drag.current = { id, startY: event.clientY }
+            }}
+            onPointerMove={moveToPointer}
+            onPointerUp={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              drag.current = null
+            }}
+            onPointerCancel={(event) => {
+              if (disabled) return
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+              drag.current = null
+            }}
+          >
+            <span>{labelOf(id)}</span>
+            <button
+              type="button"
+              data-move-up={id}
+              disabled={disabled || index === 0}
+              aria-label={`Move ${labelOf(id)} up, from position ${index + 1} of ${value.length}`}
+              onClick={() => move(index, index - 1)}
+            >↑</button>
+            <button
+              type="button"
+              data-move-down={id}
+              disabled={disabled || index === value.length - 1}
+              aria-label={`Move ${labelOf(id)} down, from position ${index + 1} of ${value.length}`}
+              onClick={() => move(index, index + 1)}
+            >↓</button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget }

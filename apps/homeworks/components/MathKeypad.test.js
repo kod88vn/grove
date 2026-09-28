@@ -131,7 +131,7 @@ afterEach(() => {
 describe('P2.2 — which keys may exist at all', () => {
   it('still ships only the four Phase 1 widgets, so no Band C key has a consumer', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order']),
     )
   })
 
@@ -141,6 +141,9 @@ describe('P2.2 — which keys may exist at all', () => {
     expect([...keysFor('fraction')].sort()).toEqual(['/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
     expect(keysFor('cloze')).toBeNull()
     expect(keysFor('choice')).toBeNull()
+    // Nothing is typed into an ordering list — a pad under it would be a second, silent
+    // way to answer that the checker never sees.
+    expect(keysFor('order')).toBeNull()
     expect(keysFor('expression')).toBeNull()
 
     // Every offered character is one the shipped answers actually use — the rule that
