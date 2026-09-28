@@ -17,6 +17,20 @@ function getTypeLabel(type) {
   return labels[type] || type
 }
 
+function formatAnswer(answer) {
+  if (!answer) return '—'
+  if (answer.value !== undefined) return String(answer.value)
+  if (typeof answer.text === 'string') return answer.text
+  if (answer.num !== undefined && answer.den !== undefined) return `${answer.num}/${answer.den}`
+  if (Array.isArray(answer.blanks)) {
+    return answer.blanks.map((blank) => {
+      if (Array.isArray(blank?.accept)) return blank.accept[0] || '—'
+      return String(blank)
+    }).join(', ')
+  }
+  return JSON.stringify(answer)
+}
+
 export default function ReviewPage() {
   const [days, setDays] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
@@ -135,11 +149,33 @@ function DayCard({ day, isSelected, onSelect }) {
             </div>
           )}
 
-          {day.submissions.length === 0 && day.readings.length === 0 && (
+          {day.practice?.length > 0 && <PracticeSection practice={day.practice} />}
+
+          {day.submissions.length === 0 && day.readings.length === 0 && !day.practice?.length && (
             <p className="text-gray-400 text-center py-4">No data for this day.</p>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function PracticeSection({ practice }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Practice</h3>
+      <div className="space-y-3">
+        {practice.map((item) => (
+          <div key={`${item.sessionId}-${item.problemId}-${item.seed}`} className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p className="font-medium text-gray-800">{item.shown.prompt}</p>
+            {item.shown.visual?.sentence && (
+              <p className="mt-1 text-gray-600">{item.shown.visual.sentence}</p>
+            )}
+            <p className="mt-2 text-blue-700">📝 Kid&apos;s answer: {formatAnswer(item.response)}</p>
+            <p className="text-green-700">✅ Correct answer: {formatAnswer(item.answer)}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
