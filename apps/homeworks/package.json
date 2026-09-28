@@ -14,6 +14,7 @@
     "@grove/shell": "*",
     "@platformatic/next": "^3.52.4",
     "better-sqlite3": "^11.6.0",
+    "katex": "0.18.9",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
