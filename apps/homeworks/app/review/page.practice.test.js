@@ -29,7 +29,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@je
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-import { getProblem, render as renderProblem } from '@grove/curriculum'
+import { getProblem, render as renderProblem, toInstance } from '@grove/curriculum'
 
 class TestResponse {
   constructor(body, init = {}) {
@@ -308,7 +308,19 @@ describe('P1.9 acceptance — the answer stays hidden until it is solved, and th
       )
       expect([item.seed, Boolean(served)]).toEqual([item.seed, true])
       expect(served.shown.prompt).toBe(item.solution.prompt)
-      expect(served.shown.visual).toEqual(item.solution.visual)
+      // A solved item is served from its stored snapshot — HOMEWORK_PLAN.md principle 7,
+      // "a snapshot of what was shown, so the review page can show exactly what the kid
+      // saw". That snapshot is toInstance(rendered), and toInstance() keeps only the
+      // fields in `visualFields` for the visual's kind: a column visual keeps `kind`,
+      // `operator` and `operands` and drops the worked steps `partials` and `parts`,
+      // which the child was never shown. So the snapshot legitimately carries fewer
+      // fields than a fresh render, and comparing against the fresh render here would
+      // only pass while the review re-rendered solved items — the behaviour PR #85's
+      // review asked us to stop. An unsolved item has no attempts row and no snapshot,
+      // so it is still re-rendered whole.
+      expect(served.shown.visual).toEqual(
+        item.solved ? toInstance(item.solution).visual : item.solution.visual
+      )
       expect(served.answer).toEqual(item.solution.answer)
       expect(served.response).toEqual(item.response)
       expect(served.solved).toBe(item.solved)

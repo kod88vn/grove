@@ -5,10 +5,6 @@ function itemKey(problemId, seed) {
   return `${problemId}:${seed}`
 }
 
-function recentLocalDate() {
-  return new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10)
-}
-
 function getPracticeSessions({ studentId, localDate } = {}) {
   const clauses = []
   const values = []
@@ -35,7 +31,6 @@ function getSessionItemsBySession(sessionId) {
 function reviewItem(session, item, attempts) {
   const attempt = attempts.get(itemKey(item.problem_id, item.seed))
   if (attempt) {
-    const rendered = render(getProblem(item.problem_id), item.seed)
     return {
       sessionId: session.id,
       problemId: item.problem_id,
@@ -44,7 +39,7 @@ function reviewItem(session, item, attempts) {
       tries: attempt.tries,
       hintsUsed: attempt.hints_used,
       stars: attempt.stars,
-      shown: { ...attempt.shown, visual: rendered.visual },
+      shown: attempt.shown,
       response: attempt.response,
       answer: attempt.answer,
     }
@@ -75,8 +70,8 @@ function reviewSession(session) {
 function sessionsForReview(options) {
   const sessions = getPracticeSessions(options)
   if (options?.localDate) return sessions
-  const cutoff = recentLocalDate()
-  return sessions.filter((session) => session.local_date >= cutoff)
+  const cutoff = (Date.now() - 30 * 86400 * 1000) / 1000
+  return sessions.filter((session) => session.started_at >= cutoff)
 }
 
 export function getPracticeForDay(localDate, studentId) {
