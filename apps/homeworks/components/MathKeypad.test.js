@@ -53,8 +53,12 @@ const ATTEMPTS = '/homeworks/api/attempts'
 const DEFERRED = ['^', '\u221a', '\u03c0']
 
 const problems = listProblems()
-const mathProblems = problems.filter((problem) => problem.widget !== 'cloze')
-const clozeProblem = problems.find((problem) => problem.widget === 'cloze')
+// Derived, not listed: a widget belongs in the pad suite when the pad offers it keys. A
+// hardcoded exclusion list quietly drags every new padless widget (P2.6's `choice`, and
+// every Band A widget after it) through the typing tests, where `correctText` has nothing
+// to type.
+const mathProblems = problems.filter((problem) => keysFor(problem.widget) !== null)
+const padlessProblems = problems.filter((problem) => keysFor(problem.widget) === null)
 
 const full = (id, seed) => renderProblem(getProblem(id), seed)
 const instanceOf = (id, seed) => toInstance(full(id, seed))
@@ -127,7 +131,7 @@ afterEach(() => {
 describe('P2.2 — which keys may exist at all', () => {
   it('still ships only the four Phase 1 widgets, so no Band C key has a consumer', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice']),
     )
   })
 
@@ -136,6 +140,7 @@ describe('P2.2 — which keys may exist at all', () => {
     expect([...keysFor('column')].sort()).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
     expect([...keysFor('fraction')].sort()).toEqual(['/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
     expect(keysFor('cloze')).toBeNull()
+    expect(keysFor('choice')).toBeNull()
     expect(keysFor('expression')).toBeNull()
 
     // Every offered character is one the shipped answers actually use — the rule that
@@ -161,8 +166,12 @@ describe('P2.2 — which keys may exist at all', () => {
   })
 
   it('shows no pad at all for a widget that has none', () => {
-    mount(clozeProblem.id, SEEDS[0])
-    expect(screen.queryByRole('group', { name: /pad/i })).not.toBeInTheDocument()
+    expect(padlessProblems.length).toBeGreaterThanOrEqual(2)
+    for (const problem of padlessProblems) {
+      const view = mount(problem.id, SEEDS[0])
+      expect(screen.queryByRole('group', { name: /pad/i })).not.toBeInTheDocument()
+      view.unmount()
+    }
   })
 })
 

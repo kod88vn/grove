@@ -33,6 +33,11 @@ export function correctValueFor(sample) {
       return choice
     })
   }
+  if (sample.widget === 'choice') {
+    const option = sample.instance.visual.options.find((entry) => entry.id === sample.answer.id)
+    if (option === undefined) throw new Error(`no correct choice for ${sample.widget}`)
+    return option.id
+  }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -48,6 +53,11 @@ export function wrongValueFor(sample) {
       if (choice === undefined) throw new Error(`no wrong choice for ${sample.widget}`)
       return choice
     })
+  }
+  if (sample.widget === 'choice') {
+    const option = sample.instance.visual.options.find((entry) => entry.id !== sample.answer.id)
+    if (option === undefined) throw new Error(`no wrong choice for ${sample.widget}`)
+    return option.id
   }
   throw new Error(`unknown widget: ${sample.widget}`)
 }

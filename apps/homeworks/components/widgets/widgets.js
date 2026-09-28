@@ -131,4 +131,36 @@ function ClozeWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget }
+function ChoiceWidget({ instance, value, onChange, disabled }) {
+  const name = `choice-${instance.seed}-${instance.problemId}`
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-slate-700">{instance.prompt}</div>
+      <div className="flex flex-col gap-2">
+        {instance.visual.options.map((option) => {
+          const id = `${name}-${option.id}`
+          return (
+            <label key={option.id} htmlFor={id} className="flex items-center gap-2 text-slate-700">
+              <input
+                id={id}
+                type="radio"
+                name={name}
+                value={option.id}
+                checked={value === option.id}
+                onChange={(event) => {
+                  if (disabled) return
+                  onChange(event.target.value)
+                }}
+                disabled={disabled}
+                className="h-4 w-4"
+              />
+              {option.label}
+            </label>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget }

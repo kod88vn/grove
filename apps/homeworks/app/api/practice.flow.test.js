@@ -63,12 +63,14 @@ const keysAtEveryDepth = (node, found = []) => {
 const rightResponse = (answer, widget) => {
   if (widget === 'fraction') return { text: `${answer.num}/${answer.den}` }
   if (widget === 'cloze') return { blanks: answer.blanks.map((blank) => blank.accept[0]) }
+  if (widget === 'choice') return { id: answer.id }
   return { value: answer.value }
 }
 
 const wrongResponse = (widget) => {
   if (widget === 'fraction') return { text: '999/1000' }
   if (widget === 'cloze') return { blanks: ['zzzzzzz'] }
+  if (widget === 'choice') return { id: 'zzzzzzz' }
   return { value: -999999 }
 }
 
@@ -212,6 +214,28 @@ describe('the word bank never gives the cloze answer away', () => {
 
       const withoutChoices = JSON.stringify({ ...payloads.item.instance, visual: { ...visual, choices: [] } })
       expect(withoutChoices.toLowerCase()).not.toContain(word.toLowerCase())
+    }
+  )
+})
+
+describe('the options never say which one is right', () => {
+  it.each(listProblems().filter((meta) => meta.widget === 'choice').map((meta) => [meta.id, meta]))(
+    '%s offers both options as plain, interchangeable labels',
+    async (_id, meta) => {
+      const { seed, payloads } = await walkTheCorridor(meta)
+      const solution = render(getProblem(meta.id), seed)
+      const { visual } = payloads.item.instance
+
+      expect(visual.kind).toBe('choice')
+      expect(visual.options.length).toBeGreaterThan(1)
+      // Every option carries the same keys, so there is no extra field on exactly one of
+      // them for a curious kid to read off in the network tab.
+      for (const option of visual.options) expect(Object.keys(option).sort()).toEqual(['id', 'label'])
+      expect(visual.options.filter((option) => option.id === solution.answer.id)).toHaveLength(1)
+      // The answer id appears once — as an option, which is the question itself — and
+      // nowhere else in the envelope.
+      const elsewhere = JSON.stringify({ ...payloads.item.instance, visual: { ...visual, options: [] } })
+      expect(elsewhere).not.toContain(`"${solution.answer.id}"`)
     }
   )
 })
