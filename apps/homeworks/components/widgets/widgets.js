@@ -1,5 +1,7 @@
 'use client'
 
+import { useId } from 'react'
+
 function inputId(instance) {
   return `answer-${instance.seed}-${instance.problemId}`
 }
@@ -98,11 +100,12 @@ function FractionWidget({ instance, value, onChange, disabled }) {
 
 function ClozeWidget({ instance, value, onChange, disabled }) {
   const name = `choice-${instance.seed}-${instance.problemId}`
+  const promptId = useId()
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-slate-700">{instance.prompt}</div>
+      <div id={promptId} className="text-slate-700">{instance.prompt}</div>
       <div className="text-xl text-slate-800">{instance.visual.sentence}</div>
-      <div className="flex flex-col gap-2">
+      <div role="radiogroup" aria-labelledby={promptId} className="flex flex-col gap-2">
         {instance.visual.choices.map((choice, index) => {
           const id = `${name}-${index}`
           return (
@@ -133,10 +136,11 @@ function ClozeWidget({ instance, value, onChange, disabled }) {
 
 function ChoiceWidget({ instance, value, onChange, disabled }) {
   const name = `choice-${instance.seed}-${instance.problemId}`
+  const promptId = useId()
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-slate-700">{instance.prompt}</div>
-      <div className="flex flex-col gap-2">
+      <div id={promptId} className="text-slate-700">{instance.prompt}</div>
+      <div role="radiogroup" aria-labelledby={promptId} className="flex flex-col gap-2">
         {instance.visual.options.map((option) => {
           const id = `${name}-${option.id}`
           return (
