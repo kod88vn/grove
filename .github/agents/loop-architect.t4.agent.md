@@ -9,6 +9,7 @@ description: >
 user-invocable: true
 argument-hint: "A ticket key like WS-6673, or just describe what you need"
 model: ["Claude Opus 5.5", "GPT-6 Astra"]
+tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'todo']
 handoffs:
   - label: Not loopable — investigate or plan instead
     agent: loop-analyst

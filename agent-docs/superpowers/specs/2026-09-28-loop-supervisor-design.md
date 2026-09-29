@@ -52,6 +52,9 @@ about the layer that dispatches turns and notices when a turn never lands.
   bounded recovery ladder, or lands in a human-visible `needs_human` state (D6).
 - No orphan processes: supervisor-owned VS Code instances it can start, use, and kill, isolated
   from the user's own windows (D4).
+- No leftover temporary by-products: every supervisor-created scratch resource is owned,
+  removed and verified on item exit or supervisor shutdown, including failed/cancelled work
+  (D7 and §5 teardown contract). Completed code, PRs and durable audit records are not scratch.
 - Keep pushing without violating D4's off-limits categories: restart, resume, substitute;
   never block on a human. Park exhausted or human-only items with evidence and continue
   other items (D6/D14/D15).
@@ -158,6 +161,17 @@ exact root argument and snapshot descendants; TERM, then KILL the verified root 
 snapshotted descendants if needed. **VERIFIED** TERM stopped a live `sleep` in C-quinque 4,
 but did not stop a pending request in C-ter C5.
 
+**Routing decision — user, 2026-09-29 (DESIGNED, not built):** always open or reuse a child VS
+Code instance whenever the work targets a folder different from the current main
+workspace/target context. Match/reuse an existing child rooted at the exact target folder by
+verifying its PID, profile (portable/user-data pair), workspace root and last dispatch nonce
+before reuse; if none matches, launch a new one rooted there. Never reuse a child rooted in a
+different folder for a different target — a mismatch is `DISPATCH_LOST`, not a valid route.
+This routing decision addresses only the **outside-folder file-read approval prompt** for
+paths inside that child's own folder; it does not exempt terminal, web/network, or other-tool
+confirmations, which stay governed by D4's off-limits list and by S13/S14 containment (still
+**UNKNOWN**). Do not over-promise: this avoids one specific prompt class, not all prompts.
+
 **DESIGNED child approval policy (not yet verified end-to-end):**
 `chat.tools.global.autoApprove: true`, `chat.permissions.default: "autoApprove"`,
 `chat.tools.terminal.enableAutoApprove: true`, with terminal auto-approval on. A child
@@ -249,18 +263,60 @@ mtime. Classify in this order:
 | `ENDED` | `value == 1` with `completedAt` | Driver advances or checks verdict; if driver dead D7 reaps |
 | `ABNORMAL` | Any other value | Rung 2: fresh session |
 
-For `PENDING`, read `toolSpecificData.confirmation.commandLine`. Under child approve-all,
+Sequencing is explicit: the armed, per-dispatch watcher (below) runs first. While its bounded
+(~3 min) window is open it checks for a pending prompt promptly, without waiting for the
+`stale_s ≥ 60` threshold in the table above, and may itself approve a narrowly matched,
+one-time prompt from an allowed class. The classify/park step in this paragraph applies only
+once the watcher's window ends with no matching/valid prompt (unmatched or expired), or the
+watcher instead detects an off-limits prompt.
+
+At that point, read `toolSpecificData.confirmation.commandLine`. Under child approve-all,
 pending is an **anomaly**. An off-limits (D4 a–d) match becomes `PENDING_DENIED`: kill the
-verified child, park in `needs_human` with command evidence, continue other items. Otherwise
-verify the child's effective profile settings, relaunch in a fresh session, retry **once**;
-if still pending, park and continue. No nudge or open-ended wait; the driver never grants
-approval and never asks the main thread to click. Denied non-terminal calls follow the same
-off-limits/unknown split; missing command evidence is `UNKNOWN`, not permission to run it.
+verified child, park in `needs_human` with command evidence, continue other items. Otherwise,
+if it is still pending and the child's effective profile settings have drifted from
+authorized, verify them, relaunch in a fresh session, and retry **once** — bounded, per the
+existing design, never open-ended; if still pending after that, park and continue. No nudge
+or open-ended wait; the durable, code-only driver (D5/D14) itself never grants approval and
+never asks the main thread to click — approval, when it happens, comes only from the armed
+watcher's own narrowly matched, one-time-scoped decision, within its own armed window, and is
+never a blanket grant. Denied non-terminal calls follow the same off-limits/unknown split;
+missing command evidence is `UNKNOWN`, not permission to run it.
 Do not use `pendingRequests`, `isComplete` (always
 true on serialization), or `isConfirmed.type` (type 4 is not cancellation) as the signal
 (B iii, C-ter). Recover other stalls with nudge → fresh session → verified-root teardown
-and relaunch (D4) → `needs_human` with session path and verifier tail; continue other items. Tests/diff/mtime
+and relaunch (D4) → `needs_human` with a durable session identifier and stored verifier tail
+(not a pointer to a removed temporary file); continue other items. Tests/diff/mtime
 progress still resets the 10-minute clock; the 34-minute hard ceiling remains.
+
+**Watcher lifecycle — user, 2026-09-29 (DESIGNED, not built; not probed beyond the narrow
+S16 proof in §8):** the bounded watcher is distinct from the durable, code-only driver above
+and from that driver's own never-approves invariant — it is a short-lived, per-dispatch
+mechanism the dispatcher arms immediately before a dispatch, including a synchronous
+main-thread subagent when permitted in the same folder (D14). It runs bounded, e.g. ~3
+minutes, driven by a low-overhead pending-session signal (poll session/nonce state, not a
+permanent ~200ms AX full-tree walk), and inspects the accessibility tree only once that
+signal indicates a pending prompt. Before pressing anything it must match the exact live
+session, dispatch nonce, PID, tool name and target path against what was just dispatched, and
+the prompt must be an explicit, one-time-scoped allow — never a blanket grant, and never a
+forged/synthesized session or consent state. Multiple sequential approvals inside one armed
+window are allowed only if each is independently re-validated against the same criteria;
+approving the first is never grounds to wave through the second. A press is not the end
+state — the watcher must confirm the tool call actually completed, not merely that a button
+was activated. Ambiguous matches, any off-limits match (D4 a–d), or content requiring human
+judgment (e.g. web-fetch results needing review) fail closed: park the item, never approve.
+On a bounded-window timeout with no matching/valid prompt, classify per the table above and
+park or continue — the watcher does not wait indefinitely. It can be re-armed for a later
+dispatch or phase of the same or a different item, but must never run as an uncontrolled,
+open-ended loop. Containment (S13/S14) and general unattended-approval safety (S16) remain
+**UNKNOWN**; this is a design intent, not a proven behavior, and the AX-watcher's own
+resource cost (CPU/battery impact of periodic polling and tree walks) is **not measured**.
+Do not over-promise: routing to the exact-rooted child (D4/D14) avoids only the
+outside-folder file-read prompt class for paths under the routed target — it does not
+eliminate other confirmation classes. The watcher instead covers whichever of those still
+occur after routing (terminal commands, reads outside the routed target, or an initial
+web-fetch request when the target is fully identifiable), each individually matched and
+verified before approval, never a blanket grant; a web-fetch result requiring human content
+review fails closed regardless, as does any ambiguous or off-limits/unknown match.
 
 **N = 10 minutes, decided (§11).** Rationale: `scripts/loop.sh`'s own per-turn budget is
 `POLL_LIMIT=72` × 5s = 6 minutes per iteration (`scripts/loop.sh` line 30), so the driver's own
@@ -274,7 +330,25 @@ ceiling independent of the three signals: an item in `working` longer than
 Finish/abandon `loop_runs` rows whose driver is dead (`outcome IS NULL`, per §1 evidence) —
 note this reuses `loop_runs`/`loop_iterations` (`0007-loop-runs.sql`) rather than duplicating
 them; see §5 for why the supervisor still needs *new* tables alongside these. Kill loop
-instances (D4) with no live item assigned. Prune worktrees whose PR is merged or closed.
+instances (D4) with no live item assigned. **Teardown is a required state transition, not
+an occasional prune.** Track ownership of every by-product at creation (§5); on `done`,
+`cancelled`, `needs_human` or exhausted/failed work, stop the watcher and in-flight dispatch,
+then the verified child process tree, release the child profile, remove generated sessions,
+portable/user-data directories, scratch clones/worktrees, temporary specs/reports/logs and
+probe files created for that item, and verify absence before marking cleanup complete.
+On `paused` or `awaiting_approval`, release active processes and watcher; retain only
+explicitly registered resume state (e.g. a clean worktree if needed) until the item resumes
+or reaches a terminal state. Store the evidence needed for resumption or `needs_human` in
+the database **before** removing files, not as dangling links to deleted scratch files;
+reopen a parked item in a new, separately owned scratch environment.
+Never delete the user's workspace, pre-existing windows/profiles, user-created files,
+committed changes or a PR. Do not remove an owned worktree with uncommitted changes until
+its diff is captured for recovery and the item is parked with a clear cleanup failure;
+never silently discard work. A shared child may be reused while another live item owns it;
+the final owner triggers teardown. Cleanup is idempotent, retries after crashes on every
+tick, and reports failures instead of declaring a clean finish. On supervisor halt/uninstall,
+stop both its resident and watchdog jobs, drain owned items and run the same verified
+teardown; leave no running supervisor-owned processes or temporary files (§5).
 
 **D8 — Human interface: desired-state model.**
 Every item has `desired` ∈ {`run`, `paused`, `cancelled`}; every human control only sets this
@@ -317,9 +391,9 @@ the denylist (`src/core/policy/denylist.ts`), or `ai-guard.config.json`; (4) is 
 outside this machine beyond the normal loop flow. Every judgment is appended to
 `tmp/<KEY>-decisions.md` and recorded as a `supervisor_events` row (§5) so the user can
 spot-check it after the fact. Only top-level `loop-architect` and `loop-analyst` are
-human/supervisor entry agents; `loop-worker*` are headless leaves. **DESIGNED (D14):**
-architect, analyst, worker and any tool-using judge run in child windows. A main-thread
-`loop-judge` subagent is allowed only for read-only in-workspace analysis. Headless
+human/supervisor entry agents; `loop-worker*` are headless leaves. **DESIGNED (D14,
+2026-09-28 — see status note in D14 below):** architect, analyst, worker and any
+tool-using judge run in child windows by default. Headless
 top-level architect access to a nested judge is **ASSUMED** (S10); if unavailable, the
 supervisor dispatches `code chat -m loop-judge "consult tmp/<KEY>-consult.md"` to a
 child, checks the judgment artifact, then re-dispatches the architect. A subagent unable
@@ -380,20 +454,58 @@ The entry agents and `models self` were built at HEAD in B1–B8; this does **no
 the supervisor has been built.
 
 **D14 — The driver never blocks on a human (DESIGNED).**
+
+> **Status note (2026-09-29):** D14 below is the design as proposed on 2026-09-28, for a
+> supervisor that is still **not built**. Item (d)'s original restriction of main-thread
+> subagents to "read-only in-workspace" analysis has since been loosened at the
+> policy/documentation level (`LOOP.md` §7.1, `.github/agents/loop-dispatcher.agent.md`): a
+> 2026-09-29 proof showed a main-thread subagent's per-request approval is not confined to
+> reads or to this workspace, demonstrating the mechanism works. That proof is a historical
+> fact about capability, not a standing permission: per the routing decision below, a
+> tool-using main-thread subagent remains permitted only for same-folder (current active
+> root) work, under the same explicit approval and off-limits rules as any other main-thread
+> action; any task whose target folder differs from that root **always** routes to the
+> exact-rooted child (D4), regardless of task size or read-only status — no one-off
+> exception. General-purpose, unattended subagent automation remains unproven, and the
+> durable, code-only tick process below — once built — still favors the child driver for
+> that reason. This note updates guidance only; it does not change the supervisor
+> implementation contract, which does not exist yet.
+
 The durable driver is the **code-only** `supervisor/` tick process (D3/D5), with no LLM
-and no approvals. It persists state and advances other items when nobody is around.
+and no approvals — the bounded, per-dispatch watcher described in D6 is a separate, time-boxed
+mechanism armed around a dispatch, not a capability of this durable process itself. It
+persists state and advances other items when nobody is around.
 Chat main thread is only an enqueuing/monitoring/reporting front end, never a worker.
 Its only allowed actions are (a) in-workspace `read_file`/`grep`/`list_dir`, (b) edits
 under `bot/tmp`, (c) terminal commands *already matching* the main profile's
 `chat.tools.terminal.autoApprove` rules (dispatching `code chat`, `cc` status and driver
-scripts), and (d) read-only in-workspace `runSubagent` analysis, e.g. judge reading tmp.
-**ASSUMED from session experience:** subagent confirmations surface in the MAIN window and
-block the parent (S16 will check). Thus web fetches, real-repo work, git/gh,
-installs/builds/tests, Jira/GitHub writes, and outside-workspace reads run in child windows,
-not via main-thread subagents. A child opens the target repo or a scratch clone under
-`bot/tmp`. Multiple children need distinct portable dirs/user-data-dirs (S17). Anything
-truly requiring a person is parked as `needs_human` **with evidence**; tick immediately
-continues other items and produces one end report of parked items. No turn waits for an answer.
+scripts), and (d) a `runSubagent` call for an appropriately scoped, per-request task confined
+to the current active root — not only read-only, per the status note above — e.g. judge
+reading tmp. A task whose target folder differs from the current active root is never a
+main-thread subagent (see routing decision below).
+
+**Routing decision — user, 2026-09-29 (see D4, DESIGNED, not built):** when the task's target
+folder differs from the current active root (in a multi-root workspace, "current" means
+whichever root is the active target context for the task, not merely any other open root),
+**always** open or reuse the exact-rooted child (verified PID/profile/workspace/nonce, D4) —
+never a main-thread subagent, regardless of task size or read-only status; this is what
+avoids the outside-folder file-read prompt for paths under that folder, with no truly
+one-off exception. A main-thread subagent remains permitted only for same-folder (same
+active root) work, under that root's own explicit approval and off-limits rules. This does
+not change the durable driver's own child-only mandate for git/gh/build/install/test/Jira/
+GitHub writes, and it does not cover terminal, web, or other-tool confirmations.
+
+**ASSUMED from session experience, narrowed 2026-09-29:**
+subagent confirmations surface in the MAIN window; whether they block the parent is still
+**ASSUMED** pending a broader S16 run, but a narrow proof (§8) showed one such confirmation
+approved by a pre-armed watcher without a person watching, for a call outside this
+workspace. Durable, unattended work — real-repo edits, git/gh, installs/builds/tests,
+Jira/GitHub writes — still runs in child windows by default, not via main-thread subagents:
+general-purpose unattended subagent approval/containment is **not** proven. A child opens
+the target repo or a scratch clone under `bot/tmp`. Multiple children need distinct portable
+dirs/user-data-dirs (S17). Anything truly requiring a person is parked as `needs_human`
+**with evidence**; tick immediately continues other items and produces one end report of
+parked items. No turn waits for an answer.
 
 **D15 — Model error detection and substitution (DESIGNED).**
 Classify a child session's **last request** as `ERRORED` when it carries an error result:
@@ -428,6 +540,7 @@ Components, by directory (new unless noted):
 | Recovery ladder | `supervisor/stall.ts` (proposed) | D6 detection + D15 errors, bounded retry and park-and-continue |
 | Bounce-back handler | `supervisor/pr-review.ts` (proposed) | D2 |
 | Loop-instance manager | `supervisor/vscode-instance.ts` (proposed) | D4/D14: route per-repo/item portable/user-data pairs; verify roots before teardown |
+| Resource lifecycle | `supervisor/cleanup.ts` (proposed) | D7/§5: register ownership; stop watcher/dispatch/child, remove by-products, verify absence and retry failures |
 | Dedicated profile | `supervisor/profile/settings.template.json` (proposed) | D4 child approve-all plus generated off-limits deny rules; S13–S18 gate containment |
 | Model variant generation | `cc models apply` (existing command, proposed extension) | D15: single-model variants alongside existing tier variants, verified by `--check` |
 | CLI | `supervisor/cli.ts` (proposed), `npm run supervise` | D5, D8 |
@@ -502,6 +615,25 @@ following the numbering convention already visible in `src/store/migrations/0007
   column on `loop_runs` alone is insufficient for architect/judge turns before a run exists.
 - **`supervisor_heartbeat`** — single row (or one per resident process), `last_tick_at`, read
   by the `StartCalendarInterval` watchdog (D5) to decide whether to restart.
+- **Owned-resource ledger** — per item/dispatch records for each created child root PID and
+  start time, profile and portable path, watcher PID, scratch clone/worktree registration,
+  generated session, spec/report/log/probe path and any other temporary artifact, with
+  creator and cleanup state. Register *before* starting a process or creating a path where
+  possible; on crash, reconcile only paths/PIDs proven to belong to this supervisor.
+  Terminal item state does not imply cleanup succeeded: pending/failed cleanup remains
+  visible and is retried. Keep a small durable cleanup receipt/event (resource class,
+  count, outcome and any failure) in `supervisor_events`, not the scratch files themselves.
+
+**Teardown acceptance contract (DESIGNED, not built).** A terminal item passes cleanup only
+when the ledger has no live owned processes/watchers, no owned temporary paths remain
+(including child session and profile storage), and the target repo's user-owned state and
+deliverables are untouched. Check this on success, cancellation, error, forced child
+termination and supervisor restart; a negative control leaves a fake owned artifact or live
+child and must fail the check. Stale, pre-existing scratch from earlier experiments is not
+assumed to belong to a new supervisor run: inventory and offer a separate, explicit
+one-time cleanup after verifying ownership, rather than sweeping `tmp/` or killing unrelated
+VS Code instances. The durable database, committed code and audit/decision records are
+intentional outputs, not by-products; unneeded secret-bearing profile data is not retained.
 
 **Why new tables, not a query over `actions` or over `loop_runs`.** `DESIGN.md` §8 states the
 precedent directly and its reasoning generalizes: *"An earlier draft had a separate
@@ -536,7 +668,7 @@ single item may accumulate several `loop_run_id`s (fresh session, D6 rung 2) or 
 | Control | `supervise pause\|resume\|cancel\|retry\|bump <key>` + matching dashboard buttons | Sets `desired` only; `tick()` reconciles (D8) |
 | Unblock | Dashboard "Needs you" inbox, evidence attached | Parked item only; driver continues others and reports all parked items once; later human Answer (note appended, `desired=run`) or Drop (D6/D14) |
 | Monitor | Dashboard `/supervisor` board | Columns match the state diagram (§4); existing `/loops` page stays read-only exactly as today (`dashboard/pages/loops.ts` comment: *"there is no button here and there must never be one... a 'run loop' control would be exactly that"* [invoking a model] — the new board's buttons set `desired`, they do not invoke a model, so this does not reopen that constraint, but the distinction should be stated in code, not just here) |
-| Monitor | Per-item timeline | Links `loop_runs`, PR, chat session (§5 `supervisor_events`) |
+| Monitor | Per-item timeline | Links durable `loop_runs`, PR and stored session summary (§5 `supervisor_events`); scratch chat files are removed on terminal cleanup |
 | Alert | macOS notification on `needs_human` | Held during quiet hours (D5); morning digest line |
 | Monitor | `cc_status` MCP tool | Extended, read-only, per `.github/instructions/central-command.instructions.md` ("Use it instead of guessing... Report the mirror's age") |
 
@@ -607,7 +739,7 @@ working supervisor or a universal security boundary.
 | S13 | Generated deny regex overrides **global approve-all** | With both `chat.tools.global.autoApprove:true` and `chat.permissions.default:"autoApprove"`, prove a harmless matching `gh`/`git` command runs unattended, while simulated off-limits `gh pr merge`/denylist and system/secret reads **do not execute** and leave a probe marker absent. Any forbidden marker or confirmed forbidden command falsifies precedence; pend alone without the positive control does not prove it. Never target a real PR or secret. |
 | S14 | Approve-all containment with sandbox on/off and SSH | With synthetic private-key/.env fixtures and harmless protected-path probes, verify **no** secret content or system write escapes via terminal, edit, or non-terminal tools for *each* sandbox setting; positive control: permitted workspace write executes. Then authorized SSH git push to an isolated test remote succeeds for the chosen setting. A leaked synthetic secret, protected write, or failed authorized push falsifies the chosen configuration. No real secret printed or system file modified. If no setting meets both, park the capability and escalate the design question, never disable protection silently. |
 | S15 | Detect errors and honor a single-model pin | Force a child error with a quota-denied model or controlled network interruption; compare errored and successful JSONL **last requests**, identify a discriminating error field, check artifacts before retry. Generate a `loop-worker.m-<slug>` variant and observe selected request model matches its one-element pin; an error with no detectable field or selection of another available model falsifies the design. Confirm one rate-limit retry and same-tier substitution without consuming a D11 rung; failures falsify substitution. |
-| S16 | Subagent confirmation blocks parent | From a controlled main-thread subagent, request an innocuous command requiring confirmation; if main remains runnable while the subagent pends, the ASSUMED blocking claim is false. Never approve an unsafe call; record where the prompt surfaces and park/stop the probe. |
+| S16 | Subagent confirmation blocks parent | From a controlled main-thread subagent, request an innocuous command requiring confirmation; if main remains runnable while the subagent pends, the ASSUMED blocking claim is false. Never approve an unsafe call; record where the prompt surfaces and park/stop the probe. **Narrow related result, 2026-09-29:** a main-thread `runSubagent` reading `~/dev/harvester/package.json` was approved by a pre-armed, narrowly scoped watcher (AX press, `pressResult=0`) without a person watching, and returned `PROBE_READ_OK` — so the confirmation is not inherently unapprovable. Whether the parent turn stays runnable while pending, and general-purpose unattended approval/containment, remain **UNKNOWN**. |
 | S17 | Two child windows route independently | Open two distinct portable/user-data pairs simultaneously, one per repo/item, dispatch distinct nonces and confirm each appears **only** in its intended JSONL store, both profiles stay independent, and stopping either leaves the other and main alive. Any cross-route, collision or wrong termination falsifies concurrency. |
 | S18 | Child approve-all survives relaunch | After one-time human sign-in/warning acceptance, run a harmless child write without a click, tear down only the verified child, relaunch with the same profile and run a second harmless write unattended. A pending second request, lost consent or touched main profile falsifies persistence. Never synthesize consent storage. |
 
@@ -624,7 +756,7 @@ working supervisor or a universal security boundary.
 | D4 residual risk (7): first use | Each new profile needs human Copilot sign-in and terminal-warning acceptance. Supervisor must not forge consent storage. |
 | S13/S14 gate | Global approve-all deny precedence and secret/system containment are **UNKNOWN**: C-sexies S2/S4 pended without matching an allow control. If falsified, stop the unsafe child capability, park with evidence and revisit the design; do not shift risky mutations onto the main thread. |
 | D15 error gaps | Exact JSONL error signature, pin fidelity of single-model variants, and retry idempotence are **UNKNOWN** (S15); inspect disk and ledger before re-dispatch. |
-| D14 isolation | A child may still show a fresh sign-in/warning or an unexpected confirmation (S18); classify/park without waiting. Main-thread subagent blocking is **ASSUMED** until S16; per-window concurrency **UNKNOWN** until S17. |
+| D14 isolation | A child may still show a fresh sign-in/warning or an unexpected confirmation (S18); classify/park without waiting. Main-thread subagent blocking is **ASSUMED** in general — a 2026-09-29 narrow proof (§8) showed one confirmation approved unattended by a pre-armed watcher, but general containment is unproven; per-window concurrency **UNKNOWN** until S17. |
 | Removing the human diff-review checkpoint at green | `LOOP.md` §6 calls this out as deliberate: *"those are the steps where a mistake is expensive and hard to reverse, and they are the steps a human is best placed to sanity-check."* D10 removes it in favor of after-the-fact spot-checks; consistent with the user's stated tradeoff ("cheaper to fix later than to sit and wait") but should be named as a conscious reversal, not a silent one |
 | Guard wording gap (`src/**` vs `dashboard/**`) | Resolved by D3 widening (§11) — the rule now covers `dashboard/` and `bin/` |
 | `launchd` `KeepAlive` semantics unverified in this environment | §5/§8 — only one-shot firing and `StartCalendarInterval` catch-up semantics have been read/verified (`DESIGN.md` §12, `STACK.md`); a resident daemon is a different `launchd` feature |
@@ -644,8 +776,10 @@ working supervisor or a universal security boundary.
   park that capability and revise design, never perform it in the main chat instead.
 2. Data model (§5) — migration, no behavior yet; lets `supervisor_events` start recording
   manually-triggered test runs during spike work. Record `model` for **each dispatch**.
-3. `tick()` skeleton + D7 housekeeping only (reap dead `loop_runs`, kill orphaned instances) —
-  the smallest slice that does not yet dispatch a child.
+3. `tick()` skeleton + D7 resource ledger and teardown first (reap dead `loop_runs`, kill
+  verified orphaned instances, remove owned temporary by-products and prove absence) —
+  the smallest slice that does not yet dispatch a child. Exercise success, cancel, failure,
+  pause/resume, crash/restart and halt; a leftover owned resource must fail the gate.
 4. D14 child router and approve-all profile with D4 off-limits containment; isolate one
   repo/item per instance before allowing concurrency. Keep CLI front end enqueue-only.
 5. D15 `cc models apply` single-model variants, pin check, dispatch recording, artifact
@@ -654,6 +788,11 @@ working supervisor or a universal security boundary.
 7. D6 stall/error/pending classifier and kill/park/continue, then D2 PR bounce-backs and
   D1 `closeOn` handling; no user wait in any transition.
 8. D8 dashboard board and final parked-items report; D9b/D9c intake; notifications.
+9. Install/halt lifecycle: stop resident and watchdog jobs before removing their owned
+  launch configuration; drain owned children/watchers and temporary paths, verify zero
+  remains, and surface any unsafe-to-delete resources for manual recovery. Include a
+  one-time, ownership-checked inventory of older spike leftovers; do not blanket-delete
+  pre-existing `tmp/` contents.
 
 ## 11. Recorded decisions (judgment 2026-09-28; user revisions 2026-09-29)
 
@@ -672,11 +811,13 @@ working supervisor or a universal security boundary.
 | Model routing | Registry `architect` tier for architect/driver (currently GPT-6 Sol); `oracle` tier for `loop-judge` (currently Claude Opus 5.5); `worker` tier for `loop-worker` (currently GPT-5.6 Luna) | Updated by the 2026-09-28 coding-benchmark re-tier; `registry/model-tiers.json` is the source of truth for priorities and price bands |
 | D4 routing / containment — **revised by user 2026-09-29** | Child approve-all, generated off-limits denies and layered audit/hooks; S13/S14/S18 pending, no PATH shim | C-quinque 2 confirmed unattended touch; C-sexies S3 disproved fail-closed narrow-map assumption; S2/S4 never proved precedence |
 | D6 pending — **revised** | `value=4` + unconfirmed serialized tool + nonce + instance-age/mtime guard; off-limits kill/park; otherwise one settings/relaunch retry then park; add `ERRORED` | C-ter observed pending and stale value-4 relic; error field **UNKNOWN** (S15) |
-| D11 consult — **revised** | Tool-using architect/analyst/worker/judge in child, judge only read-only in-workspace as main subagent; no human wait | B vi had no dispatch tool in nested context; S10/S16 remain open |
+| D7 teardown — **user requirement 2026-09-29, DESIGNED** | Own and inventory every temporary by-product, remove it on item exit or supervisor halt, verify absence and retry failures; preserve only intentional deliverables and durable evidence (§5) | Previous D7 covered orphan instances and some worktrees but not profiles, sessions, watchers, logs, probes or crash leftovers. Do not sweep unowned pre-existing scratch. |
+| D11 consult — **revised, main-subagent scope loosened 2026-09-29** | Tool-using architect/analyst/worker/judge in child by default; a main-thread subagent (including judge) is permitted for an appropriately scoped, per-request task, not only read-only in-workspace (see D14 status note); no human wait | B vi had no dispatch tool in nested context; S10 remains open; S16 narrowly addressed 2026-09-29 (see §8) but the general case is still open |
 | D13 entry | Two entry agents with task-fit STOP, model-cost warning, repo/resume preflight | B vii/viii/ix, B1–B8 at HEAD; supervisor intake remains unbuilt |
 | Variant suffix | Tier rank (`loop-worker.t2/.t3/.t4`, `loop-architect.t4`); variants stay visible for CLI lookup | B viii installed custom-mode lookup excludes hidden agents; generated files at HEAD |
-| D14 driver — **user-authorized 2026-09-29, DESIGNED** | `supervisor/` tick is durable no-LLM dispatcher; chat main thread enqueue/monitor/report only; park human items and continue others | Main subagent confirmation blocking **ASSUMED** (S16); concurrent child routing **UNKNOWN** (S17) |
+| D14 driver — **user-authorized 2026-09-29, DESIGNED** | `supervisor/` tick is durable no-LLM dispatcher; chat main thread enqueue/monitor/report only; park human items and continue others | Main subagent confirmation blocking **ASSUMED** in general (S16 narrowed by a 2026-09-29 proof, see §8); concurrent child routing **UNKNOWN** (S17) |
 | D15 model errors — **user-authorized 2026-09-29, DESIGNED** | Artifact check, one backoff retry for transient rate limit, same-tier single-model substitution, then D11 ladder, then park | CLI model flag absent and first-available pin behavior **VERIFIED** (§8); error signature/pin variant **UNKNOWN** (S15) |
+| Child-folder routing + approval watcher — **user decision 2026-09-29, DESIGNED, not built** | Always open/reuse a child VS Code instance rooted at the exact target folder when it differs from the current workspace (D4/D14: verify PID/profile/workspace/nonce before reuse, never cross-reuse); this routing avoids only the outside-folder file-read prompt for paths under the routed target, not other confirmation classes. Arm a bounded (~3 min) low-overhead watcher around dispatch that approves only an individually matched and verified, one-time prompt from the classes that still occur after routing — terminal commands, reads outside the routed target, or an initial web-fetch request when the target is fully identifiable — fails closed on any web-fetch result needing human content review, an ambiguous match, or an off-limits/unknown target, and re-arms per dispatch rather than running open-ended (D6) | User, verbatim: "always open/reuse a child VSCode instance if it works on a different folder to avoid approval. the watcher loops still needs to run for a few minutes to check for approval permissions"; implementation and probing are both pending — only the narrow S16 proof (§8) exists, S13/S14 containment is still **UNKNOWN**, and AX-watcher resource cost is **not measured** |
 
 ## 12. Reserved for the user
 

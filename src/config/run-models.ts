@@ -4,7 +4,7 @@ import { readAgentFile, writeAgentFile } from '../connectors/agent-frontmatter-f
 import { loadCatalog } from '../connectors/model-catalog-file.ts';
 import { loadRegistry } from '../connectors/model-registry-file.ts';
 import { agentDriftStatus } from '../core/model/drift.ts';
-import { escalationVariants, type EscalationVariant } from '../core/model/escalation.ts';
+import { escalationVariants, singleModelVariants, type EscalationVariant } from '../core/model/escalation.ts';
 import { parseModelLine, replaceModelLine, replaceNameLine } from '../core/model/frontmatter.ts';
 import { pick, resolveRole, resolveTiers } from '../core/model/resolver.ts';
 import { latestSessionModelId, foldSessionJsonl } from '../core/model/session.ts';
@@ -29,6 +29,10 @@ function agentPath(repoRoot: string, agentName: string): string {
 }
 
 function variantPath(repoRoot: string, agentName: string, variant: EscalationVariant): string {
+  return join(defaultAgentsDir(repoRoot), `${agentName}.${variant.suffix}.agent.md`);
+}
+
+function singleVariantPath(repoRoot: string, agentName: string, variant: EscalationVariant): string {
   return join(defaultAgentsDir(repoRoot), `${agentName}.${variant.suffix}.agent.md`);
 }
 
@@ -192,7 +196,57 @@ function applyVariants(
   return drifted;
 }
 
+function applySingleModelVariants(
+  opts: { readonly repoRoot: string; readonly check: boolean },
+  registry: Registry,
+  agentName: string,
+  baseContent: string,
+): boolean {
+  let drifted = false;
+  for (const variant of singleModelVariants(registry, agentName)) {
+    const path = singleVariantPath(opts.repoRoot, agentName, variant);
+    const expected = replaceNameLine(replaceModelLine(baseContent, variant.models), `${agentName}.${variant.suffix}`);
+    let current: string | null;
+    try { current = readAgentFile(path); } catch { current = null; }
+    if (current === expected) continue;
+    drifted = true;
+    if (!opts.check) writeAgentFile(path, expected);
+  }
+  return drifted;
+}
+
 /** `cc models apply [--check]` — stamps agent frontmatter from the registry, or checks for drift. */
+function applyAgent(
+  opts: { readonly repoRoot: string; readonly check: boolean },
+  registry: Registry,
+  agentName: string,
+  tierName: string,
+): boolean {
+  const tier = registry.tiers.find((entry) => entry.name === tierName);
+  if (tier === undefined) return false;
+  const path = agentPath(opts.repoRoot, agentName);
+  let content: string;
+  try { content = readAgentFile(path); } catch { return false; }
+  let drifted = applyVariants(opts, registry, agentName, content);
+  drifted = applySingleModelVariants(opts, registry, agentName, content) || drifted;
+  const expected = new Set([
+    ...escalationVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
+    ...singleModelVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
+  ]);
+  for (const file of readdirSync(defaultAgentsDir(opts.repoRoot))) {
+    const isStaleEscalation = file.startsWith(`${agentName}.t`);
+    const isStaleSingleModel = file.startsWith(`${agentName}.m-`);
+    if ((!isStaleEscalation && !isStaleSingleModel) || !file.endsWith('.agent.md') || expected.has(file)) continue;
+    drifted = true;
+    if (!opts.check) unlinkSync(join(defaultAgentsDir(opts.repoRoot), file));
+  }
+  if (agentDriftStatus(registry, agentName, parseModelLine(content)) === 'drift') {
+    drifted = true;
+    if (!opts.check) writeAgentFile(path, replaceModelLine(content, tier.models));
+  }
+  return drifted;
+}
+
 export function modelsApply(repoRoot: string, check: boolean): number {
   const registry = loadRegistry(defaultRegistryPath(repoRoot));
   const errors = validateRegistry(registry);
@@ -205,40 +259,7 @@ export function modelsApply(repoRoot: string, check: boolean): number {
 
   let drifted = false;
   for (const [agentName, tierName] of Object.entries(registry.agents)) {
-    const tier = registry.tiers.find((t) => t.name === tierName);
-    if (tier === undefined) {
-      continue;
-    }
-    const path = agentPath(repoRoot, agentName);
-    let content: string;
-    try {
-      content = readAgentFile(path);
-    } catch {
-      continue;
-    }
-    if (applyVariants({ repoRoot, check }, registry, agentName, content)) {
-      drifted = true;
-    }
-    const expectedVariants = new Set(
-      escalationVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
-    );
-    for (const file of readdirSync(defaultAgentsDir(repoRoot))) {
-      if (!file.startsWith(`${agentName}.t`) || !file.endsWith('.agent.md') || expectedVariants.has(file)) {
-        continue;
-      }
-      drifted = true;
-      if (!check) {
-        unlinkSync(join(defaultAgentsDir(repoRoot), file));
-      }
-    }
-    const current = parseModelLine(content);
-    if (agentDriftStatus(registry, agentName, current) !== 'drift') {
-      continue;
-    }
-    drifted = true;
-    if (!check) {
-      writeAgentFile(path, replaceModelLine(content, tier.models));
-    }
+    drifted = applyAgent({ repoRoot, check }, registry, agentName, tierName) || drifted;
   }
 
   return drifted && check ? 1 : 0;

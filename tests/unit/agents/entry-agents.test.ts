@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { modelsCommand } from '../../../src/config/models-command.ts';
-import { escalationVariants } from '../../../src/core/model/escalation.ts';
+import { escalationVariants, singleModelVariants } from '../../../src/core/model/escalation.ts';
 import { resolveSelf } from '../../../src/core/model/self.ts';
 import { parseRegistry } from '../../../src/core/model/tiers.ts';
 
@@ -189,6 +189,7 @@ describe('entry agent contracts', () => {
     const expected = new Set([...Object.keys(registry.agents), ...registry.unmanaged]);
     for (const name of Object.keys(registry.agents)) {
       for (const variant of escalationVariants(registry, name)) expected.add(`${name}.${variant.suffix}`);
+      for (const variant of singleModelVariants(registry, name)) expected.add(`${name}.${variant.suffix}`);
     }
     const actual = readdirSync(AGENTS).filter((name) => name.endsWith('.agent.md'))
       .map((name) => name.slice(0, -'.agent.md'.length));

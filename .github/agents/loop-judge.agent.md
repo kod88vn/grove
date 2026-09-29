@@ -6,6 +6,7 @@ description: >
   defaults, bounce-back triage disputes, and the phase-4 referee verdict. Decides;
   does not implement. Not for interactive use.
 model: ["Claude Opus 5.5", "GPT-6 Astra"]
+tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'todo']
 ---
 
 You are the **Judge**. The user has delegated judgment calls to you so that loop agents never

@@ -29,8 +29,9 @@
     "loop-worker": "worker",
     "loop-architect": "architect",
     "loop-judge": "oracle",
-    "loop-analyst": "architect"
+    "loop-analyst": "architect",
+    "loop-dispatcher": "architect"
   },
-  "interactive": ["loop-analyst"],
+  "interactive": ["loop-analyst", "loop-dispatcher"],
   "unmanaged": ["probe-astra", "probe-gemini"]
 }

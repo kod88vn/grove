@@ -126,7 +126,7 @@
 
 <div class="card rule">
   <h3>Target flow — designed, not built</h3>
-  <p>The human picks the entry agent in the main window. It only enqueues, monitors and reports; durable <code>supervisor/</code> tick code (no LLM and no approvals) dispatches architect, analyst, worker and tool-using judge into child windows, one per repo or item, with separate portable and user-data directories. Main-thread subagents may only do read-only in-workspace analysis. Whether their confirmations block the parent is <strong>ASSUMED</strong> pending S16. Web fetches, repo work, git/gh, builds/tests, installs, writes and outside-folder reads belong to the child, which opens on the repo or a scratch clone under <code>bot/tmp/</code>.</p>
+  <p>The human picks the entry agent in the main window. It only enqueues, monitors and reports; durable <code>supervisor/</code> tick code (no LLM and no approvals) dispatches architect, analyst, worker and tool-using judge into child windows by default, one per repo or item, with separate portable and user-data directories. A main-thread subagent may instead be dispatched for an appropriately scoped task — tool use included, not read-only or in-workspace only — subject to the same explicit, per-request approval and normal off-limits rules as any other main-thread action. A 2026-09-29 narrow proof showed one such approval granted by a pre-armed watcher without a person watching, for a call that read a file <strong>outside this workspace</strong>; whether confirmations generally block the parent, and general-purpose unattended approval, remain <strong>ASSUMED/UNKNOWN</strong> pending a broader S16 run. Durable, unattended loop work still favors the child by default for that reason — web fetches, repo work, git/gh, builds/tests, installs, writes and outside-folder reads default there, which opens on the repo or a scratch clone under <code>bot/tmp/</code>.</p>
   <p><strong>Designed approval:</strong> child profile self-approves permitted calls via approve-all, never by a UI click or forged consent. <strong>VERIFIED</strong> C-quinque 2 recorded <code>TARGET True</code> and <code>run_in_terminal isConfirmed {'type': 1}</code> after an unattended child touch; global approve-all and off-limits containment are <strong>UNKNOWN</strong> pending S13/S14/S18. System-file writes, secret reads/printing, the compiled denylist and <code>gh pr merge</code> stay off-limits. The last two are existing invariants flagged for a user decision, not silently dropped.</p>
   <p style="margin-bottom:0">An off-limits pending call kills the child and parks the item with evidence. Another unexpected pending call gets one fresh-session retry, then parks. The code driver never waits for an answer: it moves on and produces one final parked-items report. It checks disk and ledger before retrying model errors, tries a same-tier single-model substitute, then tier escalation; exhausted work parks. This recovery is <strong>not built</strong>.</p>
 </div>
@@ -211,7 +211,7 @@
       <td><strong>whether it passed</strong> — exit code and checksums</td>
     </tr>
     <tr>
-      <td><strong>Judge</strong></td><td>Claude Opus 5.5</td><td>consult/referee; target child for tools, main subagent for read-only in-workspace work only</td><td>intent match, not test pass</td>
+      <td><strong>Judge</strong></td><td>Claude Opus 5.5</td><td>consult/referee; child by default for durable/tool work in target, main subagent permitted per-request for an appropriately scoped task</td><td>intent match, not test pass</td>
     </tr>
     <tr>
       <td><strong>Referee</strong></td>
@@ -530,8 +530,10 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
     works because the driver is a <em>file</em> that can be hashed, and a chat turn is not; and
     a subagent chain only lives inside an open session, so there is nothing to start in a
     background terminal and walk away from. <strong>Target additional risk (ASSUMED, S16):</strong>
-    a subagent confirmation may block the main window; only read-only in-workspace analysis
-    belongs there. Tool-using work moves to child windows. If you were going to watch the
+    a subagent confirmation may block the main window, so durable/unattended grinding still
+    moves to child windows by default; a per-request, appropriately scoped main-thread
+    subagent — tool use included — is permitted under the same explicit approval and
+    off-limits rules as any other main-thread action. If you were going to watch the
     run anyway, the cost trade flips — but then it was never really a loop.
   </p>
 </div>

@@ -2,6 +2,7 @@
 description: "Run a whole ticket as a verified loop: turn a requirement into a failing spec, grind it green with a cheap model under a machine gate, then referee the diff and close it. A shortcut into the loop-architect agent — selecting that agent in the mode picker is the better route, because it survives the whole job instead of one message."
 mode: agent
 model: ["GPT-6 Sol", "GPT-5.6 Terra"]
+tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'todo']
 argument-hint: "A ticket key like WS-6673, or just describe what you need"
 ---
 

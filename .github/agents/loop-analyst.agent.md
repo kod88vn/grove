@@ -5,6 +5,7 @@ description: >
   Use for research, prose documentation, planning, and investigations without a repro.
 user-invocable: true
 model: ["GPT-6 Sol", "GPT-5.6 Terra"]
+tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'web/fetch', 'todo']
 argument-hint: "Goal and repository, or resume <KEY>"
 handoffs:
   - label: Loop this item

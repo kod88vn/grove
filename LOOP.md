@@ -25,12 +25,23 @@ The revised supervisor design (D14/D15) is a **target, not a current capability*
 1. A human picks the entry agent in the main window and enqueues a goal; main chat only
    dispatches, monitors and reports. Durable `supervisor/` tick code (no LLM) keeps moving
    without a human; the main chat is **never** the place repo or network work is performed.
-2. Architect, analyst, worker and tool-using judge run in separate child windows, one per
-   repo/item, each with its own portable dir and user-data-dir. A main-thread judge subagent
-   may only read in-workspace files. Subagent confirmation blocking is **ASSUMED** pending a
-   spike. Web fetches, git/gh, builds/tests, installs, writes and outside-folder reads are
-   child-only. The child opens the target repo or a scratch clone under bot/tmp; there is no
-   main-thread outside-folder permission step.
+2. Architect, analyst, worker and tool-using judge run in separate child windows by default,
+   one per repo/item, each with its own portable dir and user-data-dir. A main-thread
+   subagent (including the judge) may instead be dispatched for an appropriately scoped
+   task — tool use included, not read-only or in-workspace only — subject to the same
+   explicit, per-request approval and normal off-limits rules that govern any other
+   main-thread action. **2026-09-29 narrow proof:** a main-thread subagent's approval was
+   granted by a pre-armed, narrowly scoped watcher (AX press) without a person watching, and
+   the subagent read a file **outside this workspace** (`~/dev/harvester/package.json`) — so
+   neither "unapprovable without a person watching" nor "in-workspace only" holds as a
+   blanket rule. **Not proven:** general-purpose, unattended auto-approval or containment,
+   or whether an unwatched confirmation blocks the parent turn — both remain
+   **ASSUMED**/UNKNOWN pending a broader spike. Durable, unattended loop work still favors the
+   child driver until that architecture question is decided, which is why web fetches,
+   git/gh, builds/tests, installs, writes and outside-folder reads default to the child — not
+   because a main-thread subagent is forbidden from doing them under per-request approval.
+   The child opens the target repo or a scratch clone under bot/tmp; there is no main-thread
+   outside-folder permission step for durable/unattended work.
 3. Child profile self-approval is **designed** using approve-all, not UI clicking or forged
    consent. **VERIFIED** C-quinque 2 in the [design evidence](agent-docs/superpowers/specs/2026-09-28-loop-supervisor-design.md#8-spike-0--results-2026-09-2829):
    `TARGET True`, `run_in_terminal isConfirmed {'type': 1}` without a human click in that
@@ -144,7 +155,7 @@ Six roles across intake and the loop. The gate that decides pass or fail is not 
 | --- | --- | --- | --- |
 | **Analyst** | `loop-analyst`, dispatcher or architect tier by task | as needed, outside the grind | research, investigation, planning, prose docs or review drafts; hands loopable work to Architect |
 | **Architect** | registry `architect` tier by default, in your session today; child in target | once | what "done" means — turns your requirements into a failing test |
-| **Judge** | `loop-judge`, registry `oracle` tier; child for tools in target, main subagent only for read-only in-workspace analysis | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
+| **Judge** | `loop-judge`, registry `oracle` tier; child by default for durable/tool work in target, main subagent permitted per-request for an appropriately scoped task | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
 | **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
 | **Gate** | no model | every 5s | **whether it passed** — exit code and checksums |
 | **Referee** | `loop-architect`, consulting `loop-judge` for the verdict; child in target | once | whether the pass is the one you wanted |
@@ -585,11 +596,22 @@ Same-window dispatch (`code chat -r` into the window you are working in) was tri
 worker turn landed in the user's own window, so its chat history and renderer memory grew
 with the loop. The cause was never confirmed. The driver opens a separate window again.
 
-### 7.1 Why not subagents
+### 7.1 Why the child driver is still the default for durable/unattended work
 
-**Target additional reason (ASSUMED; S16 pending):** a subagent's tool confirmation can
-surface in the main window and block the parent when nobody is around. Only read-only
-in-workspace subagent analysis belongs there; tool-using work runs in a child window.
+**2026-09-29 narrow proof:** a main-thread `runSubagent` call read
+`~/dev/harvester/package.json` — outside this workspace; a pre-armed, narrowly scoped
+watcher matched its exact approval dialog and pressed Allow Once (AX `pressResult=0`), and
+the subagent returned `PROBE_READ_OK`. So a main-thread subagent's approval is not inherently
+unapprovable, and it is not confined to read-only or in-workspace work — for this one exact,
+pre-armed case, a tool-using, outside-workspace call was granted without a person watching
+the screen. A tool-using main-thread subagent is therefore permitted for an appropriately
+scoped, per-request task, subject to the same explicit approval and off-limits rules as any
+other main-thread action.
+**Not proven:** general-purpose, unattended auto-approval or containment for subagents run
+from the main thread, or whether an unwatched confirmation blocks the parent turn — both
+remain **ASSUMED/UNKNOWN** pending a broader S16 run. The child driver stays the default for
+durable or unattended work — a main-thread subagent is a per-request tool, not a driver
+substitute.
 
 The first three limits above come from `code chat`. Dispatching `loop-worker` as a subagent
 instead would delete them all at once — no window, no one-repo rule, and the model pin works

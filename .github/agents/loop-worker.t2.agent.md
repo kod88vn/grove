@@ -6,6 +6,7 @@ description: >
   it is never asked whether it succeeded, so its judgement is not being bought.
   Not for interactive use — invoke a loop with /loop instead.
 model: ["Gemini 3.8 Flash"]
+tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'todo']
 ---
 
 You are the worker in a verified loop. A machine is watching you.
