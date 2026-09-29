@@ -1,6 +1,6 @@
 import { findNewestCatalogFile } from '../connectors/model-catalog-file.ts';
 import { defaultCatalogSearchRoot } from './model-paths.ts';
-import { modelsApply, modelsPick, modelsReport } from './run-models.ts';
+import { modelsApply, modelsPick, modelsReport, modelsSelf } from './run-models.ts';
 
 /**
  * Argument parsing for `cc models`. Split from `run-models.ts` for the same reason as
@@ -23,7 +23,10 @@ export function modelsCommand(args: readonly string[], options: ModelsCommandOpt
   if (sub === 'apply') {
     return applyCommand(args.slice(1), options);
   }
-  process.stderr.write(`unknown models subcommand "${sub}". Known: pick, apply\n`);
+  if (sub === 'self') {
+    return selfCommand(args.slice(1), options);
+  }
+  process.stderr.write(`unknown models subcommand "${sub}". Known: pick, apply, self\n`);
   return 2;
 }
 
@@ -43,6 +46,20 @@ function pickCommand(args: readonly string[], options: ModelsCommandOptions): nu
 
 function applyCommand(args: readonly string[], options: ModelsCommandOptions): number {
   return modelsApply(options.repoRoot, args.includes('--check'));
+}
+
+function selfCommand(args: readonly string[], options: ModelsCommandOptions): number {
+  const sessionLog = text(args, '--session-log');
+  const tier = text(args, '--tier');
+  if (sessionLog === null || tier === null) {
+    return usage('self --session-log=<path> --tier=<tier> [--catalog=<path>]');
+  }
+  return modelsSelf(
+    { repoRoot: options.repoRoot, catalogPath: resolveCatalogPath(args) },
+    sessionLog,
+    tier,
+    options.write,
+  );
 }
 
 /** `--catalog=<path>`, then `CC_MODEL_CATALOG`, then the newest `models.json` on disk. */

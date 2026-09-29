@@ -17,6 +17,9 @@ export interface EscalationVariant {
 
 /** One variant per tier strictly above the agent's base tier, in ascending rank order, capped at oracle. */
 export function escalationVariants(registry: Registry, agentName: string): EscalationVariant[] {
+  if (registry.interactive?.includes(agentName) === true) {
+    return [];
+  }
   const baseTierName = registry.agents[agentName];
   if (baseTierName === undefined) {
     return [];
@@ -26,8 +29,8 @@ export function escalationVariants(registry: Registry, agentName: string): Escal
   if (baseIndex === -1) {
     return [];
   }
-  return ordered.slice(baseIndex + 1).map((tier: Tier, offset): EscalationVariant => ({
-    suffix: `t${offset + 2}`,
+  return ordered.slice(baseIndex + 1).map((tier: Tier): EscalationVariant => ({
+    suffix: `t${tier.rank}`,
     tier: tier.name,
     models: tier.models,
   }));

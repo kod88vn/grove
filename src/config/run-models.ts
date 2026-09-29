@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { basename, dirname, join, join as pathJoin } from 'node:path';
+import { readFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { readAgentFile, writeAgentFile } from '../connectors/agent-frontmatter-file.ts';
 import { loadCatalog } from '../connectors/model-catalog-file.ts';
 import { loadRegistry } from '../connectors/model-registry-file.ts';
@@ -6,6 +7,8 @@ import { agentDriftStatus } from '../core/model/drift.ts';
 import { escalationVariants, type EscalationVariant } from '../core/model/escalation.ts';
 import { parseModelLine, replaceModelLine, replaceNameLine } from '../core/model/frontmatter.ts';
 import { pick, resolveRole, resolveTiers } from '../core/model/resolver.ts';
+import { latestSessionModelId, foldSessionJsonl } from '../core/model/session.ts';
+import { resolveSelf, type SelectedCatalogModel } from '../core/model/self.ts';
 import { validateRegistry, type Registry } from '../core/model/tiers.ts';
 import { defaultAgentsDir, defaultRegistryPath } from './model-paths.ts';
 
@@ -98,6 +101,64 @@ export function modelsPick(ctx: ModelsContext, role: string, escalate: number, w
   return 2;
 }
 
+function sessionPath(debugLog: string): string {
+  const workspaceStorage = dirname(dirname(dirname(debugLog)));
+  return pathJoin(workspaceStorage, 'chatSessions', `${basename(debugLog)}.jsonl`);
+}
+
+function selectedCatalog(path: string): SelectedCatalogModel[] {
+  const raw = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry): SelectedCatalogModel[] => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const value = entry as Record<string, unknown>;
+    if (typeof value.id !== 'string' || typeof value.name !== 'string') return [];
+    const billing = value.billing as Record<string, unknown> | undefined;
+    const prices = billing?.token_prices as Record<string, unknown> | undefined;
+    const input = typeof prices?.input_price === 'number' ? prices.input_price / 1_000_000_000 : null;
+    const output = typeof prices?.output_price === 'number' ? prices.output_price / 1_000_000_000 : null;
+    return [{ id: value.id, name: value.name, inputPrice: input, outputPrice: output }];
+  });
+}
+
+/** Reports the model selected in the persisted session, not the backend-served model. */
+export function modelsSelf(
+  ctx: ModelsContext,
+  debugLog: string,
+  requestedTier: string,
+  write: Writer,
+): number {
+  const registry = loadRegistry(defaultRegistryPath(ctx.repoRoot));
+  const tier = resolveRole(registry, requestedTier);
+  if (tier === null) {
+    process.stderr.write(`unknown tier: ${requestedTier}\n`);
+    return 1;
+  }
+  const path = sessionPath(debugLog);
+  let state: unknown;
+  try {
+    state = foldSessionJsonl(readFileSync(path, 'utf8').split('\n'));
+  } catch {
+    process.stderr.write(`session not found: ${path}\n`);
+    return 1;
+  }
+  const modelId = latestSessionModelId(state);
+  if (modelId === null) {
+    process.stderr.write(`session contains no selected model: ${path}\n`);
+    return 1;
+  }
+  const report = resolveSelf(registry, selectedCatalog(ctx.catalogPath), modelId, tier);
+  const model = report.model;
+  const label = model?.name ?? modelId;
+  const cost = model?.outputPrice === null || model === null ? 'unknown' : `out=${model.outputPrice}`;
+  write(`selected model: ${label} (${modelId}; ${cost})`);
+  write(`selected tier: ${report.tier ?? 'unknown'}; recommendation: ${report.recommendation} (${report.recommendationTier})`);
+  if (report.higherTier) write(`warning: selected model is above requested ${tier} tier`);
+  if (report.exceedsCeiling) write(`warning: selected model output price exceeds ${tier} tier price band`);
+  if (model === null || model.outputPrice === null) write('warning: selected model cost is unknown');
+  return 0;
+}
+
 /**
  * A headless worker cannot take a runtime model override (`code chat --help` has no such
  * flag), so escalating it means dispatching a *different agent file*. This keeps one variant
@@ -157,6 +218,18 @@ export function modelsApply(repoRoot: string, check: boolean): number {
     }
     if (applyVariants({ repoRoot, check }, registry, agentName, content)) {
       drifted = true;
+    }
+    const expectedVariants = new Set(
+      escalationVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
+    );
+    for (const file of readdirSync(defaultAgentsDir(repoRoot))) {
+      if (!file.startsWith(`${agentName}.t`) || !file.endsWith('.agent.md') || expectedVariants.has(file)) {
+        continue;
+      }
+      drifted = true;
+      if (!check) {
+        unlinkSync(join(defaultAgentsDir(repoRoot), file));
+      }
     }
     const current = parseModelLine(content);
     if (agentDriftStatus(registry, agentName, current) !== 'drift') {

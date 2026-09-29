@@ -7,7 +7,8 @@ argument-hint: "A ticket key like WS-6673, or just describe what you need"
 
 # Run a loop
 
-Read `.github/agents/loop-architect.agent.md` in full and follow it, with `${input}` as its
+Read `.github/agents/loop-architect.agent.md` in full and follow its **Preflight** before any
+phase, with `${input}` as its
 argument. That file is the single source of truth for the phases. This prompt exists only so
 `/loop` keeps working from whatever agent the user happens to be in.
 

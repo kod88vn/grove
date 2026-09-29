@@ -19,6 +19,8 @@ export interface Registry {
   readonly tiers: readonly Tier[];
   /** Agent name -> tier name, e.g. `{ "loop-worker": "worker" }`. */
   readonly agents: Readonly<Record<string, TierName>>;
+  /** Interactive entry agents do not receive generated escalation variants. */
+  readonly interactive?: readonly string[];
   /** Agent names deliberately excluded from `cc models apply` (fixed single-model probes). */
   readonly unmanaged: readonly string[];
 }
@@ -67,6 +69,13 @@ function parseAgents(raw: unknown): Readonly<Record<string, TierName>> {
   return agents;
 }
 
+function parseNames(raw: unknown, field: string): readonly string[] {
+  if (!Array.isArray(raw) || raw.some((name) => typeof name !== 'string')) {
+    throw new Error(`registry.${field} must be an array of strings`);
+  }
+  return raw as string[];
+}
+
 /** Parses the raw JSON shape into a `Registry`, throwing on any structural mismatch. */
 export function parseRegistry(raw: unknown): Registry {
   if (typeof raw !== 'object' || raw === null) {
@@ -81,7 +90,8 @@ export function parseRegistry(raw: unknown): Registry {
   if (!Array.isArray(obj.unmanaged) || obj.unmanaged.some((u) => typeof u !== 'string')) {
     throw new Error('registry.unmanaged must be an array of strings');
   }
-  return { tiers, agents, unmanaged: obj.unmanaged as string[] };
+  const interactive = obj.interactive === undefined ? {} : { interactive: parseNames(obj.interactive, 'interactive') };
+  return { tiers, agents, ...interactive, unmanaged: obj.unmanaged as string[] };
 }
 
 /**

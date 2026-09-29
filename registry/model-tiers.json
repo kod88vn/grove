@@ -28,7 +28,9 @@
   "agents": {
     "loop-worker": "worker",
     "loop-architect": "architect",
-    "loop-judge": "oracle"
+    "loop-judge": "oracle",
+    "loop-analyst": "architect"
   },
+  "interactive": ["loop-analyst"],
   "unmanaged": ["probe-astra", "probe-gemini"]
 }
