@@ -29,6 +29,13 @@ BASELINE=0                    # current passing test count. Must GROW, never shr
 MAX_ITER=4                    # agent turns you are willing to buy
 POLL_LIMIT=72                 # x5s = 6 min of polling per iteration
 WORKER="loop-worker"          # the cheap model does the grinding. See .github/agents/
+# `code chat --help` has no model flag, so escalating a headless worker means
+# dispatching a different AGENT FILE, not a runtime override. `cc models apply`
+# generates one such file per tier above the worker's own, named
+# <worker>.t2/.t3/.t4.agent.md (see registry/model-tiers.json + LOOP.md "Model
+# tiers"). Override WORKER_AGENT to one of those on a re-arm after a failure,
+# budget exhaustion, or referee reject — never hand-edit WORKER above instead.
+WORKER_AGENT="${WORKER_AGENT:-$WORKER}"
 
 # The command whose exit code IS "done". If you cannot write one that exits
 # non-zero today, stop: you have a wish, not a loop. Sets RC and TOTAL.
@@ -57,7 +64,7 @@ Verify with: cd $REPO && ./node_modules/.bin/jest"
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
 OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
-AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER.agent.md"
+AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER_AGENT.agent.md"
 mkdir -p "$OUT"
 
 # Does a window on $REPO already exist? Checked BEFORE the first "$CODE" "$REPO"
@@ -102,7 +109,7 @@ echo " branch  : $(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
 echo " spec    : $SPEC"
 echo " baseline: $BASELINE tests must grow"
 echo " budget  : $MAX_ITER iterations"
-echo " worker  : $WORKER — $MODEL"
+echo " worker  : $WORKER_AGENT — $MODEL"
 echo "============================================================"
 
 echo "--- iteration 0: confirm the work is genuinely undone ---"
@@ -125,8 +132,8 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
 
   "$CODE" "$REPO" >/dev/null 2>&1        # focus the existing window on the target repo
   sleep 6
-  echo "dispatching $WORKER..."
-  "$CODE" chat -m "$WORKER" -r "$TASK
+  echo "dispatching $WORKER_AGENT..."
+  "$CODE" chat -m "$WORKER_AGENT" -r "$TASK
 
 Current verifier output:
 $FAILURES" > "$OUT/cli-$ITER.out" 2>&1

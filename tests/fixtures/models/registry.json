@@ -1,0 +1,14 @@
+{
+  "tiers": [
+    { "name": "worker", "rank": 1, "maxOutputPrice": 150, "models": ["GPT-5.6 Luna", "GPT-6 Luna"] },
+    { "name": "dispatcher", "rank": 2, "maxOutputPrice": 500, "models": ["Claude Haiku 4.5", "Gemini 3.8 Flash", "GPT-5.4 mini"] },
+    { "name": "architect", "rank": 3, "maxOutputPrice": 1200, "models": ["Claude Sonnet 5"] },
+    { "name": "oracle", "rank": 4, "maxOutputPrice": null, "models": ["Claude Opus 5.5", "Claude Opus 5"] }
+  ],
+  "agents": {
+    "loop-worker": "worker",
+    "loop-architect": "architect",
+    "loop-judge": "oracle"
+  },
+  "unmanaged": ["probe-astra", "probe-gemini"]
+}

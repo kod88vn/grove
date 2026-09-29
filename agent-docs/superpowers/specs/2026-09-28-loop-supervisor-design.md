@@ -239,7 +239,10 @@ mandatory in the supervisor and runs on `loop-judge` (Opus) — it is reject-onl
 
 **D11 — Model routing & escalation.**
 Default driver/architect = Claude Sonnet 5; worker = `loop-worker` (GPT-5.6 Luna); judgment =
-`loop-judge` (Claude Opus 5.5). Any question that would otherwise go to the user goes to
+`loop-judge` (Claude Opus 5.5). Model routing itself now lives in `registry/model-tiers.json`
+(worker/dispatcher/architect/oracle tiers, `cc models`/`cc models pick`/`cc models apply`,
+escalation on failure/doubt capped at `oracle` — see `LOOP.md` §6a), not hardcoded here or in
+agent frontmatter. Any question that would otherwise go to the user goes to
 `loop-judge` first; only a `CRITICAL` verdict creates `needs_human`. `CRITICAL` means the
 decision: (1) enrolls a repo not already enrolled for loops, or pushes to / comments on /
 changes someone else's PR, branch, or ticket; (2) involves credentials, money, production, or

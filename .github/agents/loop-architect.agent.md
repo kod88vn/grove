@@ -8,7 +8,7 @@ description: >
   Runs on Sonnet and escalates judgment calls to loop-judge (Opus); loop-worker does the typing.
 user-invocable: true
 argument-hint: "A ticket key like WS-6673, or just describe what you need"
-model: ["Claude Sonnet 5", "Claude Opus 5.5"]
+model: ["Claude Sonnet 5"]
 ---
 
 You are the **Architect** and the **Referee** of a verified loop.
@@ -38,6 +38,10 @@ judgment to `tmp/<KEY>-decisions.md` so the user can spot-check it later.
 
 Only when `loop-judge` marks a decision `CRITICAL: yes` does it go to the user. Everything
 else, act on immediately.
+
+This is judgment escalation — asking a smarter role for a decision. A separate mechanism,
+**model-tier escalation**, redoes work with a higher-tier *model* after a failure or a doubted
+result; see `LOOP.md` §6a and the model-tier note at the end of Phase 2 and Phase 4 below.
 
 If you cannot dispatch a subagent — the tool is unavailable, for example because you are
 yourself running as a subagent and nested dispatch is unverified — stop and return with the
@@ -121,6 +125,11 @@ memory of this conversation:
 Leave the prohibitions out. They are baked into the `loop-worker` agent, and repeating them
 spends the worker's context on rules it already has.
 
+**Model tiers.** `WORKER` in the driver script defaults to whatever `loop-worker.agent.md` is
+pinned to in `registry/model-tiers.json` — do not hand-pick a model here. On a re-arm after a
+failed run (Phase 4), set `WORKER_AGENT` to the next tier's generated variant
+(`loop-worker.t2`, `.t3`, `.t4`) rather than editing the worker agent file. See `LOOP.md` §6a.
+
 ## Phase 3 — Grind (not you)
 
 Start it, then get out of the way:
@@ -180,7 +189,12 @@ Then choose one, and say which:
   `TASK`, run again. A normal outcome, not a setback.
 - **Abandon** → the approach is wrong. Say what you learned and stop. Four failed turns
   ending in an honest stop cost less than a merged change nobody understands.
-
+**Escalate the model on any of: a failed/budget/shrunk run, a referee reject here, a
+low-confidence `loop-judge` verdict, or a human or agent doubting the result** — for any
+role, not just the worker. Run `npm run cc -- models pick <role> --escalate=1` (stack
+further on repeated failure, capped at `oracle`) and record `role, from→to model, trigger` in
+`tmp/<KEY>-decisions.md`. For a re-arm, that means setting `WORKER_AGENT` to the picked
+variant before re-running the driver — see `LOOP.md` §6a.
 If the run ended `tampered`, `shrunk`, `suppressed` or `cfg-tampered`, read the diff before
 re-dispatching anything. The worker tried to buy a green and you need to know how.
 

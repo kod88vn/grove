@@ -81,3 +81,15 @@ output, shipped artifact correctness, would-you-defend-it). Return exactly one o
 Your `accept` is **necessary but never sufficient**: the verifier's exit code and CI still
 decide whether the change actually passes. You are judging intent match, not re-running the
 gate.
+
+## Model-tier escalation is not your job to trigger — but you can be the trigger for it
+
+You are pinned to `oracle`, the top tier in `registry/model-tiers.json` — there is no higher
+tier to escalate you to. If a decision genuinely warrants a second opinion beyond what you can
+give (not just low confidence, which you decide through anyway), that is `CRITICAL: yes` and
+goes to the user; there is no model above you to hand it to instead.
+
+A `low` `CONFIDENCE` you write, or a `re-arm`/`abandon` referee verdict, is itself a valid
+**trigger** for the caller to escalate a *different* role's model one tier (`npm run cc --
+models pick <role> --escalate=1`, capped at `oracle`) before trying again — see `LOOP.md`
+§6a. That escalation is the caller's action to take, not yours.

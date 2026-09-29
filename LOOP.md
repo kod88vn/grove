@@ -403,6 +403,48 @@ Two things that review must cover, both learned the hard way in this repo:
 
 ---
 
+## 6a. Model tiers — which model plays which role, and how it changes
+
+Every role in a loop (`loop-worker`, `loop-architect`, `loop-judge`) is pinned to a model in
+`registry/model-tiers.json`, not hardcoded in the agent file. Four tiers, lowest to highest:
+`worker`, `dispatcher`, `architect`, `oracle`. Each tier lists its models in priority order —
+the primary, then same-tier alternates only. A fallback never crosses into a higher tier by
+accident; that silent 10x-priced fallback is exactly the bug this registry replaced.
+
+**When pricing or the model catalogue changes:**
+
+1. Edit `registry/model-tiers.json` by hand — add a model, move a primary, adjust a
+   `maxOutputPrice` band.
+2. Run `npm run cc -- models` to review: it lists every registered model with its current
+   catalogue price and status (`ok` / `missing` / `over-band`), plus in-band candidates not
+   yet registered, and flags any agent file whose frontmatter disagrees with the registry.
+3. Run `npm run cc -- models apply` to stamp the agent files' `model:` lines from the
+   registry. `npm run models:check` (part of `npm run verify`) fails the gate if a `model:`
+   line was hand-edited out of sync with the registry — that check is what makes a stray pin
+   visible instead of silently shipping.
+
+**Escalation — any role, triggered by doubt, not just failure.** If a loop iteration fails,
+exhausts its budget, comes back `shrunk`, the referee rejects a diff, `loop-judge` reports low
+confidence, or a human or another agent doubts a result: redo the same role one tier higher
+with `npm run cc -- models pick <role> --escalate=1` (stack further on repeated failure,
+capped at `oracle`), and record `role, from→to model, trigger` in `tmp/<KEY>-decisions.md`.
+
+`loop-worker` is dispatched headlessly (`code chat -m <agent>`), and `code chat --help`
+(checked 2026-09-29) has no model-override flag — only `-m/--mode`, which selects an *agent
+file*. So escalating the worker means dispatching a different file, not a different flag.
+`cc models apply` generates one variant file per tier above `loop-worker`'s own —
+`loop-worker.t2.agent.md` (dispatcher), `.t3` (architect), `.t4` (oracle) — each identical to
+the base file except its `name:` and `model:` lines, kept in sync by the same `--check` gate.
+`scripts/loop.sh` reads `WORKER_AGENT` (default `loop-worker`) to pick which one to dispatch;
+set it to `loop-worker.t2` etc. on a re-arm instead of hand-editing the worker agent file.
+
+`loop-architect` and `loop-judge` are invoked interactively via `runSubagent`'s `model`
+parameter, so escalating them is just picking a higher tier's model for that one call — no
+variant files needed. `loop-judge` is already pinned to `oracle`, the top tier: it cannot
+escalate itself, so a doubted judge verdict goes straight to the user as `CRITICAL`.
+
+---
+
 ## 7. Known limits
 
 | Limit | Detail |
