@@ -9,6 +9,7 @@ export function emptyValue(instance) {
   if (widget === 'order') return instance.visual.items.map((item) => item.id)
   if (widget === 'sort') return instance.visual.items.map(() => null)
   if (widget === 'match') return instance.visual.right.map(() => null)
+  if (widget === 'clock') return [instance.visual.start.hour, instance.visual.start.minute]
   throw new Error(`unknown widget: ${widget}`)
 }
 
@@ -34,5 +35,6 @@ export function toResponse(instance, value) {
       )),
     }
   }
+  if (widget === 'clock') return { hour: value[0], minute: value[1] }
   throw new Error(`unknown widget: ${widget}`)
 }

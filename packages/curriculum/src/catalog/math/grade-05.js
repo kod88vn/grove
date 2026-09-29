@@ -501,6 +501,7 @@ export const skills = [
     strand: 'md',
     name: 'Time & Money',
     label: '⏰💵 Time & Money',
+    // This off-grade topic is a Grade 1–3 skill; 5.MD.A.1 covers converting measurement units, not time, so there is no code.
     ccss: [],
     prerequisites: ['m5.nbt.add-sub-whole'],
     legacyId: 'time-money',

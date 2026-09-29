@@ -67,6 +67,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'order') return { sequence: answer.sequence }
   if (widget === 'sort') return { buckets: answer.buckets }
   if (widget === 'match') return { pairs: answer.pairs }
+  if (widget === 'clock') return { hour: answer.hour, minute: answer.minute }
   return { value: answer.value }
 }
 
@@ -85,6 +86,10 @@ const wrongResponse = (widget, answer) => {
     // Every card joined to something, each to the next one along: finished, and misjoined.
     const { pairs } = answer
     return { pairs: pairs.map((pair, index) => ({ left: pairs[(index + 1) % pairs.length].left, right: pair.right })) }
+  }
+  if (widget === 'clock') {
+    // An hour late, on a face the child could really have set: `wrong`, not `invalid`.
+    return { hour: (answer.hour % 12) + 1, minute: answer.minute }
   }
   return { value: -999999 }
 }

@@ -53,6 +53,7 @@ export function correctValueFor(sample) {
       return pair.left
     })
   }
+  if (sample.widget === 'clock') return [sample.answer.hour, sample.answer.minute]
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -93,6 +94,7 @@ export function wrongValueFor(sample) {
       return sample.instance.visual.left[(index + 1) % sample.instance.visual.left.length].id
     })
   }
+  if (sample.widget === 'clock') return [sample.answer.hour, (sample.answer.minute + 5) % 60]
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 

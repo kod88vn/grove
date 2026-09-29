@@ -131,7 +131,7 @@ afterEach(() => {
 describe('P2.2 — which keys may exist at all', () => {
   it('still ships only the four Phase 1 widgets, so no Band C key has a consumer', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock']),
     )
   })
 
@@ -146,6 +146,10 @@ describe('P2.2 — which keys may exist at all', () => {
     expect(keysFor('order')).toBeNull()
     expect(keysFor('sort')).toBeNull()
     expect(keysFor('match')).toBeNull()
+    // Nor into a clock face. The hands are the answer, and every time they can show is
+    // reachable by dragging or by stepping — a pad would be a third route the checker
+    // never sees, and the only one that could produce a time the face cannot display.
+    expect(keysFor('clock')).toBeNull()
     expect(keysFor('expression')).toBeNull()
 
     // Every offered character is one the shipped answers actually use — the rule that
