@@ -3,23 +3,98 @@
 How a ticket becomes merged code without a human driving each turn: an agent writes, a
 machine judges, and the judgment is one that the agent cannot forge.
 
-This is not a design document. Everything below has been run. The worked examples at the
-bottom are two real loops against `~/dev/web-storefront-ui` that ended in PR #181.
+The driver and entry-agent preflights exist. The supervisor does **not**; see the box below.
+The worked runs in §5 are historical examples against `~/dev/web-storefront-ui`.
 
 ---
 
-## 1. Using it again
+## 0. How to use it
 
-Pick **`loop-architect`** in the Chat mode picker, in this workspace, and type what you need:
+### 0.1 Six steps
+
+1. Open a **new chat session** (`+` in the Chat view), so a prior task cannot supply the wrong context.
+2. Pick the agent for your task from §0.2. A wrong pick **STOPS** and names the right agent; it does not quietly switch roles.
+3. Pick the model recommended in §0.2 **after** picking the agent. You may pick any model. The agent warns once if the *selected* model costs more than the task's tier, then continues. It checks `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` against `npm run --silent cc -- models pick <tier>` (see `src/config/models-command.ts`). Agent re-selection reapplies its pin; `models self` cannot prove which backend served a request.
+4. Type the **goal and repository** (path or name resolving to `~/dev/<name>`). A key alone does not tell the agent which repo to use. The only preflight question allowed is a missing repo.
+5. For an outside folder, choose the appropriate permission path: **add it to the workspace** (required for editing), **approve the individual unsandboxed terminal call when prompted**, or **scratch-clone a review target under bot/tmp**. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
+6. Let the agent work. An architect reports `LOOP RUNNING — hands off.` with the run link and `LOOP FINISHED` with the ledger verdict (§1.4.1). Watch the dashboard instead of touching the worker window, files or driver. An analyst writes an incremental `tmp/<KEY>-report.md` and returns its answer, plan or review draft. If a command pends, the agent names the one approval needed; if the window closes, use §0.4.
+
+### 0.2 Which agent?
+
+| Task | Pick | Recommended model / tier |
+| --- | --- | --- |
+| Implementation, reproducible bug (red test first), checkable doc change, feedback on **your** PR, resume of those | `loop-architect` | GPT-6 Sol / architect |
+| Planning, **someone else's** PR review (draft, not post), investigation without a reproducible bug | `loop-analyst` | GPT-6 Sol / architect |
+| Research, a question, prose documentation | `loop-analyst` | Gemini 3.8 Flash / dispatcher |
+
+The agent files at `.github/agents/` implement this task-fit preflight. `loop-judge` is a
+consult/referee, not a human entry pick; `loop-worker` and its `.t2/.t3/.t4` variants are
+driver-only. `loop-architect.t4` is a generated escalation variant, not an entry pick.
+Variants remain visible because hiding them prevents `code chat -m` from finding them in
+the installed VS Code mode lookup (Spike 0 B viii); their preflight refuses casual use.
+`/loop <goal and repo>` is a one-message shim to architect, not a persistent agent choice.
+
+**Wrong agent example:** choose `loop-architect` and type `Review PR #50 in grove; repo
+~/dev/grove.` → `WRONG AGENT: this is code review. Pick loop-analyst with GPT-6 Sol.`
+It offers “Not loopable — investigate or plan instead”; nothing is reviewed in that turn.
+
+**Overpriced example:** choose `loop-analyst`, select Claude Opus 5.5, and type `What does
+cc stalls do? Repo ~/dev/bot.` → `You picked Claude Opus 5.5 (oracle); this task needs
+dispatcher: switch to Gemini 3.8 Flash.` It continues to answer. That is a warning about
+the **selected** model, not a claim about backend billing.
+
+### 0.3 Prompts you can paste
+
+Each prompt below includes a repo (or a resume key whose driver records the repo). Models
+are recommendations from `registry/model-tiers.json`; the preflight checks selected-model
+cost. “Preflight approval” means approve an actual terminal unsandboxed prompt if shown,
+not a blanket grant. The examples are **templates**, not claims that these tasks or PRs exist.
+
+| Task | Agent · model | Exact prompt text | Permission step |
+| --- | --- | --- | --- |
+| Implementation from a ticket | `loop-architect` · GPT-6 Sol | `WS-6673 in ~/dev/web-storefront-ui.` | Add that repo to workspace or open its existing loop-folder window; approve first outside-folder `git -C`/preflight call when prompted. |
+| Plain-description implementation | `loop-architect` · GPT-6 Sol | `grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.` | Grove is already a workspace folder; approve only a preflight prompt if shown. Non-Clover repo uses a GROVE-<slug> key, no Jira ticket. |
+| Bug fix, red repro | `loop-architect` · GPT-6 Sol | `Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.` | Workspace folder already open; approve any preflight terminal prompt. Require the failing test before the fix. |
+| Planning | `loop-analyst` · GPT-6 Sol | `Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.` | Repo already in workspace; approve any terminal preflight prompt. Do not start implementation. |
+| Review someone else's PR | `loop-analyst` · GPT-6 Sol | `Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.` | Scratch-clone into bot/tmp/rv2442 with unsandboxed SSH approval; the human presses Post, not the agent. |
+| Address feedback on your PR | `loop-architect` · GPT-6 Sol | `WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.` | Add repo to workspace/use its loop window; approve outside-folder terminal and SSH calls when prompted. |
+| Debug / investigate without repro | `loop-analyst` · GPT-6 Sol | `Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.` | Already in workspace; approve any terminal preflight prompt. Hand off to architect once reproducible. |
+| Research question | `loop-analyst` · Gemini 3.8 Flash | `In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.` | Read via `list_dir`/`read_file` without a folder grant; approve a terminal grep only if prompted. |
+| Prose docs | `loop-analyst` · Gemini 3.8 Flash | `Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.` | Repo is in workspace; approve preflight and unsandboxed push if prompted. Ground the contract in source before writing. |
+| Resume after closed window | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove.` | Open the existing repo loop window; approve any preflight terminal prompt. Driver `REPO=` can recover the repo from tmp/GROVE-P04-loop.sh. |
+| Resume after escalation / needs_human | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.` | Repo already in workspace; approve only a real preflight prompt. Do not invent a judgment or bypass a pending approval. |
+
+### 0.4 Resuming safely
+
+In a **new** chat choose the same entry agent and send `resume <KEY>; repo <path>.` For
+an architect, inspect `tmp/<KEY>*`, `npm run cc -- loop status`, the target branch and
+PR state (if remote); a saved driver can supply `REPO=`. A consult without judgment goes
+to `loop-judge`; a committed spec without driver resumes at arm; a passed run without PR
+resumes at referee; an open PR resumes at feedback. An unclosed row with a dead driver
+is **not** a pass: record the stale row and start a new run. An analyst resumes from its
+incremental report but rechecks actual files. Artifacts outrank chat recollection.
+
+> **Designed, not built yet — supervisor / dedicated instance.** `supervisor/`, the
+> portable-profile instance manager, pending classifier, crash reaper, autonomous intake,
+> dashboard board and migrations are design only. Spike 0b S7–S12 must precede the
+> supervisor's housekeeping build step. Today's driver still needs an already-open
+> target window (§1.2); do not assume automatic teardown, unattended approvals or
+> auto-resume after a closed window.
+
+---
+
+## 1. Running a manual loop again
+
+For the manual loop specifically, choose **`loop-architect`** using §0's preflight and
+name the target repo with your goal, for example:
 
 ```
-WS-6673
-the fragments package has no storybook coverage and it should
+WS-6673 in ~/dev/web-storefront-ui.
 ```
 
-Either form works — a ticket key, or a sentence. `/loop <same thing>` still works from any
-agent and does the same job; it is a shim that reads the agent file. Prefer the agent: it
-pins the model and stays in force across phases 0–5, where the prompt governs one message.
+Either a ticket or a plain description works **with a repo**. `/loop <same goal and repo>`
+still works as a one-message shim; prefer selecting the persistent entry agent. The model
+pin is a default, not a lock: you may change the selected model after choosing the agent.
 
 | | `loop-architect` agent | `/loop` prompt |
 | --- | --- | --- |
@@ -27,15 +102,16 @@ pins the model and stays in force across phases 0–5, where the prompt governs 
 | Lifetime | the whole job, including the referee pass | one message |
 | Source of truth | `.github/agents/loop-architect.agent.md` | reads that same file |
 
-The first thing it does is **triage** (§4.1) and then send the assertions table it intends
+After §0 preflight it **triages** (§4.1) and then sends the assertions table it intends
 to write, and any open questions, to `loop-judge` rather than to you directly — only a
 decision `loop-judge` marks `CRITICAL` reaches you (`.github/agents/loop-architect.agent.md`,
 "Escalation"). You are not asked to write a test — see §3.
 
-Five roles. Only two are dispatched models, and the one that decides pass or fail is not:
+Six roles across intake and the loop. The gate that decides pass or fail is not a model:
 
 | Role | Who | Runs | Decides |
 | --- | --- | --- | --- |
+| **Analyst** | `loop-analyst`, dispatcher or architect tier by task | as needed, outside the grind | research, investigation, planning, prose docs or review drafts; hands loopable work to Architect |
 | **Architect** | registry `architect` tier by default, in your session | once | what "done" means — turns your requirements into a failing test |
 | **Judge** | `loop-judge`, registry `oracle` tier, consulted on demand | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
 | **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
@@ -50,11 +126,11 @@ expensive turns.
 Architect and Referee are the same agent — `loop-architect`, phases 0–2 and 4–5.
 `LOOP.html` is all of this explained for someone who has never done it.
 
-The worker's model is pinned in `.github/agents/loop-worker.agent.md` frontmatter and
-dispatched with `code chat -m loop-worker`. Change the model by editing that one line. If the
-agent name ever fails to resolve, `code chat` falls back to the default agent on whatever the
-window last used — the loop still runs, it just quietly costs what this design exists to
-avoid. Check the model picker on your first run.
+The worker's default model comes from `registry/model-tiers.json`, stamped into agent
+frontmatter by `cc models apply`; the driver dispatches `code chat -m loop-worker` and
+checks the agent file exists first (`scripts/loop.sh`). Change the **registry**, not the
+generated agent line. A missing custom mode can silently select the default; check the
+model picker on your first run.
 
 ### 1.1 Driving the driver by hand
 
@@ -439,10 +515,14 @@ the base file except its `name:` and `model:` lines, kept in sync by the same `-
 `scripts/loop.sh` reads `WORKER_AGENT` (default `loop-worker`) to pick which one to dispatch;
 set it to `loop-worker.t2` etc. on a re-arm instead of hand-editing the worker agent file.
 
-`loop-architect` and `loop-judge` are invoked interactively via `runSubagent`'s `model`
-parameter, so escalating them is just picking a higher tier's model for that one call — no
-variant files needed. `loop-judge` is already pinned to `oracle`, the top tier: it cannot
-escalate itself, so a doubted judge verdict goes straight to the user as `CRITICAL`.
+`loop-architect` is a **top-level entry agent**, not normally a `runSubagent` call.
+`cc models apply` also generates `loop-architect.t4.agent.md` for oracle-tier headless
+escalation (rank suffix, not “second variant”); a human may instead reselect the base
+architect and choose a different model in the picker. A top-level architect consults
+`loop-judge`; when itself dispatched as a subagent and unable to nest-dispatch, it writes
+`tmp/<KEY>-consult.md` and returns `CONSULT_NEEDED` for the dispatcher to handle. The
+judge is a leaf already at `oracle`; it cannot escalate itself, so a truly critical
+decision reaches the user. See the built preflights and D11 in the supervisor design.
 
 ---
 

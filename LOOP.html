@@ -111,7 +111,65 @@
   </p>
 </div>
 
-<h2>2. Four roles, and only two of them are models</h2>
+<h2>0. How to use it</h2>
+<div class="card rule">
+  <h3>Six steps, from a new chat</h3>
+  <ol>
+    <li>Open a <strong>new chat session</strong> with <code>+</code> in the Chat view.</li>
+    <li>Pick an <strong>agent</strong> from the table below. The wrong agent stops and names the right one.</li>
+    <li>Pick the recommended <strong>model after the agent</strong>. Any model is allowed; an overpriced selection earns a warning, not a refusal. Agent re-selection reapplies its default. <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares the selected model with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
+    <li>Write the goal <strong>and the repo</strong> (path or name under <code>~/dev/</code>).</li>
+    <li>For an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>bot/tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
+    <li>Hands off while the loop runs. Expect <code>LOOP RUNNING — hands off.</code> and <code>LOOP FINISHED</code> with a ledger verdict, or an analyst's incremental <code>tmp/&lt;KEY&gt;-report.md</code>. The dashboard shows loop progress; do not touch the worker window, its files or driver. A blocked operation names the one action needed.</li>
+  </ol>
+</div>
+
+<h3>Pick the entry agent</h3>
+<table>
+  <thead><tr><th>Task type</th><th>Agent</th><th>Recommended model</th></tr></thead>
+  <tbody>
+    <tr><td>Implementation, reproducible bug (red test first), checkable doc change, feedback on your PR; resumes of these</td><td><code>loop-architect</code></td><td>GPT-6 Sol (architect tier)</td></tr>
+    <tr><td>Plan, someone else's PR review (draft only), investigation without a repro</td><td><code>loop-analyst</code></td><td>GPT-6 Sol (architect tier)</td></tr>
+    <tr><td>Research, questions, prose docs</td><td><code>loop-analyst</code></td><td>Gemini 3.8 Flash (dispatcher tier)</td></tr>
+  </tbody>
+</table>
+<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its variants are driver-only. <code>loop-architect.t4</code> is an escalation variant, not a human entry choice. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
+
+<div class="card warn">
+  <h3>What correction looks like</h3>
+  <p>Choose <code>loop-architect</code>, ask <code>Review PR #50 in grove; repo ~/dev/grove.</code> → <strong>WRONG AGENT: this is code review. Pick loop-analyst with GPT-6 Sol.</strong> The agent offers its analyst handoff, and stops.</p>
+  <p>Choose <code>loop-analyst</code> with Claude Opus 5.5, ask <code>What does cc stalls do? Repo ~/dev/bot.</code> → <strong>You picked Claude Opus 5.5 (oracle); this task needs dispatcher: switch to Gemini 3.8 Flash.</strong> It still answers. The warning describes the selected model, not backend billing.</p>
+</div>
+
+<h3>Eleven prompts to paste</h3>
+<p>These are templates, not assertions that the tickets or PRs exist. “Approve” means only when a real per-call prompt appears. Each row shows agent, model, exact prompt and permission action.</p>
+<table>
+  <thead><tr><th>Task</th><th>Agent · model</th><th>Exact prompt text</th><th>Permission</th></tr></thead>
+  <tbody>
+    <tr><td>Ticket implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673 in ~/dev/web-storefront-ui.</code></td><td>Add repo to workspace or use existing loop window; approve outside-folder git preflight if prompted.</td></tr>
+    <tr><td>Plain-description implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.</code></td><td>Already in workspace; approve only if prompted. No Jira ticket for non-Clover grove.</td></tr>
+    <tr><td>Bug fix</td><td>loop-architect · GPT-6 Sol</td><td><code>Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.</code></td><td>Workspace folder open; approve any preflight prompt. Red repro first.</td></tr>
+    <tr><td>Planning</td><td>loop-analyst · GPT-6 Sol</td><td><code>Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.</code></td><td>Already in workspace; approve preflight if prompted.</td></tr>
+    <tr><td>Others' PR review</td><td>loop-analyst · GPT-6 Sol</td><td><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></td><td>Scratch-clone into bot/tmp/rv2442; approve SSH if prompted. Human posts review.</td></tr>
+    <tr><td>Own PR feedback</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.</code></td><td>Add repo/use loop window; approve outside-folder terminal and SSH prompts as needed.</td></tr>
+    <tr><td>Investigation</td><td>loop-analyst · GPT-6 Sol</td><td><code>Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.</code></td><td>Already in workspace; approve preflight if prompted; hand off once reproducible.</td></tr>
+    <tr><td>Research</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.</code></td><td>Read tools need no folder grant; approve terminal grep only if prompted.</td></tr>
+    <tr><td>Prose docs</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.</code></td><td>Already in workspace; approve preflight and push prompts if shown.</td></tr>
+    <tr><td>Closed-window resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove.</code></td><td>Reopen existing loop window; approve preflight if prompted; recover repo from driver.</td></tr>
+    <tr><td>Escalation / needs_human resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.</code></td><td>Already in workspace; approve preflight if prompted; do not bypass pending approval.</td></tr>
+  </tbody>
+</table>
+
+<div class="card">
+  <h3>Resume after a closed window</h3>
+  <p>Start a new chat with the same entry agent. Type <code>resume &lt;KEY&gt;; repo &lt;path&gt;.</code> Architect inspects <code>tmp/&lt;KEY&gt;*</code>, <code>npm run cc -- loop status</code>, the branch and PR (if remote). A saved driver can supply <code>REPO=</code>. Consult without judgment goes to the judge; committed spec without driver to arm; passed without PR to referee; open PR to feedback. A stale unclosed ledger row is not a pass. Analyst reads its report, then checks actual files. Artifacts outrank notes.</p>
+</div>
+<div class="card warn">
+  <h3>Designed, not built yet — supervisor / dedicated instance</h3>
+  <p>The portable-profile instance manager, pending classifier, reaper, autonomous intake, dashboard board and migrations are only designed. Spike 0b S7–S12 gates the supervisor housekeeping build step. Today's driver still needs an already-open target window; no automatic teardown, unattended approval or auto-resume is promised.</p>
+</div>
+
+<h2>2. The roles: a model never decides pass</h2>
 
 <p>
   The word "judge" hides an important split. Something has to decide <em>what</em> you want —
@@ -122,15 +180,16 @@
 <table>
   <thead><tr><th>Role</th><th>Who</th><th>Runs</th><th>Decides</th></tr></thead>
   <tbody>
+    <tr><td><strong>Analyst</strong></td><td>Gemini 3.8 Flash or GPT-6 Sol by task</td><td>outside the grind</td><td>research, plan, investigation or draft review</td></tr>
     <tr>
       <td><strong>Architect</strong></td>
-      <td><span class="tag t-info">Opus</span></td>
+      <td><span class="tag t-info">GPT-6 Sol</span></td>
       <td>once, up front</td>
       <td>what "done" means — writes it as a failing test</td>
     </tr>
     <tr>
       <td><strong>Worker</strong></td>
-      <td><span class="tag t-info">Luna</span></td>
+      <td><span class="tag t-info">GPT-5.6 Luna</span></td>
       <td>once per iteration</td>
       <td>how to make that test pass</td>
     </tr>
@@ -141,8 +200,11 @@
       <td><strong>whether it passed</strong> — exit code and checksums</td>
     </tr>
     <tr>
+      <td><strong>Judge</strong></td><td>Claude Opus 5.5</td><td>consult or referee</td><td>intent match, not test pass</td>
+    </tr>
+    <tr>
       <td><strong>Referee</strong></td>
-      <td><span class="tag t-info">Opus</span></td>
+      <td><span class="tag t-info">Architect + Judge</span></td>
       <td>once, at the end</td>
       <td>whether the pass is the one you wanted</td>
     </tr>
@@ -152,43 +214,42 @@
 <div class="card">
   <h3>Why this is cheap</h3>
   <p>
-    The Gate sits between the Worker and the Referee, and <strong>Opus never sees a red
+    The Gate sits between the Worker and the Referee, and <strong>the oracle judge never sees a red
     run</strong>. It is not in the polling loop, it does not read failure output, and it is not
-    woken up between iterations. It thinks twice per ticket: once to decide what to build, once
-    to check what came back.
+    woken up between iterations. The architect prepares the red spec; the judge consults and
+    referees only when needed, not on every poll.
   </p>
   <table style="margin-bottom:0">
     <thead><tr><th>Actor</th><th>Invocations per ticket</th><th>Scales with iterations?</th></tr></thead>
     <tbody>
-      <tr><td>Opus</td><td>2 — Architect, Referee</td><td>no</td></tr>
-      <tr><td>Luna</td><td>up to <code>MAX_ITER</code>, typically 1–4</td><td>yes</td></tr>
+      <tr><td>Architect / Judge</td><td>intake and referee, plus consults</td><td>no</td></tr>
+      <tr><td>GPT-5.6 Luna worker</td><td>up to <code>MAX_ITER</code></td><td>yes</td></tr>
       <tr><td>Gate</td><td>up to 72 per iteration</td><td>yes — and free</td></tr>
     </tbody>
   </table>
 </div>
 
 <p>
-  The models are pinned in frontmatter, not chosen at runtime.
-  <code>.github/agents/loop-worker.agent.md</code> declares
-  <code>model: ["GPT-5.6 Luna", "Claude Sonnet 5"]</code>, and the driver dispatches with
-  <code>code chat -m loop-worker</code>. Change the model by editing that one line.
+  Model defaults come from <code>registry/model-tiers.json</code> and are stamped into agent
+  frontmatter by <code>npm run cc -- models apply</code>. The driver dispatches with
+  <code>code chat -m loop-worker</code>; change the registry, not a generated model line.
 </p>
 
 <h2>3. The cycle</h2>
 
 <div class="flow">
-  <div><b>0–2</b><span class="who">Opus, in your chat</span>intake · spec · arm</div>
-  <div><b>3</b><span class="who">Luna + Gate, headless</span>grind until green</div>
-  <div><b>4</b><span class="who">Opus, in your chat</span>referee the diff</div>
-  <div><b>5</b><span class="who">Opus, in your chat</span>PR · close ticket</div>
+  <div><b>0–2</b><span class="who">Architect, in your chat</span>intake · spec · arm</div>
+  <div><b>3</b><span class="who">Worker + Gate, headless</span>grind until green</div>
+  <div><b>4</b><span class="who">Architect + Judge</span>referee the diff</div>
+  <div><b>5–6</b><span class="who">Architect, in your chat</span>PR · feedback · close</div>
 </div>
 
 <table>
   <thead><tr><th>#</th><th>Phase</th><th>What happens</th><th>You do</th></tr></thead>
   <tbody>
     <tr><td>0</td><td>Intake</td>
-        <td>Reads the ticket and <strong>drafts the assertions</strong>, then asks you once about anything Jira left ambiguous</td>
-        <td>confirm or correct</td></tr>
+        <td>Reads ticket or description, drafts assertions and consults the Judge on ambiguities</td>
+        <td>only answer genuinely critical decisions</td></tr>
     <tr><td>1</td><td>Architect</td>
         <td>Writes those assertions as a real test, runs it, confirms it is <span class="tag t-bad">red</span>, commits it</td>
         <td>nothing</td></tr>
@@ -196,14 +257,14 @@
         <td>Copies <code>scripts/loop.sh</code> to <code>tmp/</code> and fills it in</td>
         <td>nothing</td></tr>
     <tr><td>3</td><td>Grind</td>
-        <td>Dispatch Luna → poll → verdict → repeat, until terminal or out of budget</td>
+        <td>Dispatch worker → poll → verdict → repeat, until terminal or out of budget</td>
         <td>run one command, then watch</td></tr>
     <tr><td>4</td><td>Referee</td>
-        <td>Opus reads the diff and accepts, re-arms, or abandons</td>
-        <td>agree or push back</td></tr>
+        <td>Architect and Judge read the diff and accept, re-arm, or abandon</td>
+        <td>spot-check if desired</td></tr>
     <tr><td>5</td><td>Close</td>
-        <td>Commit, PR with the Jira link, resolve the ticket</td>
-        <td>approve the PR</td></tr>
+        <td>Commit and PR where remote; handle phase-6 review until merged, then resolve any ticket</td>
+        <td>approve the PR if needed</td></tr>
   </tbody>
 </table>
 
@@ -226,22 +287,19 @@
     </tbody>
   </table>
   <p style="margin-bottom:0">
-    That translation is the reason phase 0–1 runs on the expensive model. It is also the only
-    place your judgement is really needed: phase 0 shows you the draft assertions
-    <em>before</em> any code is written, with a proposed default next to every open question,
-    so settling it costs you a sentence. Everything after that is mechanical.
+    That translation is why phase 0–1 uses the architect tier. Ambiguities and the referee
+    verdict go to <code>loop-judge</code>; only genuinely critical judgments reach you.
   </p>
 </div>
 
 <h2>4. Running one</h2>
 
 <p>
-  Open Chat in the <code>bot</code> workspace, pick <strong>loop-architect</strong> in the
-  mode picker, and type what you need. A ticket key, or a sentence — both work:
+  Follow §0: choose <strong>loop-architect</strong>, pick your model, and name the repo
+  with the goal. A ticket key or sentence works when the repo is explicit:
 </p>
 
-<pre><code>WS-6673
-the fragments package has no storybook coverage and it should</code></pre>
+<pre><code>WS-6673 in ~/dev/web-storefront-ui.</code></pre>
 
 <p>
   That agent is the entry point. It runs phases 0–2, hands you the grind, and is still there
@@ -252,7 +310,7 @@ the fragments package has no storybook coverage and it should</code></pre>
 <table>
   <thead><tr><th></th><th><code>loop-architect</code> agent</th><th><code>/loop</code> prompt</th></tr></thead>
   <tbody>
-    <tr><td>Model</td><td>pinned by the agent</td><td>whatever the picker happens to say</td></tr>
+    <tr><td>Model</td><td>registry-stamped default; picker override allowed</td><td>whatever the picker says</td></tr>
     <tr><td>Lifetime</td><td>the whole job, referee pass included</td><td>one message</td></tr>
     <tr><td>Where the rules live</td><td><code>.github/agents/loop-architect.agent.md</code></td><td>reads that same file</td></tr>
   </tbody>
@@ -433,8 +491,8 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   <tbody>
     <tr><td>Needs an open window</td>
         <td>Every successful dispatch fired with VS Code already running. Cold start is unverified.</td></tr>
-    <tr><td>The worker's model is unproven at dispatch</td>
-        <td><code>code chat</code> has <strong>no <code>--model</code> flag</strong> — only <code>-m</code>, which takes a mode or custom agent name. So the model is pinned in agent frontmatter. That the name resolves through <code>code chat</code> has <strong>not been proven</strong>; only a real run can show it. See the check above.</td></tr>
+    <tr><td>Only selected model is observable</td>
+      <td><code>code chat</code> has no model override flag; <code>-m</code> names an agent. Frontmatter defaults are stamped from the registry. <code>models self</code> reads the request-selected model, not independent backend-serving or billing evidence. Check the picker and session record on your first run.</td></tr>
     <tr><td>One repo at a time</td>
         <td>The driver opens a window on the target. Two concurrent loops interleave windows.</td></tr>
     <tr><td>Polling costs a full suite run</td>
