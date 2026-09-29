@@ -685,7 +685,7 @@ These hold in every phase. A change that violates one is a bug regardless of wha
 6. `src/core/` imports no vendor package, no connector, and no Node builtin.
 7. The dashboard is a control panel, never a runtime dependency.
 8. Repository facts (endpoints, fields, flags) are verified against the live system or a fixture before code depends on them.
-9. **It never invokes a language model.** There is no headless path to one (§13), and no phase may introduce one. Judgment work is prepared here and initiated by a human in Chat.
+9. **It never invokes a language model.** A headless path exists (§13) but is deliberately not used by `cc`; no phase may introduce one. Headless dispatch belongs to the separate loop supervisor (design: agent-docs/superpowers/specs/2026-09-28-loop-supervisor-design.md), which never treats model output as a decision — only verifier exit codes, CI, and Jira/GitHub state decide.
 10. A `chat:handoff` is never resolved by the executor. It stays `awaiting-human` until the agent reports its own outcome back into `actions`.
 11. **Guards re-read live state, never the mirror.** The mirror can be an hour old and a
     reviewer may have objected in that hour.

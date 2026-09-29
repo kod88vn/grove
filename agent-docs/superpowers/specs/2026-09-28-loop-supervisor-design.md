@@ -4,6 +4,8 @@
 > not read from this repo or not yet run is marked `ASSUMED` and repeated in §8 (Spike 0).
 > Author instructed to ground every claim per `grounding.instructions.md`; this document follows
 > that rule throughout.
+>
+> Open questions resolved 2026-09-28 by judgment (§11); items reserved for the user in §12.
 
 ## 1. Problem & evidence
 
@@ -91,9 +93,11 @@ performing a real merge."* An unproven, destructive, hard-to-reverse capability 
 - `merged` (e.g. grove — external auto-merge on approval per
   [grove/AGENTS.md](../../../../grove/AGENTS.md) Push Safety Policy: *"CI must pass... Merge
   the PR — only then is `master` updated"*): supervisor waits for the external merge event,
-  then resolves the ticket. "Awaiting approval" is a normal long-timeout state, not a stall,
-  surfaced informationally after N hours (N configurable, not decided here — Spike/open
-  question, not invented).
+  then resolves the ticket. "Awaiting approval" is a normal long-timeout state, not a stall:
+  shown on the board immediately; one macOS notification after 24h in `awaiting_approval`
+  (held in quiet hours); then one line per day in the morning digest; never becomes
+  `needs_human` on its own. Per-repo `closeOn`: grove = `merged`. No other repo is enrolled
+  (see §12).
 - `ready`: CI green + `mergeable` → the supervisor's job for that item is done; the actual
   merge is a human action outside the supervisor's board. Note `STACK.md`, "Known Divergences":
   *"`mergeable` ... Returns `UNKNOWN` on first query because GitHub computes it lazily;
@@ -103,35 +107,35 @@ performing a real merge."* An unproven, destructive, hard-to-reverse capability 
 CI red → worker fixes directly, no architect turn (the failing CI job already *is* the check,
 so no new spec is needed — same "verifier already exists and is red" shape `LOOP.md` §4.1
 requires before looping at all). Review comment → architect turns it into a red test, then
-worker loops on it exactly like a fresh `scripts/loop.sh` run; if the comment is not
-testable (style, wording), it goes straight to `needs_human` with the comment quoted verbatim.
-Max 3 bounce-backs per PR, then `needs_human` regardless of what the 4th comment says — this
-mirrors the finite-budget principle already in the design (`LOOP.md` §2, "Budget": *"a model
-looping confidently looks exactly like a model making progress"*). PR closed unmerged →
+worker loops on it exactly like a fresh `scripts/loop.sh` run; an untestable review comment
+(style, wording) no longer goes straight to `needs_human` — it goes to `loop-judge` (D11),
+which decides reply-with-evidence, folding a trivial fix into the next re-arm, or
+`needs_human` only if that decision is itself `CRITICAL`. A "testable" classification is
+verified mechanically, not taken on the architect's word: the architect must produce a spec
+that is red at iteration 0 — `cc loop start` refuses a verifier that already exits 0
+(`LOOP.md` §3: *"the driver aborts if it passes"*). If it cannot produce a red spec within one
+architect turn, the item is reclassified untestable and goes to `loop-judge`. Max 3
+bounce-backs per PR, then `needs_human` regardless of what the 4th comment says — this mirrors
+the finite-budget principle already in the design (`LOOP.md` §2, "Budget": *"a model looping
+confidently looks exactly like a model making progress"*). PR closed unmerged →
 `needs_human` unconditionally.
 
 **D3 — Placement: top-level `supervisor/`, separate from `src/`.**
-Run via `npm run supervise`. It is the only code allowed to call `code chat`. Proposed
-architecture-guard rule (wording, not applied — the guard config itself is Copilot-ignored per
-`AGENTS.md`, "Platform-Managed Files": *"`ai-guard.config.json` is Copilot-ignored. Modify it
-from a terminal, not the edit tool."*):
+Run via `npm run supervise`. It is the only code allowed to call `code chat`. Architecture-
+guard rule, decided (§11) and applied to `ai-guard.config.json` from a terminal in build step
+2 (§10) once `supervisor/` first exists (`AGENTS.md`, "Platform-Managed Files": *"`ai-guard.
+config.json` is Copilot-ignored. Modify it from a terminal, not the edit tool."*):
 
 ```
-src/** must not import supervisor/**
+{src,dashboard,bin}/** must not import supervisor/**
 ```
 
-**Flagged gap in that rule as stated** (§9, Risks): `dashboard/` is *not* under `src/` — it is
-its own top-level directory, grouped only conceptually into "Layer 5" alongside `src/mcp/` and
+**Widened to include `dashboard/` and `bin/`**: `dashboard/` is not under `src/` — it is its
+own top-level directory, grouped only conceptually into "Layer 5" alongside `src/mcp/` and
 `bin/` (`AGENTS.md`, Layout table: *"5 | `bin/`, `dashboard/`, `src/config/`, `src/mcp/` |
-Entry points."*). A literal `src/** must not import supervisor/**` does not stop
-`dashboard/pages/supervisor.ts` from importing `supervisor/**` directly. §6 below routes around
-this by having the supervisor write through `cc`'s own store (same pattern `scripts/loop.sh`
-already uses via `cc loop start/record/finish`, `AGENTS.md` "Running it" table) and having
-`dashboard/` read only `src/store/` repositories — never `supervisor/**` — but the guard
-wording needs to say so explicitly (`{src,dashboard,bin}/** must not import supervisor/**`) or
-the boundary is a convention, not a property of the code, contradicting the standard this repo
-already holds itself to (`DESIGN.md` §19 invariant 12: *"An agent reading this system cannot
-change it, as a property of the code rather than a promise in a document."*).
+Entry points."*) — so a `src/**`-only rule would not stop `dashboard/pages/supervisor.ts` from
+importing `supervisor/**` directly, and §6 already commits `dashboard/` to reading only
+`src/store/` repositories, never `supervisor/**`.
 
 `cc` keeps its own invariant 9 (`DESIGN.md` §19: *"It never invokes a language model... no
 phase may introduce one"*) — the supervisor is not a phase of `cc`, it is a separate program
@@ -195,6 +199,14 @@ nudge same session with "continue" → fresh session with a resume briefing → 
 the loop instance (D4) → `needs_human` with evidence attached (the session file path and the
 last N lines of verifier output).
 
+**N = 10 minutes, decided (§11).** Rationale: `scripts/loop.sh`'s own per-turn budget is
+`POLL_LIMIT=72` × 5s = 6 minutes per iteration (`scripts/loop.sh` line 30), so the driver's own
+budget fires first on a merely slow turn — the supervisor only needs to catch what the driver
+cannot: a dead driver, an unanswered prompt, or a dropped response. There is also a hard
+ceiling independent of the three signals: an item in `working` longer than
+`MAX_ITER` × `POLL_LIMIT` × 5s + 10 min (= 34 min with the defaults, `MAX_ITER=4` at
+`scripts/loop.sh` line 29) with no driver verdict at all is stalled regardless.
+
 **D7 — Housekeeping every tick.**
 Finish/abandon `loop_runs` rows whose driver is dead (`outcome IS NULL`, per §1 evidence) —
 note this reuses `loop_runs`/`loop_iterations` (`0007-loop-runs.sql`) rather than duplicating
@@ -212,16 +224,38 @@ Global `supervise halt`. Full table in §6.
 `npm run supervise -- add <key> --repo=<r> --brief="…"`, dashboard form. (b) plan files —
 unchecked boxes in a configured file (e.g. `grove/HOMEWORK_PROGRESS.md`, confirmed to exist:
 [grove/HOMEWORK_PROGRESS.md](../../../../grove/HOMEWORK_PROGRESS.md)), queued in file order.
-(c) Jira tickets assigned to the user carrying a `loop` label (label existence/name is
-`ASSUMED` — not verified against a live Jira query this session). Dedupe by key across all
-three sources.
+(c) Jira tickets assigned to the user carrying a `loop` label — label is `loop`, decided
+(§11); Jira labels are created on first use, so no admin step is needed. Dedupe by key across
+all three sources.
 
 **D10 — No approval gates.**
 Spec approval off everywhere; contrasts deliberately with the manual loop's human checkpoint
 at green (`LOOP.md` §6: *"the diff gets read once, by a person, before it leaves the
 machine"*) — see §9 for why removing that checkpoint is a named risk, not a free change.
 "Reopen with correction" creates a follow-up item carrying the user's note, rather than
-mutating the closed one.
+mutating the closed one. **Accepted as decided (§11).** Mitigation: the phase-4 referee is
+mandatory in the supervisor and runs on `loop-judge` (Opus) — it is reject-only, so its
+`accept` is necessary but never sufficient; the verifier's exit code and CI still decide.
+
+**D11 — Model routing & escalation.**
+Default driver/architect = Claude Sonnet 5; worker = `loop-worker` (GPT-5.6 Luna); judgment =
+`loop-judge` (Claude Opus 5.5). Any question that would otherwise go to the user goes to
+`loop-judge` first; only a `CRITICAL` verdict creates `needs_human`. `CRITICAL` means the
+decision: (1) enrolls a repo not already enrolled for loops, or pushes to / comments on /
+changes someone else's PR, branch, or ticket; (2) involves credentials, money, production, or
+deleting data; (3) changes a recorded design decision (D1–D11 here), an `AGENTS.md` invariant,
+the denylist (`src/core/policy/denylist.ts`), or `ai-guard.config.json`; (4) is irreversible
+outside this machine beyond the normal loop flow. Every judgment is appended to
+`tmp/<KEY>-decisions.md` and recorded as a `supervisor_events` row (§5) so the user can
+spot-check it after the fact. Nested subagent dispatch — an already-dispatched
+`loop-architect` subagent itself dispatching `loop-judge` — is `UNKNOWN`; hence the
+`CONSULT_NEEDED` return path in `.github/agents/loop-architect.agent.md`, "Escalation". Added
+as Spike 0 item vi (§8); falsifying command: from a subagent-dispatched `loop-architect`,
+attempt to dispatch `loop-judge` and check the session's resolved model for a
+`claude-opus-5-5` turn. Pricing rationale (AIC per 1M tokens input/output, Copilot models
+catalogue — figures as supplied, not independently verified against a file in this repo,
+so `ASSUMED` per this document's own convention): Opus 5 500/2500, Opus 5.5 400/2000,
+Sonnet 5 200/1000, GPT-5.6 Luna 20/120.
 
 ## 4. Architecture
 
@@ -248,6 +282,8 @@ stateDiagram-v2
     queued --> spec_red: architect triages + writes locked spec (LOOP.md §3/§4.1)
     spec_red --> needs_human: fails triage (LOOP.md §4.1) — not loopable
     spec_red --> working: spec locked, verifier confirmed red (iteration 0)
+    spec_red --> judge: vague requirement or open question (D11)
+    judge --> spec_red: decision recorded
     working --> green: verifier exit 0, tests grown, digests intact
     working --> stalled: no verifier/diff/session progress in N min (D6)
     stalled --> working: nudge or fresh session succeeds (rungs 1-2)
@@ -256,7 +292,10 @@ stateDiagram-v2
     green --> pr_open: commit, push, PR opened
     pr_open --> working: CI red (D2) — worker fixes directly, no new spec
     pr_open --> spec_red: testable review comment (D2) — architect writes a new red test
-    pr_open --> needs_human: untestable review comment, or bounce count = 3 (D2)
+    pr_open --> judge: untestable review comment (D2, D11)
+    judge --> working: judge folds trivial fix into next re-arm
+    judge --> needs_human: judge verdict CRITICAL (D11)
+    pr_open --> needs_human: bounce count = 3 (D2)
     pr_open --> needs_human: PR closed unmerged (D2)
     pr_open --> awaiting_approval: closeOn=merged, CI green + approved (D1)
     pr_open --> done: closeOn=ready, CI green + mergeable (D1)
@@ -325,7 +364,7 @@ single item may accumulate several `loop_run_id`s (fresh session, D6 rung 2) or 
 | Create | CLI `npm run supervise -- add <key> --repo=<r> --brief="…"` | D9a |
 | Create | Dashboard form | D9a |
 | Create | Plan-file unchecked boxes | Auto-discovered, queued in file order (D9b) |
-| Create | Jira `loop`-labelled tickets assigned to the user | Auto-discovered (D9c, label name `ASSUMED`) |
+| Create | Jira `loop`-labelled tickets assigned to the user | Auto-discovered (D9c, label is `loop`, decided) |
 | Start | Automatic | One queued item starts per repo at a time, by priority (D8) |
 | Control | `supervise pause\|resume\|cancel\|retry\|bump <key>` + matching dashboard buttons | Sets `desired` only; `tick()` reconciles (D8) |
 | Unblock | Dashboard "Needs you" inbox, evidence attached | Answer (note appended to next briefing, `desired=run`) or Drop (D6, D8, §5 `supervisor_events`) |
@@ -358,6 +397,11 @@ apply or reject:
    wording in place invites a future reader to re-derive "no headless path exists" and build on
    that false premise a second time.
 
+**Status (§11): proposal 3 is APPLIED** — `DESIGN.md` §19 invariant 9 was updated in this
+commit to the wording above. **Proposals 1 and 2 are decided** but intentionally not applied
+yet: they will be added to `AGENTS.md` in the build step that first creates `supervisor/`
+(§10, build order), so `AGENTS.md` never describes code that does not exist.
+
 ## 8. Spike 0 — must be proven before build
 
 Each item states the command that would disprove it. None of these have been run this session;
@@ -370,12 +414,16 @@ all are `ASSUMED` until they are.
 | iii | A pending-confirmation state is detectable in the chat session file | Trigger a real confirmation prompt in a probe session; diff the `.jsonl` before/after with the prompt still unanswered; identify the exact field distinguishing this from a normal in-progress turn |
 | iv | Killing the instance's process tree is clean and does not affect the main instance | Record the main instance's PID and window list before/after `kill`-ing the loop instance's Electron tree; confirm the main window's process survives and no confirmation dialog appears anywhere (contrast with `LOOP.md` §1.4.1's documented failure: *"`kill -TERM` on the renderer raises a confirmation box on a real loop window"*) |
 | v | The PATH shim reaches the chat terminal | From a dispatched chat session inside the loop instance, run `which git` and confirm it resolves to the shim path, not the system `git`; then attempt a denylisted command (e.g. `gh pr merge`) through that terminal and confirm it is refused and a `needs_human` event is written |
+| vi | Nested subagent dispatch works: a `loop-architect` running as a dispatched subagent can itself dispatch `loop-judge` (D11) | From a subagent-dispatched `loop-architect`, attempt to dispatch `loop-judge` and check the session's resolved model for a `claude-opus-5-5` turn |
 
 Additional facts this section relies on that are themselves `ASSUMED` (repeated per
-instructions): the 86/83/2/1 `loop_runs` figures (§1); the exact `loop`-label name in Jira
-(D9c); the per-repo `close_on` timeout N in hours (D1); the resident-process `launchd`
+instructions): the 86/83/2/1 `loop_runs` figures (§1); the resident-process `launchd`
 `KeepAlive` behavior under this machine's actual `launchd` version (D5) — `DESIGN.md` §13's
 verified probe was one-shot, not `KeepAlive`.
+
+Spike 0 is approved to run (§11); it needs one human action first — a one-time Copilot
+sign-in inside the dedicated instance (D4, §12). Item v must target a non-existent PR number
+so a shim failure cannot merge anything for real.
 
 ## 9. Risks
 
@@ -383,10 +431,10 @@ verified probe was one-shot, not `KeepAlive`.
 |---|---|
 | Sandbox escalation is silent and per-command, not a boundary | Already true today per `DESIGN.md` §13/§16; D4 makes the whole system depend on the PATH shim + audit catching everything, with the denylist as the only hardcoded brake — a single unshimmed path to `git`/`gh` defeats it |
 | Removing the human diff-review checkpoint at green | `LOOP.md` §6 calls this out as deliberate: *"those are the steps where a mistake is expensive and hard to reverse, and they are the steps a human is best placed to sanity-check."* D10 removes it in favor of after-the-fact spot-checks; consistent with the user's stated tradeoff ("cheaper to fix later than to sit and wait") but should be named as a conscious reversal, not a silent one |
-| Guard wording gap (`src/**` vs `dashboard/**`) | §3/§7 — as decided, the rule does not cover the one path (`dashboard/`) most likely to want to read supervisor state for the board |
+| Guard wording gap (`src/**` vs `dashboard/**`) | Resolved by D3 widening (§11) — the rule now covers `dashboard/` and `bin/` |
 | `launchd` `KeepAlive` semantics unverified in this environment | §5/§8 — only one-shot firing and `StartCalendarInterval` catch-up semantics have been read/verified (`DESIGN.md` §12, `STACK.md`); a resident daemon is a different `launchd` feature |
-| Autonomous commit/push without the LOOP.md checkpoint could push something a bounce-back can't detect (e.g. tracked build output going stale) | `LOOP.md` §6 names this exact failure class: *"Regenerate tracked build output... or the PR is inconsistent with its own source."* A CI-red bounce may not catch a build artifact drift if CI doesn't rebuild it |
-| Bounce-back triage (D2, "testable" vs "not") is itself a model judgment | Consistent with D3's rule (model output is never *the* decision) only if the architect's classification is always checked by a subsequent verifier run, never taken on its own word |
+| Autonomous commit/push without the LOOP.md checkpoint could push something a bounce-back can't detect (e.g. tracked build output going stale) | `LOOP.md` §6 names this exact failure class: *"Regenerate tracked build output... or the PR is inconsistent with its own source."* A CI-red bounce may not catch a build artifact drift if CI doesn't rebuild it. Mitigated by the mandatory Opus referee (D10, D11), whose phase-4 review reads the shipped artifact, not just CI. |
+| Bounce-back triage (D2, "testable" vs "not") is itself a model judgment | Verified mechanically by red-at-iteration-0 (D2): the architect's classification is checked by whether it can produce a spec that fails at iteration 0, not taken on its own word |
 | `closeOn=ready` "done" does not mean merged | Must be worded carefully everywhere in UI/notifications so it is never read as "shipped" — conflating the two was exactly the failure `AGENTS.md` "Finish the loop" section already worries about: *"a PR merges, everyone moves on, and the ticket stays Open"* |
 
 ## 10. Build order
@@ -402,6 +450,36 @@ verified probe was one-shot, not `KeepAlive`.
 5. D6 stall ladder — only once step 4 has produced a real stalled run to test against.
 6. D2 PR bounce-backs + D1 `closeOn` handling.
 7. D8 dashboard board + human interface; D9b/D9c additional intake sources; notifications.
+
+## 11. Decisions taken by judgment (2026-09-28)
+
+| Question | Decision | Why |
+|---|---|---|
+| D3 guard wording gap | Widen to `{src,dashboard,bin}/** must not import supervisor/**` | `dashboard/` is the path most likely to read supervisor state for the board; leaving it out makes the boundary a convention, not a property of the code (`DESIGN.md` §19 invariant 12) |
+| §7 AGENTS.md proposals | Proposal 3 applied now (`DESIGN.md`); proposals 1–2 decided, applied when `supervisor/` first exists | `AGENTS.md` should never describe code that does not exist yet |
+| D6 stall window N | 10 minutes, plus a hard ceiling of `MAX_ITER × POLL_LIMIT × 5s + 10min` | The driver's own budget (`scripts/loop.sh` line 30, 6 min/iteration) fires first on a merely slow turn; the supervisor only needs to catch what the driver cannot |
+| D1 awaiting-approval notice timing | Board immediately; one notification at 24h; daily digest line after that | Never a stall, but silence for days reads as one without some signal |
+| D9c Jira label name | `loop` | Labels are created on first use in this Jira instance; no admin step required |
+| D1 per-repo `closeOn` | grove = `merged`. No other repo enrolled | Only grove has an external auto-merge policy documented (`grove/AGENTS.md`); enrolling a shared repo is reserved for the user (§12) |
+| D10 approval-gate removal | Accepted, with a mandatory mitigation | The phase-4 Opus referee (D11) is reject-only and mandatory in the supervisor, so *some* judgment gate survives even with human pre-approval off |
+| D2 bounce-back triage verification | Verified mechanically, not by model say-so | "Testable" means the architect can produce a spec that is red at iteration 0 (`cc loop start` refuses an already-green verifier); failure to do so within one turn reclassifies the item as untestable |
+| Spike 0 go-ahead | Approved to run | All five original items plus new item vi are falsifiable by a command; none require a design change to attempt |
+| Model routing | Sonnet 5 default for architect/driver; Opus 5.5 (`loop-judge`) for judgment and referee only; GPT-5.6 Luna for the worker | Matches the cost structure already established for `loop-worker`/`loop-architect` in this repo; judgment calls are rare relative to grinding turns, so paying for Opus only there is the same tradeoff the existing loop already makes |
+
+## 12. Reserved for the user
+
+Everything above is decided by judgment and does not wait on the user. Two things are not:
+
+(a) **Enrolling any repo besides `grove`** — especially Clover corp repos
+(`web-storefront-*`) — because D4 (approve-all, sandbox off) combined with D10 (no human diff
+review before a PR opens) would push autonomously to a shared repository that other people
+review, which is a different risk class than a solo local repo or a repo the user already
+treats as their own sandbox.
+
+(b) **The one-time Copilot sign-in inside the dedicated Spike 0 / loop instance** (D4) — a
+credential action that has to happen at a keyboard, not from a judgment call.
+
+Nothing else in this document is reserved.
 
 ## Committing
 
