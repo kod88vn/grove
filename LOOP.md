@@ -116,12 +116,13 @@ resumes at referee; an open PR resumes at feedback. An unclosed row with a dead 
 is **not** a pass: record the stale row and start a new run. An analyst resumes from its
 incremental report but rechecks actual files. Artifacts outrank chat recollection.
 
-> **Designed, not built yet — supervisor / dedicated instance.** `supervisor/`, the
-> portable-profile instance manager, pending/error classifier, crash reaper, autonomous
-> intake, model substitution, dashboard board and migrations are design only. Spikes
-> S13–S18 gate the new approval, isolation and error behavior. Today's driver still needs an already-open
-> target window (§1.2); do not assume automatic teardown, unattended approvals or
-> auto-resume after a closed window.
+> **Supervisor & Teardown.** `supervisor/`, the
+> portable-profile instance manager, teardown manager, pending/error classifier, crash reaper,
+> autonomous intake CLI (`npm run supervise`), model substitution, dashboard board and migrations
+> are implemented. Mandatory teardown (D7 / §5) inventories all temporary by-products (child PIDs,
+> watcher PIDs, portable and user-data directories, scratch worktrees, logs and probe files)
+> and proves their removal upon item exit, cancellation, or supervisor halt without touching
+> deliverables or user-owned workspace files. Today's driver can also run directly or through the supervisor.
 
 ---
 

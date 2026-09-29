@@ -175,9 +175,20 @@
   <h3>Resume after a closed window</h3>
   <p>Start a new chat with the same entry agent. Type <code>resume &lt;KEY&gt;; repo &lt;path&gt;.</code> Architect inspects <code>tmp/&lt;KEY&gt;*</code>, <code>npm run cc -- loop status</code>, the branch and PR (if remote). A saved driver can supply <code>REPO=</code>. Consult without judgment goes to the judge; committed spec without driver to arm; passed without PR to referee; open PR to feedback. A stale unclosed ledger row is not a pass. Analyst reads its report, then checks actual files. Artifacts outrank notes.</p>
 </div>
-<div class="card warn">
-  <h3>Designed, not built yet — supervisor / dedicated instance</h3>
-  <p>The portable-profile instance manager, pending/error classifier, model substitution, reaper, autonomous intake, dashboard board and migrations are only designed. S13–S18 gate revised approval, isolation and error behavior. Today's driver still needs an already-open target window; no automatic teardown, unattended approval or auto-resume is promised.</p>
+<div class="card rule">
+  <h3>Supervisor & Mandatory Teardown (`npm run supervise`)</h3>
+  <p>The loop supervisor orchestrates items across repos and guarantees <strong>zero leftover debris</strong>. Every child VS Code instance, watcher PID, portable/user-data profile directory, temporary spec, probe, or scratch directory is tracked in an owned-resource ledger (<code>supervisor_resources</code>) at creation and verified removed at item completion, cancellation, or supervisor shutdown. Deliverables, committed branches, and durable audit rows are preserved; temporary artifacts are cleanly purged.</p>
+  <pre style="background:var(--bg);padding:0.75em;border-radius:6px;overflow-x:auto;"><code># Add an item to the supervisor queue
+npm run supervise -- add WS-6673 --repo=web-storefront-ui --brief="Cart drawer total fix"
+
+# Reconcile desired state and run mandatory teardown on completed/cancelled items
+npm run supervise -- tick
+
+# Inspect status of queued, active, and torn-down items
+npm run supervise -- status
+
+# Cleanly cancel and teardown all temporary resources for an item
+npm run supervise -- cancel WS-6673</code></pre>
 </div>
 
 <h2>2. The roles: a model never decides pass</h2>
@@ -304,11 +315,46 @@
   </p>
 </div>
 
-<h2>4. Running one</h2>
+<h2>4. Running one across different task types</h2>
 
 <p>
-  Follow §0: choose <strong>loop-architect</strong>, pick your model, and name the repo
-  with the goal. A ticket key or sentence works when the repo is explicit:
+  Loop engineering adapts to every task category. Here are concrete examples of how to run and supervise each:
+</p>
+
+<div class="card">
+  <h3>Task 1: Code Review (Draft only, no posting)</h3>
+  <p><strong>Agent:</strong> <code>loop-analyst</code> &middot; <strong>Model:</strong> <code>GPT-6 Sol</code></p>
+  <p><strong>Prompt:</strong></p>
+  <pre><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></pre>
+  <p><strong>Lifecycle:</strong> Analyst clones or opens the scratch branch in a designated scratch folder, validates claims by running commands against the code, drafts verification-backed feedback in <code>tmp/rv2442-review.md</code>, and exits without posting. Supervisor removes temporary clones and working logs upon completion.</p>
+</div>
+
+<div class="card">
+  <h3>Task 2: Bug Hunting & Reproduction</h3>
+  <p><strong>Agent:</strong> <code>loop-architect</code> &middot; <strong>Model:</strong> <code>GPT-6 Sol</code></p>
+  <p><strong>Prompt:</strong></p>
+  <pre><code>Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test first, then fix.</code></pre>
+  <p><strong>Lifecycle:</strong> Architect inspects the codebase, writes a unit test reproducing the draw condition, verifies the test fails (negative control, red at iteration 0), arms the driver in <code>tmp/GROVE-BUG-loop.sh</code>, and lets the cheap worker grind until green. Teardown clears intermediate driver logs.</p>
+</div>
+
+<div class="card">
+  <h3>Task 3: Planning & Triage</h3>
+  <p><strong>Agent:</strong> <code>loop-analyst</code> &middot; <strong>Model:</strong> <code>GPT-6 Sol</code></p>
+  <p><strong>Prompt:</strong></p>
+  <pre><code>Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.</code></pre>
+  <p><strong>Lifecycle:</strong> Analyst analyzes dependencies, breaks the roadmap into self-contained testable steps, writes the plan with clear red/green criteria for each item, and registers the items for supervision.</p>
+</div>
+
+<div class="card">
+  <h3>Task 4: Feature Implementation</h3>
+  <p><strong>Agent:</strong> <code>loop-architect</code> &middot; <strong>Model:</strong> <code>GPT-6 Sol</code></p>
+  <p><strong>Prompt:</strong></p>
+  <pre><code>WS-6673 in ~/dev/web-storefront-ui: Implement sticky cart drawer summary with subtotal calculation.</code></pre>
+  <p><strong>Lifecycle:</strong> Architect drafts the spec, confirms red, driver loops worker until passing, judge referees the diff, commits on feature branch, opens PR, and handles review comments up to 3 bounce-backs before resolving the ticket.</p>
+</div>
+
+<p>
+  Follow §0: choose <strong>loop-architect</strong> (or <strong>loop-analyst</strong> for review/planning), pick your model, and name the repo with the goal:
 </p>
 
 <pre><code>WS-6673 in ~/dev/web-storefront-ui.</code></pre>
