@@ -493,6 +493,8 @@ function ClockWidget({ instance, value, onChange, disabled }) {
     onChange(next)
   }
 
+  const stepperClassName = 'min-h-[56px] min-w-[56px] rounded bg-slate-100 px-4 py-2 text-xl font-semibold'
+
   return (
     <div className="flex flex-col gap-4" data-clock role="group" aria-live="polite" data-clock-time={time} aria-label={`Clock, hands showing ${time}`}>
       <div className="text-slate-700">{instance.prompt}</div>
@@ -534,37 +536,45 @@ function ClockWidget({ instance, value, onChange, disabled }) {
             return <text key={number} x={x} y={y}> {number} </text>
           })}
         </g>
-        <line
+        <g
           data-clock-hand="hour"
           aria-hidden="true"
-          x1="100"
-          y1="100"
-          x2="100"
-          y2="48"
-          stroke="currentColor"
-          strokeWidth="6"
-          strokeLinecap="round"
           transform={`rotate(${(hour % 12) * 30 + minute * 0.5} 100 100)`}
-        />
-        <line
+        >
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="48"
+            stroke="currentColor"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+          <circle data-clock-hit="hour" aria-hidden="true" cx="100" cy="68" r="23" fill="transparent" pointerEvents="all" />
+        </g>
+        <g
           data-clock-hand="minute"
           aria-hidden="true"
-          x1="100"
-          y1="100"
-          x2="100"
-          y2="28"
-          stroke="currentColor"
-          strokeWidth="4"
-          strokeLinecap="round"
           transform={`rotate(${minute * 6} 100 100)`}
-        />
+        >
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="28"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <circle data-clock-hit="minute" aria-hidden="true" cx="100" cy="38" r="23" fill="transparent" pointerEvents="all" />
+        </g>
         <circle cx="100" cy="100" r="5" fill="currentColor" />
       </svg>
       <div className="flex flex-wrap gap-2">
-        <button type="button" data-clock-step="hour-back" aria-label={`Move the hour hand back, from ${time}`} disabled={disabled} onClick={() => stepHour(-1)}>Hour back</button>
-        <button type="button" data-clock-step="hour-forward" aria-label={`Move the hour hand forward, from ${time}`} disabled={disabled} onClick={() => stepHour(1)}>Hour on</button>
-        <button type="button" data-clock-step="minute-back" aria-label={`Move the minute hand back, from ${time}`} disabled={disabled} onClick={() => stepMinute(-5)}>Minute back</button>
-        <button type="button" data-clock-step="minute-forward" aria-label={`Move the minute hand forward, from ${time}`} disabled={disabled} onClick={() => stepMinute(5)}>Minute on</button>
+        <button className={stepperClassName} type="button" data-clock-step="hour-back" aria-label={`Move the hour hand back, from ${time}`} disabled={disabled} onClick={() => stepHour(-1)}>Hour back</button>
+        <button className={stepperClassName} type="button" data-clock-step="hour-forward" aria-label={`Move the hour hand forward, from ${time}`} disabled={disabled} onClick={() => stepHour(1)}>Hour on</button>
+        <button className={stepperClassName} type="button" data-clock-step="minute-back" aria-label={`Move the minute hand back, from ${time}`} disabled={disabled} onClick={() => stepMinute(-5)}>Minute back</button>
+        <button className={stepperClassName} type="button" data-clock-step="minute-forward" aria-label={`Move the minute hand forward, from ${time}`} disabled={disabled} onClick={() => stepMinute(5)}>Minute on</button>
       </div>
     </div>
   )

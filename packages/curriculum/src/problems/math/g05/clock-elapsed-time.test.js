@@ -71,7 +71,9 @@ import { templates } from './clock-elapsed-time.js'
 const ID = 'm5.md.time-money/clock-elapsed-time'
 const SKILL = 'm5.md.time-money'
 const SEEDS = [1, 2, 7, 42, 12_345, 999_999]
-const SWEEP = Array.from({ length: 400 }, (unused, index) => index + 1)
+// 500, not a round-ish 400: HOMEWORK_PLAN.md:645 makes "passes over 500 seeds" part of the
+// definition of done for a skill, and a sweep one short of it is a sweep that does not count.
+const SWEEP = Array.from({ length: 500 }, (unused, index) => index + 1)
 
 const STEP = 5
 const MIN_DURATION = 65
