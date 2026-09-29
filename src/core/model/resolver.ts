@@ -47,7 +47,9 @@ function candidatesFor(
   catalogue: readonly CatalogueModel[],
   registered: ReadonlySet<string>,
 ): CatalogueModel[] {
-  return catalogue.filter((m) => !registered.has(m.name) && fitsBand(tier, m));
+  return catalogue
+    .filter((m) => !registered.has(m.name) && fitsBand(tier, m))
+    .sort((a, b) => a.outputPrice - b.outputPrice);
 }
 
 function reportFor(

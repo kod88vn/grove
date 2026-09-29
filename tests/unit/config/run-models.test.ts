@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach, beforeEach } from 'vitest';
+import { describe, expect, it, afterEach, beforeEach, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -219,6 +219,27 @@ describe('modelsPick', () => {
     expect(lines[0]).toBe('DECIDE: dispatcher');
     expect(lines.some((l) => l.includes('Gemini 3.6 Flash'))).toBe(true);
   });
+
+  it('prints a friendly error and exits 1 for an unknown role, instead of throwing', () => {
+    const lines: string[] = [];
+    const stderrChunks: string[] = [];
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      stderrChunks.push(String(chunk));
+      return true;
+    });
+    let exitCode: number;
+    try {
+      exitCode = modelsPick({ repoRoot, catalogPath: CATALOG }, 'nobody', 0, (line) => lines.push(line));
+    } finally {
+      spy.mockRestore();
+    }
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([]);
+    const stderr = stderrChunks.join('');
+    expect(stderr).toContain('unknown role: nobody');
+    expect(stderr).toContain('loop-worker');
+    expect(stderr).toContain('worker');
+  });
 });
 
 describe('modelsReport', () => {
@@ -243,5 +264,24 @@ describe('modelsReport', () => {
     expect(text).toContain('oracle');
     expect(text).toContain('loop-worker');
     expect(text.toLowerCase()).toContain('drift');
+  });
+
+  it('prints each candidate on its own line with its in/out price, sorted cheapest first', () => {
+    const lines: string[] = [];
+    modelsReport({ repoRoot, catalogPath: CATALOG }, (line) => lines.push(line));
+    const dispatcherHeader = lines.indexOf('## dispatcher');
+    expect(dispatcherHeader).toBeGreaterThan(-1);
+    const candidatesHeader = lines.indexOf('  candidates:', dispatcherHeader);
+    expect(candidatesHeader).toBeGreaterThan(-1);
+    const candidateLines: string[] = [];
+    for (let i = candidatesHeader + 1; i < lines.length && lines[i]!.startsWith('    '); i++) {
+      candidateLines.push(lines[i]!);
+    }
+    expect(candidateLines.length).toBeGreaterThan(0);
+    for (const line of candidateLines) {
+      expect(line).toMatch(/^ {4}\S.* \(in=\d+(\.\d+)?, out=\d+(\.\d+)?\)$/);
+    }
+    const prices = candidateLines.map((l) => Number(l.match(/out=(\d+(\.\d+)?)/)![1]));
+    expect(prices).toEqual([...prices].sort((a, b) => a - b));
   });
 });

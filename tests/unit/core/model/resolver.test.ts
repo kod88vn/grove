@@ -66,6 +66,15 @@ describe('resolveTiers', () => {
     const dispatcher = resolveTiers(registry(), catalogue)[1]!;
     expect(dispatcher.candidates).toEqual([{ name: 'Gemini 3.6 Flash', inputPrice: 75, outputPrice: 375 }]);
   });
+
+  it('sorts candidates by output price ascending', () => {
+    const withTwoCandidates = [
+      ...catalogue,
+      { name: 'Gemini 3.5 Flash', inputPrice: 60, outputPrice: 300 },
+    ];
+    const dispatcher = resolveTiers(registry(), withTwoCandidates)[1]!;
+    expect(dispatcher.candidates.map((c) => c.name)).toEqual(['Gemini 3.5 Flash', 'Gemini 3.6 Flash']);
+  });
 });
 
 describe('resolveRole', () => {

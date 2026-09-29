@@ -5,7 +5,7 @@ import { loadRegistry } from '../connectors/model-registry-file.ts';
 import { agentDriftStatus } from '../core/model/drift.ts';
 import { escalationVariants, type EscalationVariant } from '../core/model/escalation.ts';
 import { parseModelLine, replaceModelLine, replaceNameLine } from '../core/model/frontmatter.ts';
-import { pick, resolveTiers } from '../core/model/resolver.ts';
+import { pick, resolveRole, resolveTiers } from '../core/model/resolver.ts';
 import { validateRegistry, type Registry } from '../core/model/tiers.ts';
 import { defaultAgentsDir, defaultRegistryPath } from './model-paths.ts';
 
@@ -54,7 +54,10 @@ export function modelsReport(ctx: ModelsContext, write: Writer): number {
       write(`  ${model.name}: ${model.status}${price}`);
     }
     if (report.candidates.length > 0) {
-      write(`  candidates: ${report.candidates.map((c) => c.name).join(', ')}`);
+      write('  candidates:');
+      for (const candidate of report.candidates) {
+        write(`    ${candidate.name} (in=${candidate.inputPrice}, out=${candidate.outputPrice})`);
+      }
     }
   }
 
@@ -66,9 +69,20 @@ export function modelsReport(ctx: ModelsContext, write: Writer): number {
   return 0;
 }
 
-/** `cc models pick <role> [--escalate=N]` — one model line, or a DECIDE with candidates. */
+/**
+ * `cc models pick <role> [--escalate=N]` — one model line, or a DECIDE with candidates.
+ *
+ * Validates the role against the registry before calling the pure resolver: `pick` throws on
+ * an unknown role (a programmer error from its point of view), but a typo'd role on the CLI is
+ * a normal user mistake and must never surface as an uncaught stack trace.
+ */
 export function modelsPick(ctx: ModelsContext, role: string, escalate: number, write: Writer): number {
   const registry = loadRegistry(defaultRegistryPath(ctx.repoRoot));
+  if (resolveRole(registry, role) === null) {
+    const known = [...Object.keys(registry.agents), ...registry.tiers.map((t) => t.name)];
+    process.stderr.write(`unknown role: ${role} (known: ${known.join(', ')})\n`);
+    return 1;
+  }
   const catalogue = loadCatalog(ctx.catalogPath);
   const result = pick(registry, catalogue, role, escalate);
 

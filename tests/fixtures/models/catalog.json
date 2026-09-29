@@ -3,59 +3,111 @@
     "id": "gpt-5.6-luna",
     "name": "GPT-5.6 Luna",
     "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 20000000000, "output_price": 120000000000 } }
   },
   {
     "id": "gpt-6-luna",
     "name": "GPT-6 Luna",
     "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 10000000000, "output_price": 50000000000 } }
   },
   {
     "id": "claude-haiku-4.5",
     "name": "Claude Haiku 4.5",
     "vendor": "Anthropic",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 100000000000, "output_price": 500000000000 } }
   },
   {
     "id": "gemini-3.8-flash",
     "name": "Gemini 3.8 Flash",
     "vendor": "Google",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 75000000000, "output_price": 375000000000 } }
   },
   {
     "id": "gemini-3.6-flash",
     "name": "Gemini 3.6 Flash",
     "vendor": "Google",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 75000000000, "output_price": 375000000000 } }
   },
   {
     "id": "gpt-5.4-mini",
     "name": "GPT-5.4 mini",
     "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 75000000000, "output_price": 450000000000 } }
   },
   {
     "id": "claude-sonnet-5",
     "name": "Claude Sonnet 5",
     "vendor": "Anthropic",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 200000000000, "output_price": 1000000000000 } }
   },
   {
     "id": "claude-opus-5.5",
     "name": "Claude Opus 5.5",
     "vendor": "Anthropic",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 400000000000, "output_price": 2000000000000 } }
   },
   {
     "id": "claude-opus-5",
     "name": "Claude Opus 5",
     "vendor": "Anthropic",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
     "billing": { "token_prices": { "input_price": 500000000000, "output_price": 2500000000000 } }
   },
   {
     "id": "no-billing-info",
     "name": "Some Preview Model",
-    "vendor": "Fireworks"
+    "vendor": "Fireworks",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true
+  },
+  {
+    "id": "text-embedding-3-small",
+    "name": "Embedding V3 small",
+    "vendor": "OpenAI",
+    "capabilities": { "type": "embeddings" },
+    "model_picker_enabled": false,
+    "billing": { "token_prices": { "input_price": 1000000000, "output_price": 1000000000 } }
+  },
+  {
+    "id": "trajectory-compaction",
+    "name": "Trajectory Compaction (Preview)",
+    "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": false,
+    "billing": { "token_prices": { "input_price": 10000000000, "output_price": 50000000000 } }
+  },
+  {
+    "id": "gpt-4o-2024-11-20",
+    "name": "GPT-4o",
+    "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
+    "billing": { "token_prices": { "input_price": 137500000000, "output_price": 550000000000 } }
+  },
+  {
+    "id": "gpt-4o-2024-08-06",
+    "name": "GPT-4o",
+    "vendor": "OpenAI",
+    "capabilities": { "type": "chat" },
+    "model_picker_enabled": true,
+    "billing": { "token_prices": { "input_price": 137500000000, "output_price": 550000000000 } }
   }
 ]
