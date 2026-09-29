@@ -96,8 +96,8 @@ performing a real merge."* An unproven, destructive, hard-to-reverse capability 
   then resolves the ticket. "Awaiting approval" is a normal long-timeout state, not a stall:
   shown on the board immediately; one macOS notification after 24h in `awaiting_approval`
   (held in quiet hours); then one line per day in the morning digest; never becomes
-  `needs_human` on its own. Per-repo `closeOn`: grove = `merged`. No other repo is enrolled
-  (see §12).
+  `needs_human` on its own. `closeOn` is per-repo config; grove's entry is `merged`; any
+  repo may be enrolled by adding a config entry (see D12).
 - `ready`: CI green + `mergeable` → the supervisor's job for that item is done; the actual
   merge is a human action outside the supervisor's board. Note `STACK.md`, "Known Divergences":
   *"`mergeable` ... Returns `UNKNOWN` on first query because GitHub computes it lazily;
@@ -256,6 +256,18 @@ attempt to dispatch `loop-judge` and check the session's resolved model for a
 catalogue — figures as supplied, not independently verified against a file in this repo,
 so `ASSUMED` per this document's own convention): Opus 5 500/2500, Opus 5.5 400/2000,
 Sonnet 5 200/1000, GPT-5.6 Luna 20/120.
+
+**D12 — Repo- and task-agnostic.**
+Nothing in supervisor code may name a specific repo, branch, test runner, or task type.
+Everything repo-specific lives in one per-repo config entry: path, base branch, verify
+command, `closeOn` (`merged`/`ready`), and a plan-file path for D9b if any — the same shape
+the verifier already uses: `scripts/loop.sh` parameterises entirely via `REPO` (line 25),
+`SPEC` (line 27), and `verify()` (line 35), and the supervisor's per-repo config is that same
+parameterisation lifted one layer up, not a new mechanism. Enrolling a repo means the user
+adding an entry; agents never self-enroll — this is exactly why `loop-judge` treats
+enrollment as `CRITICAL` (D11). A repo with no config entry is refused at intake with a clear
+message, never guessed at. `grove` is the first entry, not a special case baked into the code.
+Decided by the user, 2026-09-28 (§12).
 
 ## 4. Architecture
 
@@ -460,7 +472,8 @@ so a shim failure cannot merge anything for real.
 | D6 stall window N | 10 minutes, plus a hard ceiling of `MAX_ITER × POLL_LIMIT × 5s + 10min` | The driver's own budget (`scripts/loop.sh` line 30, 6 min/iteration) fires first on a merely slow turn; the supervisor only needs to catch what the driver cannot |
 | D1 awaiting-approval notice timing | Board immediately; one notification at 24h; daily digest line after that | Never a stall, but silence for days reads as one without some signal |
 | D9c Jira label name | `loop` | Labels are created on first use in this Jira instance; no admin step required |
-| D1 per-repo `closeOn` | grove = `merged`. No other repo enrolled | Only grove has an external auto-merge policy documented (`grove/AGENTS.md`); enrolling a shared repo is reserved for the user (§12) |
+| D1 per-repo `closeOn` | grove = `merged`, the first configured entry | Only grove has an external auto-merge policy documented (`grove/AGENTS.md`); other repos are enrolled by adding a config entry (D12) |
+| Scope of repos/tasks | any repo, any task (user, 2026-09-28) | D12 |
 | D10 approval-gate removal | Accepted, with a mandatory mitigation | The phase-4 Opus referee (D11) is reject-only and mandatory in the supervisor, so *some* judgment gate survives even with human pre-approval off |
 | D2 bounce-back triage verification | Verified mechanically, not by model say-so | "Testable" means the architect can produce a spec that is red at iteration 0 (`cc loop start` refuses an already-green verifier); failure to do so within one turn reclassifies the item as untestable |
 | Spike 0 go-ahead | Approved to run | All five original items plus new item vi are falsifiable by a command; none require a design change to attempt |
@@ -468,16 +481,11 @@ so a shim failure cannot merge anything for real.
 
 ## 12. Reserved for the user
 
-Everything above is decided by judgment and does not wait on the user. Two things are not:
+Everything above is decided by judgment and does not wait on the user. Two things were not:
 
-(a) **Enrolling any repo besides `grove`** — especially Clover corp repos
-(`web-storefront-*`) — because D4 (approve-all, sandbox off) combined with D10 (no human diff
-review before a PR opens) would push autonomously to a shared repository that other people
-review, which is a different risk class than a solo local repo or a repo the user already
-treats as their own sandbox.
+(a) Answered 2026-09-28: the design is repo- and task-agnostic (D12).
 
-(b) **The one-time Copilot sign-in inside the dedicated Spike 0 / loop instance** (D4) — a
-credential action that has to happen at a keyboard, not from a judgment call.
+(b) Spike 0 is on hold — user still deciding (2026-09-28).
 
 Nothing else in this document is reserved.
 
