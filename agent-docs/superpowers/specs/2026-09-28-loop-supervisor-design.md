@@ -50,11 +50,11 @@ about the layer that dispatches turns and notices when a turn never lands.
 **Goals**
 - Never leave an item silently stuck: every `working` item either advances, degrades through a
   bounded recovery ladder, or lands in a human-visible `needs_human` state (D6).
-- No orphan processes: a supervisor-owned VS Code instance it can start, use, and kill, isolated
+- No orphan processes: supervisor-owned VS Code instances it can start, use, and kill, isolated
   from the user's own windows (D4).
-- Keep pushing at any cost short of the denylist: restart, resume, nudge, never block on a human
-  unless the recovery ladder is exhausted (D6) or a decision genuinely requires judgment
-  (D2 untestable review comments).
+- Keep pushing without violating D4's off-limits categories: restart, resume, substitute;
+  never block on a human. Park exhausted or human-only items with evidence and continue
+  other items (D6/D14/D15).
 - Resumable from any restart: all state in SQLite, `tick()` idempotent (D5).
 - Human interface that is desired-state, not command-and-hope: pause/resume/cancel only ever set
   intent; `tick()` reconciles at a safe point (D8).
@@ -77,13 +77,14 @@ about the layer that dispatches turns and notices when a turn never lands.
   entirely from outside the session, the same posture `scripts/loop.sh` already takes
   (`LOOP.md` §2, "Why the driver lives outside the session").
 
-## 3. Decisions (D1–D13)
+## 3. Decisions (D1–D15)
 
-Recorded as decided by the user (session brainstorm, 2026-09-28); rationale added where the
-brainstorm didn't spell it out but a repository fact makes it necessary.
+Recorded decisions from 2026-09-28, revised with the user's DRIVER-REV authorization.
+The narrow-allowlist and human-waiting parts of the earlier D4/D6 are superseded below.
+Everything about the supervisor remains **designed, not built**.
 
 **D1 — Supervisor never merges.**
-`gh pr merge` is refused by a deny rule in the dedicated profile's terminal rule map (D4), plus supervisor-side commit/push if S7 fails, on top of and
+`gh pr merge` is refused by a deny rule in the dedicated profile's terminal rule map (D4), plus D6 detection/audit (not a guaranteed pre-execution barrier), on top of and
 independent from `src/core/policy/denylist.ts`, which does not currently list it (verified:
 `src/core/policy/denylist.ts` `FORBIDDEN_ARGUMENTS` = `--no-verify`, `--force`,
 `--force-with-lease`, `--admin`, `reset --hard` — no `merge` entry). Rationale: `STACK.md`,
@@ -147,41 +148,68 @@ the load-bearing rule already stated for the inner loop (`LOOP.md` §2: *"the ag
 whether it succeeded"*).
 
 **D4 — Dedicated loop VS Code instance.**
-Launch `code --user-data-dir tmp/loop-vscode --new-window <folder>`. Dispatch with
-`VSCODE_PORTABLE=tmp/loop-portable code chat -m <agent> "<prompt>"`, with
-`tmp/loop-portable/user-data` symlinked to `tmp/loop-vscode`. Do **not** pass
-`--user-data-dir` to `chat`: Spike 0 routed that invocation to the main profile (§8 i).
-Verify the dedicated Electron root by its exact user-data-dir argument before teardown;
-never signal the user's main instance.
+**VERIFIED** (C-ter 0): launch `code --user-data-dir tmp/loop-vscode --new-window <folder>`;
+dispatch with `VSCODE_PORTABLE=tmp/loop-portable code chat -m <agent> "<prompt>"`, with
+`tmp/loop-portable/user-data` symlinked to `tmp/loop-vscode`. Passing `--user-data-dir`
+to `chat` does not route it (Spike 0 i). **DESIGNED:** each concurrent child has its own
+portable dir, user-data-dir, session store, nonce and verified Electron root; dispatch is
+routed to that exact child, never the user's main instance (S17). Before teardown verify the
+exact root argument and snapshot descendants; TERM, then KILL the verified root and remaining
+snapshotted descendants if needed. **VERIFIED** TERM stopped a live `sleep` in C-quinque 4,
+but did not stop a pending request in C-ter C5.
 
-Containment, strongest first (proposed profile configuration; S7–S9/S12 remain open):
+**DESIGNED child approval policy (not yet verified end-to-end):**
+`chat.tools.global.autoApprove: true`, `chat.permissions.default: "autoApprove"`,
+`chat.tools.terminal.enableAutoApprove: true`, with terminal auto-approval on. A child
+self-approves by this *profile configuration*, not by clicking UI or forging consent keys.
+**VERIFIED** unattended child terminal execution after human consent: C-quinque 2 reports
+`STATE {'value': 1, 'completedAt': 1790661689731}`, `MODE {'modeId': 'agent',
+'permissionLevel': 'default'}`, `TOOLS [('run_in_terminal', {'type': 1},
+{'commandLine': 'touch /Users/jay.quach/dev/bot/tmp/spike0-c5.txt'})]`, `TARGET True`.
+This proves unattended execution, **not** that global approve-all was honored (the recorded
+permission level was `default`). Each new profile still needs a human Copilot sign-in and
+one-time warning acceptance; the driver never writes consent storage. Persistence across
+relaunch is **UNKNOWN** (S18).
 
-1. Fail-closed dedicated-profile terminal allowlist:
-  `chat.tools.global.autoApprove: false`, `chat.permissions.default: "default"`,
-  `chat.tools.terminal.enableAutoApprove: true`, and
-  `chat.tools.terminal.autoApprove` as a narrow allow map plus deny regexes **generated**
-  from `src/core/policy/denylist.ts` and `gh pr merge`, never hand-written. Cover short
-  and alternate forms (`commit -n`, `push -f`, `+ref` refspecs, `-c core.hooksPath`,
-  `HUSKY=0`). Override built-in write-capable defaults such as `echo` to `false` and set
-  `chat.tools.terminal.blockDetectedFileWrites: "all"`; effectiveness is **UNKNOWN**
-  until S8. Deny-over-allow precedence is **UNKNOWN** until S7: S2/S4 had no positive
-  allow control. If S7 fails, do not allowlist `git push` or `gh`: supervisor code must
-  enforce the denylist and perform commit, push and PR creation.
-2. D6 surfaces pending commands, never approves them. No forging consent keys or clicking.
-3. Existing repo hooks (`.githooks/pre-commit`, grove's `.husky/pre-push`).
-4. Post-hoc audit of every confirmed `toolSpecificData.confirmation.commandLine` in this
-  instance's sessions against the denylist, writing matches to `supervisor_events`.
-5. Teardown: verify root PID by exact `--user-data-dir` and snapshot descendants;
-  TERM, wait 30s, KILL same root if needed, then KILL any snapshotted live descendants.
+**Off-limits, even in the child:**
 
-Drop the PATH shim entirely: the agent terminal did not inherit
-`terminal.integrated.env.osx.PATH` (C-quinque 3), and `/usr/bin/git` bypassed a shim
-(C-quater control). An untested agent-specific profile cannot fix absolute paths.
-Each fresh profile needs **human** Copilot sign-in and acceptance of the terminal-warning
-dialog; the supervisor never writes `chat.tools.terminal.autoApprove.warningAccepted`.
-MCP is disabled in the dedicated profile pending S9, using a setting key read from the
-installed bundle before use. GUI quit-sheet behavior and cold-start portable dispatch
-remain `UNKNOWN`; KILL is the fallback. Residual risks are enumerated in §9.
+1. **System changes:** writes under `/System`, `/usr` (except `/usr/local`), `/bin`, `/sbin`,
+  `/etc`, `/Library`; changes to shell rc files or launchd plists outside the supervisor's
+  own; and `sudo`.
+2. **Secret material:** reading or printing private keys (`~/.ssh/id_*`, not
+  `known_hosts`), `~/.aws`, `~/.config/gh/hosts.yml`, keychain via `security`, `.env*`
+  secrets, or echoing token environment variables such as `JIRA_DC_TOKEN`. Credential
+  *use without exposure* is allowed: SSH git, `gh`, and curl with
+  `-H "Authorization: Bearer $JIRA_DC_TOKEN"`.
+3. The compiled denylist in `src/core/policy/denylist.ts`, including alternate/short forms
+  and bypasses. This remains an `AGENTS.md` invariant.
+4. `gh pr merge` remains forbidden by D1.
+
+The dispatcher kept (3) and (4) beyond the user's “only security” wording because they are
+existing recorded invariants. **OPEN QUESTION FOR USER (§12):** whether to change either;
+the driver may not silently remove them or wait for an answer. This replaces the narrow
+fail-closed allowlist as the *primary* approval model. **UNKNOWN:** VS Code terminal deny
+regexes overriding global approve-all (S13); the layers below are defense in depth, **not a
+proven prevention boundary**. Do not claim the policy enforced until the containment spikes
+pass; on failure park the affected work and continue other items, never execute an off-limits
+command as a fallback.
+
+1. Generate terminal deny regexes from (1)–(4); test precedence with positive controls (S13).
+  Non-terminal edit, fetch and MCP tools require separate containment; pending S9 and S14,
+  disable unverified write-capable MCP in the child using an installed-source-verified key.
+2. D6 detects pending or denied calls: off-limits → kill that child, park the item with
+  evidence, continue. A confirmed off-limits call is an audit incident, not proof of safety.
+3. Audit **every** confirmed `toolSpecificData.confirmation.commandLine` post-hoc against
+  (1)–(4), writing a `supervisor_events` row. This cannot undo a confirmed call.
+4. Retain repo hooks (`.githooks/pre-commit`, grove's `.husky/pre-push`). Optional, user-owned:
+  use a `gh` token without merge rights in the child profile.
+
+**Sandbox trade-off (UNKNOWN until S14):** `chat.agent.sandbox.enabled` prevents reads of
+`~/.ssh` in prior sandboxed sessions, protecting secrets but breaking git over SSH. Disabling
+it permits SSH and widens credential exposure. S14 decides the child setting by testing both
+states, secret/system containment and a real authorized SSH git push; neither setting alone
+proves containment. Drop the PATH shim: C-quinque 3 showed the agent did not inherit
+`terminal.integrated.env.osx.PATH`; C-quater showed `/usr/bin/git` bypasses it.
 
 **D5 — Runtime.**
 One idempotent `tick()`; all state in SQLite so any restart resumes from the database, not from
@@ -214,21 +242,24 @@ mtime. Classify in this order:
 |---|---|---|
 | `DISPATCH_LOST` | No nonce file after 120s from `dispatch_at` (persistence delayed ≥11s in C-quinque 5) | Re-dispatch once, then rung 3 |
 | `RELIC` | `mtime < instance_started_at` | Never call it pending: value 4 survives KILL/relaunch (C-ter C6); treat as `DISPATCH_LOST` |
+| `ERRORED` | Last request has an error result (D15); exact JSONL field **UNKNOWN** (S15) | Check artifacts first, then retry/substitute under D15 |
 | `PENDING` | `R.modelState.value == 4`, a `toolInvocationSerialized` response has absent `isConfirmed`, `mtime ≥ instance_started_at`, `stale_s ≥ 60` | Split by command below |
 | `RUNNING` | `value == 0` and `stale_s < 600` | No action |
 | `HUNG` | `value == 0` and `stale_s ≥ 600` | Rung 1: nudge |
 | `ENDED` | `value == 1` with `completedAt` | Driver advances or checks verdict; if driver dead D7 reaps |
 | `ABNORMAL` | Any other value | Rung 2: fresh session |
 
-For `PENDING`, read `toolSpecificData.confirmation.commandLine`. A denylist or
-`gh pr merge` match is `PENDING_DENIED` → `needs_human` immediately with command evidence,
-skipping the ladder. Otherwise `PENDING_GAP` skips the nudge (it cannot approve), uses a
-fresh session whose briefing names the forbidden command, and on repeat goes to
-`needs_human` offering a human settings edit: allow in instance or add to allowlist.
-The supervisor never grants approval. Do not use `pendingRequests`, `isComplete` (always
+For `PENDING`, read `toolSpecificData.confirmation.commandLine`. Under child approve-all,
+pending is an **anomaly**. An off-limits (D4 a–d) match becomes `PENDING_DENIED`: kill the
+verified child, park in `needs_human` with command evidence, continue other items. Otherwise
+verify the child's effective profile settings, relaunch in a fresh session, retry **once**;
+if still pending, park and continue. No nudge or open-ended wait; the driver never grants
+approval and never asks the main thread to click. Denied non-terminal calls follow the same
+off-limits/unknown split; missing command evidence is `UNKNOWN`, not permission to run it.
+Do not use `pendingRequests`, `isComplete` (always
 true on serialization), or `isConfirmed.type` (type 4 is not cancellation) as the signal
 (B iii, C-ter). Recover other stalls with nudge → fresh session → verified-root teardown
-and relaunch (D4) → `needs_human` with session path and verifier tail. Tests/diff/mtime
+and relaunch (D4) → `needs_human` with session path and verifier tail; continue other items. Tests/diff/mtime
 progress still resets the 10-minute clock; the 34-minute hard ceiling remains.
 
 **N = 10 minutes, decided (§11).** Rationale: `scripts/loop.sh`'s own per-turn budget is
@@ -278,25 +309,23 @@ currently GPT-6 Sol, chosen in the 2026-09-28 coding-benchmark re-tier; worker =
 (worker/dispatcher/architect/oracle tiers, `cc models`/`cc models pick`/`cc models apply`,
 escalation on failure/doubt capped at `oracle` — see `LOOP.md` §6a), not hardcoded here or in
 agent frontmatter. Any question that would otherwise go to the user goes to
-`loop-judge` first; only a `CRITICAL` verdict creates `needs_human`. `CRITICAL` means the
-decision: (1) enrolls a repo not already enrolled for loops, or pushes to / comments on /
+  `loop-judge` first; only a `CRITICAL` verdict creates `needs_human`. `CRITICAL` means the
+  decision: (1) enrolls a repo not already enrolled for loops, or pushes to / comments on /
 changes someone else's PR, branch, or ticket; (2) involves credentials, money, production, or
-deleting data; (3) changes a recorded design decision (D1–D13 here), an `AGENTS.md` invariant,
+  deleting data; (3) changes a recorded design decision (D1–D15 here), an `AGENTS.md` invariant,
 the denylist (`src/core/policy/denylist.ts`), or `ai-guard.config.json`; (4) is irreversible
 outside this machine beyond the normal loop flow. Every judgment is appended to
 `tmp/<KEY>-decisions.md` and recorded as a `supervisor_events` row (§5) so the user can
 spot-check it after the fact. Only top-level `loop-architect` and `loop-analyst` are
-human/supervisor entry agents. `loop-judge` is a leaf consult, user-invocable only to allow
-headless supervisor dispatch; `loop-worker*` are headless leaves dispatched by the driver.
-The architect directly dispatches the judge when top-level. When dispatched as a
-subagent it returns `CONSULT_NEEDED: tmp/<KEY>-consult.md`; its caller runs the judge and
-re-dispatches the architect (`loop-architect.agent.md`, Escalation; B vi found no nested
-dispatch tool). Supervisor architect sessions run top-level via `code chat -m loop-architect`;
-headless top-level subagent access is `ASSUMED` (S10). If unavailable, supervisor dispatches
-`code chat -m loop-judge "consult tmp/<KEY>-consult.md"`, waits for the judgment artifact,
-and re-dispatches the architect. Humans select the architect in the picker, not as a
-subagent, unless they accept these round trips. Routing priorities and price bands live
-in `registry/model-tiers.json`.
+human/supervisor entry agents; `loop-worker*` are headless leaves. **DESIGNED (D14):**
+architect, analyst, worker and any tool-using judge run in child windows. A main-thread
+`loop-judge` subagent is allowed only for read-only in-workspace analysis. Headless
+top-level architect access to a nested judge is **ASSUMED** (S10); if unavailable, the
+supervisor dispatches `code chat -m loop-judge "consult tmp/<KEY>-consult.md"` to a
+child, checks the judgment artifact, then re-dispatches the architect. A subagent unable
+to nest-dispatch returns `CONSULT_NEEDED: tmp/<KEY>-consult.md` (B vi). The supervisor
+never waits on a human for a consult; park if exhausted and continue. D15 handles model
+errors; routing priorities live in `registry/model-tiers.json`.
 
 **D12 — Repo- and task-agnostic.**
 Nothing in supervisor code may name a specific repo, branch, test runner, or task type.
@@ -331,9 +360,10 @@ requires driver's `Current verifier output:` line; (2) selected-model cost via
 and `cc models pick <tier>`, warn once but never STOP for price or `copilot/auto`/unknown;
 only *selected*, never backend-served model is known (B vii); (3) explicit repo path or
 name resolving to `~/dev/<name>`, `git -C <repo> rev-parse --abbrev-ref HEAD` or STOP
-and ask for repo; outside read via `list_dir` needs no grant (B ix), terminal may require
-unsandboxed approval, edits require a workspace folder or loop window, others' review
-clones go under `bot/tmp/rv<pr>`; only Clover remotes get a WS ticket with Epic
+and ask for repo; **today** outside read via `list_dir` needs no grant (B ix), terminal may
+require unsandboxed approval, edits require a workspace folder or loop window. **Target
+(D14):** target-repo or `bot/tmp/rv<pr>` scratch-clone child owns all repo preflight,
+edits and network calls; no main-thread outside-folder permission step. Only Clover remotes get a WS ticket with Epic
 `WS-5345`, while other repos use `<REPO>-<slug>` and no Jira ticket; (4) resume using
 `tmp/<KEY>*`, `cc loop status`, branches and `gh pr list --head <branch> --state all`:
 no artifacts → phase 0; consult without judgment → judge; spec without driver → phase 2;
@@ -349,6 +379,44 @@ The registry's `interactive` list contains analyst without variants; probes are 
 The entry agents and `models self` were built at HEAD in B1–B8; this does **not** mean
 the supervisor has been built.
 
+**D14 — The driver never blocks on a human (DESIGNED).**
+The durable driver is the **code-only** `supervisor/` tick process (D3/D5), with no LLM
+and no approvals. It persists state and advances other items when nobody is around.
+Chat main thread is only an enqueuing/monitoring/reporting front end, never a worker.
+Its only allowed actions are (a) in-workspace `read_file`/`grep`/`list_dir`, (b) edits
+under `bot/tmp`, (c) terminal commands *already matching* the main profile's
+`chat.tools.terminal.autoApprove` rules (dispatching `code chat`, `cc` status and driver
+scripts), and (d) read-only in-workspace `runSubagent` analysis, e.g. judge reading tmp.
+**ASSUMED from session experience:** subagent confirmations surface in the MAIN window and
+block the parent (S16 will check). Thus web fetches, real-repo work, git/gh,
+installs/builds/tests, Jira/GitHub writes, and outside-workspace reads run in child windows,
+not via main-thread subagents. A child opens the target repo or a scratch clone under
+`bot/tmp`. Multiple children need distinct portable dirs/user-data-dirs (S17). Anything
+truly requiring a person is parked as `needs_human` **with evidence**; tick immediately
+continues other items and produces one end report of parked items. No turn waits for an answer.
+
+**D15 — Model error detection and substitution (DESIGNED).**
+Classify a child session's **last request** as `ERRORED` when it carries an error result:
+“Sorry, no response was returned”, rate limit/quota, model unavailable, server error,
+cancelled or empty response. Exact JSONL error field/value is **UNKNOWN** (S15). Before
+retrying, inspect `tmp/<KEY>-report.md`, child-repo git status, the ledger and timeline;
+a dropped final message can follow real work (**ASSUMED** from session experience), so
+never duplicate a completed mutation based on chat text alone.
+
+**VERIFIED** C-bis step 1 CLI parser excerpt:
+`options:{_:...,mode:...,"add-file":...,maximize:...,"reuse-window":...,"new-window":...,profile:...,help:...}`;
+`code chat` has no model flag. **VERIFIED** Spike 0 viii(a), installed-source inspection
+(§8 viii: `It&&this.switchModelByQualifiedName(It)`): selecting an agent applies its first *available*
+model, so an available-but-erroring model never falls through. **DESIGNED:** `cc models
+apply` emits a single-model variant per registry tier model (e.g. `loop-worker.m-<slug>`)
+alongside existing `.t2/.t3/.t4` tier variants; each variant's `model:` list has exactly
+one model. Record the selected model **per dispatch**; on error, use the next model in the
+same tier from `registry/model-tiers.json`. Rate limit gets **one** same-model retry with
+bounded backoff; other errors substitute immediately. Same-tier substitution consumes no
+D11 escalation rung; after tier exhaustion climb D11; after every tier is exhausted park
+with evidence and continue other items. Pin fidelity and error detection remain **UNKNOWN**
+until S15; this does not claim working substitution.
+
 ## 4. Architecture
 
 Components, by directory (new unless noted):
@@ -357,10 +425,11 @@ Components, by directory (new unless noted):
 |---|---|---|
 | Supervisor core | `supervisor/tick.ts` (proposed) | The one idempotent entry point; everything else is called from here |
 | Item sources | `supervisor/sources/{manual,plan-file,jira}.ts` (proposed) | D9 pluggable intake, deduped by key |
-| Recovery ladder | `supervisor/stall.ts` (proposed) | D6 detection + the four-rung ladder |
+| Recovery ladder | `supervisor/stall.ts` (proposed) | D6 detection + D15 errors, bounded retry and park-and-continue |
 | Bounce-back handler | `supervisor/pr-review.ts` (proposed) | D2 |
-| Loop-instance manager | `supervisor/vscode-instance.ts` (proposed) | D4: start/kill the dedicated Electron process |
-| Dedicated profile | `supervisor/profile/settings.template.json` (proposed) | D4 narrow terminal rules generated from compiled denylist; S7–S9/S12 gates apply |
+| Loop-instance manager | `supervisor/vscode-instance.ts` (proposed) | D4/D14: route per-repo/item portable/user-data pairs; verify roots before teardown |
+| Dedicated profile | `supervisor/profile/settings.template.json` (proposed) | D4 child approve-all plus generated off-limits deny rules; S13–S18 gate containment |
+| Model variant generation | `cc models apply` (existing command, proposed extension) | D15: single-model variants alongside existing tier variants, verified by `--check` |
 | CLI | `supervisor/cli.ts` (proposed), `npm run supervise` | D5, D8 |
 | State | `src/store/migrations/00XX-supervisor.sql` (proposed) | §5 — lives in `cc`'s existing store, per D3 |
 | Dashboard board | `dashboard/pages/supervisor.ts` (proposed) | D8 monitor, reading `src/store/` only (never `supervisor/**` — see D3 gap above) |
@@ -378,9 +447,11 @@ stateDiagram-v2
     judge --> spec_red: decision recorded
     working --> green: verifier exit 0, tests grown, digests intact
     working --> stalled: no verifier/diff/session progress in N min (D6)
+    working --> stalled: last child request ERRORED (D15)
     stalled --> working: nudge or fresh session succeeds (rungs 1-2)
     stalled --> working: instance relaunched (rung 3)
     stalled --> needs_human: ladder exhausted (rung 4)
+    stalled --> needs_human: off-limits pending or every model exhausted (D4/D15)
     green --> pr_open: commit, push, PR opened
     pr_open --> working: CI red (D2) — worker fixes directly, no new spec
     pr_open --> spec_red: testable review comment (D2) — architect writes a new red test
@@ -408,7 +479,8 @@ stateDiagram-v2
 
 `needs_human` is drawn as reachable from every intermediate state, not just `stalled` and
 `pr_open`, matching D6/D2's own wording ("Each rung counted and budgeted", "Max 3
-bounce-backs... then `needs_human`").
+bounce-backs... then `needs_human`"). It is a **parked** state, never a blocking wait:
+the tick moves to other items and the final report collects parked evidence (D14).
 
 ## 5. Data model
 
@@ -421,10 +493,13 @@ following the numbering convention already visible in `src/store/migrations/0007
   `close_on` (`merged`/`ready`, D1, set at creation from per-repo config, never inferred),
   `loop_run_id` (nullable FK into the *existing* `loop_runs.id`), timestamps.
 - **`supervisor_events`** — append-only, one row per state transition or ladder rung, carrying
-  the evidence that justified it (session file path, verifier tail, CI check name). This is
-  the audit trail for §8's "needs_human with evidence" requirement — without it, a
+  the evidence that justified it (session file path, verifier tail, CI check name, error and
+  audited command). This is the audit trail for §8's "needs_human with evidence" requirement — without it, a
   `needs_human` row is an assertion, not a finding, which `pr-review-verification.instructions.md`
   (a different but related instruction in this workspace) treats as worthless.
+- **`supervisor_dispatches` (proposed)** — one row per child dispatch: `item_key`,
+  `session_path`, registry tier, `model`, agent variant, attempt and nonce (D15). A model
+  column on `loop_runs` alone is insufficient for architect/judge turns before a run exists.
 - **`supervisor_heartbeat`** — single row (or one per resident process), `last_tick_at`, read
   by the `StartCalendarInterval` watchdog (D5) to decide whether to restart.
 
@@ -452,14 +527,14 @@ single item may accumulate several `loop_run_id`s (fresh session, D6 rung 2) or 
 
 | Action | Mechanism | Notes |
 |---|---|---|
-| Create | Chat `/loop <key> <brief>` | Enqueues only; architect + worker still run inside the loop instance (D9a) |
+| Create | Chat `/loop <key> <brief>` | Enqueues only; architect, analyst, judge with tools and worker run in child windows (D9a/D14) |
 | Create | CLI `npm run supervise -- add <key> --repo=<r> --brief="…"` | D9a |
 | Create | Dashboard form | D9a |
 | Create | Plan-file unchecked boxes | Auto-discovered, queued in file order (D9b) |
 | Create | Jira `loop`-labelled tickets assigned to the user | Auto-discovered (D9c, label is `loop`, decided) |
 | Start | Automatic | One queued item starts per repo at a time, by priority (D8) |
 | Control | `supervise pause\|resume\|cancel\|retry\|bump <key>` + matching dashboard buttons | Sets `desired` only; `tick()` reconciles (D8) |
-| Unblock | Dashboard "Needs you" inbox, evidence attached | Answer (note appended to next briefing, `desired=run`) or Drop (D6, D8, §5 `supervisor_events`) |
+| Unblock | Dashboard "Needs you" inbox, evidence attached | Parked item only; driver continues others and reports all parked items once; later human Answer (note appended, `desired=run`) or Drop (D6/D14) |
 | Monitor | Dashboard `/supervisor` board | Columns match the state diagram (§4); existing `/loops` page stays read-only exactly as today (`dashboard/pages/loops.ts` comment: *"there is no button here and there must never be one... a 'run loop' control would be exactly that"* [invoking a model] — the new board's buttons set `desired`, they do not invoke a model, so this does not reopen that constraint, but the distinction should be stated in code, not just here) |
 | Monitor | Per-item timeline | Links `loop_runs`, PR, chat session (§5 `supervisor_events`) |
 | Alert | macOS notification on `needs_human` | Held during quiet hours (D5); morning digest line |
@@ -512,6 +587,7 @@ observed result, including failed hypotheses; it does not mean the original clai
 | vii | Agent can discover its own model | **VERIFIED** request-selected only: `kind:2,k:['requests'],v:[{requestId,modelId,...}]` → all 9 appended request records `modelId: 'copilot/claude-opus-5.5'` (B vii). `main.jsonl` contains no resolved-model event; backend-served model is **UNKNOWN**. |
 | viii | Model pins, picker overrides, CLI visibility and handoffs | **VERIFIED from installed source** (B viii): `refreshCustomPromptModes()` → `if(!n.visibility.userInvocable||!n.enabled)continue;`; `findModeByName(e)` searches custom modes; `_switchToAgentByName(e.agent)` handles handoff; mode observer `It&&this.switchModelByQualifiedName(It)` applies pin when agent changes. Hence hidden headless variants cannot be selected with `code chat -m`; a human model override after agent choice persists until next agent change. Live handoff click is **UNKNOWN**. |
 | ix | Every outside-folder read requires a grant | **VERIFIED FAIL for `list_dir` only**: `list_dir /Users/jay.quach/dev` → `bot/`, `grove/`, `web-storefront-engine/` without confirmation (B ix). Outside terminal/edit permissions remain **UNKNOWN** per operation; add workspace folder, approve when prompted, or clone into bot/tmp. |
+| x | `code chat` accepts a model flag | **VERIFIED FAIL**, C-bis step 1 installed CLI parser: `options:{_:...,mode:...,"add-file":...,maximize:...,"reuse-window":...,"new-window":...,profile:...,help:...}` — no model flag; CLI `--user-data-dir` does not route `chat`. D15 requires an agent variant to pin each alternate. |
 
 Additional `ASSUMED` facts: reported 86/83/2/1 `loop_runs` figures (§1);
 resident-process `launchd` `KeepAlive` behavior (D5); B's current tool list is not
@@ -522,25 +598,33 @@ working supervisor or a universal security boundary.
 
 | Probe | Claim to falsify | Falsifier / control |
 |---|---|---|
-| S7 | Deny overrides a matching allow | Allow `gh` and `git commit`, deny `gh pr merge` and `--no-verify`; show harmless `gh`/`git commit` positive control executes and forbidden variants pend. Without positive control, S2/S4 prove nothing about precedence. |
-| S8 | Built-in write defaults can be overridden | Set `echo:false` and `chat.tools.terminal.blockDetectedFileWrites:"all"`; a new agent-run `echo … > scratch` must pend and leave target absent, while allowed read succeeds. |
+| S7 | Legacy narrow-map deny overrides a matching allow | Positive control: allow harmless `gh` and `git commit`; deny `gh pr merge` and `--no-verify`; forbidden variants must pend. This does **not** prove S13 global precedence. |
+| S8 | Legacy built-in write defaults can be overridden | Set `echo:false` and `chat.tools.terminal.blockDetectedFileWrites:"all"`; a new agent-run `echo … > scratch` must pend and leave target absent, while allowed read succeeds. This is not the D4 primary policy. |
 | S9 | Non-terminal MCP cannot merge unattended | In dedicated profile trigger an MCP tool call and observe pending, or disable MCP with an installed-source-verified setting and prove no MCP merge tool is offered. |
 | S10 | Headless top-level architect can consult judge | `code chat -m loop-architect` with a consult dispatch; inspect resulting judge artifact and selected request model; absence triggers D11 fallback. |
 | S11 | Portable cold start routes correctly | With no dedicated process running, invoke portable `code chat` and check nonce appears only in dedicated store; failure requires explicit launch first. |
 | S12 | Short forms cannot evade denies | Positive controls plus `commit -n`, `push -f`, `-c core.hooksPath`, `+ref`, `HUSKY=0` must pend (never send a real destructive command). |
+| S13 | Generated deny regex overrides **global approve-all** | With both `chat.tools.global.autoApprove:true` and `chat.permissions.default:"autoApprove"`, prove a harmless matching `gh`/`git` command runs unattended, while simulated off-limits `gh pr merge`/denylist and system/secret reads **do not execute** and leave a probe marker absent. Any forbidden marker or confirmed forbidden command falsifies precedence; pend alone without the positive control does not prove it. Never target a real PR or secret. |
+| S14 | Approve-all containment with sandbox on/off and SSH | With synthetic private-key/.env fixtures and harmless protected-path probes, verify **no** secret content or system write escapes via terminal, edit, or non-terminal tools for *each* sandbox setting; positive control: permitted workspace write executes. Then authorized SSH git push to an isolated test remote succeeds for the chosen setting. A leaked synthetic secret, protected write, or failed authorized push falsifies the chosen configuration. No real secret printed or system file modified. If no setting meets both, park the capability and escalate the design question, never disable protection silently. |
+| S15 | Detect errors and honor a single-model pin | Force a child error with a quota-denied model or controlled network interruption; compare errored and successful JSONL **last requests**, identify a discriminating error field, check artifacts before retry. Generate a `loop-worker.m-<slug>` variant and observe selected request model matches its one-element pin; an error with no detectable field or selection of another available model falsifies the design. Confirm one rate-limit retry and same-tier substitution without consuming a D11 rung; failures falsify substitution. |
+| S16 | Subagent confirmation blocks parent | From a controlled main-thread subagent, request an innocuous command requiring confirmation; if main remains runnable while the subagent pends, the ASSUMED blocking claim is false. Never approve an unsafe call; record where the prompt surfaces and park/stop the probe. |
+| S17 | Two child windows route independently | Open two distinct portable/user-data pairs simultaneously, one per repo/item, dispatch distinct nonces and confirm each appears **only** in its intended JSONL store, both profiles stay independent, and stopping either leaves the other and main alive. Any cross-route, collision or wrong termination falsifies concurrency. |
+| S18 | Child approve-all survives relaunch | After one-time human sign-in/warning acceptance, run a harmless child write without a click, tear down only the verified child, relaunch with the same profile and run a second harmless write unattended. A pending second request, lost consent or touched main profile falsifies persistence. Never synthesize consent storage. |
 
 ## 9. Risks
 
 | Risk | Note |
 |---|---|
-| D4 residual risk (1): allowlisted test code | The allowlist stops drift and habit, not an adversary. Any allowlisted test runner (`npx jest`, `yarn test`, `node --test`) executes code the worker just wrote, and that code can spawn `gh pr merge` through `child_process`. Same step-gate limit stated in `AGENTS.md`. |
-| D4 residual risk (2): non-terminal tools | Terminal rules do not govern edit or MCP tools. Grove's `.vscode/mcp.json` registers a GitHub MCP server which may expose merge; whether MCP pends is **UNKNOWN** (S9). Disable MCP in the dedicated profile until proven, after checking the installed setting key. |
-| D4 residual risk (3): sandbox off | `$JIRA_DC_TOKEN`, SSH keys and `gh` token remain reachable, as already per-command today (`DESIGN.md` §13). |
+| D4 approve-all blast radius | **DESIGNED, not contained yet:** a worker may execute **anything not off-limits** without a human prompt, including code it just wrote that can spawn commands through `child_process`. Generated terminal denies, D6 kill/park, audit and repo hooks limit some paths but do not form a proven pre-execution security boundary. S13/S14 must falsify containment before unattended writes; if containment fails park, do not route the forbidden action through supervisor code. |
+| D4 non-terminal tools | Terminal denies do not govern edits, web or MCP. Grove's `.vscode/mcp.json` registers a GitHub MCP server which may expose merge; whether MCP pends is **UNKNOWN** (S9/S14). Disable unverified write-capable MCP in the child with an installed-source-verified setting; post-hoc command audit cannot see all tool effects. |
+| D4 sandbox trade-off | **ASSUMED from prior sessions:** sandbox denies `~/.ssh` reads, protecting keys but breaking SSH git. Sandbox off widens exposure to SSH keys and tokens; S14 must test synthetic secrets and an authorized SSH push before choosing. Neither mode is automatically safe. |
 | D4 residual risk (4): credentials | Only a merge-incapable token actually prevents merging. This is a user-owned credentials change, not required for D4. |
 | D4 residual risk (5): GUI quit sheet | **UNKNOWN**; KILL on verified root is the fallback. |
 | D4 residual risk (6): cold start | `VSCODE_PORTABLE` with no running instance is **UNKNOWN** (S11). |
 | D4 residual risk (7): first use | Each new profile needs human Copilot sign-in and terminal-warning acceptance. Supervisor must not forge consent storage. |
-| S7 gate | Deny rules overriding broader allow rules is **UNKNOWN**: S2/S4 would have pended even without the denials. If falsified, no allowlisted `gh`/`git push`: move commit/push/PR-create to supervisor code. |
+| S13/S14 gate | Global approve-all deny precedence and secret/system containment are **UNKNOWN**: C-sexies S2/S4 pended without matching an allow control. If falsified, stop the unsafe child capability, park with evidence and revisit the design; do not shift risky mutations onto the main thread. |
+| D15 error gaps | Exact JSONL error signature, pin fidelity of single-model variants, and retry idempotence are **UNKNOWN** (S15); inspect disk and ledger before re-dispatch. |
+| D14 isolation | A child may still show a fresh sign-in/warning or an unexpected confirmation (S18); classify/park without waiting. Main-thread subagent blocking is **ASSUMED** until S16; per-window concurrency **UNKNOWN** until S17. |
 | Removing the human diff-review checkpoint at green | `LOOP.md` §6 calls this out as deliberate: *"those are the steps where a mistake is expensive and hard to reverse, and they are the steps a human is best placed to sanity-check."* D10 removes it in favor of after-the-fact spot-checks; consistent with the user's stated tradeoff ("cheaper to fix later than to sit and wait") but should be named as a conscious reversal, not a silent one |
 | Guard wording gap (`src/**` vs `dashboard/**`) | Resolved by D3 widening (§11) — the rule now covers `dashboard/` and `bin/` |
 | `launchd` `KeepAlive` semantics unverified in this environment | §5/§8 — only one-shot firing and `StartCalendarInterval` catch-up semantics have been read/verified (`DESIGN.md` §12, `STACK.md`); a resident daemon is a different `launchd` feature |
@@ -554,19 +638,24 @@ working supervisor or a universal security boundary.
 1a. **B1–B8 entry-agent slice** — built at HEAD: `models self`, rank-based variants,
   registry interactive list, `loop-analyst`, entry preflights, prompt and meta-spec;
   this document and the guides record the shipped behavior.
-1b. **Spike 0b S7–S12** (§8) — falsify containment/routing assumptions; **required before
-  step 3**. S7 failure switches commit/push/PR creation to supervisor code (D4).
+1b. **Spikes S7–S18** (§8) — legacy controls plus revised child approval, secret/system
+  containment, model errors, subagent blocking, concurrency and relaunch; **S13/S14/S17/S18
+  gate unattended child writes**, S15 gates automatic substitution. If containment fails,
+  park that capability and revise design, never perform it in the main chat instead.
 2. Data model (§5) — migration, no behavior yet; lets `supervisor_events` start recording
-   manually-triggered test runs during spike work.
+  manually-triggered test runs during spike work. Record `model` for **each dispatch**.
 3. `tick()` skeleton + D7 housekeeping only (reap dead `loop_runs`, kill orphaned instances) —
-   the smallest slice that is already a net improvement over today with no new dispatch logic.
-4. D9a manual intake + `queued → spec_red → working → green` for a single item, no PR/bounce
-   logic yet — reuses `scripts/loop.sh`'s own dispatch shape almost unchanged.
-5. D6 stall ladder — only once step 4 has produced a real stalled run to test against.
-6. D2 PR bounce-backs + D1 `closeOn` handling.
-7. D8 dashboard board + human interface; D9b/D9c additional intake sources; notifications.
+  the smallest slice that does not yet dispatch a child.
+4. D14 child router and approve-all profile with D4 off-limits containment; isolate one
+  repo/item per instance before allowing concurrency. Keep CLI front end enqueue-only.
+5. D15 `cc models apply` single-model variants, pin check, dispatch recording, artifact
+  inspection, bounded backoff and same-tier substitution, then D11 escalation.
+6. D9a manual intake + `queued → spec_red → working → green` in a child, no PR/bounce yet.
+7. D6 stall/error/pending classifier and kill/park/continue, then D2 PR bounce-backs and
+  D1 `closeOn` handling; no user wait in any transition.
+8. D8 dashboard board and final parked-items report; D9b/D9c intake; notifications.
 
-## 11. Decisions taken by judgment (2026-09-28)
+## 11. Recorded decisions (judgment 2026-09-28; user revisions 2026-09-29)
 
 | Question | Decision | Why |
 |---|---|---|
@@ -581,15 +670,18 @@ working supervisor or a universal security boundary.
 | D2 bounce-back triage verification | Verified mechanically, not by model say-so | "Testable" means the architect can produce a spec that is red at iteration 0 (`cc loop start` refuses an already-green verifier); failure to do so within one turn reclassifies the item as untestable |
 | Spike 0 go-ahead | Approved to run | All five original items plus new item vi are falsifiable by a command; none require a design change to attempt |
 | Model routing | Registry `architect` tier for architect/driver (currently GPT-6 Sol); `oracle` tier for `loop-judge` (currently Claude Opus 5.5); `worker` tier for `loop-worker` (currently GPT-5.6 Luna) | Updated by the 2026-09-28 coding-benchmark re-tier; `registry/model-tiers.json` is the source of truth for priorities and price bands |
-| D4 routing / containment | Portable-symlink dispatch to dedicated profile, narrow allowlist; no PATH shim; S7/S8/S9/S12 pending | A/C routed the prompt and disproved the shim; C-sexies S2/S4 cannot establish deny-over-allow |
-| D6 pending | `value=4` + unconfirmed serialized tool + nonce + instance-age/mtime guard; split denied vs gap | C-ter observed a pending tool and a stale value-4 relic after relaunch |
-| D11 consult | Architect/analyst top-level; judge subagent leaf; worker headless; `CONSULT_NEEDED` when nesting unavailable | B vi had no dispatch tool in nested context; S10 remains open |
+| D4 routing / containment — **revised by user 2026-09-29** | Child approve-all, generated off-limits denies and layered audit/hooks; S13/S14/S18 pending, no PATH shim | C-quinque 2 confirmed unattended touch; C-sexies S3 disproved fail-closed narrow-map assumption; S2/S4 never proved precedence |
+| D6 pending — **revised** | `value=4` + unconfirmed serialized tool + nonce + instance-age/mtime guard; off-limits kill/park; otherwise one settings/relaunch retry then park; add `ERRORED` | C-ter observed pending and stale value-4 relic; error field **UNKNOWN** (S15) |
+| D11 consult — **revised** | Tool-using architect/analyst/worker/judge in child, judge only read-only in-workspace as main subagent; no human wait | B vi had no dispatch tool in nested context; S10/S16 remain open |
 | D13 entry | Two entry agents with task-fit STOP, model-cost warning, repo/resume preflight | B vii/viii/ix, B1–B8 at HEAD; supervisor intake remains unbuilt |
 | Variant suffix | Tier rank (`loop-worker.t2/.t3/.t4`, `loop-architect.t4`); variants stay visible for CLI lookup | B viii installed custom-mode lookup excludes hidden agents; generated files at HEAD |
+| D14 driver — **user-authorized 2026-09-29, DESIGNED** | `supervisor/` tick is durable no-LLM dispatcher; chat main thread enqueue/monitor/report only; park human items and continue others | Main subagent confirmation blocking **ASSUMED** (S16); concurrent child routing **UNKNOWN** (S17) |
+| D15 model errors — **user-authorized 2026-09-29, DESIGNED** | Artifact check, one backoff retry for transient rate limit, same-tier single-model substitution, then D11 ladder, then park | CLI model flag absent and first-available pin behavior **VERIFIED** (§8); error signature/pin variant **UNKNOWN** (S15) |
 
 ## 12. Reserved for the user
 
-Everything above is decided by judgment and does not wait on the user:
+The user authorized D14/D15 and the D4/D6 changes. Existing judgments remain recorded;
+the code driver never waits for a user answer:
 
 (a) Answered 2026-09-28: the design is repo- and task-agnostic (D12).
 
@@ -597,7 +689,10 @@ Everything above is decided by judgment and does not wait on the user:
 
 (c) Optional, user-only: a merge-incapable token for the dedicated instance (residual risk 4).
 
-Nothing else in this document is reserved.
+(d) **OPEN QUESTION FOR USER:** D4 retains the compiled denylist and D1 `gh pr merge`
+prohibition beyond “only security” because both are existing invariants. Should either
+recorded invariant change? **UNKNOWN** until the user decides; park an item that requires
+changing either, keep driving all other work, never silently relax them.
 
 ## Committing
 

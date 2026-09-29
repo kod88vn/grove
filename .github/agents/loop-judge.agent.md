@@ -58,7 +58,7 @@ Mark a decision `CRITICAL: yes` only when it does at least one of:
 1. **Enrolls a repo not already enrolled for loops**, or pushes to, comments on, or changes
    someone else's PR, branch, or ticket.
 2. **Involves credentials, money, production, or deleting data.**
-3. **Changes a recorded design decision** (D1–D13 in
+3. **Changes a recorded design decision** (D1–D15 in
    `agent-docs/superpowers/specs/2026-09-28-loop-supervisor-design.md`), an `AGENTS.md`
    invariant, the denylist (`src/core/policy/denylist.ts`), or `ai-guard.config.json`.
 4. **Is irreversible outside this machine** beyond the normal loop flow.

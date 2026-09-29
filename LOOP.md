@@ -5,6 +5,7 @@ machine judges, and the judgment is one that the agent cannot forge.
 
 The driver and entry-agent preflights exist. The supervisor does **not**; see the box below.
 The worked runs in §5 are historical examples against `~/dev/web-storefront-ui`.
+The revised supervisor design (D14/D15) is a **target, not a current capability**.
 
 ---
 
@@ -16,8 +17,36 @@ The worked runs in §5 are historical examples against `~/dev/web-storefront-ui`
 2. Pick the agent for your task from §0.2. A wrong pick **STOPS** and names the right agent; it does not quietly switch roles.
 3. Pick the model recommended in §0.2 **after** picking the agent. You may pick any model. The agent warns once if the *selected* model costs more than the task's tier, then continues. It checks `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` against `npm run --silent cc -- models pick <tier>` (see `src/config/models-command.ts`). Agent re-selection reapplies its pin; `models self` cannot prove which backend served a request.
 4. Type the **goal and repository** (path or name resolving to `~/dev/<name>`). A key alone does not tell the agent which repo to use. The only preflight question allowed is a missing repo.
-5. For an outside folder, choose the appropriate permission path: **add it to the workspace** (required for editing), **approve the individual unsandboxed terminal call when prompted**, or **scratch-clone a review target under bot/tmp**. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
+5. **Today:** for an outside folder, add it to the workspace (to edit), approve individual unsandboxed terminal prompts, or scratch-clone a review target under bot/tmp. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
 6. Let the agent work. An architect reports `LOOP RUNNING — hands off.` with the run link and `LOOP FINISHED` with the ledger verdict (§1.4.1). Watch the dashboard instead of touching the worker window, files or driver. An analyst writes an incremental `tmp/<KEY>-report.md` and returns its answer, plan or review draft. If a command pends, the agent names the one approval needed; if the window closes, use §0.4.
+
+### Target flow (designed, not built)
+
+1. A human picks the entry agent in the main window and enqueues a goal; main chat only
+   dispatches, monitors and reports. Durable `supervisor/` tick code (no LLM) keeps moving
+   without a human; the main chat is **never** the place repo or network work is performed.
+2. Architect, analyst, worker and tool-using judge run in separate child windows, one per
+   repo/item, each with its own portable dir and user-data-dir. A main-thread judge subagent
+   may only read in-workspace files. Subagent confirmation blocking is **ASSUMED** pending a
+   spike. Web fetches, git/gh, builds/tests, installs, writes and outside-folder reads are
+   child-only. The child opens the target repo or a scratch clone under bot/tmp; there is no
+   main-thread outside-folder permission step.
+3. Child profile self-approval is **designed** using approve-all, not UI clicking or forged
+   consent. **VERIFIED** C-quinque 2 in the [design evidence](agent-docs/superpowers/specs/2026-09-28-loop-supervisor-design.md#8-spike-0--results-2026-09-2829):
+   `TARGET True`, `run_in_terminal isConfirmed {'type': 1}` without a human click in that
+   probe; global approve-all and off-limits containment are **UNKNOWN** until S13/S14/S18.
+   System-file writes, secret reads/printing, compiled denylist operations and `gh pr merge`
+   remain off-limits; the last two are existing invariants awaiting an explicit user decision.
+4. A pending/denied off-limits call kills that child and parks the item in `needs_human` with
+   evidence. Other unexpected pending calls get one fresh-session retry, then park. Driver
+   immediately works other items and ends with one parked-items report; it never waits for
+   a user answer. Model errors trigger artifact inspection, one rate-limit retry, same-tier
+   single-model substitution, then tier escalation; exhaustion parks and continues. All
+   recovery behavior is **designed, not built** (D6/D14/D15).
+
+**Today, avoid approval stalls:** prefer approval-free main-thread paths. Do not leave a
+main-thread subagent that may prompt running when you walk away; use an already-open target
+window for the existing loop and check actual pending prompts when present.
 
 ### 0.2 Which agent?
 
@@ -48,21 +77,23 @@ the **selected** model, not a claim about backend billing.
 Each prompt below includes a repo (or a resume key whose driver records the repo). Models
 are recommendations from `registry/model-tiers.json`; the preflight checks selected-model
 cost. “Preflight approval” means approve an actual terminal unsandboxed prompt if shown,
-not a blanket grant. The examples are **templates**, not claims that these tasks or PRs exist.
+not a blanket grant **today**. Each permission cell also describes the **unbuilt target**;
+target children self-approve permitted work, never off-limits work. The examples are
+**templates**, not claims that these tasks or PRs exist.
 
 | Task | Agent · model | Exact prompt text | Permission step |
 | --- | --- | --- | --- |
-| Implementation from a ticket | `loop-architect` · GPT-6 Sol | `WS-6673 in ~/dev/web-storefront-ui.` | Add that repo to workspace or open its existing loop-folder window; approve first outside-folder `git -C`/preflight call when prompted. |
-| Plain-description implementation | `loop-architect` · GPT-6 Sol | `grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.` | Grove is already a workspace folder; approve only a preflight prompt if shown. Non-Clover repo uses a GROVE-<slug> key, no Jira ticket. |
-| Bug fix, red repro | `loop-architect` · GPT-6 Sol | `Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.` | Workspace folder already open; approve any preflight terminal prompt. Require the failing test before the fix. |
-| Planning | `loop-analyst` · GPT-6 Sol | `Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.` | Repo already in workspace; approve any terminal preflight prompt. Do not start implementation. |
-| Review someone else's PR | `loop-analyst` · GPT-6 Sol | `Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.` | Scratch-clone into bot/tmp/rv2442 with unsandboxed SSH approval; the human presses Post, not the agent. |
-| Address feedback on your PR | `loop-architect` · GPT-6 Sol | `WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.` | Add repo to workspace/use its loop window; approve outside-folder terminal and SSH calls when prompted. |
-| Debug / investigate without repro | `loop-analyst` · GPT-6 Sol | `Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.` | Already in workspace; approve any terminal preflight prompt. Hand off to architect once reproducible. |
-| Research question | `loop-analyst` · Gemini 3.8 Flash | `In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.` | Read via `list_dir`/`read_file` without a folder grant; approve a terminal grep only if prompted. |
-| Prose docs | `loop-analyst` · Gemini 3.8 Flash | `Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.` | Repo is in workspace; approve preflight and unsandboxed push if prompted. Ground the contract in source before writing. |
-| Resume after closed window | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove.` | Open the existing repo loop window; approve any preflight terminal prompt. Driver `REPO=` can recover the repo from tmp/GROVE-P04-loop.sh. |
-| Resume after escalation / needs_human | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.` | Repo already in workspace; approve only a real preflight prompt. Do not invent a judgment or bypass a pending approval. |
+| Implementation from a ticket | `loop-architect` · GPT-6 Sol | `WS-6673 in ~/dev/web-storefront-ui.` | Today: add repo/use loop window; approve outside-folder `git -C` prompt. Target: repo child self-approves permitted preflight and work. |
+| Plain-description implementation | `loop-architect` · GPT-6 Sol | `grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.` | Today: workspace folder; approve real preflight prompt. Target: grove child self-approves; non-Clover key, no Jira. |
+| Bug fix, red repro | `loop-architect` · GPT-6 Sol | `Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.` | Today: workspace folder; approve preflight if prompted, red repro first. Target: child runs repro/build without main approval. |
+| Planning | `loop-analyst` · GPT-6 Sol | `Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.` | Today: workspace folder; approve preflight prompt. Target: analyst child reads/writes; main only monitors. |
+| Review someone else's PR | `loop-analyst` · GPT-6 Sol | `Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.` | Today: scratch clone under bot/tmp with SSH approval; human posts. Target: child clones/reviews under bot/tmp; posting others' review remains human-only/parked. |
+| Address feedback on your PR | `loop-architect` · GPT-6 Sol | `WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.` | Today: add repo/use loop window; approve terminal/SSH prompts. Target: child handles own PR; external merge remains outside driver (D1). |
+| Debug / investigate without repro | `loop-analyst` · GPT-6 Sol | `Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.` | Today: workspace folder; approve preflight if prompted. Target: analyst child investigates; main does not run tests. |
+| Research question | `loop-analyst` · Gemini 3.8 Flash | `In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.` | Today: read tools need no folder grant; approve terminal grep if prompted. Target: child handles outside reads/web; no main approval. |
+| Prose docs | `loop-analyst` · Gemini 3.8 Flash | `Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.` | Today: workspace folder; approve preflight/push prompts. Target: child writes, verifies and pushes own branch; no main prompt. |
+| Resume after closed window | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove.` | Today: reopen repo window; approve preflight if prompted; recover `REPO=` from saved driver. Target: tick resumes child from artifacts, not chat memory. |
+| Resume after escalation / needs_human | `loop-architect` · GPT-6 Sol | `resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.` | Today: workspace folder; approve real preflight prompt; never bypass pending approval. Target: child resumes only after evidence/decision; parked items do not block others. |
 
 ### 0.4 Resuming safely
 
@@ -75,9 +106,9 @@ is **not** a pass: record the stale row and start a new run. An analyst resumes 
 incremental report but rechecks actual files. Artifacts outrank chat recollection.
 
 > **Designed, not built yet — supervisor / dedicated instance.** `supervisor/`, the
-> portable-profile instance manager, pending classifier, crash reaper, autonomous intake,
-> dashboard board and migrations are design only. Spike 0b S7–S12 must precede the
-> supervisor's housekeeping build step. Today's driver still needs an already-open
+> portable-profile instance manager, pending/error classifier, crash reaper, autonomous
+> intake, model substitution, dashboard board and migrations are design only. Spikes
+> S13–S18 gate the new approval, isolation and error behavior. Today's driver still needs an already-open
 > target window (§1.2); do not assume automatic teardown, unattended approvals or
 > auto-resume after a closed window.
 
@@ -112,11 +143,11 @@ Six roles across intake and the loop. The gate that decides pass or fail is not 
 | Role | Who | Runs | Decides |
 | --- | --- | --- | --- |
 | **Analyst** | `loop-analyst`, dispatcher or architect tier by task | as needed, outside the grind | research, investigation, planning, prose docs or review drafts; hands loopable work to Architect |
-| **Architect** | registry `architect` tier by default, in your session | once | what "done" means — turns your requirements into a failing test |
-| **Judge** | `loop-judge`, registry `oracle` tier, consulted on demand | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
+| **Architect** | registry `architect` tier by default, in your session today; child in target | once | what "done" means — turns your requirements into a failing test |
+| **Judge** | `loop-judge`, registry `oracle` tier; child for tools in target, main subagent only for read-only in-workspace analysis | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
 | **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
 | **Gate** | no model | every 5s | **whether it passed** — exit code and checksums |
-| **Referee** | `loop-architect`, consulting `loop-judge` for the verdict | once | whether the pass is the one you wanted |
+| **Referee** | `loop-architect`, consulting `loop-judge` for the verdict; child in target | once | whether the pass is the one you wanted |
 
 The Gate sits between the Worker and the Referee, so **the expensive judge model (`loop-judge`,
 the `oracle` tier) never sees a red run**. It is not in the polling loop and is not woken between
@@ -131,6 +162,11 @@ frontmatter by `cc models apply`; the driver dispatches `code chat -m loop-worke
 checks the agent file exists first (`scripts/loop.sh`). Change the **registry**, not the
 generated agent line. A missing custom mode can silently select the default; check the
 model picker on your first run.
+
+**Target, not built:** the supervisor tick dispatches architect/analyst, worker and
+tool-using judge to children, each with its own portable/user-data pair per repo/item.
+Main chat enqueues and monitors only, without git, gh, web fetches, outside reads,
+builds or tests. A stopped child parks its item; the driver continues.
 
 ### 1.1 Driving the driver by hand
 
@@ -506,6 +542,13 @@ confidence, or a human or another agent doubts a result: redo the same role one 
 with `npm run cc -- models pick <role> --escalate=1` (stack further on repeated failure,
 capped at `oracle`), and record `role, from→to model, trigger` in `tmp/<KEY>-decisions.md`.
 
+**Target D15 (designed, not built):** check artifacts/ledger before treating a missing chat
+reply as failure. Rate limit gets one bounded same-model retry, then a different single-model
+`.m-<slug>` variant **within the tier**, without using an escalation rung. Only after the
+tier is exhausted climb D11. `code chat` cannot switch models with a flag; an available but
+erroring first choice does not fall through. Exact JSONL error signature and pin fidelity
+are **UNKNOWN** until S15. After every tier is exhausted, park and continue other items.
+
 `loop-worker` is dispatched headlessly (`code chat -m <agent>`), and `code chat --help`
 (checked 2026-09-29) has no model-override flag — only `-m/--mode`, which selects an *agent
 file*. So escalating the worker means dispatching a different file, not a different flag.
@@ -543,6 +586,10 @@ worker turn landed in the user's own window, so its chat history and renderer me
 with the loop. The cause was never confirmed. The driver opens a separate window again.
 
 ### 7.1 Why not subagents
+
+**Target additional reason (ASSUMED; S16 pending):** a subagent's tool confirmation can
+surface in the main window and block the parent when nobody is around. Only read-only
+in-workspace subagent analysis belongs there; tool-using work runs in a child window.
 
 The first three limits above come from `code chat`. Dispatching `loop-worker` as a subagent
 instead would delete them all at once — no window, no one-repo rule, and the model pin works
@@ -583,7 +630,7 @@ Two properties of those tables are worth not losing:
   mutated anything. The executor's capability list stays two items long — `merge` and
   `resolve` — and that shortness is the security property (DESIGN.md §19).
 
-**Starting a loop from a button: no, and deliberately not.** The invariant is that this
+**Today, starting a loop from a button: no, and deliberately not.** The invariant is that this
 system never invokes a language model; a "run loop" control is precisely that, and it would
 mean a cron-reachable path from a queued action to an agent editing another repository. A
 loop is started by a human in a terminal. The page exists to make that watchable afterwards,
@@ -603,6 +650,11 @@ roadmap R12, **not built**). Its shape is deliberate and worth preserving:
 
 Step 5 is load-bearing. Without it, work done in Chat is invisible to `actions` and the audit
 trail has a hole exactly where the mutations happened.
+
+**Target (designed, not built):** the separate `supervisor/` code process may take queued
+items from a board and dispatch children; buttons only set desired state. `cc` and its MCP
+remain read-only with respect to models; the main chat only enqueues, monitors and reports.
+Anything requiring a person is parked while other items progress.
 
 The driver's own files remain the deepest record: every run writes `verify.txt`, `guard.txt`
 and `cli-<n>.out` under `tmp/<ticket>/`. `/loops` stores the tail of the verifier output, not

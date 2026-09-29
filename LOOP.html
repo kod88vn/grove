@@ -119,9 +119,20 @@
     <li>Pick an <strong>agent</strong> from the table below. The wrong agent stops and names the right one.</li>
     <li>Pick the recommended <strong>model after the agent</strong>. Any model is allowed; an overpriced selection earns a warning, not a refusal. Agent re-selection reapplies its default. <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares the selected model with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
     <li>Write the goal <strong>and the repo</strong> (path or name under <code>~/dev/</code>).</li>
-    <li>For an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>bot/tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
+    <li><strong>Today:</strong> for an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>bot/tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
     <li>Hands off while the loop runs. Expect <code>LOOP RUNNING — hands off.</code> and <code>LOOP FINISHED</code> with a ledger verdict, or an analyst's incremental <code>tmp/&lt;KEY&gt;-report.md</code>. The dashboard shows loop progress; do not touch the worker window, its files or driver. A blocked operation names the one action needed.</li>
   </ol>
+</div>
+
+<div class="card rule">
+  <h3>Target flow — designed, not built</h3>
+  <p>The human picks the entry agent in the main window. It only enqueues, monitors and reports; durable <code>supervisor/</code> tick code (no LLM and no approvals) dispatches architect, analyst, worker and tool-using judge into child windows, one per repo or item, with separate portable and user-data directories. Main-thread subagents may only do read-only in-workspace analysis. Whether their confirmations block the parent is <strong>ASSUMED</strong> pending S16. Web fetches, repo work, git/gh, builds/tests, installs, writes and outside-folder reads belong to the child, which opens on the repo or a scratch clone under <code>bot/tmp/</code>.</p>
+  <p><strong>Designed approval:</strong> child profile self-approves permitted calls via approve-all, never by a UI click or forged consent. <strong>VERIFIED</strong> C-quinque 2 recorded <code>TARGET True</code> and <code>run_in_terminal isConfirmed {'type': 1}</code> after an unattended child touch; global approve-all and off-limits containment are <strong>UNKNOWN</strong> pending S13/S14/S18. System-file writes, secret reads/printing, the compiled denylist and <code>gh pr merge</code> stay off-limits. The last two are existing invariants flagged for a user decision, not silently dropped.</p>
+  <p style="margin-bottom:0">An off-limits pending call kills the child and parks the item with evidence. Another unexpected pending call gets one fresh-session retry, then parks. The code driver never waits for an answer: it moves on and produces one final parked-items report. It checks disk and ledger before retrying model errors, tries a same-tier single-model substitute, then tier escalation; exhausted work parks. This recovery is <strong>not built</strong>.</p>
+</div>
+<div class="card warn">
+  <h3>Today, avoid approval stalls</h3>
+  <p style="margin-bottom:0">Prefer approval-free main-thread paths. Do not leave a main-thread subagent that may prompt when you walk away. Today's manual loop still needs an already-open repo window and real prompts must be answered by a person.</p>
 </div>
 
 <h3>Pick the entry agent</h3>
@@ -142,21 +153,21 @@
 </div>
 
 <h3>Eleven prompts to paste</h3>
-<p>These are templates, not assertions that the tickets or PRs exist. “Approve” means only when a real per-call prompt appears. Each row shows agent, model, exact prompt and permission action.</p>
+<p>These are templates, not assertions that the tickets or PRs exist. “Approve” means only when a real per-call prompt appears <strong>today</strong>. Each row shows today's permission and the unbuilt target, where the child self-approves permitted work.</p>
 <table>
   <thead><tr><th>Task</th><th>Agent · model</th><th>Exact prompt text</th><th>Permission</th></tr></thead>
   <tbody>
-    <tr><td>Ticket implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673 in ~/dev/web-storefront-ui.</code></td><td>Add repo to workspace or use existing loop window; approve outside-folder git preflight if prompted.</td></tr>
-    <tr><td>Plain-description implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.</code></td><td>Already in workspace; approve only if prompted. No Jira ticket for non-Clover grove.</td></tr>
-    <tr><td>Bug fix</td><td>loop-architect · GPT-6 Sol</td><td><code>Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.</code></td><td>Workspace folder open; approve any preflight prompt. Red repro first.</td></tr>
-    <tr><td>Planning</td><td>loop-analyst · GPT-6 Sol</td><td><code>Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.</code></td><td>Already in workspace; approve preflight if prompted.</td></tr>
-    <tr><td>Others' PR review</td><td>loop-analyst · GPT-6 Sol</td><td><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></td><td>Scratch-clone into bot/tmp/rv2442; approve SSH if prompted. Human posts review.</td></tr>
-    <tr><td>Own PR feedback</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.</code></td><td>Add repo/use loop window; approve outside-folder terminal and SSH prompts as needed.</td></tr>
-    <tr><td>Investigation</td><td>loop-analyst · GPT-6 Sol</td><td><code>Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.</code></td><td>Already in workspace; approve preflight if prompted; hand off once reproducible.</td></tr>
-    <tr><td>Research</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.</code></td><td>Read tools need no folder grant; approve terminal grep only if prompted.</td></tr>
-    <tr><td>Prose docs</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.</code></td><td>Already in workspace; approve preflight and push prompts if shown.</td></tr>
-    <tr><td>Closed-window resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove.</code></td><td>Reopen existing loop window; approve preflight if prompted; recover repo from driver.</td></tr>
-    <tr><td>Escalation / needs_human resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.</code></td><td>Already in workspace; approve preflight if prompted; do not bypass pending approval.</td></tr>
+    <tr><td>Ticket implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673 in ~/dev/web-storefront-ui.</code></td><td>Today: add repo/use loop window; approve git preflight. Target: repo child self-approves permitted work.</td></tr>
+    <tr><td>Plain-description implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.</code></td><td>Today: workspace folder; approve real preflight prompt. Target: grove child self-approves; no Jira.</td></tr>
+    <tr><td>Bug fix</td><td>loop-architect · GPT-6 Sol</td><td><code>Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.</code></td><td>Today: workspace; approve preflight, red repro first. Target: child runs tests without main approval.</td></tr>
+    <tr><td>Planning</td><td>loop-analyst · GPT-6 Sol</td><td><code>Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.</code></td><td>Today: workspace; approve preflight. Target: analyst child reads and writes; main monitors.</td></tr>
+    <tr><td>Others' PR review</td><td>loop-analyst · GPT-6 Sol</td><td><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></td><td>Today: scratch clone in bot/tmp; approve SSH; human posts. Target: child clones/reviews; posting others' review stays human-only.</td></tr>
+    <tr><td>Own PR feedback</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.</code></td><td>Today: add repo/use loop window; approve SSH. Target: child handles own PR; merge stays external.</td></tr>
+    <tr><td>Investigation</td><td>loop-analyst · GPT-6 Sol</td><td><code>Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.</code></td><td>Today: workspace; approve preflight. Target: analyst child investigates; main runs no tests.</td></tr>
+    <tr><td>Research</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.</code></td><td>Today: read tools need no grant; approve terminal grep if prompted. Target: child handles outside reads/web.</td></tr>
+    <tr><td>Prose docs</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.</code></td><td>Today: workspace; approve preflight/push. Target: child writes, verifies and pushes own branch.</td></tr>
+    <tr><td>Closed-window resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove.</code></td><td>Today: reopen repo window; approve preflight; saved driver has repo. Target: tick resumes from artifacts.</td></tr>
+    <tr><td>Escalation / needs_human resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.</code></td><td>Today: approve real preflight; do not bypass pending approval. Target: child resumes after evidence; parked items do not block others.</td></tr>
   </tbody>
 </table>
 
@@ -166,7 +177,7 @@
 </div>
 <div class="card warn">
   <h3>Designed, not built yet — supervisor / dedicated instance</h3>
-  <p>The portable-profile instance manager, pending classifier, reaper, autonomous intake, dashboard board and migrations are only designed. Spike 0b S7–S12 gates the supervisor housekeeping build step. Today's driver still needs an already-open target window; no automatic teardown, unattended approval or auto-resume is promised.</p>
+  <p>The portable-profile instance manager, pending/error classifier, model substitution, reaper, autonomous intake, dashboard board and migrations are only designed. S13–S18 gate revised approval, isolation and error behavior. Today's driver still needs an already-open target window; no automatic teardown, unattended approval or auto-resume is promised.</p>
 </div>
 
 <h2>2. The roles: a model never decides pass</h2>
@@ -184,7 +195,7 @@
     <tr>
       <td><strong>Architect</strong></td>
       <td><span class="tag t-info">GPT-6 Sol</span></td>
-      <td>once, up front</td>
+      <td>once, up front; today in your chat, target in a child</td>
       <td>what "done" means — writes it as a failing test</td>
     </tr>
     <tr>
@@ -200,12 +211,12 @@
       <td><strong>whether it passed</strong> — exit code and checksums</td>
     </tr>
     <tr>
-      <td><strong>Judge</strong></td><td>Claude Opus 5.5</td><td>consult or referee</td><td>intent match, not test pass</td>
+      <td><strong>Judge</strong></td><td>Claude Opus 5.5</td><td>consult/referee; target child for tools, main subagent for read-only in-workspace work only</td><td>intent match, not test pass</td>
     </tr>
     <tr>
       <td><strong>Referee</strong></td>
       <td><span class="tag t-info">Architect + Judge</span></td>
-      <td>once, at the end</td>
+      <td>once, at the end; child in target</td>
       <td>whether the pass is the one you wanted</td>
     </tr>
   </tbody>
@@ -234,14 +245,15 @@
   frontmatter by <code>npm run cc -- models apply</code>. The driver dispatches with
   <code>code chat -m loop-worker</code>; change the registry, not a generated model line.
 </p>
+<p><strong>Target only:</strong> a child error triggers artifact inspection, one bounded rate-limit retry, same-tier single-model substitution, then tier escalation. An available-but-erroring first model does not fall through; <code>code chat</code> has no model flag (Spike 0 viii, LOOP.md §6a). Exact error field and single-model pin fidelity are <strong>UNKNOWN</strong> until S15. Exhaustion parks the item; other work continues.</p>
 
 <h2>3. The cycle</h2>
 
 <div class="flow">
-  <div><b>0–2</b><span class="who">Architect, in your chat</span>intake · spec · arm</div>
+  <div><b>0–2</b><span class="who">Architect: chat today; child in target</span>intake · spec · arm</div>
   <div><b>3</b><span class="who">Worker + Gate, headless</span>grind until green</div>
   <div><b>4</b><span class="who">Architect + Judge</span>referee the diff</div>
-  <div><b>5–6</b><span class="who">Architect, in your chat</span>PR · feedback · close</div>
+  <div><b>5–6</b><span class="who">Architect: chat today; child in target</span>PR · feedback · close</div>
 </div>
 
 <table>
@@ -324,11 +336,11 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
 <div class="card warn">
   <h3>Why the start is a chat session and not a dashboard button</h3>
   <p style="margin-bottom:0">
-    Phase 1 needs a model, and this system has a hard invariant that it never invokes one on
-    its own — a "Run loop" button would be a path from a scheduled job to an agent editing
-    another repository unattended. So a loop is always started by a person, in a chat session
-    they are looking at. The dashboard's job is to let you <em>watch</em>, which is the part
-    that was actually missing.
+    <strong>Today:</strong> <code>cc</code> never invokes a model; manual loops start in chat
+    and the existing dashboard only watches. <strong>Target, not built:</strong> separate
+    <code>supervisor/</code> tick code may dispatch child windows unattended. New board
+    buttons only set desired state, never invoke a model directly. Main chat only enqueues,
+    monitors and reports; parked items do not block other work.
   </p>
 </div>
 
@@ -517,8 +529,10 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
     turns — the exact cost §2 exists to delete. Two smaller losses follow: the checksum lock
     works because the driver is a <em>file</em> that can be hashed, and a chat turn is not; and
     a subagent chain only lives inside an open session, so there is nothing to start in a
-    background terminal and walk away from. If you were going to watch the run anyway, the
-    trade flips — but then it was never really a loop.
+    background terminal and walk away from. <strong>Target additional risk (ASSUMED, S16):</strong>
+    a subagent confirmation may block the main window; only read-only in-workspace analysis
+    belongs there. Tool-using work moves to child windows. If you were going to watch the
+    run anyway, the cost trade flips — but then it was never really a loop.
   </p>
 </div>
 
