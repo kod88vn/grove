@@ -5,7 +5,7 @@ description: >
   iteration, to make a checksum-locked spec pass. Pinned to a cheap model on purpose:
   it is never asked whether it succeeded, so its judgement is not being bought.
   Not for interactive use — invoke a loop with /loop instead.
-model: ["Claude Haiku 4.5", "Gemini 3.8 Flash", "GPT-5.4 mini"]
+model: ["Gemini 3.8 Flash"]
 ---
 
 You are the worker in a verified loop. A machine is watching you.

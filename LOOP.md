@@ -36,14 +36,14 @@ Five roles. Only two are dispatched models, and the one that decides pass or fai
 
 | Role | Who | Runs | Decides |
 | --- | --- | --- | --- |
-| **Architect** | Sonnet by default, in your session | once | what "done" means — turns your requirements into a failing test |
-| **Judge** | `loop-judge`, Opus 5.5, consulted on demand | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
+| **Architect** | registry `architect` tier by default, in your session | once | what "done" means — turns your requirements into a failing test |
+| **Judge** | `loop-judge`, registry `oracle` tier, consulted on demand | per judgment call | open questions, bounce-back triage disputes, and the phase-4 referee verdict |
 | **Worker** | `loop-worker`, cheap model, headless | once per iteration | how to make it pass |
 | **Gate** | no model | every 5s | **whether it passed** — exit code and checksums |
 | **Referee** | `loop-architect`, consulting `loop-judge` for the verdict | once | whether the pass is the one you wanted |
 
 The Gate sits between the Worker and the Referee, so **the expensive judge model (`loop-judge`,
-Opus 5.5) never sees a red run**. It is not in the polling loop and is not woken between
+the `oracle` tier) never sees a red run**. It is not in the polling loop and is not woken between
 iterations. That is the whole reason a loop with a four-turn budget does not cost four
 expensive turns.
 
@@ -241,10 +241,11 @@ So the loop is driven by a process the agent does not control and cannot see.
 
 **You do not write the spec.** You write requirements — the same prose you would put in a
 Jira ticket — and phase 1 of the prompt translates them into an executable spec. That
-translation is the Architect's entire job. The Architect runs on Sonnet by default and does
-not carry the judgment calls itself: a genuinely ambiguous requirement, an open default, or
-the phase-4 referee verdict is escalated to `loop-judge` (Opus 5.5), which decides rather than
-bouncing the question back — only a `CRITICAL` verdict from `loop-judge` reaches you
+translation is the Architect's entire job. The Architect runs on the registry's `architect`
+tier by default and does not carry the judgment calls itself: a genuinely ambiguous
+requirement, an open default, or the phase-4 referee verdict is escalated to `loop-judge`
+(the `oracle` tier), which decides rather than bouncing the question back — only a
+`CRITICAL` verdict from `loop-judge` reaches you
 (`.github/agents/loop-architect.agent.md`, "Escalation").
 
 | You supply, in prose | The Architect turns it into | When |

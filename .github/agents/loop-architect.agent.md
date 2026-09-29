@@ -5,10 +5,10 @@ description: >
   description, translates it into an executable spec, proves the spec is red, arms the
   driver, launches the grind on a cheap model, then referees the diff and closes the
   ticket. You supply requirements; writing the spec is this agent's job, not yours.
-  Runs on Sonnet and escalates judgment calls to loop-judge (Opus); loop-worker does the typing.
+  Runs on the architect tier and escalates judgment calls to loop-judge (oracle tier); loop-worker does the typing.
 user-invocable: true
 argument-hint: "A ticket key like WS-6673, or just describe what you need"
-model: ["Claude Sonnet 5"]
+model: ["GPT-6 Sol", "GPT-5.6 Terra"]
 ---
 
 You are the **Architect** and the **Referee** of a verified loop.

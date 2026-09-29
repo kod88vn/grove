@@ -234,12 +234,15 @@ at green (`LOOP.md` §6: *"the diff gets read once, by a person, before it leave
 machine"*) — see §9 for why removing that checkpoint is a named risk, not a free change.
 "Reopen with correction" creates a follow-up item carrying the user's note, rather than
 mutating the closed one. **Accepted as decided (§11).** Mitigation: the phase-4 referee is
-mandatory in the supervisor and runs on `loop-judge` (Opus) — it is reject-only, so its
+mandatory in the supervisor and runs on `loop-judge` (the `oracle` tier) — it is reject-only, so its
 `accept` is necessary but never sufficient; the verifier's exit code and CI still decide.
 
 **D11 — Model routing & escalation.**
-Default driver/architect = Claude Sonnet 5; worker = `loop-worker` (GPT-5.6 Luna); judgment =
-`loop-judge` (Claude Opus 5.5). Model routing itself now lives in `registry/model-tiers.json`
+Default driver/architect = the registry's `architect` tier (`registry/model-tiers.json`),
+currently GPT-6 Sol, chosen in the 2026-09-28 coding-benchmark re-tier; worker = the
+`worker` tier (`loop-worker`, currently GPT-5.6 Luna); judgment = the `oracle` tier
+(`loop-judge`, currently Claude Opus 5.5). Model routing itself now lives in
+`registry/model-tiers.json`
 (worker/dispatcher/architect/oracle tiers, `cc models`/`cc models pick`/`cc models apply`,
 escalation on failure/doubt capped at `oracle` — see `LOOP.md` §6a), not hardcoded here or in
 agent frontmatter. Any question that would otherwise go to the user goes to
@@ -255,10 +258,8 @@ spot-check it after the fact. Nested subagent dispatch — an already-dispatched
 `CONSULT_NEEDED` return path in `.github/agents/loop-architect.agent.md`, "Escalation". Added
 as Spike 0 item vi (§8); falsifying command: from a subagent-dispatched `loop-architect`,
 attempt to dispatch `loop-judge` and check the session's resolved model for a
-`claude-opus-5-5` turn. Pricing rationale (AIC per 1M tokens input/output, Copilot models
-catalogue — figures as supplied, not independently verified against a file in this repo,
-so `ASSUMED` per this document's own convention): Opus 5 500/2500, Opus 5.5 400/2000,
-Sonnet 5 200/1000, GPT-5.6 Luna 20/120.
+`claude-opus-5-5` turn. Routing rationale: the 2026-09-28 coding-benchmark re-tier;
+the registry sets the current priority order and output-price bands.
 
 **D12 — Repo- and task-agnostic.**
 Nothing in supervisor code may name a specific repo, branch, test runner, or task type.
@@ -477,10 +478,10 @@ so a shim failure cannot merge anything for real.
 | D9c Jira label name | `loop` | Labels are created on first use in this Jira instance; no admin step required |
 | D1 per-repo `closeOn` | grove = `merged`, the first configured entry | Only grove has an external auto-merge policy documented (`grove/AGENTS.md`); other repos are enrolled by adding a config entry (D12) |
 | Scope of repos/tasks | any repo, any task (user, 2026-09-28) | D12 |
-| D10 approval-gate removal | Accepted, with a mandatory mitigation | The phase-4 Opus referee (D11) is reject-only and mandatory in the supervisor, so *some* judgment gate survives even with human pre-approval off |
+| D10 approval-gate removal | Accepted, with a mandatory mitigation | The phase-4 `oracle`-tier referee (D11) is reject-only and mandatory in the supervisor, so *some* judgment gate survives even with human pre-approval off |
 | D2 bounce-back triage verification | Verified mechanically, not by model say-so | "Testable" means the architect can produce a spec that is red at iteration 0 (`cc loop start` refuses an already-green verifier); failure to do so within one turn reclassifies the item as untestable |
 | Spike 0 go-ahead | Approved to run | All five original items plus new item vi are falsifiable by a command; none require a design change to attempt |
-| Model routing | Sonnet 5 default for architect/driver; Opus 5.5 (`loop-judge`) for judgment and referee only; GPT-5.6 Luna for the worker | Matches the cost structure already established for `loop-worker`/`loop-architect` in this repo; judgment calls are rare relative to grinding turns, so paying for Opus only there is the same tradeoff the existing loop already makes |
+| Model routing | Registry `architect` tier for architect/driver (currently GPT-6 Sol); `oracle` tier for `loop-judge` (currently Claude Opus 5.5); `worker` tier for `loop-worker` (currently GPT-5.6 Luna) | Updated by the 2026-09-28 coding-benchmark re-tier; `registry/model-tiers.json` is the source of truth for priorities and price bands |
 
 ## 12. Reserved for the user
 
