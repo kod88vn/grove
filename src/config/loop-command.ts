@@ -1,3 +1,6 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { childProfileSettings, mergeChildSettings } from '../core/policy/terminal-deny.ts';
 import { loopFinish, loopRecord, loopStart, loopStatus } from './run-loop.ts';
 
 /**
@@ -8,7 +11,7 @@ import { loopFinish, loopRecord, loopStart, loopStatus } from './run-loop.ts';
  * everything there touches the ledger.
  */
 
-const SUBCOMMANDS = ['start', 'record', 'finish', 'status'] as const;
+const SUBCOMMANDS = ['start', 'record', 'finish', 'status', 'profile'] as const;
 const DEFAULT_BUDGET = 4;
 
 export function loopCommand(args: readonly string[]): number {
@@ -24,6 +27,8 @@ export function loopCommand(args: readonly string[]): number {
       return finishCommand(rest);
     case 'status':
       return loopStatus();
+    case 'profile':
+      return profileCommand(rest);
     default:
       process.stderr.write(
         `unknown loop subcommand "${sub}". Known: ${SUBCOMMANDS.join(', ')}\n`,
@@ -75,6 +80,67 @@ function recordCommand(args: readonly string[]): number {
 function finishCommand(args: readonly string[]): number {
   const runId = number(args, '--run');
   return runId === null ? usage('finish --run=<id>') : loopFinish(runId);
+}
+
+function profileCommand(args: readonly string[]): number {
+  const userDataDir = text(args, '--user-data-dir') ?? resolve(process.cwd(), 'tmp/loop-vscode');
+  const settingsPath = join(userDataDir, 'User', 'settings.json');
+
+  if (args.includes('--check')) {
+    return checkProfile(settingsPath);
+  }
+  if (args.includes('--write')) {
+    return writeProfile(userDataDir, settingsPath);
+  }
+  process.stdout.write(`${JSON.stringify(childProfileSettings(), null, 2)}\n`);
+  return 0;
+}
+
+function checkProfile(settingsPath: string): number {
+  try {
+    const raw = readFileSync(settingsPath, 'utf8');
+    const existing: Record<string, unknown> = JSON.parse(raw);
+    const managed = childProfileSettings();
+    for (const [key, value] of Object.entries(managed)) {
+      if (JSON.stringify(existing[key]) !== JSON.stringify(value)) {
+        return 1;
+      }
+    }
+    return 0;
+  } catch {
+    return 1;
+  }
+}
+
+function writeProfile(userDataDir: string, settingsPath: string): number {
+  let existing: Record<string, unknown>;
+  try {
+    const raw = readFileSync(settingsPath, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
+    if (!isSettingsRecord(parsed)) {
+      process.stderr.write(`invalid profile settings: ${settingsPath} must contain a JSON object\n`);
+      return 1;
+    }
+    existing = parsed;
+  } catch (error: unknown) {
+    if (!isFileNotFound(error)) {
+      process.stderr.write(`invalid profile settings: ${settingsPath} is not valid JSON\n`);
+      return 1;
+    }
+    existing = {};
+  }
+  mkdirSync(join(userDataDir, 'User'), { recursive: true });
+  const merged = mergeChildSettings(existing, childProfileSettings());
+  writeFileSync(settingsPath, `${JSON.stringify(merged, null, 2)}\n`);
+  return 0;
+}
+
+function isSettingsRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isFileNotFound(error: unknown): boolean {
+  return error !== null && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
 }
 
 function usage(line: string): number {

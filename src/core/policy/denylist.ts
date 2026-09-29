@@ -10,7 +10,7 @@
  */
 
 /** Command-line flags that bypass a safety mechanism. */
-const FORBIDDEN_ARGUMENTS: readonly string[] = [
+export const FORBIDDEN_ARGUMENTS: readonly string[] = [
   '--no-verify',
   '--force',
   '--force-with-lease',
