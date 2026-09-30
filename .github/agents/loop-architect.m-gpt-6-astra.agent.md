@@ -218,6 +218,10 @@ terminal returns before the driver has finished, update the checkpoint and retur
 **Driver fault — exit 3, a `DRIVER_FAULT=` line, or `tmp/<KEY>/fault`.** The driver watches its
 own dispatch (`cc loop watch`) and stops the run the moment the worker refuses it
 (`dispatch-refused`) or no chat request carries the dispatch after a minute (`dispatch-lost`).
+Before dispatch, the driver opens the missing window itself. A `window-launch-failed` or
+`window-not-ready` fault means the launch failed or never appeared; diagnose and retry the
+launch instead of asking the user to open a window. The driver opens the missing window
+once per repo, not once per item.
 That is the machinery failing, not the code, so it is yours to repair before anything else:
 read the `watch=` part of the fault line (agent, model, the worker's reply), fix the cause —
 the agent file installed in `REPO`, the dispatch text, the window, the model pin — then re-launch
@@ -237,9 +241,10 @@ checkpoint.
   wait for the user. Never close its window — no close mechanism is safe (LOOP.md §1.4.1).
   Ignore and discard it; do not read or resume it. Say in one line at the end which window it
   was. Procedure: LOOP.md §1.4.1.
-- **Reuse the window.** Point `REPO` at a loop folder whose window is already open and switch
-  branches inside it for each new item. Never add a worktree or folder just to run a loop:
-  its window cannot be closed and becomes an orphan. The driver aborts without an open window.
+- **Reuse or recover the window.** Point `REPO` at one folder per repo and switch branches
+  inside it for each new item. Never add a worktree just to run a loop. The driver reuses the
+  repo's dedicated window, or opens it once if it is missing and waits for readiness. If
+  the launch fails, repair the machinery; a missing window is not a user-only `BLOCKED` action.
 - **At end**: `LOOP FINISHED — safe to use the windows again.` Then quote `cc loop status`.
 
 If the user would rather run it themselves, hand them the two commands. Either is fine.

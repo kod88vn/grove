@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -96,6 +96,71 @@ describe('one driver per target repo', { timeout: 15000 }, () => {
   it('acquires the lock before the driver touches the repo', () => {
     expect(TEMPLATE.indexOf('acquire_repo_lock')).toBeGreaterThan(-1);
     expect(TEMPLATE.indexOf('acquire_repo_lock')).toBeLessThan(TEMPLATE.indexOf('install-worker-agent.sh'));
+  });
+});
+
+describe('a missing repo window is recoverable', () => {
+  function fakeCode(dir: string): { code: string; repo: string; calls: string } {
+    const code = join(dir, 'code');
+    const repo = join(dir, 'grove');
+    const calls = join(dir, 'calls');
+    mkdirSync(repo);
+    writeFileSync(code, `#!/bin/sh
+echo "$*" >> "${calls}"
+if [ "$1" = --status ]; then
+  if [ -f "${dir}/open" ] && [ "\${WINDOW_NEVER_READY:-0}" != 1 ]; then
+    echo '  1  window [1] (package.json — grove)'
+  else
+    echo '  1  window [1] (HOMEWORK_PROGRESS.md — Untitled (Workspace))'
+    echo '|    Folder (grove): 2811 files'
+  fi
+elif [ "$1" = --new-window ]; then
+  [ "\${WINDOW_FAIL_OPEN:-0}" != 1 ] || exit 1
+  touch "${dir}/open"
+fi
+`);
+    chmodSync(code, 0o755);
+    return { code, repo, calls };
+  }
+
+  it('opens one dedicated window when Grove exists only inside an Untitled workspace, then reuses it', () => {
+    const dir = scratch();
+    const { code, repo, calls } = fakeCode(dir);
+    const first = lib(`WINDOW_READY_ATTEMPTS=2 WINDOW_READY_DELAY=0 ensure_repo_window "${code}" "${repo}"`, dir);
+    expect(first.code).toBe(0);
+    const second = lib(`WINDOW_READY_ATTEMPTS=2 WINDOW_READY_DELAY=0 ensure_repo_window "${code}" "${repo}"`, dir);
+    expect(second.code).toBe(0);
+    expect(readFileSync(calls, 'utf8').split('\n').filter(line => line.startsWith('--new-window'))).toEqual([`--new-window ${repo}`]);
+  });
+
+  it('returns a named fault when opening the window fails', () => {
+    const dir = scratch();
+    const { code, repo, calls } = fakeCode(dir);
+    const result = lib(`WINDOW_FAIL_OPEN=1 ensure_repo_window "${code}" "${repo}"`, dir);
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('DRIVER_FAULT=window-launch-failed');
+    expect(readFileSync(calls, 'utf8').split('\n').filter(line => line.startsWith('--new-window'))).toHaveLength(1);
+  });
+
+  it('does not open another window when the launched window never becomes ready', () => {
+    const dir = scratch();
+    const { code, repo, calls } = fakeCode(dir);
+    const result = lib(`WINDOW_NEVER_READY=1 WINDOW_READY_ATTEMPTS=2 WINDOW_READY_DELAY=0 ensure_repo_window "${code}" "${repo}"`, dir);
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('DRIVER_FAULT=window-not-ready');
+    expect(readFileSync(calls, 'utf8').split('\n').filter(line => line.startsWith('--new-window'))).toHaveLength(1);
+  });
+
+  it('uses the recovery helper before dispatch rather than aborting for a missing window', () => {
+    expect(TEMPLATE).toContain('ensure_repo_window "$CODE" "$REPO"');
+    expect(TEMPLATE).not.toContain('ABORT — no open window on');
+  });
+
+  it('tells the architect to recover a missing window rather than block on a user action', () => {
+    const architect = readFileSync(join(ROOT, '.github/agents/loop-architect.agent.md'), 'utf8');
+    expect(architect).toContain('window-launch-failed');
+    expect(architect).toContain('driver opens the missing window');
+    expect(architect).not.toContain('The driver aborts without an open window.');
   });
 });
 

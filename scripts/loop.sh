@@ -77,33 +77,9 @@ OUT="$CC_ROOT/tmp/$TICKET"
 AGENT="$REPO/.github/agents/$WORKER_AGENT.agent.md"
 mkdir -p "$OUT"
 
-# Does a window on $REPO already exist? Checked BEFORE the first "$CODE" "$REPO"
-# call below, which then only focuses that window.
-BASE="$(basename "$REPO")"
-window_exists_for_base() {
-  local base="$1"
-  "$CODE" --status 2>/dev/null | while IFS= read -r line; do
-    case "$line" in
-      *"window ["*"("*")"*) ;;
-      *) continue ;;
-    esac
-    title="$(printf '%s\n' "$line" | sed -E 's/^.*window \[[0-9]+\] \((.*)\)[[:space:]]*$/\1/')"
-    folder_part="$title"
-    case "$title" in
-      *" — "*) folder_part="${title##*" — "}" ;;
-    esac
-    [ "$folder_part" = "$base" ] && { echo yes; break; }
-  done
-}
-# Reuse an already-open window; never open a new one. A window this script
-# opens cannot be closed reliably, so every new folder left an orphan behind
-# (nine of them on 2026-09-27). Point REPO at a folder whose window is open —
-# switch branches inside it rather than adding a fresh worktree per item.
-if [ -z "$(window_exists_for_base "$BASE")" ]; then
-  echo "ABORT — no open window on ($BASE). Reuse an existing loop folder"
-  echo "        (git -C <folder> switch -c <branch> <base>) instead of opening a new one."
-  exit 1
-fi
+# Reuse an existing dedicated repo window, or launch one once and verify readiness.
+# The repo lock prevents two drivers from opening duplicate windows for the same repo.
+ensure_repo_window "$CODE" "$REPO" || exit 3
 trap 'exit 130' INT
 trap 'exit 143' TERM
 

@@ -57,6 +57,47 @@ release_repo_lock() {
   return 0
 }
 
+# `code chat -m` resolves its agent in the repo's dedicated window. A repo being a folder in
+# an Untitled workspace does not give `code chat` that window. Open it once, then confirm it
+# became visible; a failed launch is a machinery fault, never a request for the user to click.
+window_exists_for_base() {
+  local code="$1" base="$2" title folder_part
+  "$code" --status 2>/dev/null | while IFS= read -r line; do
+    case "$line" in
+      *"window ["*"("*")"*) ;;
+      *) continue ;;
+    esac
+    title="$(printf '%s\n' "$line" | sed -E 's/^.*window \[[0-9]+\] \((.*)\)[[:space:]]*$/\1/')"
+    folder_part="$title"
+    case "$title" in
+      *" — "*) folder_part="${title##*" — "}" ;;
+    esac
+    [ "$folder_part" = "$base" ] && { echo yes; break; }
+  done
+}
+
+ensure_repo_window() {
+  local code="$1" repo="$2" base attempts delay i
+  base="$(basename "$repo")"
+  [ -n "$(window_exists_for_base "$code" "$base")" ] && return 0
+  echo "RECOVER — opening a dedicated VS Code window for $repo"
+  if ! "$code" --new-window "$repo" >/dev/null 2>&1; then
+    echo "DRIVER_FAULT=window-launch-failed repo=$repo — repair the launch and retry"
+    return 1
+  fi
+  attempts="${WINDOW_READY_ATTEMPTS:-15}"
+  delay="${WINDOW_READY_DELAY:-1}"
+  for ((i = 0; i < attempts; i++)); do
+    if [ -n "$(window_exists_for_base "$code" "$base")" ]; then
+      echo "RECOVER — dedicated window ready for $repo"
+      return 0
+    fi
+    [ "$i" -eq "$((attempts - 1))" ] || sleep "$delay"
+  done
+  echo "DRIVER_FAULT=window-not-ready repo=$repo — launch returned but window did not appear"
+  return 1
+}
+
 # What the poll loop does with `cc loop watch`'s status, given seconds since the dispatch.
 # refused: the agent rejected the dispatch — every further poll is wasted; stop the run.
 # lost:    no chat request carries the sentinel after the grace period — the dispatch never landed.

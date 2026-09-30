@@ -228,10 +228,11 @@ and recovers from it when a subagent dies.
 predate the ledger and judge in bash — they still work, but they record nothing, so a run
 started from them will not appear at `/loops`.
 
-Run it from a VS Code terminal with a window open on **this** repo. The driver talks to an
-**already-open** window on the *target* repo and refuses to start (`ABORT — no open window`)
-without one: a window it opens itself cannot be closed reliably, and one folder per item left
-nine orphan windows on 2026-09-27. Keep one loop folder per repo and switch branches inside it
+Run it from a VS Code terminal with a window open on **this** repo. The driver reuses a
+dedicated window on the *target* repo or opens one with `code --new-window <repo>` and verifies
+it appears before dispatch. An unsuccessful launch is `DRIVER_FAULT=window-launch-failed` or
+`DRIVER_FAULT=window-not-ready` (exit 3): the architect repairs it rather than blocking on
+the user. Keep one loop folder per repo and switch branches inside it
 (`git -C <folder> switch -c <branch> <base>`) rather than adding a worktree per item. Scratch
 files live in `tmp/`, which is gitignored — see `.github/instructions/scratch-space.instructions.md`.
 

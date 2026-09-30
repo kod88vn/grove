@@ -146,7 +146,7 @@
 </div>
 <div class="card warn">
   <h3>Today, avoid approval stalls</h3>
-  <p style="margin-bottom:0">Prefer approval-free main-thread paths. Do not leave a main-thread subagent that may prompt when you walk away. Today's manual loop still needs an already-open repo window and real prompts must be answered by a person.</p>
+  <p style="margin-bottom:0">Prefer approval-free main-thread paths. Do not leave a main-thread subagent that may prompt when you walk away. Today's manual driver opens a missing dedicated repo window once and verifies readiness; real prompts still need approval.</p>
 </div>
 
 <h3>Where your message goes</h3>
@@ -181,7 +181,7 @@
     <tr><td>Investigation</td><td>loop-analyst · GPT-6 Sol</td><td><code>Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.</code></td><td>Today: workspace; approve preflight. Target: analyst child investigates; main runs no tests.</td></tr>
     <tr><td>Research</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.</code></td><td>Today: read tools need no grant; approve terminal grep if prompted. Target: child handles outside reads/web.</td></tr>
     <tr><td>Prose docs</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>Document the /homeworks/review API contract from grove AGENTS.md in apps/homeworks/README.md; repo ~/dev/grove; branch + PR.</code></td><td>Today: workspace; approve preflight/push. Target: child writes, verifies and pushes own branch.</td></tr>
-    <tr><td>Closed-window resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove.</code></td><td>Today: reopen repo window; approve preflight; saved driver has repo. Target: tick resumes from artifacts.</td></tr>
+    <tr><td>Closed-window resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove.</code></td><td>Today: driver opens the missing repo window and verifies readiness. Target: tick resumes from artifacts.</td></tr>
     <tr><td>Escalation / needs_human resume</td><td>loop-architect · GPT-6 Sol</td><td><code>resume GROVE-P04; repo ~/dev/grove. The last run said CONSULT_NEEDED or needs_human; read the consult/judgment and ledger, then continue from the actual artifacts.</code></td><td>Today: approve real preflight; do not bypass pending approval. Target: child resumes after evidence; parked items do not block others.</td></tr>
   </tbody>
 </table>
@@ -914,8 +914,8 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
         <td>You have a wish, not a loop. Write the spec first.</td></tr>
     <tr><td>Have you watched it fail?</td>
         <td>A spec never red proves nothing. <code>loop start</code> will refuse it.</td></tr>
-    <tr><td>Is VS Code open on the target repo?</td>
-        <td>The dispatch will not fire. Every verified run had a window open.</td></tr>
+    <tr><td>Can VS Code open a dedicated target repo window?</td>
+      <td>The driver tries once and reports a repairable window-launch fault if it cannot become ready.</td></tr>
     <tr><td>Would you hand this repo to an agent anyway?</td>
         <td>Do not loop on it. The sandbox is not a security boundary.</td></tr>
   </tbody>
