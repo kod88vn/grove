@@ -3,7 +3,7 @@
 How a ticket becomes merged code without a human driving each turn: an agent writes, a
 machine judges, and the judgment is one that the agent cannot forge.
 
-The driver and entry-agent preflights exist. The supervisor does **not**; see the box below.
+The driver, entry-agent preflights and a partial `supervisor/` (tick, resource teardown, instance allocation, `npm run supervise`) exist; the supervisor does **not** dispatch agents — see the box below.
 The worked runs in §5 are historical examples against `~/dev/web-storefront-ui`.
 The revised supervisor design (D14/D15) is a **target, not a current capability**.
 
@@ -116,13 +116,14 @@ resumes at referee; an open PR resumes at feedback. An unclosed row with a dead 
 is **not** a pass: record the stale row and start a new run. An analyst resumes from its
 incremental report but rechecks actual files. Artifacts outrank chat recollection.
 
-> **Supervisor & Teardown.** `supervisor/`, the
-> portable-profile instance manager, teardown manager, pending/error classifier, crash reaper,
-> autonomous intake CLI (`npm run supervise`), model substitution, dashboard board and migrations
-> are implemented. Mandatory teardown (D7 / §5) inventories all temporary by-products (child PIDs,
-> watcher PIDs, portable and user-data directories, scratch worktrees, logs and probe files)
-> and proves their removal upon item exit, cancellation, or supervisor halt without touching
-> deliverables or user-owned workspace files. Today's driver can also run directly or through the supervisor.
+> **Supervisor & Teardown.** The current `supervisor/` code provides the supervisor tick,
+> resource registration, process and path teardown, isolated VS Code instance allocation, and
+> the `npm run supervise` CLI. Teardown polls asynchronously so child processes can be reaped
+> by the event loop before cleanup status is recorded. Broader capabilities from the revised
+> supervisor design — including crash reaping, pending/error classification, model substitution,
+> dashboard control, and autonomous child dispatch — remain design targets, not current
+> functionality. Today's driver runs directly; the supervisor can reconcile its recorded items
+> and resources but does not dispatch agents.
 
 ---
 

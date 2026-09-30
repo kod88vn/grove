@@ -16,54 +16,101 @@ const USAGE = `Usage:
   npm run supervise -- teardown [key]
 `;
 
+interface SupervisorCliContext {
+  readonly repo: SupervisorRepository;
+  readonly supervisor: Supervisor;
+}
+
+function addItem(argv: readonly string[], repo: SupervisorRepository): number {
+  const key = argv[1];
+  if (!key || key.startsWith('--')) {
+    process.stderr.write(`Error: missing item key\n${USAGE}`);
+    return 1;
+  }
+  const args = argv.slice(2);
+  let repoName = '';
+  let source: SupervisorSource = 'manual';
+  let closeOn: SupervisorCloseOn = 'merged';
+  let brief = '';
+
+  for (const arg of args) {
+    if (arg.startsWith('--repo=')) repoName = arg.slice(7);
+    else if (arg.startsWith('--source=')) source = arg.slice(9) as SupervisorSource;
+    else if (arg.startsWith('--close-on=')) closeOn = arg.slice(11) as SupervisorCloseOn;
+    else if (arg.startsWith('--brief=')) brief = arg.slice(8);
+  }
+
+  if (!repoName) {
+    process.stderr.write(`Error: --repo=<repo> is required\n${USAGE}`);
+    return 1;
+  }
+
+  const item = repo.addItem({ key, repo: repoName, source, closeOn, brief });
+  process.stdout.write(`Added supervisor item: ${item.key} (${item.repo}) [${item.state}]\n`);
+  return 0;
+}
+
+function reportStatus(repo: SupervisorRepository): number {
+  const items = repo.listItems();
+  if (items.length === 0) {
+    process.stdout.write('No supervisor items found.\n');
+    return 0;
+  }
+  process.stdout.write(`Found ${items.length} supervisor items:\n`);
+  for (const item of items) {
+    process.stdout.write(
+      `  ${item.key} | repo: ${item.repo} | state: ${item.state} | desired: ${item.desired} | close_on: ${item.closeOn}\n`,
+    );
+  }
+  return 0;
+}
+
+function setDesired(argv: readonly string[], repo: SupervisorRepository, desired: 'paused' | 'run'): number {
+  const key = argv[1];
+  if (!key) {
+    process.stderr.write(`Error: missing item key to ${desired === 'paused' ? 'pause' : 'resume'}\n`);
+    return 1;
+  }
+  repo.setDesired(key, desired);
+  process.stdout.write(`Set desired=${desired} for ${key}\n`);
+  return 0;
+}
+
+async function cancelItem(argv: readonly string[], context: SupervisorCliContext): Promise<number> {
+  const key = argv[1];
+  if (!key) {
+    process.stderr.write('Error: missing item key to cancel\n');
+    return 1;
+  }
+  context.repo.setDesired(key, 'cancelled');
+  await context.supervisor.tick();
+  process.stdout.write(`Cancelled and tore down ${key}\n`);
+  return 0;
+}
+
+async function teardown(argv: readonly string[], supervisor: Supervisor): Promise<number> {
+  const key = argv[1];
+  const cleanupMgr = supervisor.getCleanupManager();
+  const results = key ? await cleanupMgr.teardownItem(key) : await cleanupMgr.teardownAllPending();
+  process.stdout.write(`Torn down ${results.length} resources (${results.filter((r) => r.success).length} succeeded)\n`);
+  return 0;
+}
+
 export async function supervisorCli(argv: readonly string[]): Promise<number> {
   const config = loadConfig();
   const db = openDatabase({ path: config.databasePath });
   const repo = new SupervisorRepository(db);
   const resourceRepo = new SupervisorResourceRepository(db);
   const supervisor = new Supervisor(repo, resourceRepo);
+  const context = { repo, supervisor };
 
   const command = argv[0];
 
   switch (command) {
-    case 'add': {
-      const key = argv[1];
-      if (!key || key.startsWith('--')) {
-        process.stderr.write(`Error: missing item key\n${USAGE}`);
-        return 1;
-      }
-      const args = argv.slice(2);
-      let repoName = '';
-      let source: SupervisorSource = 'manual';
-      let closeOn: SupervisorCloseOn = 'merged';
-      let brief = '';
-
-      for (const arg of args) {
-        if (arg.startsWith('--repo=')) repoName = arg.slice(7);
-        else if (arg.startsWith('--source=')) source = arg.slice(9) as SupervisorSource;
-        else if (arg.startsWith('--close-on=')) closeOn = arg.slice(11) as SupervisorCloseOn;
-        else if (arg.startsWith('--brief=')) brief = arg.slice(8);
-      }
-
-      if (!repoName) {
-        process.stderr.write(`Error: --repo=<repo> is required\n${USAGE}`);
-        return 1;
-      }
-
-      const item = repo.addItem({
-        key,
-        repo: repoName,
-        source,
-        closeOn,
-        brief,
-      });
-
-      process.stdout.write(`Added supervisor item: ${item.key} (${item.repo}) [${item.state}]\n`);
-      return 0;
-    }
+    case 'add': return addItem(argv, repo);
 
     case 'tick': {
-      const summary = supervisor.tick();
+      const summary = await supervisor.tick();
       process.stdout.write(
         `Supervisor tick: ${summary.itemsChecked} items checked, ${summary.transitions.length} transitions, ${summary.cleanedResources} resources cleaned\n`
       );
@@ -73,62 +120,15 @@ export async function supervisorCli(argv: readonly string[]): Promise<number> {
       return 0;
     }
 
-    case 'status': {
-      const items = repo.listItems();
-      if (items.length === 0) {
-        process.stdout.write('No supervisor items found.\n');
-        return 0;
-      }
-      process.stdout.write(`Found ${items.length} supervisor items:\n`);
-      for (const item of items) {
-        process.stdout.write(
-          `  ${item.key} | repo: ${item.repo} | state: ${item.state} | desired: ${item.desired} | close_on: ${item.closeOn}\n`
-        );
-      }
-      return 0;
-    }
+    case 'status': return reportStatus(repo);
 
-    case 'pause': {
-      const key = argv[1];
-      if (!key) {
-        process.stderr.write('Error: missing item key to pause\n');
-        return 1;
-      }
-      repo.setDesired(key, 'paused');
-      process.stdout.write(`Set desired=paused for ${key}\n`);
-      return 0;
-    }
+    case 'pause': return setDesired(argv, repo, 'paused');
 
-    case 'resume': {
-      const key = argv[1];
-      if (!key) {
-        process.stderr.write('Error: missing item key to resume\n');
-        return 1;
-      }
-      repo.setDesired(key, 'run');
-      process.stdout.write(`Set desired=run for ${key}\n`);
-      return 0;
-    }
+    case 'resume': return setDesired(argv, repo, 'run');
 
-    case 'cancel': {
-      const key = argv[1];
-      if (!key) {
-        process.stderr.write('Error: missing item key to cancel\n');
-        return 1;
-      }
-      repo.setDesired(key, 'cancelled');
-      supervisor.tick();
-      process.stdout.write(`Cancelled and tore down ${key}\n`);
-      return 0;
-    }
+    case 'cancel': return cancelItem(argv, context);
 
-    case 'teardown': {
-      const key = argv[1];
-      const cleanupMgr = supervisor.getCleanupManager();
-      const results = key ? cleanupMgr.teardownItem(key) : cleanupMgr.teardownAllPending();
-      process.stdout.write(`Torn down ${results.length} resources (${results.filter((r) => r.success).length} succeeded)\n`);
-      return 0;
-    }
+    case 'teardown': return teardown(argv, supervisor);
 
     default:
       process.stdout.write(USAGE);

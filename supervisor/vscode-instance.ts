@@ -37,6 +37,12 @@ export class VSCodeInstanceManager {
 
     this.resourceRepo.registerResource({
       itemKey: spec.itemKey,
+      resourceType: 'scratch_dir',
+      identifier: itemDir,
+    });
+
+    this.resourceRepo.registerResource({
+      itemKey: spec.itemKey,
       resourceType: 'portable_dir',
       identifier: portableDir,
     });

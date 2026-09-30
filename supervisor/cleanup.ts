@@ -8,17 +8,52 @@ export interface CleanupResult {
   readonly error?: string;
 }
 
-export function killPid(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
+export function isProcessAbsent(pid: number): boolean {
   try {
-    process.kill(pid, signal);
-    return true;
+    process.kill(pid, 0);
+    return false;
   } catch (err: unknown) {
     const error = err as NodeJS.ErrnoException;
     if (error.code === 'ESRCH') {
       return true;
     }
+    throw error;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function killPid(pid: number, signal: NodeJS.Signals = 'SIGTERM', timeoutMs = 1500): Promise<boolean> {
+  try {
+    process.kill(pid, signal);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ESRCH') return true;
     return false;
   }
+
+  const pollIntervalMs = 25;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (isProcessAbsent(pid)) return true;
+    await sleep(pollIntervalMs);
+  }
+
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ESRCH') return true;
+    return false;
+  }
+
+  const killDeadline = Date.now() + 500;
+  while (Date.now() < killDeadline) {
+    if (isProcessAbsent(pid)) return true;
+    await sleep(pollIntervalMs);
+  }
+
+  return isProcessAbsent(pid);
 }
 
 export function removePath(pathStr: string): boolean {
@@ -35,7 +70,7 @@ export function removePath(pathStr: string): boolean {
 export class CleanupManager {
   constructor(private readonly resourceRepo: SupervisorResourceRepository) {}
 
-  cleanResource(resource: SupervisorResource): CleanupResult {
+  async cleanResource(resource: SupervisorResource): Promise<CleanupResult> {
     let success = false;
     let error: string | undefined;
 
@@ -44,7 +79,7 @@ export class CleanupManager {
       case 'watcher_pid': {
         const pid = parseInt(resource.identifier, 10);
         if (!isNaN(pid)) {
-          success = killPid(pid, 'SIGTERM');
+          success = await killPid(pid, 'SIGTERM');
         } else {
           success = true;
         }
@@ -71,20 +106,35 @@ export class CleanupManager {
     return error ? { resourceId: resource.id, success, error } : { resourceId: resource.id, success };
   }
 
-  teardownItem(itemKey: string): readonly CleanupResult[] {
-    const pending = this.resourceRepo.listPendingResources(itemKey);
+  async releaseProcesses(itemKey: string): Promise<readonly CleanupResult[]> {
+    const pending = this.resourceRepo
+      .listPendingResources(itemKey)
+      .filter((r) => r.resourceType === 'child_pid' || r.resourceType === 'watcher_pid');
     const results: CleanupResult[] = [];
     for (const res of pending) {
-      results.push(this.cleanResource(res));
+      results.push(await this.cleanResource(res));
     }
     return results;
   }
 
-  teardownAllPending(): readonly CleanupResult[] {
-    const pending = this.resourceRepo.listPendingResources();
+  async teardownItem(itemKey: string): Promise<readonly CleanupResult[]> {
+    const pending = [...this.resourceRepo.listPendingResources(itemKey)].sort(
+      (a, b) => b.identifier.length - a.identifier.length
+    );
     const results: CleanupResult[] = [];
     for (const res of pending) {
-      results.push(this.cleanResource(res));
+      results.push(await this.cleanResource(res));
+    }
+    return results;
+  }
+
+  async teardownAllPending(): Promise<readonly CleanupResult[]> {
+    const pending = [...this.resourceRepo.listPendingResources()].sort(
+      (a, b) => b.identifier.length - a.identifier.length
+    );
+    const results: CleanupResult[] = [];
+    for (const res of pending) {
+      results.push(await this.cleanResource(res));
     }
     return results;
   }

@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { finishFailed } from './loop-runs.ts';
 import type {
   SupervisorItem,
   SupervisorEvent,
@@ -244,5 +245,10 @@ export class SupervisorRepository {
       | { last_tick_at: string; pid: number }
       | undefined;
     return row ? { lastTickAt: row.last_tick_at, pid: row.pid } : null;
+  }
+
+  sealOpenRun(loopRunId: number, stopReason: string): boolean {
+    const now = new Date().toISOString();
+    return finishFailed(this.db, { runId: loopRunId, stopReason, now });
   }
 }

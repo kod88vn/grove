@@ -47,7 +47,7 @@ export class SupervisorResourceRepository {
   }
 
   listPendingResources(itemKey?: string): readonly SupervisorResource[] {
-    let sql = "SELECT * FROM supervisor_resources WHERE cleanup_status = 'pending'";
+    let sql = "SELECT * FROM supervisor_resources WHERE cleanup_status IN ('pending', 'failed')";
     const params: (string | number)[] = [];
     if (itemKey) {
       sql += ' AND item_key = ?';

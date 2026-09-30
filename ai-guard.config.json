@@ -101,6 +101,13 @@
         "src/config/",
         "src/mcp/"
       ]
+    },
+    {
+      "name": "supervisor",
+      "level": 6,
+      "match": [
+        "supervisor/"
+      ]
     }
   ],
   "vendorSdks": [],
@@ -180,7 +187,8 @@
     "src",
     "scripts",
     "bin",
-    "dashboard"
+    "dashboard",
+    "supervisor"
   ],
   "ignoredDirs": [
     "node_modules",
