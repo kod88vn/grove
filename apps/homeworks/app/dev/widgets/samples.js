@@ -36,6 +36,9 @@ export function gallerySamples() {
 export function correctValueFor(sample) {
   if (sample.widget === 'number' || sample.widget === 'column') return String(sample.answer.value)
   if (sample.widget === 'fraction') return `${sample.answer.num}/${sample.answer.den}`
+  if (sample.widget === 'fraction-bar') {
+    return Array.from({ length: sample.answer.num * sample.instance.visual.segments / sample.answer.den }, (_, index) => index)
+  }
   if (sample.widget === 'cloze') {
     return sample.answer.blanks.map((blank) => {
       const choice = sample.instance.visual.choices.find((entry) => blank.accept.some((accepted) => normalize(entry) === normalize(accepted)))
@@ -75,6 +78,10 @@ export function wrongValueFor(sample) {
     return String(sample.answer.value + offset)
   }
   if (sample.widget === 'fraction') return `${sample.answer.num + 1}/1`
+  if (sample.widget === 'fraction-bar') {
+    const count = sample.answer.num * sample.instance.visual.segments / sample.answer.den
+    return Array.from({ length: count + 1 }, (_, index) => index)
+  }
   if (sample.widget === 'cloze') {
     return sample.answer.blanks.map((blank) => {
       const choice = sample.instance.visual.choices.find((entry) => !blank.accept.some((accepted) => normalize(entry) === normalize(accepted)))

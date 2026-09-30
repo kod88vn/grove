@@ -178,6 +178,7 @@ export const skills = [
     strand: 'nf',
     name: 'Equivalent Fractions',
     label: '🔀 Equivalent Fractions',
+    // This prerequisite skill is retained for the Grade 5 progression as off-grade content, but has no Grade 5 CCSS mapping.
     ccss: [],
     prerequisites: [],
     legacyId: 'equiv-fractions',

@@ -46,7 +46,7 @@ describe('the gallery covers every widget that has a sample problem', () => {
 
   test('today includes every registered sample widget', () => {
     const covered = [...new Set(samples.map((sample) => sample.widget))].sort()
-    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'fraction', 'match', 'number', 'order', 'sort', 'tap-select'])
+    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'fraction', 'fraction-bar', 'match', 'number', 'order', 'sort', 'tap-select'])
   })
 
   test('one sample per widget, each naming the widget it demonstrates', () => {
@@ -71,9 +71,19 @@ describe('every sample is a real curriculum problem, not an invention', () => {
       const rendered = render(template, GALLERY_SEED)
       expect(rendered.widget).toBe(sample.widget)
       expect(sample.instance).toEqual(toInstance(rendered))
+      expect(Object.hasOwn(sample.instance, 'toJSON')).toBe(false)
+      expect(JSON.stringify(sample.instance)).toBe(JSON.stringify(toInstance(rendered)))
       expect(sample.answer).toEqual(rendered.answer)
       expect(sample.explanation).toBe(rendered.explanation)
     }
+  })
+
+  test('the serialized fraction-bar prompt matches the issued problem exactly', () => {
+    const sample = samples.find((entry) => entry.widget === 'fraction-bar')
+    expect(sample).toBeDefined()
+    const { segments, reference: { num, den } } = sample.instance.visual
+    const prompt = `The answer bar has ${segments} equal parts. Shade some of them to show a fraction equivalent to ${num}/${den}.`
+    expect(JSON.parse(JSON.stringify(sample.instance)).prompt).toBe(prompt)
   })
 
   test('two calls produce identical samples', () => {
@@ -83,7 +93,7 @@ describe('every sample is a real curriculum problem, not an invention', () => {
   test('the instance carries no answer — it is the same leak-free shape a kid is sent', () => {
     for (const sample of samples) {
       expect(Object.keys(sample.instance)).not.toContain('answer')
-      expect(JSON.stringify(sample.instance)).not.toContain('answer')
+      expect(JSON.stringify(sample.instance)).not.toMatch(/"answer"\s*:/)
     }
   })
 })
@@ -113,6 +123,9 @@ describe('right and wrong go through the real checker', () => {
         if (sample.widget === 'tap-select') {
           expect(value.length).toBeGreaterThan(0)
           expect(value.every((id) => sample.instance.visual.tokens.some((token) => token.id === id))).toBe(true)
+        } else if (sample.widget === 'fraction-bar') {
+          expect(value.length).toBeGreaterThan(0)
+          expect(value.every((index) => Number.isInteger(index) && index >= 0 && index < sample.instance.visual.segments)).toBe(true)
         } else if (Array.isArray(empty)) {
           expect(value).toHaveLength(empty.length)
         } else if (sample.widget === 'coins') {
