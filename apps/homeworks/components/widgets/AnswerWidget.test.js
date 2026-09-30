@@ -188,6 +188,13 @@ function enterCorrect(instance, answer) {
     tapCoins(instance, coinCountsFor(answer.total, instance.visual.denominations))
     return
   }
+  if (instance.widget === 'tap-select') {
+    for (const id of answer.ids) {
+      const index = instance.visual.tokens.findIndex((entry) => entry.id === id)
+      fireEvent.click(screen.getAllByRole('button')[index])
+    }
+    return
+  }
   if (instance.widget === 'cloze') {
     for (let index = 0; index < answer.blanks.length; index++) {
       fireEvent.click(screen.getAllByRole('radio', { name: answer.blanks[index].accept[0] })[index])
@@ -239,6 +246,13 @@ function enterWrong(instance, answer) {
   }
   if (instance.widget === 'coins') {
     tapCoins(instance, coinCountsFor(answer.total + 1, instance.visual.denominations))
+    return
+  }
+  if (instance.widget === 'tap-select') {
+    const distractor = instance.visual.tokens.find((token) => !answer.ids.includes(token.id))
+    const correct = instance.visual.tokens.findIndex((token) => token.id === answer.ids[0])
+    fireEvent.click(screen.getAllByRole('button')[correct])
+    fireEvent.click(screen.getAllByRole('button')[instance.visual.tokens.indexOf(distractor)])
     return
   }
   if (instance.widget === 'cloze') {
@@ -299,7 +313,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(13)
   })
@@ -488,6 +502,9 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'sort' || widget === 'match' || widget === 'clock' || widget === 'coins') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
+      } else if (widget === 'tap-select') {
+        for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
+        fireEvent.click(screen.getAllByRole('button')[0])
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
         fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: '5' } })
@@ -545,6 +562,8 @@ describe('P1.8 — answer widgets', () => {
         expect(value).not.toEqual([answer.hour, answer.minute])
       } else if (problem.widget === 'coins') {
         expect(value).toEqual({})
+      } else if (problem.widget === 'tap-select') {
+        expect(value).toEqual([])
       } else {
         expect(value).toBe('')
       }

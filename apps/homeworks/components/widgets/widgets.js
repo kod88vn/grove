@@ -3,6 +3,7 @@
 import { useId, useRef } from 'react'
 
 import { CoinsWidget } from './CoinsWidget'
+import { TapSelectWidget } from './TapSelectWidget'
 
 function inputId(instance) {
   return `answer-${instance.seed}-${instance.problemId}`
@@ -582,4 +583,4 @@ function ClockWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget, CoinsWidget }
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget, CoinsWidget, TapSelectWidget }

@@ -96,6 +96,37 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null
 }
 
+function isIdList(value) {
+  if (!Array.isArray(value) || value.length === 0 || Object.keys(value).length !== value.length) return false
+  const ids = new Set()
+  for (let index = 0; index < value.length; index++) {
+    const id = value[index]
+    if (typeof id !== 'string' || id.trim().length === 0 || ids.has(id)) return false
+    ids.add(id)
+  }
+  return true
+}
+
+function tapSelect(answer, response) {
+  if (!isPlainObject(answer) || Object.keys(answer).length !== 2 ||
+    !Object.hasOwn(answer, 'ids') || !Object.hasOwn(answer, 'availableIds') ||
+    !isIdList(answer.ids) || !isIdList(answer.availableIds)) {
+    throw new TypeError('tap-select answer must have unique ids within a non-empty availableIds list')
+  }
+  const availableIds = new Set(answer.availableIds)
+  if (answer.ids.some((id) => !availableIds.has(id))) {
+    throw new TypeError('tap-select answer ids must be available')
+  }
+
+  if (!isPlainObject(response) || Object.keys(response).length !== 1 ||
+    !Object.hasOwn(response, 'ids') || !isIdList(response.ids)) return invalid()
+  const selectedIds = new Set(response.ids)
+  if (response.ids.some((id) => !availableIds.has(id))) return invalid()
+  const answerIds = new Set(answer.ids)
+  if (selectedIds.size === answerIds.size && [...answerIds].every((id) => selectedIds.has(id))) return right()
+  return response.ids.some((id) => answerIds.has(id)) ? wrong() : invalid()
+}
+
 function sort(answer, response) {
   if (!isPlainObject(answer) || !isPlainObject(answer.buckets) || Object.keys(answer.buckets).length === 0) {
     throw new TypeError('sort answer must have non-empty buckets')
@@ -229,5 +260,6 @@ export function check(widget, answer, response) {
   if (widget === 'match') return match(answer, response)
   if (widget === 'clock') return clock(answer, response)
   if (widget === 'coins') return coins(answer, response)
+  if (widget === 'tap-select') return tapSelect(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }
