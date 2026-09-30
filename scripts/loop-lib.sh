@@ -56,3 +56,18 @@ release_repo_lock() {
   [ -n "${REPO_LOCK:-}" ] && [ "$(cat "$REPO_LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$REPO_LOCK"
   return 0
 }
+
+# What the poll loop does with `cc loop watch`'s status, given seconds since the dispatch.
+# refused: the agent rejected the dispatch — every further poll is wasted; stop the run.
+# lost:    no chat request carries the sentinel after the grace period — the dispatch never landed.
+# idle:    the worker finished and the verifier is still red — end this iteration now.
+# wait:    anything else, including a status this function does not know.
+DISPATCH_GRACE="${DISPATCH_GRACE:-60}"
+dispatch_action() {
+  case "$1" in
+    refused) echo refused ;;
+    done) echo idle ;;
+    none) if [ "$2" -ge "$DISPATCH_GRACE" ]; then echo lost; else echo wait; fi ;;
+    *) echo wait ;;
+  esac
+}

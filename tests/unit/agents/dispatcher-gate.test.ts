@@ -49,10 +49,12 @@ describe('loop-dispatcher gate', () => {
     expect(BODY).toMatch(/verbatim/i);
   });
 
-  it('runs on the dispatcher tier (tier 2), because relaying is not judgement', () => {
-    expect(REGISTRY.agents['loop-dispatcher']).toBe('dispatcher');
-    const dispatcher = REGISTRY.tiers.find((tier) => tier.name === 'dispatcher');
-    expect(modelsOf('loop-dispatcher')).toEqual(dispatcher?.models);
+  // It was on the dispatcher tier (Gemini 3.8 Flash) while its job was a pure relay. It now reads
+  // driver state and decides when the machinery needs repair, which is judgement (2026-09-30).
+  it('runs on the architect tier, because keeping watch is judgement', () => {
+    expect(REGISTRY.agents['loop-dispatcher']).toBe('architect');
+    const architect = REGISTRY.tiers.find((tier) => tier.name === 'architect');
+    expect(modelsOf('loop-dispatcher')).toEqual(architect?.models);
   });
 
   it('can only reach agents pinned at architect tier or above', () => {
@@ -125,5 +127,31 @@ describe('loop-dispatcher gate', () => {
   it('no longer routes to the child instance, which does not deliver', () => {
     expect(DISPATCHER).not.toMatch(/code chat/);
     expect(DISPATCHER).not.toMatch(/child VS Code instance/i);
+  });
+
+  // Run 147: the worker refused every dispatch and the driver, the architect and the dispatcher
+  // all carried on as if it were a red run. The driver now names the fault; the dispatcher reads
+  // it after every return and sends the architect to repair it before anything else, DONE included.
+  it('watches the driver after every return and routes a fault to an architect repair', () => {
+    expect(BODY).toMatch(/\*\*Watch\*\*/);
+    expect(BODY).toContain('tmp/<KEY>-loop.exit');
+    expect(BODY).toContain('DRIVER_FAULT=');
+    expect(BODY).toMatch(/`repair <KEY>: /);
+    expect(BODY).toMatch(/outranks every status below,\s+`DONE` included/);
+    const architect = readFileSync(join(AGENTS, 'loop-architect.agent.md'), 'utf8');
+    expect(architect).toContain('DRIVER_FAULT=');
+    expect(architect).toMatch(/dispatch-refused/);
+  });
+
+  // Both judge consults in session d84d8271 (Claude Opus 5.5, full edit/terminal tool list) read
+  // 31 and 24 files, never attempted a write, and answered "I only have read access" — because
+  // the contract said "You never edit" and "describe what the caller should do" right beside the
+  // instruction to write tmp/<KEY>-judgment.md.
+  it('tells the judge to write its judgment file and to say so if the write fails', () => {
+    const judge = readFileSync(join(AGENTS, 'loop-judge.agent.md'), 'utf8');
+    expect(judge).not.toMatch(/You read files and diffs and may run read-only commands/);
+    expect(judge).toMatch(/Writing that file is not\s+a mutation and not optional/);
+    expect(judge).toContain('JUDGMENT NOT WRITTEN');
+    expect(BODY).toContain('JUDGMENT NOT WRITTEN');
   });
 });

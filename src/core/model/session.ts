@@ -2,6 +2,7 @@ export interface SessionRecord {
   readonly kind?: unknown;
   readonly v?: unknown;
   readonly k?: unknown;
+  readonly i?: unknown;
 }
 
 function clone(value: unknown): unknown {
@@ -22,10 +23,12 @@ function setAt(root: unknown, path: readonly unknown[], value: unknown): unknown
   return container;
 }
 
-function appendAt(root: unknown, path: readonly unknown[], value: unknown): unknown {
+/** Appends at path; a numeric `from` first truncates to that index (the log re-sends a tail). */
+function appendAt(root: unknown, path: readonly unknown[], value: unknown, from: unknown): unknown {
   const current = path.length === 0 ? root : readAt(root, path);
   if (!Array.isArray(current)) return root;
-  return setAt(root, path, [...current, ...((Array.isArray(value) ? value : [value]).map(clone))]);
+  const kept = typeof from === 'number' ? current.slice(0, from) : current;
+  return setAt(root, path, [...kept, ...((Array.isArray(value) ? value : [value]).map(clone))]);
 }
 
 function readAt(root: unknown, path: readonly unknown[]): unknown {
@@ -45,7 +48,7 @@ export function foldSessionJsonl(lines: readonly string[]): unknown {
     const record = JSON.parse(line) as SessionRecord;
     if (record.kind === 0) state = clone(record.v);
     else if (record.kind === 1 && Array.isArray(record.k)) state = setAt(state, record.k, record.v);
-    else if (record.kind === 2 && Array.isArray(record.k)) state = appendAt(state, record.k, record.v);
+    else if (record.kind === 2 && Array.isArray(record.k)) state = appendAt(state, record.k, record.v, record.i);
   }
   return state;
 }

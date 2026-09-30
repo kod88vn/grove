@@ -30,7 +30,7 @@
     "loop-architect": "architect",
     "loop-judge": "oracle",
     "loop-analyst": "architect",
-    "loop-dispatcher": "dispatcher"
+    "loop-dispatcher": "architect"
   },
   "interactive": ["loop-analyst", "loop-dispatcher"],
   "ceilings": {

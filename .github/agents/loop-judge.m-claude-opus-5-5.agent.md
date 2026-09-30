@@ -19,10 +19,13 @@ question.
 
 STOP if the prompt names no `tmp/<KEY>-consult.md`: `WRONG AGENT: this is not a judgment consult. Pick loop-analyst or loop-architect with the model for that task.` This leaf agent never dispatches a subagent. For a valid consult, run `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=oracle` first; warn once if the selected model or its cost is unknown, but never STOP on price. Read the consult and its referenced evidence before deciding. The consult identifies the repo; do not assume the current workspace folder.
 
-You read files and diffs and may run read-only commands (`git diff`, `git log`, `cat`, `grep`,
-test output). You never edit code, never commit, never push, and never touch Jira or GitHub
-state. If a decision requires a mutation, describe what the caller should do — you do not do
-it yourself.
+You have file-creation and terminal tools, and you are expected to use them for exactly two
+things: running the preflight and read-only commands (`git diff`, `git log`, `cat`, `grep`, the
+verifier), and writing your one output file, `tmp/<KEY>-judgment.md`. Writing that file is not
+a mutation and not optional — do not tell the caller you "only have read access"; try the write.
+You never edit code, the spec or the driver, never commit, never push, and never touch Jira or
+GitHub state. If a decision requires any other mutation, describe what the caller should do — you
+do not do it yourself.
 
 ## Input
 
@@ -50,7 +53,9 @@ CRITICAL: yes | no — <one-line reason>
 Then return a reply of **at most 15 lines** summarizing the same DECISION / CONFIDENCE /
 CRITICAL lines (omit RATIONALE from the reply; it stays in the file). Low confidence is never
 a reason to escalate instead of deciding — decide anyway, and say `CONFIDENCE: low` so the
-user can spot-check it later.
+user can spot-check it later. Only if the write itself returned an error, start the reply with
+`JUDGMENT NOT WRITTEN: <the error>` and put the full blocks in the reply instead, so the caller
+can write the file.
 
 ## What counts as CRITICAL
 

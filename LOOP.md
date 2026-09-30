@@ -15,8 +15,8 @@ The revised supervisor design (D14/D15) is a **target, not a current capability*
 ### 0.1 Six steps
 
 1. Open a **new chat session** (`+` in the Chat view), so a prior task cannot supply the wrong context.
-2. Select **`loop-dispatcher`** in the agent picker. It is the only entry you pick, for every task in §0.2: it hands your message verbatim to `loop-architect`, sends a `WRONG AGENT` reply on to `loop-analyst` and a `CONSULT_NEEDED` to `loop-judge`, re-dispatches the architect on `CONTINUE: resume <KEY>` (more of the original request remains), and returns to you only on `DONE: <KEY>` (confirmed by the checkpoint), `BLOCKED: <action>` or after 25 architect calls. A failed or silent architect is re-dispatched from the checkpoint, not relayed. It cannot do the work itself — it has no edit or terminal tool and may call only loop entry agents (`.github/agents/loop-dispatcher.agent.md`, held by `tests/unit/agents/dispatcher-gate.test.ts`).
-3. Leave the model alone. The dispatcher runs on the `dispatcher` tier (Gemini 3.8 Flash) and each agent it calls runs on its own pinned tier from `registry/model-tiers.json`. It always passes that pinned model as `model` to `runSubagent`: from a Gemini caller, a frontmatter pin alone can silently leave the subagent on Gemini (`loop-judge` did, 4 of 4 calls). Architect and analyst still check the selected model with `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` and warn once if it costs more than the task's tier; `models self` cannot prove which backend served a request.
+2. Select **`loop-dispatcher`** in the agent picker. It is the only entry you pick, for every task in §0.2: it hands your message verbatim to `loop-architect`, sends a `WRONG AGENT` reply on to `loop-analyst` and a `CONSULT_NEEDED` to `loop-judge`, re-dispatches the architect on `CONTINUE: resume <KEY>` (more of the original request remains), and returns to you only on `DONE: <KEY>` (confirmed by the checkpoint), `BLOCKED: <action>` or after 50 architect calls. A failed or silent architect is re-dispatched from the checkpoint, not relayed. It also **keeps watch**: after every return it reads the driver's `tmp/<KEY>-loop.exit` and `tmp/<KEY>-loop.log`, and a driver fault (§1.3.1), a repeated failure, or an agent claiming it lacks a tool it has sends the architect back with `repair <KEY>: …` before anything else, `DONE` included. It cannot do the work itself — it has no edit or terminal tool and may call only loop entry agents (`.github/agents/loop-dispatcher.agent.md`, held by `tests/unit/agents/dispatcher-gate.test.ts`).
+3. Leave the model alone. The dispatcher runs on the `architect` tier (GPT-6 Sol, fallback GPT-5.6 Terra) since it began deciding when the machinery needs repair — it ran on the `dispatcher` tier (Gemini 3.8 Flash) while it was a pure relay. Each agent it calls runs on its own pinned tier from `registry/model-tiers.json`. It always passes that pinned model as `model` to `runSubagent`: from a caller on another model, a frontmatter pin alone can silently leave the subagent on the caller's model (`loop-judge` stayed on Gemini, 4 of 4 calls). Architect and analyst still check the selected model with `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` and warn once if it costs more than the task's tier; `models self` cannot prove which backend served a request.
 4. Type the **goal and repository** (path or name resolving to `~/dev/<name>`). A key alone does not tell the agent which repo to use. The only preflight question allowed is a missing repo.
 5. **Today:** for an outside folder, add it to the workspace (to edit), approve individual unsandboxed terminal prompts, or scratch-clone a review target under `tmp/`. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
 6. Let the agent work. An architect reports `LOOP RUNNING — hands off.` with the run link and `LOOP FINISHED` with the ledger verdict (§1.4.1). Watch the dashboard instead of touching the worker window, files or driver. An analyst writes an incremental `tmp/<KEY>-report.md` and returns its answer, plan or review draft. If a command pends, the agent names the one approval needed; if the window closes, use §0.4.
@@ -259,6 +259,28 @@ Its shape, so you know what you are editing:
 For a loop that also guards a config file — like loop 2 in §5, which had to stop the agent
 loosening the lint rules — add `--config=<path relative to $REPO>` to `loop start` and pass
 `--suppressions=<count>` to both `start` and `record`.
+
+### 1.3.1 The driver watches its own dispatch
+
+Each dispatch opens with a sentinel line, `LOOP DRIVER DISPATCH — <TICKET> run <RUN> iteration
+<N> of <MAX>`. While polling a red verifier, the driver asks
+`cc loop watch --repo=<REPO> --sentinel="<that line>" --since=<epoch s>`, which reads the
+repo's chat sessions from VS Code workspace storage (`--storage=` or `CC_CHAT_STORAGE`
+overrides the default path) and prints `<status> <agent> <model>` plus the reply's first line.
+`dispatch_action` in `scripts/loop-lib.sh` maps that status:
+
+| Watch status | Driver action |
+| --- | --- |
+| `refused` — the reply opened `WRONG AGENT` | stop: `DRIVER_FAULT=dispatch-refused` |
+| `none` after `DISPATCH_GRACE` seconds (60) | stop: `DRIVER_FAULT=dispatch-lost` |
+| `done` — the worker finished, verifier still red | verify once more and end the iteration |
+| `running`, or `none` inside the grace period | keep polling |
+
+A fault ends the run after `cc loop record` and `cc loop finish`, writes `tmp/<TICKET>/fault`,
+and exits `3`. It means the machinery failed, not the code: the architect repairs the cause,
+relaunches with the same spec on a new TICKET suffix, and does not count it as a failed loop
+for escalation. Before this existed, run 147 (cloverpedia M2) spent all six-minute polls of
+every iteration waiting on a worker that had refused in seconds.
 
 ### 1.4 Watching it
 

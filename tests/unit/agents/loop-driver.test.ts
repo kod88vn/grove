@@ -68,7 +68,7 @@ describe('the worker always receives the failures', () => {
   });
 
   it('keys the worker preflight on a first-line sentinel the driver always sends', () => {
-    expect(TEMPLATE).toMatch(/-r "LOOP DRIVER DISPATCH/);
+    expect(TEMPLATE).toMatch(/SENTINEL="LOOP DRIVER DISPATCH — /);
     expect(WORKER).toContain('LOOP DRIVER DISPATCH');
     expect(WORKER).not.toMatch(/STOP unless your prompt includes the driver's literal `Current verifier output:`/);
     expect(TEMPLATE).toMatch(/FAILURES="\$\(failure_lines /);
@@ -114,5 +114,30 @@ describe('suppression and config verdicts are reachable', () => {
     expect(TEMPLATE).toMatch(/loop record [^\n]*\\\n[^\n]*--suppressions="\$\(count_suppressions "\$REPO"\)"/);
     expect(TEMPLATE).toMatch(/GUARD_CONFIG=""/);
     expect(TEMPLATE).toContain('${GUARD_CONFIG:+--config="$GUARD_CONFIG"}');
+  });
+});
+
+// Run 147 again: the worker refused in three seconds, and the driver polled a red verifier for
+// the full six minutes anyway — three times. The driver now watches the chat session its dispatch
+// created, so a refusal or a lost dispatch ends the run at once with a named fault, and a worker
+// that finished without going green frees the iteration instead of idling out the poll budget.
+describe('the driver watches its own dispatch', () => {
+  it('turns the watch status into one action', () => {
+    const act = (status: string, seconds: number): string =>
+      lib(`dispatch_action ${status} ${seconds}`, ROOT).out.trim();
+    expect(act('refused', 5)).toBe('refused');
+    expect(act('none', 10)).toBe('wait');
+    expect(act('none', 60)).toBe('lost');
+    expect(act('running', 300)).toBe('wait');
+    expect(act('done', 20)).toBe('idle');
+    expect(act('garbage', 20)).toBe('wait');
+  });
+
+  it('polls the watch beside the verifier and stops on a fault with a machine-readable line', () => {
+    expect(TEMPLATE).toMatch(/cc loop watch --repo="\$REPO" --sentinel="\$SENTINEL"/);
+    expect(TEMPLATE).toMatch(/-r "\$SENTINEL\n/);
+    expect(TEMPLATE).toContain('DRIVER_FAULT=');
+    expect(TEMPLATE).toMatch(/refused\|lost\)/);
+    expect(TEMPLATE).toMatch(/idle\)/);
   });
 });

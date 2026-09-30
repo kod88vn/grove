@@ -215,6 +215,16 @@ not in this loop, and your being out of it is what makes a four-turn budget affo
 terminal returns before the driver has finished, update the checkpoint and return
 `CONTINUE: resume <KEY>` (see the Return contract) rather than ending on `LOOP RUNNING`.
 
+**Driver fault — exit 3, a `DRIVER_FAULT=` line, or `tmp/<KEY>/fault`.** The driver watches its
+own dispatch (`cc loop watch`) and stops the run the moment the worker refuses it
+(`dispatch-refused`) or no chat request carries the dispatch after a minute (`dispatch-lost`).
+That is the machinery failing, not the code, so it is yours to repair before anything else:
+read the `watch=` part of the fault line (agent, model, the worker's reply), fix the cause —
+the agent file installed in `REPO`, the dispatch text, the window, the model pin — then re-launch
+with the same spec on a fresh `TICKET` suffix. It never counts as a failed loop for escalation
+and never goes to the user unless the fix is CRITICAL. Record the fault and the fix in the
+checkpoint.
+
 **Always report status, so the user knows not to intervene** (LOOP.md §1.4.1):
 
 - **At start**, before anything else: `LOOP RUNNING — hands off.` Give the run id,

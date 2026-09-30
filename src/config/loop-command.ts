@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { childProfileSettings, mergeChildSettings } from '../core/policy/terminal-deny.ts';
 import { loopFinish, loopRecord, loopStart, loopStatus } from './run-loop.ts';
+import { loopWatch } from './loop-watch.ts';
 
 /**
  * Argument parsing for `cc loop`.
@@ -11,7 +12,7 @@ import { loopFinish, loopRecord, loopStart, loopStatus } from './run-loop.ts';
  * everything there touches the ledger.
  */
 
-const SUBCOMMANDS = ['start', 'record', 'finish', 'status', 'profile'] as const;
+const SUBCOMMANDS = ['start', 'record', 'finish', 'status', 'watch', 'profile'] as const;
 const DEFAULT_BUDGET = 4;
 
 export function loopCommand(args: readonly string[]): number {
@@ -27,6 +28,8 @@ export function loopCommand(args: readonly string[]): number {
       return finishCommand(rest);
     case 'status':
       return loopStatus();
+    case 'watch':
+      return watchCommand(rest);
     case 'profile':
       return profileCommand(rest);
     default:
@@ -80,6 +83,15 @@ function recordCommand(args: readonly string[]): number {
 function finishCommand(args: readonly string[]): number {
   const runId = number(args, '--run');
   return runId === null ? usage('finish --run=<id>') : loopFinish(runId);
+}
+
+function watchCommand(args: readonly string[]): number {
+  const repo = text(args, '--repo');
+  const sentinel = text(args, '--sentinel');
+  if (repo === null || sentinel === null || sentinel.trim() === '') {
+    return usage('watch --repo=<path> --sentinel="<first line of the dispatch>" [--since=<epoch s>] [--storage=<dir>]');
+  }
+  return loopWatch({ repo, sentinel, sinceSeconds: number(args, '--since') ?? 0, storage: text(args, '--storage') });
 }
 
 function profileCommand(args: readonly string[]): number {

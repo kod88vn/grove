@@ -134,6 +134,7 @@ echo "run $RUN — watch it at http://127.0.0.1:4747/loops/$RUN"
 
 ITER=0
 STATE=red
+FAULT=""
 while [ "$ITER" -lt "$MAX_ITER" ]; do
   ITER=$((ITER + 1))
   echo "--- iteration $ITER of $MAX_ITER ---"
@@ -146,8 +147,11 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
   "$CODE" "$REPO" >/dev/null 2>&1        # focus the existing window on the target repo
   sleep 6
   echo "dispatching $WORKER_AGENT..."
-  # The first line is the worker's preflight sentinel. Keep it first and keep it literal.
-  "$CODE" chat -m "$WORKER_AGENT" -r "LOOP DRIVER DISPATCH — $TICKET run $RUN iteration $ITER of $MAX_ITER
+  # The first line is the worker's preflight sentinel and the watch key. It names the run and
+  # iteration, so `cc loop watch` finds exactly this dispatch. Keep it first and keep it literal.
+  SENTINEL="LOOP DRIVER DISPATCH — $TICKET run $RUN iteration $ITER of $MAX_ITER"
+  SENT_AT=$(date +%s)
+  "$CODE" chat -m "$WORKER_AGENT" -r "$SENTINEL
 
 $TASK
 
@@ -159,19 +163,40 @@ $FAILURES" > "$OUT/cli-$ITER.out" 2>&1
     sleep 5; POLLS=$((POLLS + 1))
     verify
     [ "$RC" -eq 0 ] && { echo "verifier exit 0 after $((POLLS * 5))s"; break; }
-    [ $((POLLS % 12)) -eq 0 ] && echo "  ...still red at $((POLLS * 5))s"
+    # Watch the dispatch itself, not just the verifier: a refusal used to cost the full poll
+    # budget per iteration while the worker had already stopped.
+    WATCH="$(cc loop watch --repo="$REPO" --sentinel="$SENTINEL" --since="$SENT_AT")"
+    ACTION="$(dispatch_action "${WATCH%% *}" $(( $(date +%s) - SENT_AT )))"
+    case "$ACTION" in
+      refused|lost)
+        FAULT="dispatch-$ACTION"
+        echo "DRIVER_FAULT=$FAULT iteration=$ITER watch=$(printf '%s' "$WATCH" | tr '\n' ' ')"
+        break ;;
+      idle)
+        verify   # the worker may have finished between the last verify and the watch
+        echo "  worker finished at $((POLLS * 5))s; verifier exit $RC"
+        break ;;
+    esac
+    [ $((POLLS % 12)) -eq 0 ] && echo "  ...still red at $((POLLS * 5))s ($WATCH)" | head -1
   done
 
   # The ledger judges, not this script. It re-reads the spec checksum here.
   STATE=$(cc loop record --run="$RUN" --iteration="$ITER" --exit="$RC" \
             --suppressions="$(count_suppressions "$REPO")" --tests="$TOTAL" --tail="$OUT/verify.txt")
   echo "iteration $ITER: $STATE"
+  [ -n "$FAULT" ] && break
   [ "$STATE" != "red" ] && break
 done
 
 echo
 echo "===================== RESULT ====================="
 cc loop finish --run="$RUN"
+if [ -n "$FAULT" ]; then
+  # Not a verdict on the code: the machinery failed. The architect repairs the dispatch (agent
+  # file in $REPO, sentinel, window, model) and re-launches; it does not re-arm the spec.
+  echo "$FAULT" > "$OUT/fault"
+  echo "DRIVER_FAULT=$FAULT — the dispatch failed, not the code. Repair the machinery and re-launch."
+fi
 echo
 echo "--- changes in $REPO ---"
 git -C "$REPO" status --porcelain
@@ -179,3 +204,6 @@ git -C "$REPO" diff --stat
 echo
 echo "The loop stops at green. It does not commit, push, or open a PR — read the"
 echo "diff yourself, then close the ticket with: npm run cc -- resolve --apply"
+# A distinct exit status, so loop-detach's .exit file tells a machinery fault from a red run.
+[ -n "$FAULT" ] && exit 3
+exit 0
