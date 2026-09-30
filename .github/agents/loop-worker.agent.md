@@ -5,7 +5,7 @@ description: >
   iteration, to make a checksum-locked spec pass. Pinned to a cheap model on purpose:
   it is never asked whether it succeeded, so its judgement is not being bought.
   Not for interactive use — invoke a loop with /loop instead.
-model: ["GPT-5.6 Luna", "GPT-6 Luna"]
+model: ["GPT-6 Luna", "GPT-5.6 Luna"]
 tools: ['read/readFile', 'read/problems', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/codebase', 'search/changes', 'edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/killTerminal', 'todo']
 ---
 

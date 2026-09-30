@@ -23,7 +23,7 @@ set -u
 
 # ---------------------------------------------------------------- CHANGE THESE
 REPO="/absolute/path/to/target/repo"
-TICKET="WS-0000"
+TICKET="WS-0000"               # the loop KEY: a Jira key, or <REPO>-<slug> for a prompt requirement
 SPEC="path/to/spec.test.ts"   # RELATIVE to $REPO. Checksum-locked; must be RED now.
 BASELINE=0                    # current passing test count. Must GROW, never shrink.
 MAX_ITER=4                    # agent turns you are willing to buy
@@ -44,11 +44,11 @@ verify() {
   TOTAL=${TOTAL:-0}
 }
 
-# Written for a stranger who has never seen the ticket. Numbered requirements,
+# Written for a stranger who has never seen the requirement. Numbered requirements,
 # file paths not adjectives. The prohibitions are NOT here on purpose — they live
 # in the worker agent, so every dispatch carries them and this briefing does not
 # spend the worker's context restating rules it already has.
-TASK="Ticket $TICKET in this repo.
+TASK="Requirement $TICKET in this repo.
 
 The acceptance criteria are already written as an executable spec: $SPEC
 It is the definition of done. Make it pass. Concretely it requires:
@@ -60,9 +60,12 @@ Verify with: cd $REPO && ./node_modules/.bin/jest"
 # ------------------------------------------------------------ END CHANGE THESE
 
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-CC="npm --prefix /Users/jay.quach/dev/bot run --silent cc --"
-OUT="/Users/jay.quach/dev/bot/tmp/$TICKET"
-AGENT="/Users/jay.quach/dev/bot/.github/agents/$WORKER_AGENT.agent.md"
+# The driver lives in cc's scripts/ or tmp/, so cc is one directory up from it.
+CC_ROOT="${CC_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+[ -f "$CC_ROOT/bin/cc.ts" ] || { echo "ABORT — $CC_ROOT is not central-command; set CC_ROOT"; exit 1; }
+CC="npm --prefix $CC_ROOT run --silent cc --"
+OUT="$CC_ROOT/tmp/$TICKET"
+AGENT="$CC_ROOT/.github/agents/$WORKER_AGENT.agent.md"
 mkdir -p "$OUT"
 
 # Does a window on $REPO already exist? Checked BEFORE the first "$CODE" "$REPO"

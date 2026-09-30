@@ -472,6 +472,16 @@ the supervisor has been built.
 > durable, code-only tick process below — once built — still favors the child driver for
 > that reason. This note updates guidance only; it does not change the supervisor
 > implementation contract, which does not exist yet.
+>
+> **Status note (2026-09-30), supersedes the routing sentence above for today's loop:**
+> the entry is `loop-dispatcher` (dispatcher tier). It runs `loop-architect` as a
+> `runSubagent` call in the user's window and routes `WRONG AGENT` / `CONSULT_NEEDED` replies
+> (`.github/agents/loop-dispatcher.agent.md`, `tests/unit/agents/dispatcher-gate.test.ts`).
+> The architect's driver dispatches the worker with `code chat -m` into an already-open repo
+> window. The exact-rooted child route is **not in use**: `code chat` ignores
+> `--user-data-dir` (spike table below, VERIFIED FAIL), a child profile's Copilot returned
+> 403 on 2026-09-30, and the supervisor does not dispatch. Paths below naming `~/dev/bot`
+> are historical evidence from the repository's previous location, not paths to use.
 
 The durable driver is the **code-only** `supervisor/` tick process (D3/D5), with no LLM
 and no approvals — the bounded, per-dispatch watcher described in D6 is a separate, time-boxed

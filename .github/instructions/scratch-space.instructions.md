@@ -7,8 +7,8 @@ applyTo: "**"
 
 # Scratch space stays inside this workspace
 
-Never clone, `git worktree add`, or check out another repository outside this workspace
-folder (`/Users/jay.quach/dev/bot`). That means no `~/dev/rvXXX`, no sibling folder under
+Never clone, `git worktree add`, or check out another repository outside the root of the
+workspace folder you have open. That means no `~/dev/rvXXX`, no sibling folder under
 `~/dev/`, no bare `/tmp/...`.
 
 Paths outside the open workspace root are untrusted, so every tool call that touches them

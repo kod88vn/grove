@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loop engineering — how a ticket finishes itself</title>
+<title>Loop engineering — how a requirement finishes itself</title>
 <style>
   :root {
     --ink: #17181c;
@@ -91,7 +91,7 @@
 
 <h1>Loop engineering</h1>
 <p class="lede">
-  How a ticket becomes merged code without you driving each turn — and why the expensive
+  How a requirement — from a Jira ticket or straight from a prompt — becomes merged code without you driving each turn — and why the expensive
   model is deliberately kept out of the part that repeats.
 </p>
 
@@ -130,17 +130,17 @@
   <h3>Six steps, from a new chat</h3>
   <ol>
     <li>Open a <strong>new chat session</strong> with <code>+</code> in the Chat view.</li>
-    <li>Pick an <strong>agent</strong> from the table below. The wrong agent stops and names the right one.</li>
-    <li>Pick the recommended <strong>model after the agent</strong>. Any model is allowed; an overpriced selection earns a warning, not a refusal. Agent re-selection reapplies its default. <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares the selected model with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
+    <li>Select <strong><code>loop-dispatcher</code></strong> in the agent picker, for every task. It relays your message verbatim to <code>loop-architect</code>, reroutes a <code>WRONG AGENT</code> reply to <code>loop-analyst</code> and a <code>CONSULT_NEEDED</code> to <code>loop-judge</code>, and cannot do the work itself.</li>
+    <li>Leave the model alone. The dispatcher runs on the dispatcher tier (Gemini 3.8 Flash); each agent it calls runs on its own pinned tier, because the dispatcher never passes <code>model</code> (a caller-supplied model overrides the pin). Architect and analyst still warn once if the selected model costs more than the task needs: <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares it with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
     <li>Write the goal <strong>and the repo</strong> (path or name under <code>~/dev/</code>).</li>
-    <li><strong>Today:</strong> for an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>bot/tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
+    <li><strong>Today:</strong> for an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
     <li>Hands off while the loop runs. Expect <code>LOOP RUNNING — hands off.</code> and <code>LOOP FINISHED</code> with a ledger verdict, or an analyst's incremental <code>tmp/&lt;KEY&gt;-report.md</code>. The dashboard shows loop progress; do not touch the worker window, its files or driver. A blocked operation names the one action needed.</li>
   </ol>
 </div>
 
 <div class="card rule">
   <h3>Target flow — designed, not built</h3>
-  <p>The human picks the entry agent in the main window. It only enqueues, monitors and reports; durable <code>supervisor/</code> tick code (no LLM and no approvals) dispatches architect, analyst, worker and tool-using judge into child windows by default, one per repo or item, with separate portable and user-data directories. A main-thread subagent may instead be dispatched for an appropriately scoped task — tool use included, not read-only or in-workspace only — subject to the same explicit, per-request approval and normal off-limits rules as any other main-thread action. A 2026-09-29 narrow proof showed one such approval granted by a pre-armed watcher without a person watching, for a call that read a file <strong>outside this workspace</strong>; whether confirmations generally block the parent, and general-purpose unattended approval, remain <strong>ASSUMED/UNKNOWN</strong> pending a broader S16 run. Durable, unattended loop work still favors the child by default for that reason — web fetches, repo work, git/gh, builds/tests, installs, writes and outside-folder reads default there, which opens on the repo or a scratch clone under <code>bot/tmp/</code>.</p>
+  <p>The human picks the entry agent in the main window. It only enqueues, monitors and reports; durable <code>supervisor/</code> tick code (no LLM and no approvals) dispatches architect, analyst, worker and tool-using judge into child windows by default, one per repo or item, with separate portable and user-data directories. A main-thread subagent may instead be dispatched for an appropriately scoped task — tool use included, not read-only or in-workspace only — subject to the same explicit, per-request approval and normal off-limits rules as any other main-thread action. A 2026-09-29 narrow proof showed one such approval granted by a pre-armed watcher without a person watching, for a call that read a file <strong>outside this workspace</strong>; whether confirmations generally block the parent, and general-purpose unattended approval, remain <strong>ASSUMED/UNKNOWN</strong> pending a broader S16 run. Durable, unattended loop work still favors the child by default for that reason — web fetches, repo work, git/gh, builds/tests, installs, writes and outside-folder reads default there, which opens on the repo or a scratch clone under <code>tmp/</code>.</p>
   <p><strong>Designed approval:</strong> child profile self-approves permitted calls via approve-all, never by a UI click or forged consent. <strong>VERIFIED</strong> C-quinque 2 recorded <code>TARGET True</code> and <code>run_in_terminal isConfirmed {'type': 1}</code> after an unattended child touch; global approve-all and off-limits containment are <strong>UNKNOWN</strong> pending S13/S14/S18. System-file writes, secret reads/printing, the compiled denylist and <code>gh pr merge</code> stay off-limits. The last two are existing invariants flagged for a user decision, not silently dropped.</p>
   <p style="margin-bottom:0">An off-limits pending call kills the child and parks the item with evidence. Another unexpected pending call gets one fresh-session retry, then parks. The code driver never waits for an answer: it moves on and produces one final parked-items report. It checks disk and ledger before retrying model errors, tries a same-tier single-model substitute, then tier escalation; exhausted work parks. This recovery is <strong>not built</strong>.</p>
 </div>
@@ -149,33 +149,34 @@
   <p style="margin-bottom:0">Prefer approval-free main-thread paths. Do not leave a main-thread subagent that may prompt when you walk away. Today's manual loop still needs an already-open repo window and real prompts must be answered by a person.</p>
 </div>
 
-<h3>Pick the entry agent</h3>
+<h3>Where your message goes</h3>
+<p>You always select <code>loop-dispatcher</code>. This table shows where it routes your message, not what you pick.</p>
 <table>
-  <thead><tr><th>Task type</th><th>Agent</th><th>Recommended model</th></tr></thead>
+  <thead><tr><th>Task type</th><th>Routed to</th><th>Pinned model</th></tr></thead>
   <tbody>
     <tr><td>Implementation, reproducible bug (red test first), checkable doc change, feedback on your PR; resumes of these</td><td><code>loop-architect</code></td><td>GPT-6 Sol (architect tier)</td></tr>
     <tr><td>Plan, someone else's PR review (draft only), investigation without a repro</td><td><code>loop-analyst</code></td><td>GPT-6 Sol (architect tier)</td></tr>
     <tr><td>Research, questions, prose docs</td><td><code>loop-analyst</code></td><td>Gemini 3.8 Flash (dispatcher tier)</td></tr>
   </tbody>
 </table>
-<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its single-model variants are driver-only. Architect single-model variants serve headless escalation, not human entry. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
+<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its single-model variants are driver-only. Architect single-model variants are how the dispatcher escalates (by agent name, never by passing <code>model</code>), not human entries. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
 
 <div class="card warn">
   <h3>What correction looks like</h3>
-  <p>Choose <code>loop-architect</code>, ask <code>Review PR #50 in grove; repo ~/dev/grove.</code> → <strong>WRONG AGENT: this is code review. Pick loop-analyst with GPT-6 Sol.</strong> The agent offers its analyst handoff, and stops.</p>
-  <p>Choose <code>loop-analyst</code> with Claude Opus 5.5, ask <code>What does cc stalls do? Repo ~/dev/bot.</code> → <strong>You picked Claude Opus 5.5 (oracle); this task needs dispatcher: switch to Gemini 3.8 Flash.</strong> It still answers. The warning describes the selected model, not backend billing.</p>
+  <p>Select <code>loop-dispatcher</code>, ask <code>Review PR #50 in grove; repo ~/dev/grove.</code> → <code>loop-architect</code> replies <strong>WRONG AGENT: this is code review.</strong> and the dispatcher re-sends your original message to <code>loop-analyst</code>. The architect reviews nothing.</p>
+  <p>Pick <code>loop-analyst</code> directly with Claude Opus 5.5, ask <code>What does cc stalls do? Repo: this workspace.</code> → <strong>You picked Claude Opus 5.5 (oracle); this task needs dispatcher: switch to Gemini 3.8 Flash.</strong> It still answers. The warning describes the selected model, not backend billing.</p>
 </div>
 
 <h3>Eleven prompts to paste</h3>
-<p>These are templates, not assertions that the tickets or PRs exist. “Approve” means only when a real per-call prompt appears <strong>today</strong>. Each row shows today's permission and the unbuilt target, where the child self-approves permitted work.</p>
+<p>These are templates, not assertions that the tickets or PRs exist. Paste every one into <code>loop-dispatcher</code>; the second column is where it is routed. “Approve” means only when a real per-call prompt appears <strong>today</strong>. Each row shows today's permission and the unbuilt target, where the child self-approves permitted work.</p>
 <table>
-  <thead><tr><th>Task</th><th>Agent · model</th><th>Exact prompt text</th><th>Permission</th></tr></thead>
+  <thead><tr><th>Task</th><th>Routed to · model</th><th>Exact prompt text</th><th>Permission</th></tr></thead>
   <tbody>
     <tr><td>Ticket implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673 in ~/dev/web-storefront-ui.</code></td><td>Today: add repo/use loop window; approve git preflight. Target: repo child self-approves permitted work.</td></tr>
     <tr><td>Plain-description implementation</td><td>loop-architect · GPT-6 Sol</td><td><code>grove: the homeworks review page should show each submission's percentage next to its score. Repo ~/dev/grove.</code></td><td>Today: workspace folder; approve real preflight prompt. Target: grove child self-approves; no Jira.</td></tr>
     <tr><td>Bug fix</td><td>loop-architect · GPT-6 Sol</td><td><code>Bug in ~/dev/grove apps/games: tic-tac-toe shows 'Nora wins' on a draw. Reproduce it as a failing test, then fix.</code></td><td>Today: workspace; approve preflight, red repro first. Target: child runs tests without main approval.</td></tr>
     <tr><td>Planning</td><td>loop-analyst · GPT-6 Sol</td><td><code>Plan grove HOMEWORK_PLAN.md phase 2 as loopable items; repo ~/dev/grove; write tmp/GROVE-HW2-plan.md with a §4.1 triage verdict per item.</code></td><td>Today: workspace; approve preflight. Target: analyst child reads and writes; main monitors.</td></tr>
-    <tr><td>Others' PR review</td><td>loop-analyst · GPT-6 Sol</td><td><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></td><td>Today: scratch clone in bot/tmp; approve SSH; human posts. Target: child clones/reviews; posting others' review stays human-only.</td></tr>
+    <tr><td>Others' PR review</td><td>loop-analyst · GPT-6 Sol</td><td><code>Review PR #2442 in clover/web-storefront-engine under pr-review-verification. Repo ~/dev/web-storefront-engine. Draft to tmp/rv2442-review.md; do not post.</code></td><td>Today: scratch clone in <code>tmp/</code>; approve SSH; human posts. Target: child clones/reviews; posting others' review stays human-only.</td></tr>
     <tr><td>Own PR feedback</td><td>loop-architect · GPT-6 Sol</td><td><code>WS-6673: PR #181 in web-storefront-ui has review comments — run phase 6 until merged. Repo ~/dev/web-storefront-ui.</code></td><td>Today: add repo/use loop window; approve SSH. Target: child handles own PR; merge stays external.</td></tr>
     <tr><td>Investigation</td><td>loop-analyst · GPT-6 Sol</td><td><code>Investigate why the grove homeworks review page sometimes displays a blank score; repo ~/dev/grove. Record evidence and a reproduction path, but do not change code yet.</code></td><td>Today: workspace; approve preflight. Target: analyst child investigates; main runs no tests.</td></tr>
     <tr><td>Research</td><td>loop-analyst · Gemini 3.8 Flash</td><td><code>In ~/dev/web-storefront-engine, where is the retail-zone rewrite defined and which cookie selects it? Cite file:line.</code></td><td>Today: read tools need no grant; approve terminal grep if prompted. Target: child handles outside reads/web.</td></tr>
@@ -397,7 +398,7 @@ npm run supervise -- cancel WS-6673</code></pre>
     referees only when needed, not on every poll.
   </p>
   <table style="margin-bottom:0">
-    <thead><tr><th>Actor</th><th>Invocations per ticket</th><th>Scales with iterations?</th></tr></thead>
+    <thead><tr><th>Actor</th><th>Invocations per requirement</th><th>Scales with iterations?</th></tr></thead>
     <tbody>
       <tr><td>Architect / Judge</td><td>intake and referee, plus consults</td><td>no</td></tr>
       <tr><td>GPT-5.6 Luna worker</td><td>up to <code>MAX_ITER</code></td><td>yes</td></tr>
@@ -528,7 +529,7 @@ npm run supervise -- cancel WS-6673</code></pre>
       <text x="20" y="26" font-size="13" font-weight="700" fill="#0d7a4a">PHASES 5–6: SHIP, FEEDBACK &amp; AUTOMATIC TEARDOWN</text>
       <text x="20" y="48" font-size="11" fill="#17181c">• Commit to branch with verified reasoning &amp; open PR</text>
       <text x="20" y="66" font-size="11" fill="#17181c">• Handle review comments (up to 3 bounce-backs) until merged</text>
-      <text x="20" y="84" font-size="11" font-weight="600" fill="#0d7a4a">• Resolve Jira ticket + Teardown: purge temporary profiles, worktrees, &amp; PIDs</text>
+      <text x="20" y="84" font-size="11" font-weight="600" fill="#0d7a4a">• Resolve Jira ticket (if any) + Teardown: purge temporary profiles, worktrees, &amp; PIDs</text>
     </g>
   </svg>
   <div class="caption">
@@ -540,7 +541,7 @@ npm run supervise -- cancel WS-6673</code></pre>
   <thead><tr><th>#</th><th>Phase</th><th>What happens</th><th>You do</th></tr></thead>
   <tbody>
     <tr><td>0</td><td>Intake</td>
-        <td>Reads ticket or description, drafts assertions and consults the Judge on ambiguities</td>
+        <td>Reads the requirement (Jira ticket or prompt), drafts assertions and consults the Judge on ambiguities</td>
         <td>only answer genuinely critical decisions</td></tr>
     <tr><td>1</td><td>Architect</td>
         <td>Writes those assertions as a real test, runs it, confirms it is <span class="tag t-bad">red</span>, commits it</td>
@@ -564,8 +565,8 @@ npm run supervise -- cancel WS-6673</code></pre>
   <h3>You write requirements. It writes the spec.</h3>
   <p>
     This is the part that sounds harder than it is. Nowhere in the cycle are you asked to
-    write a test. You give it the ticket — ordinary prose, the same words you would type into
-    Jira — and phase 1 does the translation:
+    write a test. You give it the requirement — ordinary prose, in a Jira ticket or typed
+    straight into the prompt — and phase 1 does the translation:
   </p>
   <table>
     <thead><tr><th>What you write</th><th>What it writes</th></tr></thead>
@@ -603,7 +604,7 @@ npm run supervise -- cancel WS-6673</code></pre>
       <path d="M 145 39 L 175 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
       <rect x="185" y="16" width="125" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
       <text x="195" y="35" font-size="11" font-weight="600" fill="#17181c">Scratch Clone</text>
-      <text x="195" y="50" font-size="9" fill="#5b6270">under bot/tmp/</text>
+      <text x="195" y="50" font-size="9" fill="#5b6270">under tmp/</text>
 
       <path d="M 320 39 L 350 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
       <rect x="360" y="16" width="150" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
@@ -739,7 +740,7 @@ npm run supervise -- cancel WS-6673</code></pre>
   <p><strong>Agent:</strong> <code>loop-architect</code> &middot; <strong>Model:</strong> <code>GPT-6 Sol</code></p>
   <p><strong>Prompt:</strong></p>
   <pre><code>WS-6673 in ~/dev/web-storefront-ui: Implement sticky cart drawer summary with subtotal calculation.</code></pre>
-  <p><strong>Lifecycle:</strong> Architect drafts the spec, confirms red, driver loops worker until passing, judge referees the diff, commits on feature branch, opens PR, and handles review comments up to 3 bounce-backs before resolving the ticket.</p>
+  <p><strong>Lifecycle:</strong> Architect drafts the spec, confirms red, driver loops worker until passing, judge referees the diff, commits on feature branch, opens PR, and handles review comments up to 3 bounce-backs before resolving the Jira ticket, if the requirement came from one.</p>
 </div>
 
 <p>
@@ -808,11 +809,11 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   so an invalid run is caught in seconds instead of after it has spent its whole budget.
 </p>
 
-<h2>6. Most tickets are not loopable</h2>
+<h2>6. Most requirements are not loopable</h2>
 
 <p>
-  This is the part that saves you the most time, and it is the part everyone skips. A ticket
-  qualifies as a loop only if <strong>all four</strong> of these hold. Check them before you
+  This is the part that saves you the most time, and it is the part everyone skips. A requirement
+  qualifies as a loop only if <strong>all four</strong> of these hold, whether it came from Jira or a prompt. Check them before you
   write a spec, not after you have burned a budget finding out.
 </p>
 
@@ -838,7 +839,7 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
   <h3>The most common mistake, by a distance</h3>
   <p>
     Naming the repository's existing suite as the gate. <code>yarn test</code> passing does not
-    mean your ticket is done — it means your ticket <em>is not represented in it</em>. A loop
+    mean your requirement is done — it means your requirement <em>is not represented in it</em>. A loop
     needs a <strong>new assertion that fails right now</strong>.
   </p>
   <p style="margin-bottom:0">
@@ -850,7 +851,7 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
 <div class="card">
   <h3>The subtle case: when the deliverable <em>is</em> tests</h3>
   <p style="margin-bottom:0">
-    If the ticket is "write a Playwright smoke suite", the worker is writing the very thing a
+    If the requirement is "write a Playwright smoke suite", the worker is writing the very thing a
     spec would normally be — so there is nothing to lock. Lock a <strong>meta-spec</strong>
     instead: a test asserting the suite exists, covers the four merchant types, finishes inside
     its time budget, and hardcodes no selectors. <em>That</em> is the file the worker may not
@@ -859,7 +860,7 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
 </div>
 
 <p>
-  A ticket that fails this triage is not a worse ticket. It is work for a normal chat session
+  A requirement that fails this triage is not a worse requirement. It is work for a normal chat session
   with a human reading the output — which is most work, and that is fine.
 </p>
 

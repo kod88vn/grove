@@ -4,7 +4,7 @@
       "name": "worker",
       "rank": 1,
       "maxOutputPrice": 150,
-      "models": ["GPT-5.6 Luna", "GPT-6 Luna"]
+      "models": ["GPT-6 Luna", "GPT-5.6 Luna"]
     },
     {
       "name": "dispatcher",
