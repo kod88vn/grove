@@ -67,6 +67,20 @@
   }
   .flow b { display: block; font-size: .95rem; margin-bottom: 3px; }
   .flow .who { color: var(--muted); font-size: .78rem; }
+  .diagram-box {
+    margin: 2em 0; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  }
+  .diagram-box h4 {
+    margin: 0 0 12px 6px; font-size: 0.98rem; letter-spacing: -0.01em; color: var(--ink);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .diagram-box .caption {
+    font-size: 0.83rem; color: var(--muted); margin: 12px 0 0 6px; line-height: 1.45;
+  }
+  .diagram-svg {
+    display: block; width: 100%; height: auto;
+  }
   footer { margin-top: 4em; padding-top: 1.4em; border-top: 1px solid var(--line);
            color: var(--muted); font-size: .88rem; }
   @media (max-width: 620px) { .flow { grid-template-columns: 1fr 1fr; } }
@@ -189,6 +203,147 @@ npm run supervise -- status
 
 # Cleanly cancel and teardown all temporary resources for an item
 npm run supervise -- cancel WS-6673</code></pre>
+
+  <div class="diagram-box">
+    <h4>Supervisor Lifecycle & Teardown State Machine <span class="tag t-info">zero-debris guarantee</span></h4>
+    <svg class="diagram-svg" viewBox="0 0 820 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+      <defs>
+        <marker id="s-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#5b6270"/>
+        </marker>
+        <marker id="s-accent" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2c5fd6"/>
+        </marker>
+        <marker id="s-good" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0d7a4a"/>
+        </marker>
+        <marker id="s-bad" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#b3261e"/>
+        </marker>
+      </defs>
+
+      <!-- Queued -->
+      <g transform="translate(35, 55)">
+        <rect width="115" height="52" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1.5"/>
+        <rect x="0" y="0" width="115" height="4" rx="2" fill="#5b6270"/>
+        <text x="57" y="27" font-size="14" font-weight="700" fill="#17181c" text-anchor="middle">queued</text>
+        <text x="57" y="43" font-size="11" fill="#5b6270" text-anchor="middle">in SQLite queue</text>
+      </g>
+
+      <!-- Arrow Queued -> Working -->
+      <path d="M 150 81 L 205 81" stroke="#2c5fd6" stroke-width="2" marker-end="url(#s-accent)"/>
+      <text x="177" y="73" font-size="10" fill="#2c5fd6" font-weight="600" text-anchor="middle">tick</text>
+
+      <!-- Working -->
+      <g transform="translate(210, 55)">
+        <rect width="145" height="52" rx="8" fill="#f4f7fe" stroke="#2c5fd6" stroke-width="2"/>
+        <text x="72" y="27" font-size="14" font-weight="700" fill="#2c5fd6" text-anchor="middle">working</text>
+        <text x="72" y="43" font-size="11" fill="#5b6270" text-anchor="middle">loop active in child</text>
+      </g>
+
+      <!-- Working -> Paused -->
+      <path d="M 245 107 L 245 155" stroke="#5b6270" stroke-width="1.5" marker-end="url(#s-arrow)"/>
+      <text x="235" y="135" font-size="10" fill="#5b6270" text-anchor="end">pause</text>
+
+      <!-- Paused -->
+      <g transform="translate(170, 160)">
+        <rect width="150" height="54" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1.5"/>
+        <rect x="0" y="0" width="150" height="4" rx="2" fill="#8a6100"/>
+        <text x="75" y="25" font-size="13" font-weight="700" fill="#8a6100" text-anchor="middle">paused</text>
+        <text x="75" y="41" font-size="10" fill="#5b6270" text-anchor="middle">PIDs killed · dirs kept</text>
+      </g>
+      <!-- Paused -> Working (resume) -->
+      <path d="M 295 160 L 295 113" stroke="#0d7a4a" stroke-width="1.5" marker-end="url(#s-good)"/>
+      <text x="307" y="135" font-size="10" fill="#0d7a4a" font-weight="600">resume</text>
+
+      <!-- Working -> Awaiting Approval -->
+      <path d="M 315 107 L 375 155" stroke="#5b6270" stroke-width="1.5" marker-end="url(#s-arrow)"/>
+
+      <!-- Awaiting Approval -->
+      <g transform="translate(335, 160)">
+        <rect width="155" height="54" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1.5"/>
+        <rect x="0" y="0" width="155" height="4" rx="2" fill="#8a6100"/>
+        <text x="77" y="25" font-size="13" font-weight="700" fill="#8a6100" text-anchor="middle">awaiting_approval</text>
+        <text x="77" y="41" font-size="10" fill="#5b6270" text-anchor="middle">PIDs stopped · dirs kept</text>
+      </g>
+
+      <!-- Working -> Needs Human -->
+      <path d="M 355 90 L 505 155" stroke="#b3261e" stroke-width="1.5" marker-end="url(#s-bad)"/>
+
+      <!-- Needs Human -->
+      <g transform="translate(505, 160)">
+        <rect width="145" height="54" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1.5"/>
+        <rect x="0" y="0" width="145" height="4" rx="2" fill="#b3261e"/>
+        <text x="72" y="25" font-size="13" font-weight="700" fill="#b3261e" text-anchor="middle">needs_human</text>
+        <text x="72" y="41" font-size="10" fill="#5b6270" text-anchor="middle">Kills PIDs · seals run</text>
+      </g>
+
+      <!-- Working -> Ready -->
+      <path d="M 355 81 L 435 81" stroke="#0d7a4a" stroke-width="2" marker-end="url(#s-good)"/>
+      <text x="395" y="73" font-size="10" fill="#0d7a4a" font-weight="600" text-anchor="middle">green + referee</text>
+
+      <!-- Ready -->
+      <g transform="translate(440, 55)">
+        <rect width="130" height="52" rx="8" fill="#fff" stroke="#0d7a4a" stroke-width="1.5"/>
+        <rect x="0" y="0" width="130" height="4" rx="2" fill="#0d7a4a"/>
+        <text x="65" y="27" font-size="14" font-weight="700" fill="#0d7a4a" text-anchor="middle">ready</text>
+        <text x="65" y="43" font-size="11" fill="#5b6270" text-anchor="middle">PR open / passing</text>
+      </g>
+
+      <!-- Ready -> Merged/Done -->
+      <path d="M 570 81 L 635 81" stroke="#0d7a4a" stroke-width="2" marker-end="url(#s-good)"/>
+      <text x="602" y="73" font-size="10" fill="#0d7a4a" font-weight="600" text-anchor="middle">merge</text>
+
+      <!-- Merged / Done -->
+      <g transform="translate(640, 55)">
+        <rect width="145" height="52" rx="8" fill="#dff3e8" stroke="#0d7a4a" stroke-width="1.5"/>
+        <text x="72" y="27" font-size="14" font-weight="700" fill="#0d7a4a" text-anchor="middle">merged / done</text>
+        <text x="72" y="43" font-size="11" fill="#0d7a4a" text-anchor="middle">Full Teardown</text>
+      </g>
+
+      <!-- Cancelled (terminal) -->
+      <path d="M 280 107 C 280 135, 630 135, 670 155" stroke="#b3261e" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#s-bad)"/>
+      <g transform="translate(660, 160)">
+        <rect width="125" height="54" rx="8" fill="#fce8e6" stroke="#b3261e" stroke-width="1.5"/>
+        <text x="62" y="25" font-size="13" font-weight="700" fill="#b3261e" text-anchor="middle">cancelled</text>
+        <text x="62" y="41" font-size="10" fill="#b3261e" text-anchor="middle">Full Teardown</text>
+      </g>
+
+      <!-- Bottom Container: Teardown Resource Ledger -->
+      <g transform="translate(35, 245)">
+        <rect width="750" height="130" rx="10" fill="#f8fafc" stroke="#dfe3ea" stroke-width="1.5"/>
+        <text x="20" y="26" font-size="12" font-weight="700" fill="#17181c">MANDATORY TEARDOWN GUARANTEE (supervisor_resources ledger)</text>
+        <text x="590" y="26" font-size="11" font-weight="600" fill="#0d7a4a">✓ Verified clean on exit</text>
+
+        <!-- Resource 1: Processes -->
+        <g transform="translate(20, 44)">
+          <rect width="225" height="66" rx="6" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+          <text x="12" y="22" font-size="11" font-weight="700" fill="#17181c">Child PIDs &amp; Watchers</text>
+          <text x="12" y="40" font-size="10" fill="#5b6270">SIGTERM → 1.5s → SIGKILL</text>
+          <text x="12" y="54" font-size="10" fill="#0d7a4a">Verified absent via kill(pid, 0)</text>
+        </g>
+
+        <!-- Resource 2: Profile & Scratch Dirs -->
+        <g transform="translate(260, 44)">
+          <rect width="235" height="66" rx="6" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+          <text x="12" y="22" font-size="11" font-weight="700" fill="#17181c">Isolated Profiles &amp; Dirs</text>
+          <text x="12" y="40" font-size="10" fill="#5b6270">portable-dir · user-data · scratch</text>
+          <text x="12" y="54" font-size="10" fill="#0d7a4a">Deepest first rmSync recursive</text>
+        </g>
+
+        <!-- Resource 3: Audit Ledger & Runs -->
+        <g transform="translate(510, 44)">
+          <rect width="220" height="66" rx="6" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+          <text x="12" y="22" font-size="11" font-weight="700" fill="#17181c">Durable Deliverables</text>
+          <text x="12" y="40" font-size="10" fill="#5b6270">Open loop_runs sealed with reason</text>
+          <text x="12" y="54" font-size="10" fill="#2c5fd6">Git commits &amp; PR branches kept</text>
+        </g>
+      </g>
+    </svg>
+    <div class="caption">
+      Figure 0.1: Supervisor state transitions and the zero-debris teardown contract. On pauses, live processes are safely terminated while disk work is held. Terminal states (merged, cancelled) guarantee 100% resource reclamation.
+    </div>
+  </div>
 </div>
 
 <h2>2. The roles: a model never decides pass</h2>
@@ -267,6 +422,120 @@ npm run supervise -- cancel WS-6673</code></pre>
   <div><b>5–6</b><span class="who">Architect: chat today; child in target</span>PR · feedback · close</div>
 </div>
 
+<div class="diagram-box">
+  <h4>The Core Loop Engine &amp; The Verification Gate <span class="tag t-good">zero model judgment in gate</span></h4>
+  <svg class="diagram-svg" viewBox="0 0 820 440" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+    <defs>
+      <marker id="c-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#5b6270"/>
+      </marker>
+      <marker id="c-accent" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2c5fd6"/>
+      </marker>
+      <marker id="c-good" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0d7a4a"/>
+      </marker>
+      <marker id="c-bad" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#b3261e"/>
+      </marker>
+    </defs>
+
+    <!-- Phase 0-1: Intake & Architect -->
+    <g transform="translate(30, 40)">
+      <rect width="185" height="150" rx="10" fill="#fff" stroke="#2c5fd6" stroke-width="1.5"/>
+      <rect x="0" y="0" width="185" height="28" rx="8" fill="#e4ebfb"/>
+      <text x="92" y="19" font-size="12" font-weight="700" fill="#2c5fd6" text-anchor="middle">PHASE 0–1: SPEC</text>
+      <text x="16" y="52" font-size="12" font-weight="700" fill="#17181c">Architect</text>
+      <text x="74" y="52" font-size="11" fill="#5b6270">(GPT-6 Sol)</text>
+      <text x="16" y="74" font-size="11" fill="#5b6270">• Reads Jira / prose goals</text>
+      <text x="16" y="94" font-size="11" fill="#5b6270">• Translates to code test</text>
+      <text x="16" y="114" font-size="11" font-weight="600" fill="#b3261e">• Negative control (red)</text>
+      <text x="16" y="134" font-size="11" font-weight="600" fill="#0d7a4a">• Locks SHA-256 digest</text>
+    </g>
+
+    <!-- Arrow 1 -> Arm -->
+    <path d="M 215 115 L 255 115" stroke="#2c5fd6" stroke-width="2" marker-end="url(#c-accent)"/>
+
+    <!-- Phase 2: Arm -->
+    <g transform="translate(260, 75)">
+      <rect width="125" height="80" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1.5"/>
+      <rect x="0" y="0" width="125" height="24" rx="6" fill="#f2f4f8"/>
+      <text x="62" y="17" font-size="11" font-weight="700" fill="#5b6270" text-anchor="middle">PHASE 2: ARM</text>
+      <text x="12" y="44" font-size="11" font-weight="600" fill="#17181c">Driver script</text>
+      <text x="12" y="60" font-size="10" fill="#5b6270">tmp/&lt;KEY&gt;-loop.sh</text>
+    </g>
+
+    <!-- Arrow Arm -> Grind -->
+    <path d="M 385 115 L 420 115" stroke="#2c5fd6" stroke-width="2" marker-end="url(#c-accent)"/>
+
+    <!-- Phase 3: The Grind Loop Box -->
+    <g transform="translate(425, 25)">
+      <rect width="215" height="240" rx="10" fill="#f8fafc" stroke="#dfe3ea" stroke-width="1.5"/>
+      <rect x="0" y="0" width="215" height="26" rx="8" fill="#f2f4f8"/>
+      <text x="107" y="18" font-size="11" font-weight="700" fill="#5b6270" text-anchor="middle">PHASE 3: HEADLESS GRIND</text>
+
+      <!-- Worker Block -->
+      <g transform="translate(15, 38)">
+        <rect width="185" height="58" rx="6" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+        <text x="10" y="20" font-size="12" font-weight="700" fill="#17181c">Worker</text>
+        <text x="60" y="20" font-size="11" fill="#5b6270">(GPT-5.6 Luna)</text>
+        <text x="10" y="38" font-size="10" fill="#5b6270">Child window session (cheap)</text>
+        <text x="10" y="50" font-size="10" fill="#5b6270">Writes code to turn spec green</text>
+      </g>
+
+      <!-- Arrow Worker -> Gate -->
+      <path d="M 107 98 L 107 120" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+
+      <!-- Verification Gate Block -->
+      <g transform="translate(15, 125)">
+        <rect width="185" height="98" rx="6" fill="#fff" stroke="#0d7a4a" stroke-width="1.5"/>
+        <text x="10" y="18" font-size="11" font-weight="700" fill="#0d7a4a">VERIFICATION GATE</text>
+        <text x="125" y="18" font-size="9" font-weight="700" fill="#5b6270">NO MODEL</text>
+        <text x="10" y="36" font-size="10" fill="#17181c">1. Checksum unchanged</text>
+        <text x="10" y="51" font-size="10" fill="#17181c">2. Exit code == 0</text>
+        <text x="10" y="66" font-size="10" fill="#17181c">3. Tests &gt; baseline count</text>
+        <text x="10" y="81" font-size="10" fill="#17181c">4. No suppression added</text>
+      </g>
+
+      <!-- Loopback path (Red / Tampered -> next iteration) -->
+      <path d="M 15 174 C -20 174, -20 67, 10 67" stroke="#b3261e" stroke-width="1.5" stroke-dasharray="3" marker-end="url(#c-bad)"/>
+      <text x="-8" y="125" font-size="10" font-weight="600" fill="#b3261e" text-anchor="middle">red / fail</text>
+    </g>
+
+    <!-- Arrow Grind -> Referee -->
+    <path d="M 640 174 L 675 174" stroke="#0d7a4a" stroke-width="2" marker-end="url(#c-good)"/>
+    <text x="658" y="164" font-size="10" font-weight="600" fill="#0d7a4a" text-anchor="middle">green</text>
+
+    <!-- Phase 4: Referee & Judge -->
+    <g transform="translate(680, 70)">
+      <rect width="120" height="150" rx="10" fill="#fff" stroke="#2c5fd6" stroke-width="1.5"/>
+      <rect x="0" y="0" width="120" height="28" rx="8" fill="#e4ebfb"/>
+      <text x="60" y="19" font-size="11" font-weight="700" fill="#2c5fd6" text-anchor="middle">PHASE 4: REFEREE</text>
+      <text x="12" y="50" font-size="12" font-weight="700" fill="#17181c">Judge</text>
+      <text x="52" y="50" font-size="10" fill="#5b6270">(Opus 5.5)</text>
+      <text x="12" y="74" font-size="10" fill="#5b6270">• Audits full diff</text>
+      <text x="12" y="92" font-size="10" fill="#5b6270">• Tests falsifiers</text>
+      <text x="12" y="110" font-size="10" fill="#5b6270">• ACCEPT / REARM</text>
+      <text x="12" y="132" font-size="10" font-weight="600" fill="#0d7a4a">One-shot audit</text>
+    </g>
+
+    <!-- Arrow Referee -> Close -->
+    <path d="M 740 220 L 740 295" stroke="#0d7a4a" stroke-width="2" marker-end="url(#c-good)"/>
+
+    <!-- Phase 5-6: Close & Teardown -->
+    <g transform="translate(260, 300)">
+      <rect width="520" height="100" rx="10" fill="#dff3e8" stroke="#0d7a4a" stroke-width="1.5"/>
+      <text x="20" y="26" font-size="13" font-weight="700" fill="#0d7a4a">PHASES 5–6: SHIP, FEEDBACK &amp; AUTOMATIC TEARDOWN</text>
+      <text x="20" y="48" font-size="11" fill="#17181c">• Commit to branch with verified reasoning &amp; open PR</text>
+      <text x="20" y="66" font-size="11" fill="#17181c">• Handle review comments (up to 3 bounce-backs) until merged</text>
+      <text x="20" y="84" font-size="11" font-weight="600" fill="#0d7a4a">• Resolve Jira ticket + Teardown: purge temporary profiles, worktrees, &amp; PIDs</text>
+    </g>
+  </svg>
+  <div class="caption">
+    Figure 3.1: The end-to-end loop cycle. Strong intelligence defines the red spec once up front; headless cheap workers iterate inside an unforgeable arithmetic gate; oracle intelligence audits the final delta.
+  </div>
+</div>
+
 <table>
   <thead><tr><th>#</th><th>Phase</th><th>What happens</th><th>You do</th></tr></thead>
   <tbody>
@@ -320,6 +589,126 @@ npm run supervise -- cancel WS-6673</code></pre>
 <p>
   Loop engineering adapts to every task category. Here are concrete examples of how to run and supervise each:
 </p>
+
+<div class="diagram-box">
+  <h4>Loop Execution Across Diverse Task Categories <span class="tag t-info">task matrix</span></h4>
+  <svg class="diagram-svg" viewBox="0 0 820 410" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+    <!-- Track 1: Code Review -->
+    <g transform="translate(20, 20)">
+      <rect width="780" height="78" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+      <rect x="0" y="0" width="130" height="78" rx="8" fill="#f4f7fe"/>
+      <text x="14" y="32" font-size="12" font-weight="700" fill="#2c5fd6">1. Code Review</text>
+      <text x="14" y="52" font-size="10" fill="#5b6270">loop-analyst</text>
+
+      <path d="M 145 39 L 175 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="185" y="16" width="125" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="195" y="35" font-size="11" font-weight="600" fill="#17181c">Scratch Clone</text>
+      <text x="195" y="50" font-size="9" fill="#5b6270">under bot/tmp/</text>
+
+      <path d="M 320 39 L 350 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="360" y="16" width="150" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="370" y="35" font-size="11" font-weight="600" fill="#17181c">Prove Consequence</text>
+      <text x="370" y="50" font-size="9" fill="#5b6270">Run falsifying command</text>
+
+      <path d="M 520 39 L 550 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="560" y="16" width="120" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="570" y="35" font-size="11" font-weight="600" fill="#17181c">Draft Review</text>
+      <text x="570" y="50" font-size="9" fill="#5b6270">tmp/rv*-review.md</text>
+
+      <path d="M 690 39 L 715 39" stroke="#0d7a4a" stroke-width="1.5" marker-end="url(#c-good)"/>
+      <rect x="725" y="16" width="60" height="46" rx="6" fill="#dff3e8" stroke="#0d7a4a"/>
+      <text x="735" y="35" font-size="10" font-weight="700" fill="#0d7a4a">Clean</text>
+      <text x="735" y="50" font-size="9" fill="#0d7a4a">Purge</text>
+    </g>
+
+    <!-- Track 2: Bug Hunting -->
+    <g transform="translate(20, 115)">
+      <rect width="780" height="78" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+      <rect x="0" y="0" width="130" height="78" rx="8" fill="#fdf8ec"/>
+      <text x="14" y="32" font-size="12" font-weight="700" fill="#8a6100">2. Bug Hunting</text>
+      <text x="14" y="52" font-size="10" fill="#5b6270">loop-architect</text>
+
+      <path d="M 145 39 L 175 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="185" y="16" width="135" height="46" rx="6" fill="#fce8e6" stroke="#b3261e"/>
+      <text x="195" y="35" font-size="11" font-weight="600" fill="#b3261e">Minimal Repro Test</text>
+      <text x="195" y="50" font-size="9" fill="#b3261e">Must be RED at iter 0</text>
+
+      <path d="M 330 39 L 360 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="370" y="16" width="130" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="380" y="35" font-size="11" font-weight="600" fill="#17181c">Lock Spec SHA</text>
+      <text x="380" y="50" font-size="9" fill="#5b6270">Tamper-proof hash</text>
+
+      <path d="M 510 39 L 540 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="550" y="16" width="130" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="560" y="35" font-size="11" font-weight="600" fill="#17181c">Cheap Grind</text>
+      <text x="560" y="50" font-size="9" fill="#5b6270">Worker fixes code</text>
+
+      <path d="M 690 39 L 715 39" stroke="#0d7a4a" stroke-width="1.5" marker-end="url(#c-good)"/>
+      <rect x="725" y="16" width="60" height="46" rx="6" fill="#dff3e8" stroke="#0d7a4a"/>
+      <text x="735" y="35" font-size="10" font-weight="700" fill="#0d7a4a">Green</text>
+      <text x="735" y="50" font-size="9" fill="#0d7a4a">PR ready</text>
+    </g>
+
+    <!-- Track 3: Planning & Triage -->
+    <g transform="translate(20, 210)">
+      <rect width="780" height="78" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+      <rect x="0" y="0" width="130" height="78" rx="8" fill="#f4f7fe"/>
+      <text x="14" y="32" font-size="12" font-weight="700" fill="#2c5fd6">3. Planning</text>
+      <text x="14" y="52" font-size="10" fill="#5b6270">loop-analyst</text>
+
+      <path d="M 145 39 L 175 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="185" y="16" width="135" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="195" y="35" font-size="11" font-weight="600" fill="#17181c">Analyze Backlog</text>
+      <text x="195" y="50" font-size="9" fill="#5b6270">Map dependencies</text>
+
+      <path d="M 330 39 L 360 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="370" y="16" width="140" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="380" y="35" font-size="11" font-weight="600" fill="#17181c">Decompose Steps</text>
+      <text x="380" y="50" font-size="9" fill="#5b6270">Atomic loopable units</text>
+
+      <path d="M 520 39 L 550 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="560" y="16" width="130" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="570" y="35" font-size="11" font-weight="600" fill="#17181c">Define Red Specs</text>
+      <text x="570" y="50" font-size="9" fill="#5b6270">Clear testable criteria</text>
+
+      <path d="M 700 39 L 715 39" stroke="#0d7a4a" stroke-width="1.5" marker-end="url(#c-good)"/>
+      <rect x="725" y="16" width="60" height="46" rx="6" fill="#e4ebfb" stroke="#2c5fd6"/>
+      <text x="733" y="35" font-size="10" font-weight="700" fill="#2c5fd6">Queue</text>
+      <text x="733" y="50" font-size="9" fill="#2c5fd6">Ready</text>
+    </g>
+
+    <!-- Track 4: Feature Implementation -->
+    <g transform="translate(20, 305)">
+      <rect width="780" height="78" rx="8" fill="#fff" stroke="#dfe3ea" stroke-width="1"/>
+      <rect x="0" y="0" width="130" height="78" rx="8" fill="#dff3e8"/>
+      <text x="14" y="32" font-size="12" font-weight="700" fill="#0d7a4a">4. Feature Impl</text>
+      <text x="14" y="52" font-size="10" fill="#5b6270">architect &amp; worker</text>
+
+      <path d="M 145 39 L 175 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="185" y="16" width="135" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="195" y="35" font-size="11" font-weight="600" fill="#17181c">Intake &amp; Red Spec</text>
+      <text x="195" y="50" font-size="9" fill="#5b6270">Lock assertions</text>
+
+      <path d="M 330 39 L 360 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="370" y="16" width="135" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="380" y="35" font-size="11" font-weight="600" fill="#17181c">Child Loop Grind</text>
+      <text x="380" y="50" font-size="9" fill="#5b6270">Until all tests pass</text>
+
+      <path d="M 515 39 L 545 39" stroke="#5b6270" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+      <rect x="555" y="16" width="130" height="46" rx="6" fill="#f8fafc" stroke="#dfe3ea"/>
+      <text x="565" y="35" font-size="11" font-weight="600" fill="#17181c">Judge Referee</text>
+      <text x="565" y="50" font-size="9" fill="#5b6270">Diff + falsifiers</text>
+
+      <path d="M 695 39 L 715 39" stroke="#0d7a4a" stroke-width="1.5" marker-end="url(#c-good)"/>
+      <rect x="725" y="16" width="60" height="46" rx="6" fill="#dff3e8" stroke="#0d7a4a"/>
+      <text x="733" y="35" font-size="10" font-weight="700" fill="#0d7a4a">Merge</text>
+      <text x="733" y="50" font-size="9" fill="#0d7a4a">Resolve</text>
+    </g>
+  </svg>
+  <div class="caption">
+    Figure 4.1: Specialized operational pipelines by task type. Each pattern configures the entry agent, execution profile, verification gate, and teardown scope appropriate for its domain.
+  </div>
+</div>
 
 <div class="card">
   <h3>Task 1: Code Review (Draft only, no posting)</h3>
