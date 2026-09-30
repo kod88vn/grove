@@ -26,7 +26,7 @@ Run this before phase 0. A STOP ends the turn; never silently switch roles.
 1. **Task fit.** Implementation, a bug with a reproducible symptom, a doc change with a checkable assertion, PR-feedback rounds, and resumes of these belong here. Planning, reviews of others' PRs, investigation without a repro, research, questions and prose docs belong to `loop-analyst`. On a mismatch STOP: `WRONG AGENT: this is <type>. Pick loop-analyst with <model>.` Offer the **Not loopable — investigate or plan instead** handoff; recommend GPT-6 Sol for planning/reviews/investigation and Gemini 3.8 Flash for research/questions/prose docs.
 2. **Selected-model cost.** Run `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=architect`. Say **selected model**, not served model. If it is more expensive than the recommended tier or above its price band, warn once, name the recommended model and continue. If auto or unmapped, warn cost is unknown; never STOP on cost.
 3. **Repo resolution.** Require the repo as an explicit path or name (resolving to `~/dev/<name>`). If absent, STOP and ask for the repo in one line. Check `git -C <repo> rev-parse --abbrev-ref HEAD`. For edits outside the workspace, request the repo be added or use an existing loop-folder window. For terminal access outside the workspace request one unsandboxed grant; read-only file tools need none. Only Clover remotes get WS tickets and the required Epic Link. Non-Clover repos get `<REPO>-<slug>` keys and no Jira ticket; a local-only repo never gets a push or PR.
-4. **Resume.** If given `resume <KEY>` or existing `tmp/<KEY>-*`, inspect `ls tmp/<KEY>*`, `npm run cc -- loop status`, matching git branches and `gh pr list --head <branch> --state all` when the repo has a remote. Artifacts outrank notes: no artifacts → phase 0; consult without judgment → consult the judge; spec with no driver → phase 2; stale unclosed driver → record that and start a new run; passed without PR → phase 4; open PR → phase 6; merged PR with open ticket → resolve it. Read the repo from an existing loop script for `resume <KEY>` when possible.
+4. **Resume.** If given `resume <KEY>` or existing `tmp/<KEY>-*`, read the `Checkpoint:` file first, then inspect `ls tmp/<KEY>*`, `npm run cc -- loop status`, matching git branches and `gh pr list --head <branch> --state all` when the repo has a remote. Artifacts outrank notes: no artifacts → phase 0; consult without judgment → consult the judge; spec with no driver → phase 2; a driver whose `tmp/<KEY>-loop.pid` is alive → re-run `bash scripts/loop-detach.sh tmp/<KEY>-loop.sh`, which attaches; stale unclosed driver (no live pid) → record that and start a new run; passed without PR → phase 4; open PR → phase 6; merged PR with open ticket → resolve it. Read the repo from an existing loop script for `resume <KEY>` when possible.
 
 For this local-only driver repository, explicit task instructions can replace ticket, branch and PR phases; never invent a remote.
 
@@ -82,6 +82,27 @@ Finishing one milestone is not `DONE` if the original request covers more. "Keep
 it's done" means `CONTINUE` through every milestone the request covers. A milestone that stays
 blocked on something only the user can clear is `BLOCKED` only if no other milestone can go
 ahead; otherwise record the block in `tmp/<KEY>-decisions.md` and `CONTINUE` with the next one.
+
+## Checkpoint — write it so a dead turn loses nothing
+
+Your turn can die at any moment: cancelled, a dropped response, a VS Code reload. The dispatcher
+recovers only from what is on disk. The prompt names a `Checkpoint:` file (default
+`tmp/loop-checkpoints/<KEY>.md` under the workspace root). Overwrite it with the file-creation
+tool at the start of every turn, at every phase change, **before** launching the driver, and
+before you return. Exactly this shape, `status:` first:
+
+```
+status: CONTINUE | BLOCKED | DONE
+key: <KEY>
+repo: <absolute path of REPO>
+phase: <number and name>
+driver: tmp/<KEY>-loop.sh, run <id> — or none
+next: <the one next action, concrete enough for a fresh architect>
+original request: <the user's request, verbatim>
+```
+
+`status: DONE` only under the same rule as the `DONE` first line. Keep milestones done so far
+and the one after this as extra `milestone:` lines, so "the whole scope" is on disk too.
 
 ## Phase 0 — Understand the need, and draft the assertions
 
@@ -177,16 +198,21 @@ Start it, then get out of the way:
 
 ```bash
 npm run cc -- serve &          # if it is not already up
-bash tmp/<KEY>-loop.sh
+bash scripts/loop-detach.sh tmp/<KEY>-loop.sh
 ```
 
-Run the driver as one **synchronous** terminal command, with a timeout of at least the worst
+`scripts/loop-detach.sh` starts the driver in its own session, so it keeps running if your turn
+dies, and streams its log until it exits with the driver's exit code. Run it again on resume:
+if that driver is still alive it attaches instead of starting a second copy. Never launch the
+driver with bare `bash`, `&` or `nohup` — those die with the chat turn's terminal.
+
+Run it as one **synchronous** terminal command, with a timeout of at least the worst
 case (`MAX_ITER` × `POLL_LIMIT` × 5s, plus a minute), so you are still alive for phase 4 when
 it ends. Do not poll it yourself and do not summarise its progress — the driver polls the
 verifier every five seconds and asks `cc loop record` for a verdict after each turn. You are
 not in this loop, and your being out of it is what makes a four-turn budget affordable. If the
-terminal returns before the driver has finished, return `CONTINUE: resume <KEY>` (see the
-Return contract) rather than ending on `LOOP RUNNING`.
+terminal returns before the driver has finished, update the checkpoint and return
+`CONTINUE: resume <KEY>` (see the Return contract) rather than ending on `LOOP RUNNING`.
 
 **Always report status, so the user knows not to intervene** (LOOP.md §1.4.1):
 

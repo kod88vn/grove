@@ -15,7 +15,7 @@ The revised supervisor design (D14/D15) is a **target, not a current capability*
 ### 0.1 Six steps
 
 1. Open a **new chat session** (`+` in the Chat view), so a prior task cannot supply the wrong context.
-2. Select **`loop-dispatcher`** in the agent picker. It is the only entry you pick, for every task in §0.2: it hands your message verbatim to `loop-architect`, sends a `WRONG AGENT` reply on to `loop-analyst` and a `CONSULT_NEEDED` to `loop-judge`, re-dispatches the architect on `CONTINUE: resume <KEY>` (more of the original request remains), and returns to you only on `DONE: <KEY>`, `BLOCKED: <action>` or after 25 architect calls. It cannot do the work itself — it has no edit or terminal tool and may call only loop entry agents (`.github/agents/loop-dispatcher.agent.md`, held by `tests/unit/agents/dispatcher-gate.test.ts`).
+2. Select **`loop-dispatcher`** in the agent picker. It is the only entry you pick, for every task in §0.2: it hands your message verbatim to `loop-architect`, sends a `WRONG AGENT` reply on to `loop-analyst` and a `CONSULT_NEEDED` to `loop-judge`, re-dispatches the architect on `CONTINUE: resume <KEY>` (more of the original request remains), and returns to you only on `DONE: <KEY>` (confirmed by the checkpoint), `BLOCKED: <action>` or after 25 architect calls. A failed or silent architect is re-dispatched from the checkpoint, not relayed. It cannot do the work itself — it has no edit or terminal tool and may call only loop entry agents (`.github/agents/loop-dispatcher.agent.md`, held by `tests/unit/agents/dispatcher-gate.test.ts`).
 3. Leave the model alone. The dispatcher runs on the `dispatcher` tier (Gemini 3.8 Flash) and each agent it calls runs on its own pinned tier from `registry/model-tiers.json`. It always passes that pinned model as `model` to `runSubagent`: from a Gemini caller, a frontmatter pin alone can silently leave the subagent on Gemini (`loop-judge` did, 4 of 4 calls). Architect and analyst still check the selected model with `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` and warn once if it costs more than the task's tier; `models self` cannot prove which backend served a request.
 4. Type the **goal and repository** (path or name resolving to `~/dev/<name>`). A key alone does not tell the agent which repo to use. The only preflight question allowed is a missing repo.
 5. **Today:** for an outside folder, add it to the workspace (to edit), approve individual unsandboxed terminal prompts, or scratch-clone a review target under `tmp/`. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
@@ -212,8 +212,17 @@ You do not have a loop yet, you have a wish. Go write the spec first (§3).
 ```bash
 cp scripts/loop.sh tmp/<KEY>-loop.sh   # the template, with the ledger wired in
 $EDITOR tmp/<KEY>-loop.sh              # change the block marked CHANGE THESE
-bash tmp/<KEY>-loop.sh                 # runs unattended; prints a verdict
+bash scripts/loop-detach.sh tmp/<KEY>-loop.sh   # detached; streams the log; prints a verdict
 ```
+
+`scripts/loop-detach.sh` runs the driver in its own session (`POSIX::setsid`), so it survives
+the chat turn or terminal that launched it — a bare `bash`, `&` or `nohup` launch died with the
+architect's turn on 2026-09-30. Run the same command again and it attaches to the live driver
+instead of starting a second one. State sits beside the driver: `.pid`, `.log`, `.exit`
+(held by `tests/unit/agents/loop-detach.test.ts`). The architect also keeps a checkpoint,
+`tmp/loop-checkpoints/<id>.md` (`status: CONTINUE | BLOCKED | DONE`, key, repo, phase,
+driver, next action); `loop-dispatcher` reads it after every return and on every new message,
+and recovers from it when a subagent dies.
 
 `scripts/loop.sh` is the only driver to copy from. The two WS-5985 scripts left in `tmp/`
 predate the ledger and judge in bash — they still work, but they record nothing, so a run

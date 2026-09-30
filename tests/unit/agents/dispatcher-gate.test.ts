@@ -103,6 +103,25 @@ describe('loop-dispatcher gate', () => {
     for (const status of ['CONTINUE', 'DONE', 'BLOCKED']) expect(loop, status).toMatch(new RegExp(`\`${status}: `));
   });
 
+  // The architect's turn, and with it the driver, died at 09:58:07 on 2026-09-30 and the
+  // dispatcher relayed and stopped: nothing on disk said what was left. Recovery now runs from a
+  // checkpoint file, and the driver runs detached so a dead turn does not take the work with it.
+  it('recovers from a failed or silent architect using the on-disk checkpoint', () => {
+    expect(BODY).toMatch(/Checkpoint: /);
+    expect(BODY).toMatch(/tmp\/loop-checkpoints\//);
+    expect(BODY).toMatch(/error|no response/i);
+    expect(BODY).toMatch(/`status:`/);
+  });
+
+  it('makes the architect keep the checkpoint and launch the driver detached', () => {
+    const architect = readFileSync(join(AGENTS, 'loop-architect.agent.md'), 'utf8');
+    expect(architect).toMatch(/Checkpoint/);
+    expect(architect).toMatch(/status: /);
+    expect(architect).toContain('scripts/loop-detach.sh');
+    expect(architect).not.toMatch(/^bash tmp\/<KEY>-loop\.sh$/m);
+    expect(readFileSync(join(ROOT, 'LOOP.md'), 'utf8')).toContain('scripts/loop-detach.sh');
+  });
+
   it('no longer routes to the child instance, which does not deliver', () => {
     expect(DISPATCHER).not.toMatch(/code chat/);
     expect(DISPATCHER).not.toMatch(/child VS Code instance/i);
