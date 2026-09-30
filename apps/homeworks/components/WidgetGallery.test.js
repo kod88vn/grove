@@ -35,6 +35,7 @@ import { WidgetGallery } from './WidgetGallery'
 
 const source = fs.readFileSync(path.join(__dirname, 'WidgetGallery.js'), 'utf8')
 const samples = gallerySamples()
+const coinLabels = { 25: ['quarter', 'quarters'], 10: ['dime', 'dimes'], 5: ['nickel', 'nickels'], 1: ['penny', 'pennies'] }
 
 /** Each widget gets one card, found by the widget it demonstrates. */
 const cardFor = (sample) => {
@@ -98,6 +99,13 @@ function enter(card, sample, value) {
     step('minute-forward', ((value[1] - minuteNow + 60) % 60) / 5)
     return
   }
+  if (sample.widget === 'coins') {
+    for (const [coin, count] of Object.entries(value)) {
+      const button = card.querySelector(`[data-coin-add="${coin}"]`)
+      for (let index = 0; index < count; index++) fireEvent.click(button)
+    }
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -156,6 +164,9 @@ describe('the gallery shows every widget', () => {
         expect(card.querySelectorAll('[data-clock-dial]')).toHaveLength(1)
         expect(card.querySelectorAll('[data-clock-step]')).toHaveLength(4)
         // A clock answers by moving hands. A text field here would be the P2.6 bug back.
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
+      } else if (sample.widget === 'coins') {
+        expect(within(card).getAllByRole('button')).toHaveLength(sample.instance.visual.denominations.length * 2 + 2)
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
@@ -253,7 +264,14 @@ describe('the answer is dev-only, and hidden until asked for', () => {
       const revealed = card.querySelector('[data-dev-only]')
       expect(revealed).not.toBeNull()
       const right = correctValueFor(sample)
-      const shown = sample.widget === 'cloze' ? right[0] : Array.isArray(right) ? right.join(', ') : right
+      const shown = sample.widget === 'cloze'
+        ? right[0]
+        : sample.widget === 'coins'
+          ? Object.entries(right)
+            .filter(([, count]) => count > 0)
+            .map(([coin, count]) => `${count} ${coinLabels[coin][count === 1 ? 0 : 1]}`)
+            .join(', ')
+          : Array.isArray(right) ? right.join(', ') : right
       expect(revealed.textContent).toContain(shown)
     }
   })

@@ -2,6 +2,16 @@ import { getProblem, listProblems, render, toInstance } from '@grove/curriculum'
 
 export const GALLERY_SEED = 2505
 
+function coinCountsFor(total, denominations) {
+  let remaining = total
+  const counts = {}
+  for (const coin of [...denominations].sort((left, right) => right - left)) {
+    counts[coin] = Math.floor(remaining / coin)
+    remaining %= coin
+  }
+  return counts
+}
+
 export function gallerySamples() {
   const seen = new Set()
   return listProblems()
@@ -54,6 +64,7 @@ export function correctValueFor(sample) {
     })
   }
   if (sample.widget === 'clock') return [sample.answer.hour, sample.answer.minute]
+  if (sample.widget === 'coins') return coinCountsFor(sample.answer.total, sample.answer.denominations)
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -95,6 +106,12 @@ export function wrongValueFor(sample) {
     })
   }
   if (sample.widget === 'clock') return [sample.answer.hour, (sample.answer.minute + 5) % 60]
+  if (sample.widget === 'coins') {
+    const counts = coinCountsFor(sample.answer.total, sample.answer.denominations)
+    const smallest = Math.min(...sample.answer.denominations)
+    counts[smallest] += 1
+    return counts
+  }
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 

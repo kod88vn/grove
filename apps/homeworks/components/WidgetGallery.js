@@ -15,6 +15,8 @@ const verdictText = {
   'not-simplest': 'Right value — but not in lowest terms',
 }
 
+const coinLabels = { 25: ['quarter', 'quarters'], 10: ['dime', 'dimes'], 5: ['nickel', 'nickels'], 1: ['penny', 'pennies'] }
+
 function GalleryCard({ sample }) {
   const [value, setValue] = useState(() => emptyValue(sample.instance))
   const [verdict, setVerdict] = useState(null)
@@ -26,7 +28,12 @@ function GalleryCard({ sample }) {
   }
 
   const answer = correctValueFor(sample)
-  const answerText = Array.isArray(answer) ? answer.join(', ') : answer
+  const answerText = sample.widget === 'coins'
+    ? Object.entries(answer)
+      .filter(([, count]) => count > 0)
+      .map(([coin, count]) => `${count} ${coinLabels[coin][count === 1 ? 0 : 1]}`)
+      .join(', ')
+    : Array.isArray(answer) ? answer.join(', ') : answer
 
   return (
     <article data-widget={sample.widget} className="flex flex-col gap-4 rounded-lg border p-4">

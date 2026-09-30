@@ -241,6 +241,8 @@ const VISUAL_KEYS = {
   // the server. `clock-elapsed-time.test.js` additionally measures that both hands always
   // have to move, so the start can never be mistaken for a hint at the end.
   clock: ['kind', 'start'],
+  // Coins show the target and offered values, never the combination that makes it.
+  coins: ['denominations', 'kind', 'target'],
 }
 
 const walk = (value, visit, path = '$') => {
