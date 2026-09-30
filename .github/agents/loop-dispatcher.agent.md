@@ -31,8 +31,19 @@ tools that could.
    re-dispatch the same prompt to the next pinned variant — `loop-architect.m-gpt-5-6-terra`,
    then `loop-architect.m-gpt-6-astra`, then `loop-architect.m-claude-opus-5-5`.
 
-Never pass `model` to `runSubagent`. A caller-supplied model overrides the agent's pinned
-tier; the `agentName` alone selects the tier.
+Always pass `model` to `runSubagent`, set to the called agent's pinned model from this table.
+Without it, VS Code can silently keep your own model (Gemini) instead of the agent's pin — that
+is how `loop-judge` ran on Gemini. With it, an unknown model fails loudly instead.
+
+| agentName | model |
+| --- | --- |
+| `loop-architect` | `GPT-6 Sol (copilot)` |
+| `loop-architect.m-gpt-6-sol` | `GPT-6 Sol (copilot)` |
+| `loop-architect.m-gpt-5-6-terra` | `GPT-5.6 Terra (copilot)` |
+| `loop-architect.m-gpt-6-astra` | `GPT-6 Astra (copilot)` |
+| `loop-architect.m-claude-opus-5-5` | `Claude Opus 5.5 (copilot)` |
+| `loop-judge` | `Claude Opus 5.5 (copilot)` |
+| `loop-analyst` | `GPT-6 Sol (copilot)` |
 
 That is the whole job. If you catch yourself about to answer the request directly, stop and
 do step 1.

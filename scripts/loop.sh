@@ -65,7 +65,8 @@ CC_ROOT="${CC_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 [ -f "$CC_ROOT/bin/cc.ts" ] || { echo "ABORT — $CC_ROOT is not central-command; set CC_ROOT"; exit 1; }
 CC="npm --prefix $CC_ROOT run --silent cc --"
 OUT="$CC_ROOT/tmp/$TICKET"
-AGENT="$CC_ROOT/.github/agents/$WORKER_AGENT.agent.md"
+# `code chat -m` resolves the agent in $REPO's window, so that is where the file must be.
+AGENT="$REPO/.github/agents/$WORKER_AGENT.agent.md"
 mkdir -p "$OUT"
 
 # Does a window on $REPO already exist? Checked BEFORE the first "$CODE" "$REPO"
@@ -98,9 +99,10 @@ fi
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# If the agent file is missing, `code chat -m` silently falls back to the default
-# agent on whatever model the window last used. The loop still runs; it just costs
-# what it was built not to cost. Fail loudly instead.
+# If the agent file is missing from $REPO, `code chat -m` silently falls back to the
+# default agent on whatever model the window last used (a Luna worker ran on GPT-6 Sol
+# that way, 2026-09-30). Install it there, then fail loudly if it is still absent.
+bash "$CC_ROOT/scripts/install-worker-agent.sh" "$CC_ROOT" "$REPO" "$WORKER_AGENT" || exit 1
 [ -f "$AGENT" ] || { echo "ABORT — no agent file at $AGENT"; exit 1; }
 MODEL=$(grep -m1 '^model:' "$AGENT")
 

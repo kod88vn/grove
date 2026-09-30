@@ -66,8 +66,16 @@ describe('loop-dispatcher gate', () => {
     }
   });
 
-  it('never overrides the subagent model, which would bypass the pinned tier', () => {
-    expect(BODY).toMatch(/[Nn]ever pass `model`/);
+  // From a Gemini caller, a Claude frontmatter pin does not take effect: VS Code silently keeps
+  // the caller's model. loop-judge ran on Gemini four times out of four that way, and on Claude
+  // the one time `model` was passed (transcripts 9f406dca and cc7a8787, 2026-09-29/30). So every
+  // reachable agent is called with its pinned model named explicitly, which throws if unknown.
+  it('names the pinned model for every agent it can reach', () => {
+    expect(BODY).not.toMatch(/[Nn]ever pass `model`/);
+    for (const agent of flowList('agents') ?? []) {
+      const pinned = `${modelsOf(agent)[0]} (copilot)`;
+      expect(BODY, agent).toContain(`| \`${agent}\` | \`${pinned}\` |`);
+    }
   });
 
   it('no longer routes to the child instance, which does not deliver', () => {

@@ -16,7 +16,7 @@ The revised supervisor design (D14/D15) is a **target, not a current capability*
 
 1. Open a **new chat session** (`+` in the Chat view), so a prior task cannot supply the wrong context.
 2. Select **`loop-dispatcher`** in the agent picker. It is the only entry you pick, for every task in §0.2: it hands your message verbatim to `loop-architect`, sends a `WRONG AGENT` reply on to `loop-analyst` and a `CONSULT_NEEDED` to `loop-judge`, and cannot do the work itself — it has no edit or terminal tool and may call only loop entry agents (`.github/agents/loop-dispatcher.agent.md`, held by `tests/unit/agents/dispatcher-gate.test.ts`).
-3. Leave the model alone. The dispatcher runs on the `dispatcher` tier (Gemini 3.8 Flash) and each agent it calls runs on its own pinned tier from `registry/model-tiers.json`. It never passes `model` to `runSubagent`, because a caller-supplied model overrides the called agent's pin. Architect and analyst still check the selected model with `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` and warn once if it costs more than the task's tier; `models self` cannot prove which backend served a request.
+3. Leave the model alone. The dispatcher runs on the `dispatcher` tier (Gemini 3.8 Flash) and each agent it calls runs on its own pinned tier from `registry/model-tiers.json`. It always passes that pinned model as `model` to `runSubagent`: from a Gemini caller, a frontmatter pin alone can silently leave the subagent on Gemini (`loop-judge` did, 4 of 4 calls). Architect and analyst still check the selected model with `npm run --silent cc -- models self --session-log=<VSCODE_TARGET_SESSION_LOG> --tier=<tier>` and warn once if it costs more than the task's tier; `models self` cannot prove which backend served a request.
 4. Type the **goal and repository** (path or name resolving to `~/dev/<name>`). A key alone does not tell the agent which repo to use. The only preflight question allowed is a missing repo.
 5. **Today:** for an outside folder, add it to the workspace (to edit), approve individual unsandboxed terminal prompts, or scratch-clone a review target under `tmp/`. Read-only `list_dir` outside the workspace did not require a grant in Spike 0; other operations may prompt. There is no universal permission dialog. A repo already in this workspace needs no folder addition; approve only actual prompts.
 6. Let the agent work. An architect reports `LOOP RUNNING — hands off.` with the run link and `LOOP FINISHED` with the ledger verdict (§1.4.1). Watch the dashboard instead of touching the worker window, files or driver. An analyst writes an incremental `tmp/<KEY>-report.md` and returns its answer, plan or review draft. If a command pends, the agent names the one approval needed; if the window closes, use §0.4.
@@ -178,10 +178,13 @@ Architect and Referee are the same agent — `loop-architect`, phases 0–2 and 
 `LOOP.html` is all of this explained for someone who has never done it.
 
 The worker's default model comes from `registry/model-tiers.json`, stamped into agent
-frontmatter by `cc models apply`; the driver dispatches `code chat -m loop-worker` and
-checks the agent file exists first (`scripts/loop.sh`). Change the **registry**, not the
-generated agent line. A missing custom mode can silently select the default; check the
-model picker on your first run.
+frontmatter by `cc models apply`; the driver dispatches `code chat -m loop-worker`.
+`code chat` resolves that agent in the **target repo's** window, not in central-command, and
+silently runs plain agent mode on the window's model when it is missing there (a Luna worker
+ran on GPT-6 Sol that way, 2026-09-30). So `scripts/loop.sh` first runs
+`scripts/install-worker-agent.sh`, which copies the agent into `$REPO/.github/agents/` and
+lists it in the target's git exclude file, then aborts unless the file is there. Change the
+**registry**, not the generated agent line.
 
 **Target, not built:** the supervisor tick dispatches architect/analyst, worker and
 tool-using judge to children, each with its own portable/user-data pair per repo/item.
@@ -582,8 +585,8 @@ Tier-only variants were retired because they duplicate this selection mechanism.
 `loop-architect` runs as a `runSubagent` call from `loop-dispatcher`, on its own pinned tier.
 `cc models apply` also generates `loop-architect.m-<model-slug>.agent.md`; escalating the
 architect means the dispatcher calls the next variant by `agentName`
-(`.m-gpt-5-6-terra`, then `.m-gpt-6-astra`, then `.m-claude-opus-5-5`), never by passing
-`model`. The architect has no subagent tool, so it writes `tmp/<KEY>-consult.md` and returns
+(`.m-gpt-5-6-terra`, then `.m-gpt-6-astra`, then `.m-claude-opus-5-5`), passing that
+variant's pinned model as `model`. The architect has no subagent tool, so it writes `tmp/<KEY>-consult.md` and returns
 `CONSULT_NEEDED`; the dispatcher runs `loop-judge` and resumes the architect with the verdict. The
 judge is a leaf already at `oracle`; it cannot escalate itself, so a truly critical
 decision reaches the user. See the built preflights and D11 in the supervisor design.

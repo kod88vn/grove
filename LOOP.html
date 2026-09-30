@@ -131,7 +131,7 @@
   <ol>
     <li>Open a <strong>new chat session</strong> with <code>+</code> in the Chat view.</li>
     <li>Select <strong><code>loop-dispatcher</code></strong> in the agent picker, for every task. It relays your message verbatim to <code>loop-architect</code>, reroutes a <code>WRONG AGENT</code> reply to <code>loop-analyst</code> and a <code>CONSULT_NEEDED</code> to <code>loop-judge</code>, and cannot do the work itself.</li>
-    <li>Leave the model alone. The dispatcher runs on the dispatcher tier (Gemini 3.8 Flash); each agent it calls runs on its own pinned tier, because the dispatcher never passes <code>model</code> (a caller-supplied model overrides the pin). Architect and analyst still warn once if the selected model costs more than the task needs: <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares it with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
+    <li>Leave the model alone. The dispatcher runs on the dispatcher tier (Gemini 3.8 Flash); each agent it calls runs on its own pinned tier, because the dispatcher always passes that pinned model as <code>model</code> (without it, a Gemini caller can silently keep the subagent on Gemini). Architect and analyst still warn once if the selected model costs more than the task needs: <code>npm run --silent cc -- models self --session-log=&lt;VSCODE_TARGET_SESSION_LOG&gt; --tier=&lt;tier&gt;</code> compares it with <code>npm run --silent cc -- models pick &lt;tier&gt;</code>; it cannot prove which backend served the request.</li>
     <li>Write the goal <strong>and the repo</strong> (path or name under <code>~/dev/</code>).</li>
     <li><strong>Today:</strong> for an outside repo, add it to the workspace to edit, approve a per-call unsandboxed terminal prompt if shown, or scratch-clone a review target under <code>tmp/</code>. Read-only <code>list_dir</code> may not prompt. No universal folder grant exists.</li>
     <li>Hands off while the loop runs. Expect <code>LOOP RUNNING — hands off.</code> and <code>LOOP FINISHED</code> with a ledger verdict, or an analyst's incremental <code>tmp/&lt;KEY&gt;-report.md</code>. The dashboard shows loop progress; do not touch the worker window, its files or driver. A blocked operation names the one action needed.</li>
@@ -159,7 +159,7 @@
     <tr><td>Research, questions, prose docs</td><td><code>loop-analyst</code></td><td>Gemini 3.8 Flash (dispatcher tier)</td></tr>
   </tbody>
 </table>
-<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its single-model variants are driver-only. Architect single-model variants are how the dispatcher escalates (by agent name, never by passing <code>model</code>), not human entries. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
+<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its single-model variants are driver-only. Architect single-model variants are how the dispatcher escalates (by agent name, passing that variant's pinned <code>model</code>), not human entries. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
 
 <div class="card warn">
   <h3>What correction looks like</h3>
@@ -924,11 +924,11 @@ bash tmp/WS-1234-loop.sh     # the grind — minutes, not seconds</code></pre>
 <div class="card warn">
   <h3>One thing to check once, by hand</h3>
   <p style="margin-bottom:0">
-    On your first run, confirm the worker really came up on the cheap model — open the chat
-    window the driver dispatched into and look at the model picker. If a custom agent name
-    does not resolve, <code>code chat</code> falls back to the default agent on whatever the
-    window last used, and the loop still works. It just quietly costs what this design exists
-    to avoid.
+    <code>code chat</code> looks the worker agent up in the <em>target repo's</em> window. If it
+    is not there, it falls back to the default agent on whatever the window last used, and the
+    loop still works — a Luna worker ran on GPT-6 Sol that way. The driver now copies the agent
+    into the target's <code>.github/agents/</code> (git-excluded) before dispatching and aborts
+    if it is missing. On your first run, still glance at the model picker in that window.
   </p>
 </div>
 
