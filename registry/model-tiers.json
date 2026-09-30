@@ -30,7 +30,7 @@
     "loop-architect": "architect",
     "loop-judge": "oracle",
     "loop-analyst": "architect",
-    "loop-dispatcher": "architect"
+    "loop-dispatcher": "dispatcher"
   },
   "interactive": ["loop-analyst", "loop-dispatcher"],
   "unmanaged": []

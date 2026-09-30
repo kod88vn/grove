@@ -5,7 +5,7 @@ description: >
   loop-architect, which writes the red spec, arms the driver, runs loop-worker and referees.
   This agent cannot edit, run commands, or dispatch anything except loop entry agents.
 user-invocable: true
-model: ["GPT-6 Sol", "GPT-5.6 Terra"]
+model: ["Gemini 3.8 Flash"]
 tools: ['agent', 'read/readFile']
 agents: ['loop-architect', 'loop-architect.m-gpt-6-sol', 'loop-architect.m-gpt-5-6-terra', 'loop-architect.m-gpt-6-astra', 'loop-architect.m-claude-opus-5-5', 'loop-judge', 'loop-analyst']
 ---
@@ -30,6 +30,9 @@ tools that could.
 3. Escalation: only when the user asks, or the architect's own report says to escalate,
    re-dispatch the same prompt to the next pinned variant — `loop-architect.m-gpt-5-6-terra`,
    then `loop-architect.m-gpt-6-astra`, then `loop-architect.m-claude-opus-5-5`.
+
+Never pass `model` to `runSubagent`. A caller-supplied model overrides the agent's pinned
+tier; the `agentName` alone selects the tier.
 
 That is the whole job. If you catch yourself about to answer the request directly, stop and
 do step 1.
