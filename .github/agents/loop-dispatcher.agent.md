@@ -19,14 +19,25 @@ tools that could.
    **verbatim**, followed by one line: `Workspace root: <absolute path of this workspace>`.
    Do not summarise, rephrase, add a plan, or pick a repo for them. Do this first, before any
    other output.
-2. Read the architect's final message and act on its first line:
+2. Read the architect's final message and act on its first line. Keep going until it is
+   `DONE` or `BLOCKED` — a single architect return is almost never the end of the work:
+   - `CONTINUE: <text>` → call `loop-architect` again. The `prompt` is `<text>`, then a line
+     `Original request:` followed by the user's first message verbatim, then the
+     `Workspace root:` line. Do not relay anything to the user in between.
    - `CONSULT_NEEDED: tmp/<KEY>-consult.md` → `runSubagent` with `agentName: "loop-judge"`
      and that path as the prompt. Then call `loop-architect` again with
-     `resume <KEY>` plus the judge's verdict verbatim.
+     `resume <KEY>` plus the judge's verdict verbatim, and the `Original request:` line.
    - `WRONG AGENT` → `runSubagent` with `agentName: "loop-analyst"` and the user's original
-     message verbatim.
-   - Anything else → relay it to the user unchanged. If it asks the user a question, the
-     user's answer goes back to `loop-architect` verbatim with `resume <KEY>`.
+     message verbatim. Relay its answer to the user.
+   - `DONE: <KEY>` → relay the architect's message to the user unchanged. Finished.
+   - `BLOCKED: <action>` → relay it to the user unchanged. When the user answers, call
+     `loop-architect` with `resume <KEY>`, their answer verbatim, and the `Original request:`
+     line, then carry on from step 2.
+   - No recognised first line → call `loop-architect` again with `resume`, the line
+     `Your last return had no status line; continue and end with one.`, and the
+     `Original request:` line.
+
+   After 25 architect calls for one user message, relay the last return to the user and stop.
 3. Escalation: only when the user asks, or the architect's own report says to escalate,
    re-dispatch the same prompt to the next pinned variant — `loop-architect.m-gpt-5-6-terra`,
    then `loop-architect.m-gpt-6-astra`, then `loop-architect.m-claude-opus-5-5`.

@@ -78,6 +78,31 @@ describe('loop-dispatcher gate', () => {
     }
   });
 
+  // The dispatcher used to relay any architect return that was not CONSULT_NEEDED or WRONG AGENT
+  // straight to the user, which ended the run after one milestone or one launched driver
+  // (transcripts cc7a8787 and 99661bf6, 2026-09-30). It now loops until a terminal status.
+  it('re-dispatches the architect on CONTINUE and stops only on DONE or BLOCKED', () => {
+    expect(BODY).toMatch(/`CONTINUE: /);
+    expect(BODY).toMatch(/`DONE: /);
+    expect(BODY).toMatch(/`BLOCKED: /);
+    expect(BODY).toMatch(/[Oo]riginal request/);
+    expect(BODY).not.toMatch(/Anything else → relay/);
+  });
+
+  it('holds the architect to the same return statuses the dispatcher routes on', () => {
+    const architect = readFileSync(join(AGENTS, 'loop-architect.agent.md'), 'utf8');
+    for (const status of ['CONSULT_NEEDED: ', 'WRONG AGENT', 'CONTINUE: resume <KEY>', 'DONE: <KEY>', 'BLOCKED: ']) {
+      expect(architect, status).toContain(status);
+    }
+    expect(architect).toMatch(/## Return contract/);
+    expect(architect).not.toMatch(/Run it in a \*\*background terminal\*\*/);
+  });
+
+  it('documents the continuation statuses in LOOP.md', () => {
+    const loop = readFileSync(join(ROOT, 'LOOP.md'), 'utf8');
+    for (const status of ['CONTINUE', 'DONE', 'BLOCKED']) expect(loop, status).toMatch(new RegExp(`\`${status}: `));
+  });
+
   it('no longer routes to the child instance, which does not deliver', () => {
     expect(DISPATCHER).not.toMatch(/code chat/);
     expect(DISPATCHER).not.toMatch(/child VS Code instance/i);

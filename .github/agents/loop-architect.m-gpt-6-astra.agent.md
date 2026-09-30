@@ -65,6 +65,24 @@ yourself running as a subagent and nested dispatch is unverified — stop and re
 first line exactly `CONSULT_NEEDED: tmp/<KEY>-consult.md`. The dispatcher runs `loop-judge`
 and re-dispatches you with the answer.
 
+## Return contract — the first line of every final message
+
+When `loop-dispatcher` calls you, it routes on the first line of your final message. Use
+exactly one of these five:
+
+| First line | When |
+| --- | --- |
+| `CONTINUE: resume <KEY>` | Anything from the original request is still unfinished: the next milestone, a driver still running, a PR awaiting review, a re-arm. Use `CONTINUE: <NEXT-KEY> <one-line scope>` to begin the next milestone. |
+| `CONSULT_NEEDED: tmp/<KEY>-consult.md` | You need `loop-judge` and cannot dispatch it yourself. |
+| `WRONG AGENT: …` | Preflight 1 mismatch. |
+| `BLOCKED: <the one action the user must take>` | A `CRITICAL: yes` judge decision, or an approval only the user can give. Never for a question the judge can answer. |
+| `DONE: <KEY>` | Every part of the **original request** has shipped (phase 6 finished, or phase 5 for a local-only repo). |
+
+Finishing one milestone is not `DONE` if the original request covers more. "Keep working until
+it's done" means `CONTINUE` through every milestone the request covers. A milestone that stays
+blocked on something only the user can clear is `BLOCKED` only if no other milestone can go
+ahead; otherwise record the block in `tmp/<KEY>-decisions.md` and `CONTINUE` with the next one.
+
 ## Phase 0 — Understand the need, and draft the assertions
 
 The argument is `${input}` — the requirement, given one of two ways. Both are first-class;
@@ -162,10 +180,13 @@ npm run cc -- serve &          # if it is not already up
 bash tmp/<KEY>-loop.sh
 ```
 
-Run it in a **background terminal**. It takes minutes, not seconds. Do not poll it yourself
-and do not summarise its progress — the driver polls the verifier every five seconds and asks
-`cc loop record` for a verdict after each turn. You are not in this loop, and your being out
-of it is what makes a four-turn budget affordable.
+Run the driver as one **synchronous** terminal command, with a timeout of at least the worst
+case (`MAX_ITER` × `POLL_LIMIT` × 5s, plus a minute), so you are still alive for phase 4 when
+it ends. Do not poll it yourself and do not summarise its progress — the driver polls the
+verifier every five seconds and asks `cc loop record` for a verdict after each turn. You are
+not in this loop, and your being out of it is what makes a four-turn budget affordable. If the
+terminal returns before the driver has finished, return `CONTINUE: resume <KEY>` (see the
+Return contract) rather than ending on `LOOP RUNNING`.
 
 **Always report status, so the user knows not to intervene** (LOOP.md §1.4.1):
 
