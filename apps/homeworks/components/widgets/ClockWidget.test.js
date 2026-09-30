@@ -65,6 +65,7 @@
  * any typeable control is asserted here rather than assumed.
  */
 import { afterEach, describe, expect, it, jest } from '@jest/globals'
+import { TextEncoder } from 'node:util'
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
@@ -75,6 +76,146 @@ import { AnswerWidget } from './AnswerWidget'
 import { emptyValue, toResponse } from './response'
 
 const SEEDS = [12345, 7, 999_999, 2505]
+
+// Shift the floating-point result itself, not its scale: EPSILON multiplication
+// often rounds back to the original value at small angles.
+function nextUp(number) {
+  if (!Number.isFinite(number)) return number
+  if (number === 0) return Number.MIN_VALUE
+  const bits = new BigUint64Array(new ArrayBuffer(8))
+  const floats = new Float64Array(bits.buffer)
+  floats[0] = number
+  bits[0] += number > 0 ? 1n : -1n
+  return floats[0]
+}
+
+function dialCoordinates(container) {
+  const labels = [...container.querySelectorAll('[data-clock-dial] text')]
+  expect(labels.map((label) => label.textContent.trim())).toEqual(
+    Array.from({ length: 12 }, (_, index) => String(index + 1)),
+  )
+  return labels.flatMap((label) => [label.getAttribute('x'), label.getAttribute('y')])
+}
+
+// Every module participating in the render uses the same isolated React instance.
+function isolatedDial(perturb = false) {
+  let result
+  jest.isolateModules(() => {
+    const react = require('react')
+    const { renderToString } = require('react-dom/server')
+    const { hydrateRoot } = require('react-dom/client')
+    const { ClockWidget } = require('./widgets')
+    const properties = { instance: instanceAt(2505), value: [3, 25], onChange: () => {}, disabled: false }
+    const element = () => react.createElement(ClockWidget, properties)
+    const server = document.createElement('div')
+    server.innerHTML = renderToString(element())
+    const expected = dialCoordinates(server)
+
+    const sin = Math.sin
+    const cos = Math.cos
+    try {
+      if (perturb) {
+        Math.sin = (angle) => nextUp(sin(angle))
+        Math.cos = (angle) => nextUp(cos(angle))
+      }
+      const client = document.createElement('div')
+      client.innerHTML = renderToString(element())
+      const actual = dialCoordinates(client)
+      const rawDiffer = Array.from({ length: 12 }, (_, index) => {
+        const angle = ((index + 1) * 30 * Math.PI) / 180
+        return 100 + 70 * sin(angle) !== 100 + 70 * Math.sin(angle)
+          || 100 - 70 * cos(angle) !== 100 - 70 * Math.cos(angle)
+      })
+      result = { react, hydrateRoot, element, expected, actual, rawDiffer, server }
+    } finally {
+      Math.sin = sin
+      Math.cos = cos
+    }
+  })
+  return result
+}
+
+describe('Clock dial SSR and hydration coordinates', () => {
+  const originalMessageChannel = globalThis.MessageChannel
+  const originalTextEncoder = globalThis.TextEncoder
+
+  beforeAll(() => {
+    globalThis.MessageChannel ??= class {
+      constructor() {
+        this.port1 = { onmessage: null }
+        this.port2 = { postMessage: () => queueMicrotask(() => this.port1.onmessage?.()) }
+      }
+    }
+    globalThis.TextEncoder ??= TextEncoder
+  })
+
+  afterAll(() => {
+    globalThis.MessageChannel = originalMessageChannel
+    globalThis.TextEncoder = originalTextEncoder
+  })
+
+  it('serializes all 24 coordinates concisely and within 0.01 of independent geometry', () => {
+    const { expected } = isolatedDial()
+    expect(expected).toHaveLength(24)
+    expected.forEach((coordinate, index) => {
+      expect(coordinate).toMatch(/^-?\d+(\.\d{1,2})?$/)
+      const angle = (Math.floor(index / 2) + 1) * Math.PI / 6
+      const ideal = index % 2 === 0
+        ? 100 + 70 * Math.sin(angle)
+        : 100 - 70 * Math.cos(angle)
+      expect(Math.abs(Number(coordinate) - ideal)).toBeLessThanOrEqual(0.01)
+    })
+  })
+
+  it('emits the same 24 SVG coordinate strings when trigonometry shifts by one ulp', () => {
+    const render = isolatedDial(true)
+    expect(render.rawDiffer).toContain(true)
+    expect(render.expected).toHaveLength(24)
+    expect(render.actual).toEqual(render.expected)
+  })
+
+  it('hydrates the server SVG without warnings under a one-ulp trig shift', async () => {
+    const previousAct = globalThis.IS_REACT_ACT_ENVIRONMENT
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true
+    let root
+    let render
+    const errors = []
+    const warnings = []
+    const recoverable = []
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => errors.push(args))
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation((...args) => warnings.push(args))
+    try {
+      render = isolatedDial(true)
+      expect(render.rawDiffer).toContain(true)
+      expect(render.expected).toHaveLength(24)
+
+      const sin = Math.sin
+      const cos = Math.cos
+      try {
+        Math.sin = (angle) => nextUp(sin(angle))
+        Math.cos = (angle) => nextUp(cos(angle))
+        await render.react.act(async () => {
+          root = render.hydrateRoot(render.server, render.element(), {
+            onRecoverableError: (error) => recoverable.push(error),
+          })
+        })
+      } finally {
+        Math.sin = sin
+        Math.cos = cos
+      }
+
+      expect(dialCoordinates(render.server)).toEqual(render.expected)
+      expect(errors).toEqual([])
+      expect(warnings).toEqual([])
+      expect(recoverable).toEqual([])
+    } finally {
+      if (root) await render.react.act(async () => root.unmount())
+      errorSpy.mockRestore()
+      warnSpy.mockRestore()
+      globalThis.IS_REACT_ACT_ENVIRONMENT = previousAct
+    }
+  })
+})
 
 /** The face is two hundred units square, so its centre is (100, 100). */
 const CENTRE = 100
