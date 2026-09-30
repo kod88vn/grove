@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { modelsCommand } from '../../../src/config/models-command.ts';
 import { singleModelVariants } from '../../../src/core/model/escalation.ts';
+import { pick } from '../../../src/core/model/resolver.ts';
 import { resolveSelf } from '../../../src/core/model/self.ts';
-import { parseRegistry } from '../../../src/core/model/tiers.ts';
+import { parseRegistry, validateRegistry } from '../../../src/core/model/tiers.ts';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
 const CATALOG = join(ROOT, 'tests/fixtures/models/catalog.json');
@@ -156,7 +157,25 @@ describe('single-model variants and registry', () => {
     expect(singleModelVariants(registry, 'loop-architect').map((v) => v.tier))
       .toEqual(['architect', 'architect', 'oracle', 'oracle']);
     expect(singleModelVariants(registry, 'loop-worker').map((v) => v.tier))
-      .toEqual(['worker', 'worker', 'dispatcher', 'architect', 'architect', 'oracle', 'oracle']);
+      .toEqual(['worker', 'worker']);
+  });
+
+  it('never escalates the worker out of the worker tier', () => {
+    const registry = parseRegistry(JSON.parse(readFileSync(REGISTRY, 'utf8')) as unknown);
+    const catalogue = registry.tiers.flatMap((tier) => tier.models)
+      .map((name) => ({ id: name, name, inputPrice: 1, outputPrice: 1 }));
+    for (const escalate of [0, 1, 3]) {
+      expect(pick(registry, catalogue, 'loop-worker', escalate)).toEqual({ kind: 'model', name: 'GPT-6 Luna', tier: 'worker' });
+      expect(pick(registry, catalogue, 'worker', escalate)).toEqual({ kind: 'model', name: 'GPT-6 Luna', tier: 'worker' });
+    }
+    expect(pick(registry, catalogue, 'loop-architect', 1)).toMatchObject({ tier: 'oracle' });
+  });
+
+  it('rejects a ceiling below the agent tier or naming an unknown tier', () => {
+    const raw = JSON.parse(readFileSync(REGISTRY, 'utf8')) as Record<string, unknown>;
+    const low = parseRegistry({ ...raw, ceilings: { 'loop-architect': 'worker' } });
+    expect(validateRegistry(low).join('\n')).toMatch(/ceiling .* below/);
+    expect(() => parseRegistry({ ...raw, ceilings: { 'loop-worker': 'nope' } })).toThrow(/ceilings/);
   });
 
   it('registers the analyst without generating interactive-agent variants', () => {

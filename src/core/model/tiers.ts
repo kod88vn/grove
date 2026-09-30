@@ -21,6 +21,11 @@ export interface Registry {
   readonly agents: Readonly<Record<string, TierName>>;
   /** Interactive entry agents do not receive generated escalation variants. */
   readonly interactive?: readonly string[];
+  /**
+   * Agent or tier name -> highest tier it may escalate to. `{ "worker": "worker" }` keeps the
+   * worker on cheap models: a referee reject re-specs the work, it does not buy a pricier typist.
+   */
+  readonly ceilings?: Readonly<Record<string, TierName>>;
   /** Agent names deliberately excluded from `cc models apply` (fixed single-model probes). */
   readonly unmanaged: readonly string[];
 }
@@ -76,6 +81,24 @@ function parseNames(raw: unknown, field: string): readonly string[] {
   return raw as string[];
 }
 
+function parseCeilings(raw: unknown): Readonly<Record<string, TierName>> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('registry.ceilings must be an object mapping agent name to tier name');
+  }
+  const ceilings: Record<string, TierName> = {};
+  for (const [agent, tier] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isTierName(tier)) throw new Error(`registry.ceilings["${agent}"] is not a known tier name`);
+    ceilings[agent] = tier;
+  }
+  return ceilings;
+}
+
+/** The highest tier rank a role (agent or tier name) may use, or undefined for no cap. */
+export function ceilingRank(registry: Registry, role: string): number | undefined {
+  const ceiling = registry.ceilings?.[role] ?? registry.ceilings?.[registry.agents[role] ?? ''];
+  return ceiling === undefined ? undefined : registry.tiers.find((t) => t.name === ceiling)?.rank;
+}
+
 /** Parses the raw JSON shape into a `Registry`, throwing on any structural mismatch. */
 export function parseRegistry(raw: unknown): Registry {
   if (typeof raw !== 'object' || raw === null) {
@@ -91,7 +114,8 @@ export function parseRegistry(raw: unknown): Registry {
     throw new Error('registry.unmanaged must be an array of strings');
   }
   const interactive = obj.interactive === undefined ? {} : { interactive: parseNames(obj.interactive, 'interactive') };
-  return { tiers, agents, ...interactive, unmanaged: obj.unmanaged as string[] };
+  const ceilings = obj.ceilings === undefined ? {} : { ceilings: parseCeilings(obj.ceilings) };
+  return { tiers, agents, ...interactive, ...ceilings, unmanaged: obj.unmanaged as string[] };
 }
 
 /**
@@ -127,6 +151,16 @@ export function validateRegistry(registry: Registry): string[] {
   const ranks = registry.tiers.map((t) => t.rank);
   if (new Set(ranks).size !== ranks.length) {
     errors.push('tier ranks must be unique');
+  }
+
+  const rankOf = new Map(registry.tiers.map((t) => [t.name, t.rank] as const));
+  for (const [role, ceiling] of Object.entries(registry.ceilings ?? {})) {
+    const base = registry.agents[role] ?? (isTierName(role) ? role : undefined);
+    if (base === undefined) {
+      errors.push(`ceiling for unknown agent or tier "${role}"`);
+    } else if ((rankOf.get(ceiling) ?? -Infinity) < (rankOf.get(base) ?? Infinity)) {
+      errors.push(`"${role}" has ceiling "${ceiling}" below its tier "${base}"`);
+    }
   }
 
   return errors;

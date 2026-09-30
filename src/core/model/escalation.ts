@@ -1,4 +1,4 @@
-import type { Registry, Tier, TierName } from './tiers.ts';
+import { ceilingRank, type Registry, type Tier, type TierName } from './tiers.ts';
 import { agentSlug } from './substitute.ts';
 
 /**
@@ -21,10 +21,11 @@ function eligibleTiers(registry: Registry, agentName: string): Tier[] {
   if (baseTierName === undefined) return [];
   const ordered = [...registry.tiers].sort((a, b) => a.rank - b.rank);
   const base = ordered.find((tier) => tier.name === baseTierName);
-  return base === undefined ? [] : ordered.filter((tier) => tier.rank >= base.rank);
+  const ceiling = ceilingRank(registry, agentName) ?? Infinity;
+  return base === undefined ? [] : ordered.filter((tier) => tier.rank >= base.rank && tier.rank <= ceiling);
 }
 
-/** Returns one single-model variant for every model in this and higher tiers. */
+/** Returns one single-model variant for every model from this tier up to the agent's ceiling. */
 export function singleModelVariants(registry: Registry, agentName: string): EscalationVariant[] {
   return eligibleTiers(registry, agentName).flatMap((tier) => tier.models.map((model) => ({
     suffix: `m-${agentSlug(model)}`,

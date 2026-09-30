@@ -188,9 +188,10 @@ Leave the prohibitions out. They are baked into the `loop-worker` agent, and rep
 spends the worker's context on rules it already has.
 
 **Model tiers.** `WORKER` in the driver script defaults to the worker tier in
-`registry/model-tiers.json`. On a re-arm after a failed run (Phase 4), pick a model from
-the next tier and set `WORKER_AGENT` to its generated single-model variant
-(`loop-worker.m-<model-slug>`). Do not edit the base agent file. See `LOOP.md` §6a.
+`registry/model-tiers.json`, and the worker never leaves that tier (registry `ceilings`).
+On a re-arm, keep `WORKER_AGENT` at `loop-worker` or set it to another worker-tier variant
+(`loop-worker.m-gpt-6-luna`, `loop-worker.m-gpt-5-6-luna`). Do not edit the base agent
+file. See `LOOP.md` §6a.
 
 ## Phase 3 — Grind (not you)
 
@@ -261,10 +262,11 @@ Then choose one, and say which:
   ending in an honest stop cost less than a merged change nobody understands.
 **Escalate the model on any of: a failed/budget/shrunk run, a referee reject here, a
 low-confidence `loop-judge` verdict, or a human or agent doubting the result** — for any
-role, not just the worker. Run `npm run cc -- models pick <role> --escalate=1` (stack
+role except the worker. Run `npm run cc -- models pick <role> --escalate=1` (stack
 further on repeated failure, capped at `oracle`) and record `role, from→to model, trigger` in
-`tmp/<KEY>-decisions.md`. For a re-arm, set `WORKER_AGENT` to the picked model's
-`loop-worker.m-<model-slug>` variant before re-running the driver — see `LOOP.md` §6a.
+`tmp/<KEY>-decisions.md`. The worker is capped at its own tier: a failed or rejected worker
+run means the spec or `TASK` was not tight enough — re-arm with a sharper spec on Luna, never
+a pricier worker — see `LOOP.md` §6a.
 If the run ended `tampered`, `shrunk`, `suppressed` or `cfg-tampered`, read the diff before
 re-dispatching anything. The worker tried to buy a green and you need to know how.
 

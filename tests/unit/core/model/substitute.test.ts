@@ -9,14 +9,9 @@ const registry = parseRegistry(JSON.parse(readFileSync(new URL('../../../../regi
 describe('single-model agent variants', () => {
   it('keeps tier rank and model order, with one pinned model and a dot-free name per variant', () => {
     const variants = singleModelVariants(registry, 'loop-worker');
-    expect(variants.map(({ suffix }) => suffix)).toEqual([
-      'm-gpt-6-luna', 'm-gpt-5-6-luna', 'm-gemini-3-8-flash',
-      'm-gpt-6-sol', 'm-gpt-5-6-terra', 'm-claude-opus-5-5', 'm-gpt-6-astra',
-    ]);
+    expect(variants.map(({ suffix }) => suffix)).toEqual(['m-gpt-6-luna', 'm-gpt-5-6-luna']);
     expect(variants.every(({ suffix, models }) => !suffix.includes('.') && models.length === 1)).toBe(true);
-    expect(variants.map(({ tier }) => tier)).toEqual([
-      'worker', 'worker', 'dispatcher', 'architect', 'architect', 'oracle', 'oracle',
-    ]);
+    expect(variants.map(({ tier }) => tier)).toEqual(['worker', 'worker']);
     expect(singleModelVariants(registry, 'loop-architect')).toHaveLength(4);
     expect(singleModelVariants(registry, 'loop-judge')).toHaveLength(2);
     expect(singleModelVariants(registry, 'loop-analyst')).toEqual([]);

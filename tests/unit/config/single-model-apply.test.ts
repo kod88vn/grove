@@ -26,14 +26,14 @@ afterEach(() => {
 });
 
 describe('models apply — single-model variants', () => {
-  it('generates exactly thirteen dot-free, single-model agent files and checks their drift', () => {
+  it('generates exactly eight dot-free, single-model agent files and checks their drift', () => {
     const dir = repo();
     expect(modelsApply(dir, true)).toBe(1);
     expect(modelsApply(dir, false)).toBe(0);
     expect(modelsApply(dir, true)).toBe(0);
     const files = readdirSync(join(dir, '.github/agents')).filter((name) => name.includes('.m-'));
-    expect(files).toHaveLength(13);
-    expect(files.filter((name) => name.startsWith('loop-worker.'))).toHaveLength(7);
+    expect(files).toHaveLength(8);
+    expect(files.filter((name) => name.startsWith('loop-worker.'))).toHaveLength(2);
     expect(files.filter((name) => name.startsWith('loop-architect.'))).toHaveLength(4);
     expect(files.filter((name) => name.startsWith('loop-judge.'))).toHaveLength(2);
     expect(files.some((name) => name.startsWith('loop-analyst.'))).toBe(false);

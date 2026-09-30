@@ -574,6 +574,11 @@ exhausts its budget, comes back `shrunk`, the referee rejects a diff, `loop-judg
 confidence, or a human or another agent doubts a result: redo the same role one tier higher
 with `npm run cc -- models pick <role> --escalate=1` (stack further on repeated failure,
 capped at `oracle`), and record `role, from→to model, trigger` in `tmp/<KEY>-decisions.md`.
+**Except the worker.** Registry `ceilings` (`"worker": "worker"`) cap it at its own tier:
+`models pick worker --escalate=N` always returns a Luna model, and no pricier worker variant
+is generated. Added 2026-09-30 after the architect answered a referee reject on cloverpedia
+M2 by escalating the worker to Gemini 3.8 Flash — the reject was a coverage gap in the spec,
+which a pricier typist does not fix.
 
 **Target D15 (designed, not built):** check artifacts/ledger before treating a missing chat
 reply as failure. Rate limit gets one bounded same-model retry, then a different single-model
@@ -585,8 +590,8 @@ are **UNKNOWN** until S15. After every tier is exhausted, park and continue othe
 `loop-worker` is dispatched headlessly (`code chat -m <agent>`), and `code chat --help`
 (checked 2026-09-29) has no model-override flag — only `-m/--mode`, which selects an *agent
 file*. So escalating the worker means dispatching a different file, not a different flag.
-`cc models apply` generates one variant per registered model in the worker's tier and higher
-tiers: `loop-worker.m-<model-slug>.agent.md`. Each differs from the base only in its `name:`
+`cc models apply` generates one variant per registered model from the worker's tier up to its
+ceiling — today only the worker tier: `loop-worker.m-<model-slug>.agent.md`. Each differs from the base only in its `name:`
 and single-model `model:` lines, kept in sync by `--check`. `scripts/loop.sh` reads
 `WORKER_AGENT` (default `loop-worker`); set it to the chosen model's variant on a re-arm.
 Tier-only variants were retired because they duplicate this selection mechanism.

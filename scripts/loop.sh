@@ -30,9 +30,9 @@ MAX_ITER=4                    # agent turns you are willing to buy
 POLL_LIMIT=72                 # x5s = 6 min of polling per iteration
 WORKER="loop-worker"          # the cheap model does the grinding. See .github/agents/
 # `code chat` has no model override flag. `cc models apply` generates
-# <worker>.m-<model-slug>.agent.md for each model in this and higher tiers.
-# On a re-arm, choose a registered model and set WORKER_AGENT to its exact
-# variant (see registry/model-tiers.json and LOOP.md "Model tiers").
+# <worker>.m-<model-slug>.agent.md for each worker-tier model only; the registry
+# `ceilings` keep the worker on Luna. On a re-arm you may pick another of those
+# variants (see registry/model-tiers.json and LOOP.md "Model tiers").
 WORKER_AGENT="${WORKER_AGENT:-$WORKER}"
 
 # The command whose exit code IS "done". If you cannot write one that exits

@@ -56,7 +56,7 @@ describe('models apply — single-model pruning', () => {
     expect(modelsApply(dir, true)).toBe(1);
     expect(modelsApply(dir, false)).toBe(0);
     expect(existsSync(join(dir, '.github/agents/loop-worker.m-gpt-6-luna.agent.md'))).toBe(false);
-    expect(variants(dir)).toHaveLength(12);
+    expect(variants(dir)).toHaveLength(7);
     for (const file of ['loop-worker.agent.md', 'loop-worker.m-gpt-5-6-luna.agent.md']) {
       expect(existsSync(join(dir, '.github/agents', file))).toBe(true);
     }
@@ -72,7 +72,7 @@ describe('models apply — single-model pruning', () => {
       tiers: { models: string[] }[];
     };
     const allowed = new Set(registry.tiers.flatMap((tier) => tier.models));
-    expect(variants(dir)).toHaveLength(13);
+    expect(variants(dir)).toHaveLength(8);
     for (const file of variants(dir)) {
       const content = readFileSync(join(dir, '.github/agents', file), 'utf8');
       const matches = [...content.matchAll(/^model: \["([^"]+)"\]$/gm)];

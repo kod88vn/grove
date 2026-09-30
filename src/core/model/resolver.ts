@@ -1,5 +1,5 @@
 import type { CatalogueModel } from './catalog.ts';
-import type { Registry, Tier, TierName } from './tiers.ts';
+import { ceilingRank, type Registry, type Tier, type TierName } from './tiers.ts';
 
 export type { CatalogueModel } from './catalog.ts';
 
@@ -91,8 +91,7 @@ function tiersByRank(registry: Registry): Tier[] {
 
 /**
  * Picks the model to use for a role, escalating `escalate` tiers up from its base tier and
- * capping at the highest tier (oracle) — "a higher tier can be used no matter what role" per
- * the contract, never a role-specific hardcoded ceiling.
+ * capping at the role's registry ceiling, else at the highest tier (oracle).
  *
  * Falls through a tier's registered models in order before giving up. If none of them are in
  * the catalogue, returns a `decide` result with in-band, unregistered candidates rather than
@@ -110,7 +109,9 @@ export function pick(
   }
   const ordered = tiersByRank(registry);
   const baseIndex = ordered.findIndex((t) => t.name === baseTier);
-  const targetIndex = Math.min(baseIndex + escalate, ordered.length - 1);
+  const ceiling = ceilingRank(registry, role) ?? Infinity;
+  const topIndex = ordered.filter((t) => t.rank <= ceiling).length - 1;
+  const targetIndex = Math.max(baseIndex, Math.min(baseIndex + escalate, topIndex));
   const tier = ordered[targetIndex];
   if (tier === undefined) {
     throw new Error(`registry has no tiers to pick from`);
