@@ -13,6 +13,7 @@ import {
   SortWidget,
   TapSelectWidget,
 } from './widgets'
+import { FractionBarWidget } from './FractionBarWidget'
 
 export function AnswerWidget({ instance, value, onChange, disabled }) {
   if (instance.widget === 'number') {
@@ -47,6 +48,9 @@ export function AnswerWidget({ instance, value, onChange, disabled }) {
   }
   if (instance.widget === 'tap-select') {
     return <TapSelectWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'fraction-bar') {
+    return <FractionBarWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   throw new Error(`unknown widget: ${instance.widget}`)
 }

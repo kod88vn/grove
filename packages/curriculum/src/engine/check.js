@@ -254,6 +254,7 @@ export function check(widget, answer, response) {
   if (widget === 'number') return number(answer, response)
   if (widget === 'column') return number(answer, response)
   if (widget === 'fraction') return fraction(answer, response)
+  if (widget === 'fraction-bar') return fraction(answer, response)
   if (widget === 'cloze') return cloze(answer, response)
   if (widget === 'order') return order(answer, response)
   if (widget === 'sort') return sort(answer, response)

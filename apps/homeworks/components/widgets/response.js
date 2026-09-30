@@ -12,6 +12,7 @@ export function emptyValue(instance) {
   if (widget === 'clock') return [instance.visual.start.hour, instance.visual.start.minute]
   if (widget === 'coins') return {}
   if (widget === 'tap-select') return []
+  if (widget === 'fraction-bar') return []
   throw new Error(`unknown widget: ${widget}`)
 }
 
@@ -40,5 +41,6 @@ export function toResponse(instance, value) {
   if (widget === 'clock') return { hour: value[0], minute: value[1] }
   if (widget === 'coins') return { counts: value }
   if (widget === 'tap-select') return { ids: [...value] }
+  if (widget === 'fraction-bar') return { text: `${value.length}/${instance.visual.segments}` }
   throw new Error(`unknown widget: ${widget}`)
 }
