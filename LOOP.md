@@ -68,8 +68,8 @@ window for the existing loop and check actual pending prompts when present.
 | Research, a question, prose documentation | `loop-analyst` | Gemini 3.8 Flash / dispatcher |
 
 The agent files at `.github/agents/` implement this task-fit preflight. `loop-judge` is a
-consult/referee, not a human entry pick; `loop-worker` and its `.t2/.t3/.t4` variants are
-driver-only. `loop-architect.t4` is a generated escalation variant, not an entry pick.
+consult/referee, not a human entry pick; `loop-worker` and its `.m-*` variants are
+driver-only. Architect `.m-*` files exist for model-specific escalation, not as entry picks.
 Variants remain visible because hiding them prevents `code chat -m` from finding them in
 the installed VS Code mode lookup (Spike 0 B viii); their preflight refuses casual use.
 `/loop <goal and repo>` is a one-message shim to architect, not a persistent agent choice.
@@ -565,15 +565,15 @@ are **UNKNOWN** until S15. After every tier is exhausted, park and continue othe
 `loop-worker` is dispatched headlessly (`code chat -m <agent>`), and `code chat --help`
 (checked 2026-09-29) has no model-override flag — only `-m/--mode`, which selects an *agent
 file*. So escalating the worker means dispatching a different file, not a different flag.
-`cc models apply` generates one variant file per tier above `loop-worker`'s own —
-`loop-worker.t2.agent.md` (dispatcher), `.t3` (architect), `.t4` (oracle) — each identical to
-the base file except its `name:` and `model:` lines, kept in sync by the same `--check` gate.
-`scripts/loop.sh` reads `WORKER_AGENT` (default `loop-worker`) to pick which one to dispatch;
-set it to `loop-worker.t2` etc. on a re-arm instead of hand-editing the worker agent file.
+`cc models apply` generates one variant per registered model in the worker's tier and higher
+tiers: `loop-worker.m-<model-slug>.agent.md`. Each differs from the base only in its `name:`
+and single-model `model:` lines, kept in sync by `--check`. `scripts/loop.sh` reads
+`WORKER_AGENT` (default `loop-worker`); set it to the chosen model's variant on a re-arm.
+Tier-only variants were retired because they duplicate this selection mechanism.
 
 `loop-architect` is a **top-level entry agent**, not normally a `runSubagent` call.
-`cc models apply` also generates `loop-architect.t4.agent.md` for oracle-tier headless
-escalation (rank suffix, not “second variant”); a human may instead reselect the base
+`cc models apply` also generates `loop-architect.m-<model-slug>.agent.md` for model-specific
+headless escalation; a human may instead reselect the base
 architect and choose a different model in the picker. A top-level architect consults
 `loop-judge`; when itself dispatched as a subagent and unable to nest-dispatch, it writes
 `tmp/<KEY>-consult.md` and returns `CONSULT_NEEDED` for the dispatcher to handle. The

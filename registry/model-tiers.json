@@ -33,5 +33,5 @@
     "loop-dispatcher": "architect"
   },
   "interactive": ["loop-analyst", "loop-dispatcher"],
-  "unmanaged": ["probe-astra", "probe-gemini"]
+  "unmanaged": []
 }

@@ -141,10 +141,10 @@ memory of this conversation:
 Leave the prohibitions out. They are baked into the `loop-worker` agent, and repeating them
 spends the worker's context on rules it already has.
 
-**Model tiers.** `WORKER` in the driver script defaults to whatever `loop-worker.agent.md` is
-pinned to in `registry/model-tiers.json` — do not hand-pick a model here. On a re-arm after a
-failed run (Phase 4), set `WORKER_AGENT` to the next tier's generated variant
-(`loop-worker.t2`, `.t3`, `.t4`) rather than editing the worker agent file. See `LOOP.md` §6a.
+**Model tiers.** `WORKER` in the driver script defaults to the worker tier in
+`registry/model-tiers.json`. On a re-arm after a failed run (Phase 4), pick a model from
+the next tier and set `WORKER_AGENT` to its generated single-model variant
+(`loop-worker.m-<model-slug>`). Do not edit the base agent file. See `LOOP.md` §6a.
 
 ## Phase 3 — Grind (not you)
 
@@ -209,8 +209,8 @@ Then choose one, and say which:
 low-confidence `loop-judge` verdict, or a human or agent doubting the result** — for any
 role, not just the worker. Run `npm run cc -- models pick <role> --escalate=1` (stack
 further on repeated failure, capped at `oracle`) and record `role, from→to model, trigger` in
-`tmp/<KEY>-decisions.md`. For a re-arm, that means setting `WORKER_AGENT` to the picked
-variant before re-running the driver — see `LOOP.md` §6a.
+`tmp/<KEY>-decisions.md`. For a re-arm, set `WORKER_AGENT` to the picked model's
+`loop-worker.m-<model-slug>` variant before re-running the driver — see `LOOP.md` §6a.
 If the run ended `tampered`, `shrunk`, `suppressed` or `cfg-tampered`, read the diff before
 re-dispatching anything. The worker tried to buy a green and you need to know how.
 

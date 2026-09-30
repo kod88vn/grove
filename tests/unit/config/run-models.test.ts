@@ -122,7 +122,7 @@ describe('modelsApply (write mode)', () => {
   });
 });
 
-describe('modelsApply (write mode) — escalation variants', () => {
+describe('modelsApply (write mode) — obsolete tier variants', () => {
   let repoRoot: string;
 
   beforeEach(() => {
@@ -133,20 +133,14 @@ describe('modelsApply (write mode) — escalation variants', () => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  it('generates one variant file per tier above the base tier, with only name and model swapped', () => {
+  it('prunes tier variants in favor of single-model variants', () => {
+    writeFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t2.agent.md'), 'obsolete');
+    writeFileSync(join(repoRoot, '.github', 'agents', 'loop-architect.t4.agent.md'), 'obsolete');
     modelsApply(repoRoot, false);
-    const t2 = readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t2.agent.md'), 'utf8');
-    expect(t2).toBe(
-      WORKER_AGENT
-        .replace('name: loop-worker', 'name: loop-worker.t2')
-        .replace('model: ["GPT-5.6 Luna", "Claude Sonnet 5"]', 'model: ["Claude Haiku 4.5"]'),
-    );
-    const t3 = readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t3.agent.md'), 'utf8');
-    expect(t3).toContain('name: loop-worker.t3');
-    expect(t3).toContain('model: ["Claude Sonnet 5"]');
-    const t4 = readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t4.agent.md'), 'utf8');
-    expect(t4).toContain('name: loop-worker.t4');
-    expect(t4).toContain('model: ["Claude Opus 5.5", "Claude Opus 5"]');
+    expect(() => readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t2.agent.md'), 'utf8')).toThrow();
+    expect(() => readFileSync(join(repoRoot, '.github', 'agents', 'loop-architect.t4.agent.md'), 'utf8')).toThrow();
+    expect(readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.m-claude-haiku-4-5.agent.md'), 'utf8'))
+      .toContain('model: ["Claude Haiku 4.5"]');
   });
 
   it('writes no variant files for an agent already at the top (oracle) tier', () => {
@@ -155,7 +149,7 @@ describe('modelsApply (write mode) — escalation variants', () => {
   });
 });
 
-describe('modelsApply --check — escalation variants', () => {
+describe('modelsApply --check — single-model variants', () => {
   let repoRoot: string;
 
   beforeEach(() => {
@@ -166,9 +160,9 @@ describe('modelsApply --check — escalation variants', () => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  it('flags drift when a variant file is missing, and writes nothing', () => {
+  it('flags drift when a single-model variant is missing, and writes nothing', () => {
     expect(modelsApply(repoRoot, true)).not.toBe(0);
-    expect(() => readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.t2.agent.md'), 'utf8')).toThrow();
+    expect(() => readFileSync(join(repoRoot, '.github', 'agents', 'loop-worker.m-gpt-5-6-luna.agent.md'), 'utf8')).toThrow();
   });
 
   it('reports clean once every variant file matches the registry', () => {

@@ -57,13 +57,11 @@ describe('models apply — single-model pruning', () => {
     expect(modelsApply(dir, false)).toBe(0);
     expect(existsSync(join(dir, '.github/agents/loop-worker.m-gpt-6-luna.agent.md'))).toBe(false);
     expect(variants(dir)).toHaveLength(12);
-    for (const file of ['loop-worker.agent.md', 'loop-worker.t2.agent.md']) {
+    for (const file of ['loop-worker.agent.md', 'loop-worker.m-gpt-5-6-luna.agent.md']) {
       expect(existsSync(join(dir, '.github/agents', file))).toBe(true);
     }
-    for (const name of ['loop-architect']) {
-      expect(variants(dir).some((file) => file.startsWith(`${name}.m-`))).toBe(true);
-      expect(readdirSync(join(dir, '.github/agents')).some((file) => file.startsWith(`${name}.t`))).toBe(true);
-    }
+    expect(variants(dir).some((file) => file.startsWith('loop-architect.m-'))).toBe(true);
+    expect(readdirSync(join(dir, '.github/agents')).some((file) => file.includes('.t2.agent.md'))).toBe(false);
     expect(modelsApply(dir, true)).toBe(0);
   });
 

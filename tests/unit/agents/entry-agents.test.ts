@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { modelsCommand } from '../../../src/config/models-command.ts';
-import { escalationVariants, singleModelVariants } from '../../../src/core/model/escalation.ts';
+import { singleModelVariants } from '../../../src/core/model/escalation.ts';
 import { resolveSelf } from '../../../src/core/model/self.ts';
 import { parseRegistry } from '../../../src/core/model/tiers.ts';
 
@@ -150,18 +150,20 @@ describe('models self — selected model, not backend-served model', () => {
   });
 });
 
-describe('rank-based variants and registry', () => {
-  it('uses the target tier rank, even when the base tier is architect', () => {
+describe('single-model variants and registry', () => {
+  it('offers every registered model at or above the agent tier', () => {
     const registry = parseRegistry(JSON.parse(readFileSync(REGISTRY, 'utf8')) as unknown);
-    expect(escalationVariants(registry, 'loop-architect').map((v) => v.suffix)).toEqual(['t4']);
-    expect(escalationVariants(registry, 'loop-worker').map((v) => v.suffix)).toEqual(['t2', 't3', 't4']);
+    expect(singleModelVariants(registry, 'loop-architect').map((v) => v.tier))
+      .toEqual(['architect', 'architect', 'oracle', 'oracle']);
+    expect(singleModelVariants(registry, 'loop-worker').map((v) => v.tier))
+      .toEqual(['worker', 'worker', 'dispatcher', 'architect', 'architect', 'oracle', 'oracle']);
   });
 
   it('registers the analyst without generating interactive-agent variants', () => {
     const registry = parseRegistry(JSON.parse(readFileSync(REGISTRY, 'utf8')) as unknown);
     expect(registry.agents['loop-analyst']).toBe('architect');
     expect(registry.interactive).toContain('loop-analyst');
-    expect(escalationVariants(registry, 'loop-analyst')).toEqual([]);
+    expect(singleModelVariants(registry, 'loop-analyst')).toEqual([]);
   });
 });
 
@@ -184,11 +186,10 @@ describe('entry agent contracts', () => {
     expect(readFileSync(join(ROOT, '.github/prompts/loop.prompt.md'), 'utf8')).toContain('Preflight');
   });
 
-  it('accounts for every picker-visible local agent as managed, generated or probe', () => {
+  it('accounts for every picker-visible local agent as managed or generated', () => {
     const registry = parseRegistry(JSON.parse(readFileSync(REGISTRY, 'utf8')) as unknown);
     const expected = new Set([...Object.keys(registry.agents), ...registry.unmanaged]);
     for (const name of Object.keys(registry.agents)) {
-      for (const variant of escalationVariants(registry, name)) expected.add(`${name}.${variant.suffix}`);
       for (const variant of singleModelVariants(registry, name)) expected.add(`${name}.${variant.suffix}`);
     }
     const actual = readdirSync(AGENTS).filter((name) => name.endsWith('.agent.md'))

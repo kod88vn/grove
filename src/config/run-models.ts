@@ -4,7 +4,7 @@ import { readAgentFile, writeAgentFile } from '../connectors/agent-frontmatter-f
 import { loadCatalog } from '../connectors/model-catalog-file.ts';
 import { loadRegistry } from '../connectors/model-registry-file.ts';
 import { agentDriftStatus } from '../core/model/drift.ts';
-import { escalationVariants, singleModelVariants, type EscalationVariant } from '../core/model/escalation.ts';
+import { singleModelVariants, type EscalationVariant } from '../core/model/escalation.ts';
 import { parseModelLine, replaceModelLine, replaceNameLine } from '../core/model/frontmatter.ts';
 import { pick, resolveRole, resolveTiers } from '../core/model/resolver.ts';
 import { latestSessionModelId, foldSessionJsonl } from '../core/model/session.ts';
@@ -28,17 +28,8 @@ function agentPath(repoRoot: string, agentName: string): string {
   return join(defaultAgentsDir(repoRoot), `${agentName}.agent.md`);
 }
 
-function variantPath(repoRoot: string, agentName: string, variant: EscalationVariant): string {
-  return join(defaultAgentsDir(repoRoot), `${agentName}.${variant.suffix}.agent.md`);
-}
-
 function singleVariantPath(repoRoot: string, agentName: string, variant: EscalationVariant): string {
   return join(defaultAgentsDir(repoRoot), `${agentName}.${variant.suffix}.agent.md`);
-}
-
-function variantContent(baseContent: string, agentName: string, variant: EscalationVariant): string {
-  const withModel = replaceModelLine(baseContent, variant.models);
-  return replaceNameLine(withModel, `${agentName}.${variant.suffix}`);
 }
 
 function currentModelsFor(repoRoot: string, agentName: string): string[] | null {
@@ -163,39 +154,6 @@ export function modelsSelf(
   return 0;
 }
 
-/**
- * A headless worker cannot take a runtime model override (`code chat --help` has no such
- * flag), so escalating it means dispatching a *different agent file*. This keeps one variant
- * file per tier above the agent's base tier in sync with the registry, alongside its primary.
- * Returns whether any variant was out of sync.
- */
-function applyVariants(
-  opts: { readonly repoRoot: string; readonly check: boolean },
-  registry: Registry,
-  agentName: string,
-  baseContent: string,
-): boolean {
-  let drifted = false;
-  for (const variant of escalationVariants(registry, agentName)) {
-    const path = variantPath(opts.repoRoot, agentName, variant);
-    const expected = variantContent(baseContent, agentName, variant);
-    let current: string | null;
-    try {
-      current = readAgentFile(path);
-    } catch {
-      current = null;
-    }
-    if (current === expected) {
-      continue;
-    }
-    drifted = true;
-    if (!opts.check) {
-      writeAgentFile(path, expected);
-    }
-  }
-  return drifted;
-}
-
 function applySingleModelVariants(
   opts: { readonly repoRoot: string; readonly check: boolean },
   registry: Registry,
@@ -227,10 +185,8 @@ function applyAgent(
   const path = agentPath(opts.repoRoot, agentName);
   let content: string;
   try { content = readAgentFile(path); } catch { return false; }
-  let drifted = applyVariants(opts, registry, agentName, content);
-  drifted = applySingleModelVariants(opts, registry, agentName, content) || drifted;
+  let drifted = applySingleModelVariants(opts, registry, agentName, content);
   const expected = new Set([
-    ...escalationVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
     ...singleModelVariants(registry, agentName).map((variant) => `${agentName}.${variant.suffix}.agent.md`),
   ]);
   for (const file of readdirSync(defaultAgentsDir(opts.repoRoot))) {

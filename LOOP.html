@@ -158,7 +158,7 @@
     <tr><td>Research, questions, prose docs</td><td><code>loop-analyst</code></td><td>Gemini 3.8 Flash (dispatcher tier)</td></tr>
   </tbody>
 </table>
-<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its variants are driver-only. <code>loop-architect.t4</code> is an escalation variant, not a human entry choice. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
+<p><code>loop-judge</code> is a consult/referee leaf; <code>loop-worker</code> and its single-model variants are driver-only. Architect single-model variants serve headless escalation, not human entry. The variants remain visible for headless <code>code chat -m</code> lookup, but their preflight refuses an inappropriate prompt. <code>/loop &lt;goal and repo&gt;</code> is a one-message architect shim.</p>
 
 <div class="card warn">
   <h3>What correction looks like</h3>

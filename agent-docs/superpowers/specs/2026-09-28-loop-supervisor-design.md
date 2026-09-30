@@ -445,11 +445,13 @@ unclosed dead run → note then start new run (D7 reap not built); passed/no PR 
 PR open → phase 6; PR merged/ticket open → resolve. Analyst resumes from its incrementally
 written `tmp/<KEY>-report.md`; actual artifacts outrank prose.
 
-Variant names use tier rank: worker `.t2/.t3/.t4`, architect `.t4` (oracle).
+Variant names use one model slug per registered model in this and higher tiers:
+`loop-worker.m-<slug>`, `loop-architect.m-<slug>`, and `loop-judge.m-<slug>`.
 Headless variants stay visible because B viii found `user-invocable:false` prevents
 `code chat -m` lookup; their STOP preflight guards accidental picker use. Humans pick
 the base agent then choose any model (picker override holds until agent re-selection).
-The registry's `interactive` list contains analyst without variants; probes are unmanaged.
+The registry's `interactive` list contains analyst and dispatcher without variants;
+the earlier one-off model probes have been retired.
 The entry agents and `models self` were built at HEAD in B1–B8; this does **not** mean
 the supervisor has been built.
 
@@ -521,7 +523,7 @@ never duplicate a completed mutation based on chat text alone.
 (§8 viii: `It&&this.switchModelByQualifiedName(It)`): selecting an agent applies its first *available*
 model, so an available-but-erroring model never falls through. **DESIGNED:** `cc models
 apply` emits a single-model variant per registry tier model (e.g. `loop-worker.m-<slug>`)
-alongside existing `.t2/.t3/.t4` tier variants; each variant's `model:` list has exactly
+instead of the redundant `.t2/.t3/.t4` tier variants; each variant's `model:` list has exactly
 one model. Record the selected model **per dispatch**; on error, use the next model in the
 same tier from `registry/model-tiers.json`. Rate limit gets **one** same-model retry with
 bounded backoff; other errors substitute immediately. Same-tier substitution consumes no
@@ -542,7 +544,7 @@ Components, by directory (new unless noted):
 | Loop-instance manager | `supervisor/vscode-instance.ts` (proposed) | D4/D14: route per-repo/item portable/user-data pairs; verify roots before teardown |
 | Resource lifecycle | `supervisor/cleanup.ts` (proposed) | D7/§5: register ownership; stop watcher/dispatch/child, remove by-products, verify absence and retry failures |
 | Dedicated profile | `supervisor/profile/settings.template.json` (proposed) | D4 child approve-all plus generated off-limits deny rules; S13–S18 gate containment |
-| Model variant generation | `cc models apply` (existing command, proposed extension) | D15: single-model variants alongside existing tier variants, verified by `--check` |
+| Model variant generation | `cc models apply` | D15: single-model variants only, verified by `--check` |
 | CLI | `supervisor/cli.ts` (proposed), `npm run supervise` | D5, D8 |
 | State | `src/store/migrations/00XX-supervisor.sql` (proposed) | §5 — lives in `cc`'s existing store, per D3 |
 | Dashboard board | `dashboard/pages/supervisor.ts` (proposed) | D8 monitor, reading `src/store/` only (never `supervisor/**` — see D3 gap above) |
@@ -814,7 +816,7 @@ working supervisor or a universal security boundary.
 | D7 teardown — **user requirement 2026-09-29, DESIGNED** | Own and inventory every temporary by-product, remove it on item exit or supervisor halt, verify absence and retry failures; preserve only intentional deliverables and durable evidence (§5) | Previous D7 covered orphan instances and some worktrees but not profiles, sessions, watchers, logs, probes or crash leftovers. Do not sweep unowned pre-existing scratch. |
 | D11 consult — **revised, main-subagent scope loosened 2026-09-29** | Tool-using architect/analyst/worker/judge in child by default; a main-thread subagent (including judge) is permitted for an appropriately scoped, per-request task, not only read-only in-workspace (see D14 status note); no human wait | B vi had no dispatch tool in nested context; S10 remains open; S16 narrowly addressed 2026-09-29 (see §8) but the general case is still open |
 | D13 entry | Two entry agents with task-fit STOP, model-cost warning, repo/resume preflight | B vii/viii/ix, B1–B8 at HEAD; supervisor intake remains unbuilt |
-| Variant suffix | Tier rank (`loop-worker.t2/.t3/.t4`, `loop-architect.t4`); variants stay visible for CLI lookup | B viii installed custom-mode lookup excludes hidden agents; generated files at HEAD |
+| Variant suffix | Model slug (`loop-worker.m-<slug>`, `loop-architect.m-<slug>`); variants stay visible for CLI lookup | B viii installed custom-mode lookup excludes hidden agents; tier-only variants retired 2026-09-30 |
 | D14 driver — **user-authorized 2026-09-29, DESIGNED** | `supervisor/` tick is durable no-LLM dispatcher; chat main thread enqueue/monitor/report only; park human items and continue others | Main subagent confirmation blocking **ASSUMED** in general (S16 narrowed by a 2026-09-29 proof, see §8); concurrent child routing **UNKNOWN** (S17) |
 | D15 model errors — **user-authorized 2026-09-29, DESIGNED** | Artifact check, one backoff retry for transient rate limit, same-tier single-model substitution, then D11 ladder, then park | CLI model flag absent and first-available pin behavior **VERIFIED** (§8); error signature/pin variant **UNKNOWN** (S15) |
 | Child-folder routing + approval watcher — **user decision 2026-09-29, DESIGNED, not built** | Always open/reuse a child VS Code instance rooted at the exact target folder when it differs from the current workspace (D4/D14: verify PID/profile/workspace/nonce before reuse, never cross-reuse); this routing avoids only the outside-folder file-read prompt for paths under the routed target, not other confirmation classes. Arm a bounded (~3 min) low-overhead watcher around dispatch that approves only an individually matched and verified, one-time prompt from the classes that still occur after routing — terminal commands, reads outside the routed target, or an initial web-fetch request when the target is fully identifiable — fails closed on any web-fetch result needing human content review, an ambiguous match, or an off-limits/unknown target, and re-arms per dispatch rather than running open-ended (D6) | User, verbatim: "always open/reuse a child VSCode instance if it works on a different folder to avoid approval. the watcher loops still needs to run for a few minutes to check for approval permissions"; implementation and probing are both pending — only the narrow S16 proof (§8) exists, S13/S14 containment is still **UNKNOWN**, and AX-watcher resource cost is **not measured** |

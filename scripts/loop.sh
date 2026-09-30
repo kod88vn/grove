@@ -29,12 +29,10 @@ BASELINE=0                    # current passing test count. Must GROW, never shr
 MAX_ITER=4                    # agent turns you are willing to buy
 POLL_LIMIT=72                 # x5s = 6 min of polling per iteration
 WORKER="loop-worker"          # the cheap model does the grinding. See .github/agents/
-# `code chat --help` has no model flag, so escalating a headless worker means
-# dispatching a different AGENT FILE, not a runtime override. `cc models apply`
-# generates one such file per tier above the worker's own, named
-# <worker>.t2/.t3/.t4.agent.md (see registry/model-tiers.json + LOOP.md "Model
-# tiers"). Override WORKER_AGENT to one of those on a re-arm after a failure,
-# budget exhaustion, or referee reject — never hand-edit WORKER above instead.
+# `code chat` has no model override flag. `cc models apply` generates
+# <worker>.m-<model-slug>.agent.md for each model in this and higher tiers.
+# On a re-arm, choose a registered model and set WORKER_AGENT to its exact
+# variant (see registry/model-tiers.json and LOOP.md "Model tiers").
 WORKER_AGENT="${WORKER_AGENT:-$WORKER}"
 
 # The command whose exit code IS "done". If you cannot write one that exits
