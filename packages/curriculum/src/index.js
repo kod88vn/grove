@@ -97,7 +97,7 @@ const visualFields = {
   match: ['kind', 'left', 'right'],
   clock: ['kind', 'start'],
   coins: ['kind', 'target', 'denominations'],
-  'tap-select': ['kind', 'tokens', 'blankIndex'],
+  'tap-select': ['kind', 'tokens', 'segments', 'blankIndex'],
 }
 
 export function toInstance(rendered) {

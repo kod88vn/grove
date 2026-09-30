@@ -124,7 +124,7 @@ function tapSelect(answer, response) {
   if (response.ids.some((id) => !availableIds.has(id))) return invalid()
   const answerIds = new Set(answer.ids)
   if (selectedIds.size === answerIds.size && [...answerIds].every((id) => selectedIds.has(id))) return right()
-  return response.ids.some((id) => answerIds.has(id)) ? wrong() : invalid()
+  return wrong()
 }
 
 function sort(answer, response) {

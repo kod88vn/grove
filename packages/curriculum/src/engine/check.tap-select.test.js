@@ -15,11 +15,13 @@ test('exact ID set grades correct in either selection order', () => {
 test('a well-formed partial selection is wrong, not invalid', () => {
   assert.deepEqual(check('tap-select', answer, { ids: ['token-c'] }), wrong)
   assert.deepEqual(check('tap-select', answer, { ids: ['token-c', 'token-b'] }), wrong)
+  assert.deepEqual(check('tap-select', answer, { ids: ['token-b'] }), wrong)
+  assert.deepEqual(check('tap-select', answer, { ids: ['token-b', 'token-d', 'token-e'] }), wrong)
 })
 
-test('empty, all-wrong, malformed, duplicate and unknown selections are invalid', () => {
-  const responses = [undefined, null, '', [], {}, { ids: [] }, { ids: ['token-b'] },
-    { ids: ['token-b', 'token-d'] }, { ids: ['token-a', 'token-a'] },
+test('empty, malformed, duplicate and unknown selections are invalid', () => {
+  const responses = [undefined, null, '', [], {}, { ids: [] },
+    { ids: ['token-a', 'token-a'] },
     { ids: ['token-a', 'token-unknown'] }, { ids: [null, 'token-a'] },
     { ids: 'token-a' }, { ids: ['token-a'], extra: true },
     { ids: new Array(1) }]

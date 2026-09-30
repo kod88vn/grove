@@ -4,6 +4,11 @@ import { items } from '../../../content/english/items/g05/context-clues.js'
 import { check, getProblem, listProblems, render, toInstance } from '../../../index.js'
 
 const ID = 'e5.l.context-clues/find-the-clue'
+const variants = [
+  { id: 'e5.l.context-clues/find-the-clue-easy', difficulty: 1, size: 7 },
+  { id: ID, difficulty: 2, size: 7 },
+  { id: 'e5.l.context-clues/find-the-clue-tricky', difficulty: 3, size: 6 },
+]
 const seeds = Array.from({ length: 500 }, (_, index) => index + 1)
 const normal = (text) => text.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
 const words = (text) => text.split(/\s+/).map(normal).filter(Boolean)
@@ -28,22 +33,29 @@ test('existing content requires no named exclusions: all twenty clues are unique
   assert.ok(items.every((item) => item.reviewedBy === 'agent-draft:pending-parent-review'))
 })
 
-test('a real registered Grade 5 English problem uses the existing skill without new catalog keys', () => {
-  const listed = listProblems().filter((row) => row.id === ID)
-  assert.equal(listed.length, 1)
-  assert.equal(listed[0].skill, 'e5.l.context-clues')
-  assert.equal(listed[0].grade, 5)
-  assert.equal(listed[0].subject, 'english')
-  assert.equal(listed[0].widget, 'tap-select')
-  assert.ok(getProblem(ID))
+test('three Grade 5 English templates share the existing skill and cover each authored difficulty', () => {
+  for (const variant of variants) {
+    const listed = listProblems().filter((row) => row.id === variant.id)
+    assert.equal(listed.length, 1, variant.id)
+    assert.equal(listed[0].skill, 'e5.l.context-clues')
+    assert.equal(listed[0].grade, 5)
+    assert.equal(listed[0].subject, 'english')
+    assert.equal(listed[0].widget, 'tap-select')
+    assert.equal(listed[0].difficulty, variant.difficulty)
+    assert.equal(items.filter((item) => item.difficulty === variant.difficulty).length, variant.size)
+    assert.ok(getProblem(variant.id))
+  }
 })
 
-test('500 seeds derive exactly the existing clue, no answer metadata or hint leak', () => {
+test('500 seeds per difficulty derive the exact authored clue and sentence, no answer leak', () => {
   const seen = new Set()
   let lowestIdPrediction = 0
   let firstPositionPrediction = 0
-  for (const seed of seeds) {
-    const full = render(getProblem(ID), seed)
+  for (const variant of variants) {
+    const variantSeen = new Set()
+    for (const seed of seeds) {
+    const full = render(getProblem(variant.id), seed)
+    assert.equal(full.difficulty, variant.difficulty, `${variant.id} seed ${seed}`)
     assert.equal(full.widget, 'tap-select', `seed ${seed}`)
     assert.equal(full.visual.kind, 'tap-select', `seed ${seed}`)
     assert.ok(Array.isArray(full.visual.tokens), `seed ${seed}`)
@@ -53,6 +65,17 @@ test('500 seeds derive exactly the existing clue, no answer metadata or hint lea
     const source = items.find((item) => words(item.sentence).join(' ') === tokens.map((token) => normal(token.label)).join(' '))
     assert.ok(source, `seed ${seed}: invented or altered content`)
     seen.add(source.id)
+    variantSeen.add(source.id)
+    assert.equal(source.difficulty, variant.difficulty, `${variant.id} seed ${seed}: wrong authored tier`)
+    const segments = full.visual.segments
+    assert.ok(Array.isArray(segments), `seed ${seed}: missing sentence segments`)
+    assert.equal(segments.filter((segment) => segment.kind === 'blank').length, 1, `seed ${seed}: must have one blank`)
+    assert.ok(segments.every((segment) => segment.kind === 'blank' ||
+      (segment.kind === 'word' && Object.keys(segment).sort().join(',') === 'id,kind' && tokens.some((token) => token.id === segment.id)) ||
+      (segment.kind === 'text' && typeof segment.text === 'string' && segment.text.length > 0)), `seed ${seed}: malformed segment`)
+    assert.deepEqual(segments.filter((segment) => segment.kind === 'word').map((segment) => segment.id), tokens.map((token) => token.id), `seed ${seed}: wrong word order`)
+    const labelsById = new Map(tokens.map((token) => [token.id, token.label]))
+    assert.equal(segments.map((segment) => segment.kind === 'word' ? labelsById.get(segment.id) : segment.kind === 'blank' ? '____' : segment.text).join(''), source.sentence, `seed ${seed}: punctuation or whitespace lost`)
     assert.equal(full.visual.blankIndex, blankIndex(source.sentence), `seed ${seed}: blank moved or hidden`)
     assert.ok(full.visual.blankIndex >= 0 && full.visual.blankIndex <= tokens.length, `seed ${seed}: blank outside sentence`)
     const expected = oracle(source.sentence, source.clue)
@@ -75,12 +98,14 @@ test('500 seeds derive exactly the existing clue, no answer metadata or hint lea
     }
     const selected = [...full.answer.ids].reverse()
     assert.deepEqual(check('tap-select', full.answer, { ids: selected }), { correct: true, reason: null }, `seed ${seed}`)
-    assert.deepEqual(check('tap-select', full.answer, { ids: [ids.find((id) => !selected.includes(id))] }), { correct: false, reason: 'invalid' }, `seed ${seed}`)
+    assert.deepEqual(check('tap-select', full.answer, { ids: ids.filter((id) => !selected.includes(id)) }), { correct: false, reason: 'wrong' }, `seed ${seed}: all distractors`)
     if (expected.includes(0)) firstPositionPrediction++
     const sorted = [...ids].sort()
     if (sorted.slice(0, expected.length).every((id) => full.answer.ids.includes(id))) lowestIdPrediction++
+    }
+    assert.deepEqual(variantSeen, new Set(items.filter((item) => item.difficulty === variant.difficulty).map((item) => item.id)), `${variant.id}: missing authored bank items`)
   }
   assert.deepEqual(seen, new Set(items.map((item) => item.id)), 'not every bank item was exercised')
-  assert.ok(firstPositionPrediction < seeds.length * 0.7, 'first position reveals the clue')
-  assert.ok(lowestIdPrediction < seeds.length * 0.2, 'ID ordering reveals the clue')
+  assert.ok(firstPositionPrediction < seeds.length * variants.length * 0.7, 'first position reveals the clue')
+  assert.ok(lowestIdPrediction < seeds.length * variants.length * 0.2, 'ID ordering reveals the clue')
 })

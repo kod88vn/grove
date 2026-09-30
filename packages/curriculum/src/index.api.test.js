@@ -243,8 +243,8 @@ const VISUAL_KEYS = {
   clock: ['kind', 'start'],
   // Coins show the target and offered values, never the combination that makes it.
   coins: ['denominations', 'kind', 'target'],
-  // Tap-select shows the issued token labels and the authored blank position; selected ids stay server-side.
-  'tap-select': ['blankIndex', 'kind', 'tokens'],
+  // Tap-select shows issued token labels and sentence-order segments; selected ids stay server-side.
+  'tap-select': ['blankIndex', 'kind', 'segments', 'tokens'],
 }
 
 const walk = (value, visit, path = '$') => {

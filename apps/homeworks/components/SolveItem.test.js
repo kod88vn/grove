@@ -46,6 +46,7 @@ const ORDER = pick('order').id
 const SORT = pick('sort').id
 const MATCH = pick('match').id
 const CLOCK = pick('clock').id
+const TAP_SELECT = 'e5.l.context-clues/find-the-clue'
 
 /** A fetch that records every call and answers from a table of canned replies. */
 function fakeFetch(replies) {
@@ -149,6 +150,21 @@ describe('P1.8 — SolveItem', () => {
   afterEach(() => {
     jest.restoreAllMocks()
     delete global.fetch
+  })
+
+  it('shows wrong feedback for an all-distractor tap selection and allows another try', async () => {
+    const answer = full(TAP_SELECT).answer
+    const instance = instanceOf(TAP_SELECT)
+    const distractors = instance.visual.tokens.filter((token) => !answer.ids.includes(token.id))
+    const fetchFn = fakeFetch({ [ATTEMPTS]: missed })
+    mount(TAP_SELECT, fetchFn)
+    for (const token of distractors) fireEvent.click(screen.getByRole('button', { name: `${token.label}, not selected` }))
+    check()
+    await screen.findByText(missed.body.feedback)
+    expect(fetchFn.calls[0].body.response).toEqual({ ids: distractors.map((token) => token.id) })
+    expect(screen.queryByText(/Nora couldn't check that right now/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Check/ })).toBeEnabled()
+    expect(screen.queryByText(HEADING)).not.toBeInTheDocument()
   })
 
   describe.each([
