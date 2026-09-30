@@ -143,6 +143,14 @@ describe('loop-dispatcher gate', () => {
     expect(architect).toMatch(/dispatch-refused/);
   });
 
+  it('repairs a missing-window BLOCKED reply rather than forwarding it to the user', () => {
+    const blockedBranch = BODY.split('   - `BLOCKED: <action>` →')[1]?.split('   - The subagent failed:')[0];
+    expect(blockedBranch).toContain('missing repo window');
+    expect(blockedBranch).toContain('repair <KEY>');
+    expect(blockedBranch).toMatch(/not (?:a )?user-only/);
+    expect(blockedBranch?.indexOf('repair <KEY>')).toBeLessThan(blockedBranch?.indexOf('relay it to the user') ?? 0);
+  });
+
   // Both judge consults in session d84d8271 (Claude Opus 5.5, full edit/terminal tool list) read
   // 31 and 24 files, never attempted a write, and answered "I only have read access" — because
   // the contract said "You never edit" and "describe what the caller should do" right beside the

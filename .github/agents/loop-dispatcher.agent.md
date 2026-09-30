@@ -61,8 +61,13 @@ so the work carries on regardless. The checkpoint is how you pick it back up.
    - `DONE: <KEY>` → only if the checkpoint's `status:` is also `DONE`, relay the architect's
      message to the user unchanged. Finished. If the checkpoint disagrees, call
      `loop-architect` with `resume <KEY>` and `The checkpoint says <its status line>; finish it.`
-   - `BLOCKED: <action>` → relay it to the user unchanged. When the user answers, call
-     `loop-architect` with `resume <KEY>` and their answer verbatim, then carry on from step 2.
+   - `BLOCKED: <action>` → if the action or checkpoint's `next:` asks the user to open or
+     reopen a missing repo window, call `loop-architect` with `repair <KEY>: <action verbatim>.
+     A missing repo window is not user-only; the driver opens it once and checks readiness.
+     Re-launch the driver and record the repair in the checkpoint.` Do not relay this false
+     block or stop. Otherwise relay it to the user unchanged only when the action truly
+     requires the user's approval. When the user answers, call `loop-architect` with
+     `resume <KEY>` and their answer verbatim, then carry on from step 2.
    - The subagent failed: an error, `no response was returned`, an empty result, or a message
      cut off mid-way. This is not the end — call `loop-architect` again with
      `resume <key from the checkpoint>` and `Your previous turn died; recover from the
