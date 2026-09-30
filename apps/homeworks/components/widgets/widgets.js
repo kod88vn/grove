@@ -534,8 +534,8 @@ function ClockWidget({ instance, value, onChange, disabled }) {
         <g data-clock-dial textAnchor="middle" dominantBaseline="middle" className="fill-slate-700 text-sm">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((number) => {
             const angle = number * 30
-            const x = 100 + 70 * Math.sin((angle * Math.PI) / 180)
-            const y = 100 - 70 * Math.cos((angle * Math.PI) / 180)
+            const x = Number((100 + 70 * Math.sin((angle * Math.PI) / 180)).toFixed(2))
+            const y = Number((100 - 70 * Math.cos((angle * Math.PI) / 180)).toFixed(2))
             return <text key={number} x={x} y={y}> {number} </text>
           })}
         </g>
