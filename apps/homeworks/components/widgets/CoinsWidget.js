@@ -11,6 +11,11 @@ function cents(value) {
   return `${value} cent${value === 1 ? '' : 's'}`
 }
 
+function coinName(name, count) {
+  if (count === 1) return name
+  return name === 'penny' ? 'pennies' : `${name}s`
+}
+
 export function CoinsWidget({ instance, value, onChange, disabled }) {
   const denominations = instance.visual.denominations
   const offered = COINS.filter((coin) => denominations.includes(coin.value))
@@ -57,7 +62,7 @@ export function CoinsWidget({ instance, value, onChange, disabled }) {
                 </button>
               </div>
               <div aria-live="polite" role="status" className="text-sm text-slate-600">
-                {count === 0 ? 'No coins selected' : `${count} ${coin.label.toLowerCase()} selected`}
+                {count === 0 ? 'No coins selected' : `${count} ${coinName(coin.name, count)} selected`}
               </div>
             </div>
           )

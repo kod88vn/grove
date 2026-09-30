@@ -57,6 +57,24 @@ describe('P2.11 — coins the child can count without typing', () => {
     expect(check('coins', { total: 2 * coin, denominations: instance.visual.denominations }, after).correct).toBe(false)
   })
 
+  it('announces singular and plural denomination names as coins are added', () => {
+    const { instance } = mount()
+    const names = {
+      25: ['quarter', 'quarters'],
+      10: ['dime', 'dimes'],
+      5: ['nickel', 'nickels'],
+      1: ['penny', 'pennies'],
+    }
+
+    for (const denomination of instance.visual.denominations) {
+      const add = screen.getByRole('button', { name: new RegExp(`add ${names[denomination][0]}`, 'i') })
+      fireEvent.click(add)
+      expect(screen.getByText(`1 ${names[denomination][0]} selected`)).toBeVisible()
+      fireEvent.click(add)
+      expect(screen.getByText(`2 ${names[denomination][1]} selected`)).toBeVisible()
+    }
+  })
+
   it('does not count aloud before Check; after Check feedback says what the child made', async () => {
     const instance = instanceAt(2505)
     const coin = instance.visual.denominations[0]
