@@ -106,6 +106,13 @@ function enter(card, sample, value) {
     }
     return
   }
+  if (sample.widget === 'tap-select') {
+    for (const id of value) {
+      const index = sample.instance.visual.tokens.findIndex((entry) => entry.id === id)
+      fireEvent.click(within(card).getAllByRole('button')[index])
+    }
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -167,6 +174,9 @@ describe('the gallery shows every widget', () => {
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else if (sample.widget === 'coins') {
         expect(within(card).getAllByRole('button')).toHaveLength(sample.instance.visual.denominations.length * 2 + 2)
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
+      } else if (sample.widget === 'tap-select') {
+        expect(within(card).getAllByRole('button')).toHaveLength(sample.instance.visual.tokens.length + 2)
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`

@@ -2,6 +2,7 @@
 import { skills as englishSkills } from './catalog/english/grade-05.js'
 import { skills as mathSkills } from './catalog/math/grade-05.js'
 import { templates as contextClueTemplates } from './problems/english/g05/context-clues.js'
+import { templates as findTheClueTemplates } from './problems/english/g05/find-the-clue.js'
 import { templates as clockElapsedTimeTemplates } from './problems/math/g05/clock-elapsed-time.js'
 import { templates as coinsValueTemplates } from './problems/math/g05/coins-value.js'
 import { templates as fractionsTemplates } from './problems/math/g05/add-fractions-unlike.js'
@@ -18,6 +19,7 @@ export { check } from './engine/check.js'
 const catalogSkills = [...mathSkills, ...englishSkills]
 const problemTemplates = [
   ...contextClueTemplates,
+  ...findTheClueTemplates,
   ...clockElapsedTimeTemplates,
   ...coinsValueTemplates,
   ...fractionsTemplates,
@@ -95,6 +97,7 @@ const visualFields = {
   match: ['kind', 'left', 'right'],
   clock: ['kind', 'start'],
   coins: ['kind', 'target', 'denominations'],
+  'tap-select': ['kind', 'tokens', 'segments', 'blankIndex'],
 }
 
 export function toInstance(rendered) {

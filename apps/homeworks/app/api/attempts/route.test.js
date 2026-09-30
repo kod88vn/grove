@@ -84,6 +84,7 @@ const { POST } = require('./route')
 const SESSION = 's-1'
 const PROBLEM = 'm5.oa.order-of-operations/precedence'
 const FRACTION = 'm5.nf.add-fractions-unlike/coprime-denominators'
+const TAP_SELECT = 'e5.l.context-clues/find-the-clue'
 const SEED = 4242
 const DATE = '2026-09-27'
 
@@ -127,6 +128,22 @@ afterAll(() => {
 })
 
 describe('POST /homeworks/api/attempts — answering', () => {
+  it('charges an all-distractor tap selection as a wrong attempt and returns retry feedback', async () => {
+    bind(TAP_SELECT, SEED)
+    const answer = rendered(TAP_SELECT).answer
+    const response = { ids: answer.availableIds.filter((id) => !answer.ids.includes(id)) }
+    expect(response.ids.length).toBeGreaterThan(0)
+    const res = await attempt(response, { problemId: TAP_SELECT })
+    expect(res.status).toBe(200)
+    const payload = await res.json()
+    expect(payload.correct).toBe(false)
+    expect(payload.feedback).toEqual(expect.any(String))
+    expect(payload.feedback.length).toBeGreaterThan(0)
+    expect(payload.explanation).toBeUndefined()
+    expect(getSessionItem(SESSION, TAP_SELECT, SEED).tries).toBe(1)
+    expect(getAttemptsBySession(SESSION)).toHaveLength(0)
+  })
+
   it('accepts a right answer and says so', async () => {
     const res = await right()
     expect(res.status).toBe(200)

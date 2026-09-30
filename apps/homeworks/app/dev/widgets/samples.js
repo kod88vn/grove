@@ -65,6 +65,7 @@ export function correctValueFor(sample) {
   }
   if (sample.widget === 'clock') return [sample.answer.hour, sample.answer.minute]
   if (sample.widget === 'coins') return coinCountsFor(sample.answer.total, sample.answer.denominations)
+  if (sample.widget === 'tap-select') return [...sample.answer.ids]
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -111,6 +112,11 @@ export function wrongValueFor(sample) {
     const smallest = Math.min(...sample.answer.denominations)
     counts[smallest] += 1
     return counts
+  }
+  if (sample.widget === 'tap-select') {
+    const distractor = sample.instance.visual.tokens.find((token) => !sample.answer.ids.includes(token.id))
+    if (distractor === undefined) throw new Error(`no wrong token for ${sample.widget}`)
+    return [sample.answer.ids[0], distractor.id]
   }
   throw new Error(`unknown widget: ${sample.widget}`)
 }

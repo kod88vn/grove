@@ -11,6 +11,7 @@ import {
   NumberWidget,
   OrderWidget,
   SortWidget,
+  TapSelectWidget,
 } from './widgets'
 
 export function AnswerWidget({ instance, value, onChange, disabled }) {
@@ -43,6 +44,9 @@ export function AnswerWidget({ instance, value, onChange, disabled }) {
   }
   if (instance.widget === 'coins') {
     return <CoinsWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'tap-select') {
+    return <TapSelectWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   throw new Error(`unknown widget: ${instance.widget}`)
 }

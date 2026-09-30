@@ -79,6 +79,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'match') return { pairs: answer.pairs }
   if (widget === 'clock') return { hour: answer.hour, minute: answer.minute }
   if (widget === 'coins') return { counts: countsForCoins(answer.total, answer.denominations) }
+  if (widget === 'tap-select') return { ids: [...answer.ids] }
   return { value: answer.value }
 }
 
@@ -107,6 +108,7 @@ const wrongResponse = (widget, answer) => {
     counts[1] += 1
     return { counts }
   }
+  if (widget === 'tap-select') return { ids: [answer.ids[0], answer.availableIds.find((id) => !answer.ids.includes(id))] }
   return { value: -999999 }
 }
 
