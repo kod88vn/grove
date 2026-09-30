@@ -234,7 +234,11 @@ it appears before dispatch. An unsuccessful launch is `DRIVER_FAULT=window-launc
 `DRIVER_FAULT=window-not-ready` (exit 3): the architect repairs it rather than blocking on
 the user. Keep one loop folder per repo and switch branches inside it
 (`git -C <folder> switch -c <branch> <base>`) rather than adding a worktree per item. Scratch
-files live in `tmp/`, which is gitignored — see `.github/instructions/scratch-space.instructions.md`.
+files for the controller live in this workspace's `tmp/`. Verifier logs and other artifacts
+the worker must read live under the *target* project's ignored `tmp/`, with a fresh directory
+for each driver run. The driver adds `/tmp/` to that project's local git exclude file; a
+project `tmp/` symlink is refused rather than followed outside the project. See
+`.github/instructions/scratch-space.instructions.md`.
 
 It ends by printing `passed` or `failed` and the reason, and leaves the same verdict at
 `/loops` for later. There is no third outcome and no partial credit.
@@ -274,14 +278,20 @@ overrides the default path) and prints `<status> <agent> <model>` plus the reply
 | --- | --- |
 | `refused` — the reply opened `WRONG AGENT` | stop: `DRIVER_FAULT=dispatch-refused` |
 | `none` after `DISPATCH_GRACE` seconds (60) | stop: `DRIVER_FAULT=dispatch-lost` |
+| `pending` — this run's worker is waiting on an unconfirmed tool | stop: `DRIVER_FAULT=dispatch-pending`; never treat permission as completion or approve an old run |
 | `done` — the worker finished, verifier still red | verify once more and end the iteration |
 | `running`, or `none` inside the grace period | keep polling |
 
-A fault ends the run after `cc loop record` and `cc loop finish`, writes `tmp/<TICKET>/fault`,
+A fault ends the run after `cc loop record` and `cc loop finish`, writes a `fault` file in
+the freshly created target-project output directory (printed as `verifier output:`),
 and exits `3`. It means the machinery failed, not the code: the architect repairs the cause,
 relaunches with the same spec on a new TICKET suffix, and does not count it as a failed loop
 for escalation. Before this existed, run 147 (cloverpedia M2) spent all six-minute polls of
 every iteration waiting on a worker that had refused in seconds.
+
+An unattended one-time approval watcher is **not** implemented. `dispatch-pending` fails
+closed; do not approve a prompt from an obsolete run, particularly when its target log may
+have been replaced. A fresh run needs a new dispatch and its own output directory.
 
 ### 1.4 Watching it
 

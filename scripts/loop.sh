@@ -72,10 +72,10 @@ source "$CC_ROOT/scripts/loop-lib.sh"
 # Before anything touches $REPO: a second driver on the same repo would dispatch a second
 # worker into the same window and judge the first one's edits.
 acquire_repo_lock "$CC_ROOT" "$REPO" || exit 1
-OUT="$CC_ROOT/tmp/$TICKET"
+OUT="$(prepare_loop_output "$REPO" "$TICKET")" || exit 1
 # `code chat -m` resolves the agent in $REPO's window, so that is where the file must be.
 AGENT="$REPO/.github/agents/$WORKER_AGENT.agent.md"
-mkdir -p "$OUT"
+echo "verifier output: $OUT"
 
 # Reuse an existing dedicated repo window, or launch one once and verify readiness.
 # The repo lock prevents two drivers from opening duplicate windows for the same repo.
@@ -147,6 +147,10 @@ $FAILURES" > "$OUT/cli-$ITER.out" 2>&1
       refused|lost)
         FAULT="dispatch-$ACTION"
         echo "DRIVER_FAULT=$FAULT iteration=$ITER watch=$(printf '%s' "$WATCH" | tr '\n' ' ')"
+        break ;;
+      pending)
+        FAULT="dispatch-pending"
+        echo "DRIVER_FAULT=dispatch-pending iteration=$ITER — tool permission needs an exact, current-session decision; never approve a previous run's prompt"
         break ;;
       idle)
         verify   # the worker may have finished between the last verify and the watch

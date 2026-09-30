@@ -53,6 +53,17 @@ describe('the driver can see what its dispatch became', () => {
     expect(observeDispatch([snapshot(finished)], SENTINEL).status).toBe('done');
   });
 
+  it('reports an unanswered tool permission as pending, not a completed worker', () => {
+    const pending = {
+      ...request(SENTINEL, { value: 4 }, ''),
+      response: [{ kind: 'toolInvocationSerialized', toolId: 'read_file', invocationMessage: 'Read external file' }],
+    };
+    expect(observeDispatch([snapshot(pending)], SENTINEL).status).toBe('pending');
+    expect(observeDispatch([snapshot(request(SENTINEL, { value: 4 }, ''))], SENTINEL).status).toBe('pending');
+    expect(observeDispatch([snapshot(request(SENTINEL, { value: 0 }, 'working'))], SENTINEL).status).toBe('running');
+    expect(observeDispatch([snapshot(request(SENTINEL, { value: 4, completedAt: 42 }, 'done'))], SENTINEL).status).toBe('done');
+  });
+
   it('takes the last matching request across sessions', () => {
     const first = request(SENTINEL, { value: 1, completedAt: 1 }, 'WRONG AGENT: no');
     const retry = request(SENTINEL, { value: 0 }, 'working');

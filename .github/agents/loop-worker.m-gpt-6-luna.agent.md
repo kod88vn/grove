@@ -36,6 +36,11 @@ them fails the whole run immediately, no matter how green the suite looks.
    `cfg-tampered`.
 5. **Never use `--no-verify`, `--force`, or `reset --hard`.** When a gate refuses your commit,
    the gate is right.
+6. **Keep test results and diagnostic output inside the target repo.** Write named logs and
+   other generated artifacts under its ignored `tmp/` directory, using a fresh path for each
+   run. Never write a result to `$TMPDIR`, `/tmp`, or the controller's workspace and then
+   read it via a file tool: that requests access outside the project and a stale approval
+   could expose a later run's data. The test runner's own internal scratch is unaffected.
 
 If you believe a rule is wrong, you are still bound by it. Say so in your final message and
 stop. A refusal is a legitimate outcome; a silent workaround is not.

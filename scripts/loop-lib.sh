@@ -2,6 +2,25 @@
 # Helpers sourced by every loop driver (scripts/loop.sh and its tmp/<KEY>-loop.sh copies).
 # Kept apart from the template so they can be tested without VS Code, a ledger, or a model.
 
+# The worker reads its own verifier logs. Keep them inside its target project and never reuse
+# a previous run's path: an old pending read must not resolve to a newer run's output.
+prepare_loop_output() {
+  local repo="$1" key="$2" root exclude
+  case "$key" in
+    ''|*[!A-Za-z0-9_-]*) echo "ABORT — unsafe loop key: $key" >&2; return 1 ;;
+  esac
+  root="$(cd "$repo" && pwd -P)" || return 1
+  [ -d "$root/.git" ] || git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "ABORT — not a git project: $root" >&2; return 1;
+  }
+  [ ! -L "$root/tmp" ] || { echo "ABORT — project tmp is a symlink: $root/tmp" >&2; return 1; }
+  mkdir -p "$root/tmp" || return 1
+  exclude="$(git -C "$root" rev-parse --path-format=absolute --git-path info/exclude)" || return 1
+  mkdir -p "$(dirname "$exclude")" || return 1
+  grep -qxF '/tmp/' "$exclude" 2>/dev/null || echo '/tmp/' >> "$exclude"
+  mktemp -d "$root/tmp/loop-$key.XXXXXXXX"
+}
+
 # Print what the worker needs to see from a verifier log. Never prints nothing: run 147 sent an
 # empty `Current verifier output:` for a `node --test` suite, because the filter only knew jest,
 # and every iteration was spent on a worker that refused the dispatch.
@@ -101,12 +120,14 @@ ensure_repo_window() {
 # What the poll loop does with `cc loop watch`'s status, given seconds since the dispatch.
 # refused: the agent rejected the dispatch — every further poll is wasted; stop the run.
 # lost:    no chat request carries the sentinel after the grace period — the dispatch never landed.
+# pending: a tool is waiting for approval; never treat it as a finished turn or approve blindly.
 # idle:    the worker finished and the verifier is still red — end this iteration now.
 # wait:    anything else, including a status this function does not know.
 DISPATCH_GRACE="${DISPATCH_GRACE:-60}"
 dispatch_action() {
   case "$1" in
     refused) echo refused ;;
+    pending) echo pending ;;
     done) echo idle ;;
     none) if [ "$2" -ge "$DISPATCH_GRACE" ]; then echo lost; else echo wait; fi ;;
     *) echo wait ;;

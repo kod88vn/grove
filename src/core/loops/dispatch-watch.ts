@@ -9,7 +9,7 @@ import { foldSessionJsonl } from '../model/session.ts';
  * the first line of every dispatch, which names the run and iteration, so it is unambiguous.
  */
 
-export type DispatchStatus = 'none' | 'running' | 'done' | 'refused';
+export type DispatchStatus = 'none' | 'running' | 'pending' | 'done' | 'refused';
 
 export interface DispatchObservation {
   readonly status: DispatchStatus;
@@ -49,13 +49,18 @@ function replyOf(request: Json): string {
 function finished(request: Json): boolean {
   const state = request.modelState;
   if (!isJson(state)) return false;
-  return state.completedAt !== undefined || (typeof state.value === 'number' && state.value !== 0);
+  return state.completedAt !== undefined || state.value === 1 || state.value === 3;
+}
+
+function pending(request: Json): boolean {
+  const state = request.modelState;
+  return isJson(state) && state.value === 4;
 }
 
 function observe(request: Json): DispatchObservation {
   const reply = replyOf(request);
   const done = finished(request);
-  let status: DispatchStatus = done ? 'done' : 'running';
+  let status: DispatchStatus = done ? 'done' : pending(request) ? 'pending' : 'running';
   if (done && REFUSAL.test(reply)) status = 'refused';
   return {
     status,

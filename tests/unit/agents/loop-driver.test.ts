@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -195,7 +195,13 @@ describe('the driver watches its own dispatch', () => {
     expect(act('none', 60)).toBe('lost');
     expect(act('running', 300)).toBe('wait');
     expect(act('done', 20)).toBe('idle');
+    expect(act('pending', 20)).toBe('pending');
     expect(act('garbage', 20)).toBe('wait');
+  });
+
+  it('stops on a pending permission rather than marking a red run complete', () => {
+    expect(TEMPLATE).toMatch(/pending\)/);
+    expect(TEMPLATE).toContain('DRIVER_FAULT=dispatch-pending');
   });
 
   it('polls the watch beside the verifier and stops on a fault with a machine-readable line', () => {
@@ -204,5 +210,39 @@ describe('the driver watches its own dispatch', () => {
     expect(TEMPLATE).toContain('DRIVER_FAULT=');
     expect(TEMPLATE).toMatch(/refused\|lost\)/);
     expect(TEMPLATE).toMatch(/idle\)/);
+  });
+});
+
+describe('temporary loop artifacts stay in the target project', () => {
+  it('creates a fresh, ignored project-local output directory for each run', () => {
+    const repo = scratch();
+    spawnSync('git', ['init', '-q'], { cwd: repo });
+    const first = lib(`prepare_loop_output "${repo}" M6a`, repo);
+    const second = lib(`prepare_loop_output "${repo}" M6a`, repo);
+    expect(first.code).toBe(0);
+    expect(second.code).toBe(0);
+    const a = first.out.trim();
+    const b = second.out.trim();
+    expect(a).not.toBe(b);
+    expect(a).toMatch(new RegExp(`^${repo}/tmp/loop-M6a\\.`));
+    expect(b).toMatch(new RegExp(`^${repo}/tmp/loop-M6a\\.`));
+    expect(spawnSync('git', ['check-ignore', '-q', a], { cwd: repo }).status).toBe(0);
+    expect(TEMPLATE).toContain('OUT="$(prepare_loop_output "$REPO" "$TICKET")"');
+    expect(WORKER).toMatch(/test (?:results|output).*inside the target repo/i);
+    for (const variant of ['loop-worker.m-gpt-6-luna', 'loop-worker.m-gpt-5-6-luna']) {
+      expect(readFileSync(join(ROOT, `.github/agents/${variant}.agent.md`), 'utf8')).toContain(
+        'Keep test results and diagnostic output inside the target repo',
+      );
+    }
+  });
+
+  it('rejects a symlink from the project output directory to an external location', () => {
+    const repo = scratch();
+    const outside = scratch();
+    spawnSync('git', ['init', '-q'], { cwd: repo });
+    symlinkSync(outside, join(repo, 'tmp'));
+    const result = lib(`prepare_loop_output "${repo}" M6a`, repo);
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('ABORT');
   });
 });
