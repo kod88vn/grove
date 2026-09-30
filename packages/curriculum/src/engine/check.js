@@ -189,6 +189,35 @@ function clock(answer, response) {
   return response.hour === answer.hour && response.minute === answer.minute ? right() : wrong()
 }
 
+function coins(answer, response) {
+  const denominations = [1, 5, 10, 25]
+  if (!isPlainObject(answer) || Object.keys(answer).length !== 2 ||
+    !Number.isSafeInteger(answer.total) || answer.total <= 0 ||
+    !Array.isArray(answer.denominations) || answer.denominations.length === 0 ||
+    answer.denominations.length > denominations.length ||
+    Object.keys(answer.denominations).length !== answer.denominations.length) {
+    throw new TypeError('coins answer must have a positive total and unique valid denominations')
+  }
+  const offered = new Set()
+  for (let index = 0; index < answer.denominations.length; index++) {
+    const coin = answer.denominations[index]
+    if (!denominations.includes(coin) || offered.has(coin)) {
+      throw new TypeError('coins answer must have a positive total and unique valid denominations')
+    }
+    offered.add(coin)
+  }
+  if (!isPlainObject(response) || Object.keys(response).length !== 1 || !isPlainObject(response.counts)) return invalid()
+
+  let total = 0
+  for (const [coinText, count] of Object.entries(response.counts)) {
+    const coin = Number(coinText)
+    if (!answer.denominations.includes(coin) || String(coin) !== coinText || !Number.isSafeInteger(count) || count < 0) return invalid()
+    total += coin * count
+    if (!Number.isSafeInteger(total)) return invalid()
+  }
+  return total === answer.total ? right() : wrong()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
@@ -199,5 +228,6 @@ export function check(widget, answer, response) {
   if (widget === 'sort') return sort(answer, response)
   if (widget === 'match') return match(answer, response)
   if (widget === 'clock') return clock(answer, response)
+  if (widget === 'coins') return coins(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }

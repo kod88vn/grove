@@ -145,6 +145,23 @@ function setClockTo({ hour, minute }) {
   step('minute-forward', ((minute - minuteNow + 60) % 60) / 5)
 }
 
+function coinCountsFor(total, denominations) {
+  let remaining = total
+  const counts = {}
+  for (const coin of [...denominations].sort((left, right) => right - left)) {
+    counts[coin] = Math.floor(remaining / coin)
+    remaining %= coin
+  }
+  return counts
+}
+
+function tapCoins(instance, counts) {
+  for (const [coin, count] of Object.entries(counts)) {
+    const button = document.body.querySelector(`[data-coin-add="${coin}"]`)
+    for (let index = 0; index < count; index++) fireEvent.click(button)
+  }
+}
+
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
   if (instance.widget === 'choice') {
@@ -165,6 +182,10 @@ function enterCorrect(instance, answer) {
   }
   if (instance.widget === 'clock') {
     setClockTo(answer)
+    return
+  }
+  if (instance.widget === 'coins') {
+    tapCoins(instance, coinCountsFor(answer.total, instance.visual.denominations))
     return
   }
   if (instance.widget === 'cloze') {
@@ -214,6 +235,10 @@ function enterWrong(instance, answer) {
     // half-set face is a different verdict and would hide this one.
     setClockTo(answer)
     fireEvent.click(document.body.querySelector('[data-clock-step="minute-forward"]'))
+    return
+  }
+  if (instance.widget === 'coins') {
+    tapCoins(instance, coinCountsFor(answer.total + 1, instance.visual.denominations))
     return
   }
   if (instance.widget === 'cloze') {
@@ -274,7 +299,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(13)
   })
@@ -460,7 +485,7 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'order') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[1])
-      } else if (widget === 'sort' || widget === 'match' || widget === 'clock') {
+      } else if (widget === 'sort' || widget === 'match' || widget === 'clock' || widget === 'coins') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
       } else {
@@ -518,6 +543,8 @@ describe('P1.8 — answer widgets', () => {
         expect(value).toEqual([instance.visual.start.hour, instance.visual.start.minute])
         const { answer } = rendered(problem.id, SEEDS[0])
         expect(value).not.toEqual([answer.hour, answer.minute])
+      } else if (problem.widget === 'coins') {
+        expect(value).toEqual({})
       } else {
         expect(value).toBe('')
       }

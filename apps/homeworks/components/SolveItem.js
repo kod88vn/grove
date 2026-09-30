@@ -13,6 +13,11 @@ const ATTEMPTS_URL = '/homeworks/api/attempts'
 const HINTS_URL = '/homeworks/api/hints'
 const RETRY_MESSAGE = "Nora couldn't check that right now"
 
+function coinsTotal(instance, response) {
+  if (instance.widget !== 'coins') return null
+  return instance.visual.denominations.reduce((total, coin) => total + coin * (response.counts[coin] ?? 0), 0)
+}
+
 async function postJson(url, body) {
   const response = await fetch(url, {
     method: 'POST',
@@ -34,6 +39,7 @@ export function SolveItem({ sessionId, instance, onSolved }) {
   const audioContext = useRef(null)
   const [value, setValue] = useState(() => emptyValue(instance))
   const [attempt, setAttempt] = useState(null)
+  const [coinMade, setCoinMade] = useState(null)
   const [verdictSeq, setVerdictSeq] = useState(0)
   const [error, setError] = useState(null)
   const [hints, setHints] = useState([])
@@ -47,14 +53,16 @@ export function SolveItem({ sessionId, instance, onSolved }) {
     checkInFlight.current = true
     setError(null)
     try {
+      const response = toResponse(instance, value)
       const result = await postJson(ATTEMPTS_URL, {
         sessionId,
         problemId: instance.problemId,
         seed: instance.seed,
-        response: toResponse(instance, value),
+        response,
         durationMs: Math.max(0, Math.round(Date.now() - mountedAt.current)),
       })
       setAttempt(result)
+      setCoinMade(coinsTotal(instance, response))
       setVerdictSeq((sequence) => sequence + 1)
       if (soundsAllowed) {
         try {
@@ -67,6 +75,7 @@ export function SolveItem({ sessionId, instance, onSolved }) {
       if (result.correct) onSolved?.(result)
     } catch {
       setAttempt(null)
+      setCoinMade(null)
       setError(RETRY_MESSAGE)
     } finally {
       checkInFlight.current = false
@@ -131,7 +140,7 @@ export function SolveItem({ sessionId, instance, onSolved }) {
           data-testid="verdict"
           {...(motionAllowed ? { 'data-animate': attempt.correct ? 'correct' : 'wrong' } : {})}
         >
-          {attempt.feedback}
+          {attempt.feedback}{coinMade !== null && ` You made ${coinMade}¢.`}
         </div>
       )}
       {attempt?.correct === true && (

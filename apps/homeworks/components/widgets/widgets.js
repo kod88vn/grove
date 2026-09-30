@@ -2,6 +2,8 @@
 
 import { useId, useRef } from 'react'
 
+import { CoinsWidget } from './CoinsWidget'
+
 function inputId(instance) {
   return `answer-${instance.seed}-${instance.problemId}`
 }
@@ -580,4 +582,4 @@ function ClockWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget }
+export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget, CoinsWidget }

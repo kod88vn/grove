@@ -60,6 +60,16 @@ const keysAtEveryDepth = (node, found = []) => {
   return found
 }
 
+const countsForCoins = (total, denominations) => {
+  let remaining = total
+  const counts = {}
+  for (const coin of [...denominations].sort((left, right) => right - left)) {
+    counts[coin] = Math.floor(remaining / coin)
+    remaining %= coin
+  }
+  return counts
+}
+
 const rightResponse = (answer, widget) => {
   if (widget === 'fraction') return { text: `${answer.num}/${answer.den}` }
   if (widget === 'cloze') return { blanks: answer.blanks.map((blank) => blank.accept[0]) }
@@ -68,6 +78,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'sort') return { buckets: answer.buckets }
   if (widget === 'match') return { pairs: answer.pairs }
   if (widget === 'clock') return { hour: answer.hour, minute: answer.minute }
+  if (widget === 'coins') return { counts: countsForCoins(answer.total, answer.denominations) }
   return { value: answer.value }
 }
 
@@ -90,6 +101,11 @@ const wrongResponse = (widget, answer) => {
   if (widget === 'clock') {
     // An hour late, on a face the child could really have set: `wrong`, not `invalid`.
     return { hour: (answer.hour % 12) + 1, minute: answer.minute }
+  }
+  if (widget === 'coins') {
+    const counts = countsForCoins(answer.total, answer.denominations)
+    counts[1] += 1
+    return { counts }
   }
   return { value: -999999 }
 }

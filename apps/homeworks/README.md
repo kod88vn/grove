@@ -22,6 +22,8 @@ Nora must be running and reachable for exercise generation and grading to work.
 - **Revise & Resubmit**: Students can edit answers after grading and resubmit the same exercise
 
 ### 🔢 Math Section
+- **Curriculum Practice**: Seeded problems from `@grove/curriculum` are answered in purpose-built widgets and graded by the server-side checker
+- **Coins Widget**: Students add or remove offered coin denominations to make a cent target; the running value is withheld until Check feedback
 - **Step-by-Step Problem Solving**: Problems designed like textbook exercises
 - **Four Operations**: Addition, subtraction, multiplication, and division
 - **10-Question Quiz**: Mixed math quizzes now generate exactly 10 problems
