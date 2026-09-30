@@ -58,6 +58,16 @@ describe('fraction-bar answer interaction', () => {
     }
   })
 
+  it('keeps every reference and answer segment on one row at narrow widths', () => {
+    const { instance } = mount(20)
+    expect(instance.visual.segments).toBeGreaterThanOrEqual(10)
+    for (const label of ['Reference segments', 'Answer bar']) {
+      const bar = screen.getByRole('group', { name: label })
+      expect(bar).toHaveClass('flex-nowrap')
+      expect(bar).toHaveClass('overflow-x-auto')
+    }
+  })
+
   it('shades and unshades one segment per button, announcing the current state', () => {
     const { instance, draft } = mount(7)
     const buttons = answerButtons()

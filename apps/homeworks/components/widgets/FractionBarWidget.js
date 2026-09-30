@@ -9,7 +9,7 @@ export function FractionBarWidget({ instance, value, onChange, disabled }) {
   }
 
   const bar = (indices, label, interactive) => (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-1">
+    <div role="group" aria-label={label} className="flex flex-nowrap gap-1 overflow-x-auto">
       {indices.map((index) => {
         const isShaded = interactive ? shaded.has(index) : index < instance.visual.reference.num
         return interactive ? (
