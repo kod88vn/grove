@@ -64,6 +64,17 @@ describe('loop driver outlives the chat turn that launched it', { timeout: 15000
     expect(readFileSync(join(dir, 'starts'), 'utf8').trim().split('\n')).toHaveLength(1);
   });
 
+  it('re-attaches even when the pid file was lost, rather than starting a duplicate', async () => {
+    // Run 147: a competing launch started a second driver on the same repo and overwrote the
+    // log and exit file of the first.
+    const { dir, driver } = scratch('echo start >> starts; sleep 1.5; echo ok > marker');
+    await launchThenKillGroup(`bash "${DETACH}" "${driver}"`, () => existsSync(join(dir, 'starts')));
+    rmSync(driver.replace(/\.sh$/, '.pid'));
+    const again = spawnSync('bash', [DETACH, driver], { encoding: 'utf8', env: ENV });
+    expect(again.stdout).toMatch(/attached to running driver/);
+    expect(readFileSync(join(dir, 'starts'), 'utf8').trim().split('\n')).toHaveLength(1);
+  });
+
   it('waits for the driver and exits with its exit code', () => {
     const { driver } = scratch('echo from-driver; exit 3');
     const run = spawnSync('bash', [DETACH, driver], { encoding: 'utf8', env: ENV });

@@ -200,7 +200,7 @@ describe('entry agent contracts', () => {
   });
 
   it('stops leaf agents outside their own dispatch contract', () => {
-    expect(readFileSync(join(AGENTS, 'loop-worker.agent.md'), 'utf8')).toContain('Current verifier output:');
+    expect(readFileSync(join(AGENTS, 'loop-worker.agent.md'), 'utf8')).toContain('LOOP DRIVER DISPATCH');
     expect(readFileSync(join(AGENTS, 'loop-judge.agent.md'), 'utf8')).toContain('tmp/<KEY>-consult.md');
     expect(readFileSync(join(ROOT, '.github/prompts/loop.prompt.md'), 'utf8')).toContain('Preflight');
   });

@@ -34,6 +34,9 @@ WORKER="loop-worker"          # the cheap model does the grinding. See .github/a
 # `ceilings` keep the worker on Luna. On a re-arm you may pick another of those
 # variants (see registry/model-tiers.json and LOOP.md "Model tiers").
 WORKER_AGENT="${WORKER_AGENT:-$WORKER}"
+# Set this (RELATIVE to $REPO) when the loop is unblocking a guard, so editing the guard's
+# config instead of the code is recorded as `cfg-tampered`. Leave empty otherwise.
+GUARD_CONFIG=""
 
 # The command whose exit code IS "done". If you cannot write one that exits
 # non-zero today, stop: you have a wish, not a loop. Sets RC and TOTAL.
@@ -63,7 +66,12 @@ CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 # The driver lives in cc's scripts/ or tmp/, so cc is one directory up from it.
 CC_ROOT="${CC_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 [ -f "$CC_ROOT/bin/cc.ts" ] || { echo "ABORT — $CC_ROOT is not central-command; set CC_ROOT"; exit 1; }
-CC="npm --prefix $CC_ROOT run --silent cc --"
+cc() { npm --prefix "$CC_ROOT" run --silent cc -- "$@"; }
+# shellcheck source=loop-lib.sh
+source "$CC_ROOT/scripts/loop-lib.sh"
+# Before anything touches $REPO: a second driver on the same repo would dispatch a second
+# worker into the same window and judge the first one's edits.
+acquire_repo_lock "$CC_ROOT" "$REPO" || exit 1
 OUT="$CC_ROOT/tmp/$TICKET"
 # `code chat -m` resolves the agent in $REPO's window, so that is where the file must be.
 AGENT="$REPO/.github/agents/$WORKER_AGENT.agent.md"
@@ -117,9 +125,10 @@ echo "============================================================"
 
 echo "--- iteration 0: confirm the work is genuinely undone ---"
 verify
-echo "verifier exit: $RC ($TOTAL tests)"
-RUN=$($CC loop start --ticket="$TICKET" --repo="$REPO" --spec="$SPEC" \
-        --verifier="jest" --exit="$RC" --tests="$BASELINE" --budget="$MAX_ITER") || {
+SUPPRESSIONS="$(count_suppressions "$REPO")"
+echo "verifier exit: $RC ($TOTAL tests, $SUPPRESSIONS suppressions)"
+RUN=$(cc loop start --ticket="$TICKET" --repo="$REPO" --spec="$SPEC" ${GUARD_CONFIG:+--config="$GUARD_CONFIG"} \
+        --suppressions="$SUPPRESSIONS" --verifier="jest" --exit="$RC" --tests="$BASELINE" --budget="$MAX_ITER") || {
   echo "ABORT — refused to start: already green, or the spec is unreadable."; exit 1; }
 echo "run $RUN — watch it at http://127.0.0.1:4747/loops/$RUN"
 
@@ -130,13 +139,17 @@ while [ "$ITER" -lt "$MAX_ITER" ]; do
   echo "--- iteration $ITER of $MAX_ITER ---"
 
   # Feed back only the lines that matter. The whole log spends the turn's
-  # context on noise.
-  FAILURES="$(grep -E "^(  ●|Cannot find module|Tests:)" "$OUT/verify.txt" | head -25)"
+  # context on noise. failure_lines knows jest, vitest and node --test, and
+  # falls back to the log tail; it never returns nothing.
+  FAILURES="$(failure_lines "$OUT/verify.txt")"
 
   "$CODE" "$REPO" >/dev/null 2>&1        # focus the existing window on the target repo
   sleep 6
   echo "dispatching $WORKER_AGENT..."
-  "$CODE" chat -m "$WORKER_AGENT" -r "$TASK
+  # The first line is the worker's preflight sentinel. Keep it first and keep it literal.
+  "$CODE" chat -m "$WORKER_AGENT" -r "LOOP DRIVER DISPATCH — $TICKET run $RUN iteration $ITER of $MAX_ITER
+
+$TASK
 
 Current verifier output:
 $FAILURES" > "$OUT/cli-$ITER.out" 2>&1
@@ -150,15 +163,15 @@ $FAILURES" > "$OUT/cli-$ITER.out" 2>&1
   done
 
   # The ledger judges, not this script. It re-reads the spec checksum here.
-  STATE=$($CC loop record --run="$RUN" --iteration="$ITER" --exit="$RC" \
-            --tests="$TOTAL" --tail="$OUT/verify.txt")
+  STATE=$(cc loop record --run="$RUN" --iteration="$ITER" --exit="$RC" \
+            --suppressions="$(count_suppressions "$REPO")" --tests="$TOTAL" --tail="$OUT/verify.txt")
   echo "iteration $ITER: $STATE"
   [ "$STATE" != "red" ] && break
 done
 
 echo
 echo "===================== RESULT ====================="
-$CC loop finish --run="$RUN"
+cc loop finish --run="$RUN"
 echo
 echo "--- changes in $REPO ---"
 git -C "$REPO" status --porcelain
