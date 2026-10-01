@@ -46,7 +46,7 @@ describe('the gallery covers every widget that has a sample problem', () => {
 
   test('today includes every registered sample widget', () => {
     const covered = [...new Set(samples.map((sample) => sample.widget))].sort()
-    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'fraction', 'fraction-bar', 'match', 'number', 'number-line', 'order', 'sort', 'table-fill', 'tap-select', 'text'])
+    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'expression', 'fraction', 'fraction-bar', 'match', 'number', 'number-line', 'order', 'sort', 'steps', 'table-fill', 'tap-select', 'text'])
   })
 
   test('one sample per widget, each naming the widget it demonstrates', () => {
@@ -159,7 +159,7 @@ describe('the MathText sample', () => {
     expect(() => katex.renderToString(MATH_SAMPLE.latex, { throwOnError: true })).not.toThrow()
   })
 
-  test('shows the three forms the number pad deferred to Band C: exponent, root and pi', () => {
+  test('shows exponent, root and pi notation as MathText examples, not free-form keys', () => {
     const html = katex.renderToString(MATH_SAMPLE.latex, {
       throwOnError: true,
       output: 'htmlAndMathml',

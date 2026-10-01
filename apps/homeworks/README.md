@@ -25,6 +25,7 @@ Nora must be running and reachable for exercise generation and grading to work.
 - **Curriculum Practice**: Seeded problems from `@grove/curriculum` are answered in purpose-built widgets and graded by the server-side checker
 - **Coins Widget**: Students add or remove offered coin denominations to make a cent target; the running value is withheld until Check feedback
 - **Table-Fill Widget**: Students complete each meters-to-centimeters cell in a responsive, accessible conversion table; every cell is checked independently
+- **Symbolic Widgets**: Expression answers use exact polynomial and rational-function equivalence with optional factored-form checks; ordered-step answers are checked independently in their submitted positions. The keypad offers integer powers but omits unsupported radical and pi syntax.
 - **Step-by-Step Problem Solving**: Problems designed like textbook exercises
 - **Four Operations**: Addition, subtraction, multiplication, and division
 - **10-Question Quiz**: Mixed math quizzes now generate exactly 10 problems

@@ -16,6 +16,8 @@ import { templates as primeCompositeTemplates } from './problems/math/g05/prime-
 import { templates as sortQuadrilateralsTemplates } from './problems/math/g05/sort-quadrilaterals.js'
 import { templates as nameTheQuadrilateralTemplates } from './problems/math/g05/name-the-quadrilateral.js'
 import { templates as tableFillTemplates } from './problems/math/g05/table-fill.js'
+import { templates as symbolicExpressionTemplates } from './problems/math/g05/symbolic-expression.js'
+import { templates as symbolicStepsTemplates } from './problems/math/g05/symbolic-steps.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
@@ -37,6 +39,8 @@ const problemTemplates = [
   ...sortQuadrilateralsTemplates,
   ...nameTheQuadrilateralTemplates,
   ...tableFillTemplates,
+  ...symbolicExpressionTemplates,
+  ...symbolicStepsTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 
@@ -109,6 +113,7 @@ const visualFields = {
   'fraction-bar': ['kind', 'reference', 'segments'],
   'number-line': ['kind', 'segments'],
   'table-fill': ['kind', 'rows'],
+  steps: ['kind', 'items'],
 }
 
 export function toInstance(rendered) {

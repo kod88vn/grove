@@ -168,6 +168,16 @@ function enterCorrect(instance, answer) {
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: answer.accept[0] } })
     return
   }
+  if (instance.widget === 'expression') {
+    fireEvent.change(screen.getByRole('textbox', { name: /expression/i }), { target: { value: answer.expression } })
+    return
+  }
+  if (instance.widget === 'steps') {
+    screen.getAllByRole('textbox', { name: /step/i }).forEach((field, index) => {
+      fireEvent.change(field, { target: { value: answer.steps[index].expression } })
+    })
+    return
+  }
   if (instance.widget === 'choice') {
     fireEvent.click(screen.getByRole('radio', { name: labelOf(instance, answer.id) }))
     return
@@ -230,6 +240,18 @@ function enterCorrect(instance, answer) {
 function enterWrong(instance, answer) {
   if (instance.widget === 'text') {
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: 'quadrilateral' } })
+    return
+  }
+  if (instance.widget === 'expression') {
+    fireEvent.change(screen.getByRole('textbox', { name: /expression/i }), { target: { value: 'x^2' } })
+    return
+  }
+  if (instance.widget === 'steps') {
+    const fields = screen.getAllByRole('textbox', { name: /step/i })
+    fireEvent.change(fields[0], { target: { value: '0' } })
+    fields.slice(1).forEach((field, index) => {
+      fireEvent.change(field, { target: { value: answer.steps[index + 1].expression } })
+    })
     return
   }
   if (instance.widget === 'choice') {
@@ -334,6 +356,7 @@ function residueOf(text, instance) {
   const visual = instance.visual
   if (visual === null) return text.replace(instance.prompt, ' ')
   if (visual.kind === 'expression') sent.push(visual.expression)
+  if (visual.kind === 'steps') sent.push(...visual.items.map(({ label }) => label))
   if (visual.kind === 'column') sent.push(visual.operator, ...visual.operands.map(String))
   if (visual.kind === 'fraction-sum') {
     sent.push(visual.operator)
@@ -362,7 +385,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(14)
   })
@@ -565,7 +588,7 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'fraction-bar' || widget === 'number-line') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
-      } else if (widget === 'table-fill') {
+      } else if (widget === 'table-fill' || widget === 'expression' || widget === 'steps') {
         for (const field of screen.getAllByRole('textbox')) expect(field).toBeDisabled()
         fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '5' } })
       } else {
@@ -631,6 +654,8 @@ describe('P1.8 — answer widgets', () => {
         expect(value).toEqual([])
       } else if (problem.widget === 'table-fill') {
         expect(value).toEqual(Object.fromEntries(instance.visual.rows.map(({ id }) => [id, ''])))
+      } else if (problem.widget === 'steps') {
+        expect(value).toEqual(instance.visual.items.map(() => ''))
       } else {
         expect(value).toBe('')
       }
