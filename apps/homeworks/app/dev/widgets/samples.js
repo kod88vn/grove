@@ -76,6 +76,7 @@ export function correctValueFor(sample) {
   if (sample.widget === 'clock') return [sample.answer.hour, sample.answer.minute]
   if (sample.widget === 'coins') return coinCountsFor(sample.answer.total, sample.answer.denominations)
   if (sample.widget === 'tap-select') return [...sample.answer.ids]
+  if (sample.widget === 'graph') return sample.answer.points.map((point) => ({ ...point }))
   throw new Error(`unknown widget: ${sample.widget}`)
 }
 
@@ -148,6 +149,11 @@ export function wrongValueFor(sample) {
     const distractor = sample.instance.visual.tokens.find((token) => !sample.answer.ids.includes(token.id))
     if (distractor === undefined) throw new Error(`no wrong token for ${sample.widget}`)
     return [sample.answer.ids[0], distractor.id]
+  }
+  if (sample.widget === 'graph') {
+    const points = correctValueFor(sample).map((point) => ({ ...point }))
+    points[points.length - 1].y += points.at(-1).y + 1 <= sample.instance.visual.yMax ? 1 : -1
+    return points
   }
   throw new Error(`unknown widget: ${sample.widget}`)
 }

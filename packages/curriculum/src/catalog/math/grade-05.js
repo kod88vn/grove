@@ -588,6 +588,7 @@ export const skills = [
     legacyId: 'line-graphs',
   },
   {
+    // This prerequisite algebra progression is off-grade here; graph-template use retains ccss: [].
     id: 'm5.oa.variables',
     grade: 5,
     subject: 'math',

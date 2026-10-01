@@ -251,6 +251,8 @@ const VISUAL_KEYS = {
   'table-fill': ['kind', 'rows'],
   // Ordered steps expose only position labels, never the expressions graded there.
   steps: ['items', 'kind'],
+  // Graph mode and bounds are public; plotted solution points and tolerance are private.
+  graph: ['kind', 'mode', 'xMax', 'xMin', 'yMax', 'yMin'],
 }
 
 const walk = (value, visit, path = '$') => {

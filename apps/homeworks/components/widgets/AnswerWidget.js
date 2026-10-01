@@ -19,6 +19,7 @@ import { NumberLineWidget } from './NumberLineWidget'
 import { TableFillWidget } from './TableFillWidget'
 import { ExpressionWidget } from './ExpressionWidget'
 import { StepsWidget } from './StepsWidget'
+import { GraphWidget } from './GraphWidget'
 
 export function AnswerWidget({ instance, value, onChange, disabled }) {
   if (instance.widget === 'number') {
@@ -71,6 +72,9 @@ export function AnswerWidget({ instance, value, onChange, disabled }) {
   }
   if (instance.widget === 'steps') {
     return <StepsWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'graph') {
+    return <GraphWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   throw new Error(`unknown widget: ${instance.widget}`)
 }

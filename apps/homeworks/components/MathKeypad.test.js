@@ -122,7 +122,7 @@ afterEach(() => {
 describe('P2.2 — which keys may exist at all', () => {
   it('lists every registered widget, including table-fill without adding it to the keypad', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps', 'graph']),
     )
   })
 
@@ -141,6 +141,7 @@ describe('P2.2 — which keys may exist at all', () => {
     // reachable by dragging or by stepping — a pad would be a third route the checker
     // never sees, and the only one that could produce a time the face cannot display.
     expect(keysFor('clock')).toBeNull()
+    expect(keysFor('graph')).toBeNull()
     expect(keysFor('expression')).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'x', '+', '-', '*', '/', '^', '(', ')'])
     expect(keysFor('steps')).toBeNull()
     expect(keysFor('expression')).toContain('^')

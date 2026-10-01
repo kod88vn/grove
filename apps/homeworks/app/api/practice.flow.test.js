@@ -86,6 +86,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'tap-select') return { ids: [...answer.ids] }
   if (widget === 'number-line') return { text: `${answer.num * 2}/${answer.den * 2}` }
   if (widget === 'table-fill') return { cells: Object.fromEntries(Object.entries(answer.cells).map(([id, value]) => [id, String(value)])) }
+  if (widget === 'graph') return { points: answer.points }
   return { value: answer.value }
 }
 
@@ -123,6 +124,13 @@ const wrongResponse = (widget, answer) => {
   if (widget === 'table-fill') {
     const entries = Object.entries(answer.cells)
     return { cells: Object.fromEntries(entries.map(([id, value], index) => [id, String(value + (index === 0 ? 100 : 0))])) }
+  }
+  if (widget === 'graph') {
+    const { bound } = answer
+    const points = answer.points.map((point, index) => index === answer.points.length - 1
+      ? { ...point, y: point.y + (point.y + 1 <= bound.yMax ? 1 : -1) }
+      : point)
+    return { points }
   }
   return { value: -999999 }
 }
