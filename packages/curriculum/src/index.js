@@ -7,6 +7,7 @@ import { templates as clockElapsedTimeTemplates } from './problems/math/g05/cloc
 import { templates as coinsValueTemplates } from './problems/math/g05/coins-value.js'
 import { templates as fractionsTemplates } from './problems/math/g05/add-fractions-unlike.js'
 import { templates as shadeEquivalentTemplates } from './problems/math/g05/shade-equivalent.js'
+import { templates as placeOnNumberLineTemplates } from './problems/math/g05/place-on-number-line.js'
 import { templates as multiplicationTemplates } from './problems/math/g05/long-multiplication.js'
 import { templates as matchExpressionsTemplates } from './problems/math/g05/match-expressions.js'
 import { templates as orderOfOperationsTemplates } from './problems/math/g05/order-of-operations.js'
@@ -25,6 +26,7 @@ const problemTemplates = [
   ...coinsValueTemplates,
   ...fractionsTemplates,
   ...shadeEquivalentTemplates,
+  ...placeOnNumberLineTemplates,
   ...multiplicationTemplates,
   ...matchExpressionsTemplates,
   ...orderOfOperationsTemplates,
@@ -101,6 +103,7 @@ const visualFields = {
   coins: ['kind', 'target', 'denominations'],
   'tap-select': ['kind', 'tokens', 'segments', 'blankIndex'],
   'fraction-bar': ['kind', 'reference', 'segments'],
+  'number-line': ['kind', 'segments'],
 }
 
 export function toInstance(rendered) {

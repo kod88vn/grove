@@ -117,6 +117,10 @@ function enter(card, sample, value) {
     for (const index of value) fireEvent.click(within(card).getAllByRole('button')[index])
     return
   }
+  if (sample.widget === 'number-line') {
+    fireEvent.click(within(card).getByRole('button', { name: `Mark ${value} of ${sample.instance.visual.segments}` }))
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -184,6 +188,9 @@ describe('the gallery shows every widget', () => {
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else if (sample.widget === 'fraction-bar') {
         expect(within(card).getAllByRole('button')).toHaveLength(sample.instance.visual.segments + 2)
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
+      } else if (sample.widget === 'number-line') {
+        expect(within(card).getAllByRole('button')).toHaveLength(sample.instance.visual.segments + 3)
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
@@ -288,7 +295,7 @@ describe('the answer is dev-only, and hidden until asked for', () => {
             .filter(([, count]) => count > 0)
             .map(([coin, count]) => `${count} ${coinLabels[coin][count === 1 ? 0 : 1]}`)
             .join(', ')
-          : Array.isArray(right) ? right.join(', ') : right
+          : Array.isArray(right) ? right.join(', ') : String(right)
       expect(revealed.textContent).toContain(shown)
     }
   })

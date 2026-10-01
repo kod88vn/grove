@@ -200,6 +200,11 @@ function enterCorrect(instance, answer) {
     for (let index = 0; index < count; index++) fireEvent.click(screen.getAllByRole('button')[index])
     return
   }
+  if (instance.widget === 'number-line') {
+    const tick = answer.num * instance.visual.segments / answer.den
+    fireEvent.click(screen.getByRole('button', { name: `Mark ${tick} of ${instance.visual.segments}` }))
+    return
+  }
   if (instance.widget === 'cloze') {
     for (let index = 0; index < answer.blanks.length; index++) {
       fireEvent.click(screen.getAllByRole('radio', { name: answer.blanks[index].accept[0] })[index])
@@ -265,6 +270,10 @@ function enterWrong(instance, answer) {
     for (let index = 0; index <= count; index++) fireEvent.click(screen.getAllByRole('button')[index])
     return
   }
+  if (instance.widget === 'number-line') {
+    fireEvent.click(screen.getByRole('button', { name: `Mark 0 of ${instance.visual.segments}` }))
+    return
+  }
   if (instance.widget === 'cloze') {
     const accepted = new Set(answer.blanks[0].accept.map((word) => word.toLowerCase()))
     const other = instance.visual.choices.find((choice) => !accepted.has(choice.toLowerCase()))
@@ -294,6 +303,7 @@ function visibleText(container) {
   const clone = container.cloneNode(true)
   for (const numerals of clone.querySelectorAll('[data-clock-dial]')) numerals.remove()
   for (const count of clone.querySelectorAll('[data-fraction-bar-count]')) count.remove()
+  for (const endpoint of clone.querySelectorAll('[data-number-line-endpoint]')) endpoint.remove()
   return clone.textContent
 }
 
@@ -320,6 +330,7 @@ function residueOf(text, instance) {
     sent.push(`${visual.reference.num}/${visual.reference.den}`)
     sent.push(String(visual.reference.num), String(visual.reference.den), String(visual.segments))
   }
+  if (visual.kind === 'number-line') sent.push(String(visual.segments))
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -328,7 +339,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(13)
   })
@@ -524,7 +535,7 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'tap-select') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
-      } else if (widget === 'fraction-bar') {
+      } else if (widget === 'fraction-bar' || widget === 'number-line') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
       } else {

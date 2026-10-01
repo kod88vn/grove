@@ -81,6 +81,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'clock') return { hour: answer.hour, minute: answer.minute }
   if (widget === 'coins') return { counts: countsForCoins(answer.total, answer.denominations) }
   if (widget === 'tap-select') return { ids: [...answer.ids] }
+  if (widget === 'number-line') return { text: `${answer.num * 2}/${answer.den * 2}` }
   return { value: answer.value }
 }
 
@@ -111,6 +112,7 @@ const wrongResponse = (widget, answer) => {
   }
   if (widget === 'tap-select') return { ids: [answer.ids[0], answer.availableIds.find((id) => !answer.ids.includes(id))] }
   if (widget === 'fraction-bar') return { text: `0/${answer.den * 2}` }
+  if (widget === 'number-line') return { text: '0/1' }
   return { value: -999999 }
 }
 

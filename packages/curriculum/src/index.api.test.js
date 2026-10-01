@@ -216,6 +216,7 @@ const VISUAL_KEYS = {
   column: ['kind', 'operands', 'operator'],
   'fraction-sum': ['addends', 'kind', 'operator'],
   'fraction-bar': ['kind', 'reference', 'segments'],
+  'number-line': ['kind', 'segments'],
   expression: ['expression', 'kind'],
   cloze: ['choices', 'kind', 'sentence'],
   // P2.6 — `choice` (plan §6.3, Band A). The options are the whole question, so they are
