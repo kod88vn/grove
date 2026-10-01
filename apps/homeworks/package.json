@@ -7,7 +7,8 @@
     "dev": "next dev -p 3005",
     "build": "next build",
     "start": "next start",
-    "test": "jest --ci --detectOpenHandles --runInBand"
+    "test": "jest --ci --detectOpenHandles --runInBand",
+    "test:browser": "node scripts/run-browser-test.mjs"
   },
   "dependencies": {
     "@grove/curriculum": "*",

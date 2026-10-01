@@ -25,6 +25,7 @@
   "devDependencies": {
     "@platformatic/gateway": "^3.54.0",
     "husky": "^9.1.7",
+    "playwright": "1.60.0",
     "platformatic": "^3.53.0",
     "turbo": "^2.9.12"
   }

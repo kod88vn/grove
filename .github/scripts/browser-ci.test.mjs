@@ -28,6 +28,14 @@ test('Homeworks offers a separate browser runner while ordinary Jest excludes it
   assert.doesNotMatch(read('apps/homeworks/jest.config.cjs'), /browser\.test\.cjs/)
 })
 
+test('browser runner refuses unsafe database configuration before starting Next', () => {
+  const runner = read('apps/homeworks/scripts/run-browser-test.mjs')
+  assert.match(runner, /readFile(?:Sync)?[\s\S]*lib\/db\.js/)
+  assert.match(runner, /HOMEWORKS_DB_PATH/)
+  assert.match(runner, /throw new Error\([\s\S]*HOMEWORKS_DB_PATH/)
+  assert.ok(runner.indexOf('throw new Error') < runner.indexOf("spawn('yarn'"), 'check env support before spawning Next')
+})
+
 test('CI gates Chromium install and Homeworks browser execution on changed Homeworks files', () => {
   assert.ok(/homeworks=true.*GITHUB_OUTPUT|GITHUB_OUTPUT.*homeworks=true/.test(workflow), 'missing changed-homeworks CI output')
   const install = step('Install Chromium for Homeworks browser tests')
