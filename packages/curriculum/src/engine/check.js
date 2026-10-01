@@ -260,6 +260,27 @@ function coins(answer, response) {
   return total === answer.total ? right() : wrong()
 }
 
+function tableFill(answer, response) {
+  if (!isPlainObject(answer) || Object.keys(answer).length !== 1 || !Object.hasOwn(answer, 'cells') || !isPlainObject(answer.cells) || Object.keys(answer.cells).length === 0) {
+    throw new TypeError('table-fill answer must have a non-empty cells map')
+  }
+  const answerCells = Object.entries(answer.cells)
+  if (answerCells.some(([id, value]) => id.trim().length === 0 || typeof value !== 'number' || !Number.isFinite(value))) {
+    throw new TypeError('table-fill answer cells must have non-empty ids and finite numeric values')
+  }
+  if (!isPlainObject(response) || Object.keys(response).length !== 1 || !Object.hasOwn(response, 'cells') || !isPlainObject(response.cells)) return invalid()
+
+  const responseCells = Object.entries(response.cells)
+  if (responseCells.length !== answerCells.length || responseCells.some(([id]) => !Object.hasOwn(answer.cells, id))) return invalid()
+  const values = new Map()
+  for (const [id, value] of responseCells) {
+    const parsed = typeof value === 'string' ? decimal(value) : value
+    if ((typeof value !== 'string' && typeof value !== 'number') || !Number.isFinite(parsed)) return invalid()
+    values.set(id, parsed)
+  }
+  return answerCells.every(([id, expected]) => values.get(id) === expected) ? right() : wrong()
+}
+
 export function check(widget, answer, response) {
   if (widget === 'choice') return choice(answer, response)
   if (widget === 'number') return number(answer, response)
@@ -275,5 +296,6 @@ export function check(widget, answer, response) {
   if (widget === 'clock') return clock(answer, response)
   if (widget === 'coins') return coins(answer, response)
   if (widget === 'tap-select') return tapSelect(answer, response)
+  if (widget === 'table-fill') return tableFill(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }

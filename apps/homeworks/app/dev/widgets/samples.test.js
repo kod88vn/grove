@@ -46,7 +46,7 @@ describe('the gallery covers every widget that has a sample problem', () => {
 
   test('today includes every registered sample widget', () => {
     const covered = [...new Set(samples.map((sample) => sample.widget))].sort()
-    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'fraction', 'fraction-bar', 'match', 'number', 'number-line', 'order', 'sort', 'tap-select', 'text'])
+    expect(covered).toEqual(['choice', 'clock', 'cloze', 'coins', 'column', 'fraction', 'fraction-bar', 'match', 'number', 'number-line', 'order', 'sort', 'table-fill', 'tap-select', 'text'])
   })
 
   test('one sample per widget, each naming the widget it demonstrates', () => {
@@ -135,6 +135,9 @@ describe('right and wrong go through the real checker', () => {
         } else if (sample.widget === 'coins') {
           expect(value).toEqual(expect.objectContaining(Object.fromEntries(sample.answer.denominations.map((coin) => [coin, expect.any(Number)]))))
           for (const count of Object.values(value)) expect(Number.isSafeInteger(count)).toBe(true)
+        } else if (sample.widget === 'table-fill') {
+          expect(Object.keys(value).sort()).toEqual(sample.instance.visual.rows.map(({ id }) => id).sort())
+          for (const cell of Object.values(value)) expect(typeof cell).toBe('string')
         } else {
           expect(typeof value).toBe('string')
           expect(value.length).toBeGreaterThan(0)

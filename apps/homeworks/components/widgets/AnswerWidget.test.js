@@ -209,6 +209,12 @@ function enterCorrect(instance, answer) {
     fireEvent.click(screen.getByRole('button', { name: `Mark ${tick} of ${instance.visual.segments}` }))
     return
   }
+  if (instance.widget === 'table-fill') {
+    for (const { id, meters } of instance.visual.rows) {
+      fireEvent.change(screen.getByRole('textbox', { name: new RegExp(`centimeters.*${id}`, 'i') }), { target: { value: String(meters * 100) } })
+    }
+    return
+  }
   if (instance.widget === 'cloze') {
     for (let index = 0; index < answer.blanks.length; index++) {
       fireEvent.click(screen.getAllByRole('radio', { name: answer.blanks[index].accept[0] })[index])
@@ -282,6 +288,13 @@ function enterWrong(instance, answer) {
     fireEvent.click(screen.getByRole('button', { name: `Mark 0 of ${instance.visual.segments}` }))
     return
   }
+  if (instance.widget === 'table-fill') {
+    for (const { id, meters } of instance.visual.rows) {
+      const value = meters * 100 + (id === instance.visual.rows[0].id ? 100 : 0)
+      fireEvent.change(screen.getByRole('textbox', { name: new RegExp(`centimeters.*${id}`, 'i') }), { target: { value: String(value) } })
+    }
+    return
+  }
   if (instance.widget === 'cloze') {
     const accepted = new Set(answer.blanks[0].accept.map((word) => word.toLowerCase()))
     const other = instance.visual.choices.find((choice) => !accepted.has(choice.toLowerCase()))
@@ -340,6 +353,7 @@ function residueOf(text, instance) {
     sent.push(String(visual.reference.num), String(visual.reference.den), String(visual.segments))
   }
   if (visual.kind === 'number-line') sent.push(String(visual.segments))
+  if (visual.kind === 'table-fill') sent.push(...visual.rows.map(({ meters }) => String(meters)))
   let residue = text
   for (const piece of sent.sort((a, b) => b.length - a.length)) residue = residue.split(piece).join(' ')
   return residue
@@ -348,9 +362,9 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'text']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text']),
     )
-    expect(problems.length).toBeGreaterThanOrEqual(13)
+    expect(problems.length).toBeGreaterThanOrEqual(14)
   })
 
   describe.each(problems.map((problem) => [problem.id, problem.widget]))('%s (%s)', (id, widget) => {
@@ -431,6 +445,10 @@ describe('P1.8 — answer widgets', () => {
       if (instance.visual?.kind === 'fraction-bar') {
         expect(screen.getByText(`Shaded 0 of ${instance.visual.segments}`)).toBeInTheDocument()
         expect(view.container.querySelector('[data-fraction-bar-count]')).not.toBeNull()
+      }
+      if (instance.visual?.kind === 'table-fill') {
+        expect(view.container.querySelectorAll('tbody tr')).toHaveLength(4)
+        expect(screen.getAllByRole('textbox')).toHaveLength(4)
       }
     })
 
@@ -547,6 +565,9 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'fraction-bar' || widget === 'number-line') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
+      } else if (widget === 'table-fill') {
+        for (const field of screen.getAllByRole('textbox')) expect(field).toBeDisabled()
+        fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '5' } })
       } else {
         expect(screen.getByLabelText('Your answer')).toBeDisabled()
         fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: '5' } })
@@ -608,6 +629,8 @@ describe('P1.8 — answer widgets', () => {
         expect(value).toEqual([])
       } else if (problem.widget === 'fraction-bar') {
         expect(value).toEqual([])
+      } else if (problem.widget === 'table-fill') {
+        expect(value).toEqual(Object.fromEntries(instance.visual.rows.map(({ id }) => [id, ''])))
       } else {
         expect(value).toBe('')
       }

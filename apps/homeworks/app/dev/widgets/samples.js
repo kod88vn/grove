@@ -41,6 +41,9 @@ export function correctValueFor(sample) {
     return Array.from({ length: sample.answer.num * sample.instance.visual.segments / sample.answer.den }, (_, index) => index)
   }
   if (sample.widget === 'number-line') return sample.answer.num * sample.instance.visual.segments / sample.answer.den
+  if (sample.widget === 'table-fill') {
+    return Object.fromEntries(sample.instance.visual.rows.map(({ id }) => [id, String(sample.answer.cells[id])]))
+  }
   if (sample.widget === 'cloze') {
     return sample.answer.blanks.map((blank) => {
       const choice = sample.instance.visual.choices.find((entry) => blank.accept.some((accepted) => normalize(entry) === normalize(accepted)))
@@ -88,6 +91,12 @@ export function wrongValueFor(sample) {
   if (sample.widget === 'number-line') {
     const correct = correctValueFor(sample)
     return correct === 0 ? 1 : correct - 1
+  }
+  if (sample.widget === 'table-fill') {
+    const value = correctValueFor(sample)
+    const [id] = Object.keys(value)
+    value[id] = String(Number(value[id]) + 100)
+    return value
   }
   if (sample.widget === 'cloze') {
     return sample.answer.blanks.map((blank) => {

@@ -247,6 +247,8 @@ const VISUAL_KEYS = {
   coins: ['denominations', 'kind', 'target'],
   // Tap-select shows issued token labels and sentence-order segments; selected ids stay server-side.
   'tap-select': ['blankIndex', 'kind', 'segments', 'tokens'],
+  // Table-fill publishes row prompts but keeps the independently graded cell map private.
+  'table-fill': ['kind', 'rows'],
 }
 
 const walk = (value, visit, path = '$') => {

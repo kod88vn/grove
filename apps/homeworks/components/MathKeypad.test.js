@@ -129,9 +129,9 @@ afterEach(() => {
 })
 
 describe('P2.2 — which keys may exist at all', () => {
-  it('still ships only the four Phase 1 widgets, so no Band C key has a consumer', () => {
+  it('lists every registered widget, including table-fill without adding it to the keypad', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'text']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text']),
     )
   })
 

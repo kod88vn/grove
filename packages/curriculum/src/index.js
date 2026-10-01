@@ -15,6 +15,7 @@ import { templates as orderDecimalsTemplates } from './problems/math/g05/order-d
 import { templates as primeCompositeTemplates } from './problems/math/g05/prime-composite.js'
 import { templates as sortQuadrilateralsTemplates } from './problems/math/g05/sort-quadrilaterals.js'
 import { templates as nameTheQuadrilateralTemplates } from './problems/math/g05/name-the-quadrilateral.js'
+import { templates as tableFillTemplates } from './problems/math/g05/table-fill.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
@@ -35,6 +36,7 @@ const problemTemplates = [
   ...primeCompositeTemplates,
   ...sortQuadrilateralsTemplates,
   ...nameTheQuadrilateralTemplates,
+  ...tableFillTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 
@@ -106,6 +108,7 @@ const visualFields = {
   'tap-select': ['kind', 'tokens', 'segments', 'blankIndex'],
   'fraction-bar': ['kind', 'reference', 'segments'],
   'number-line': ['kind', 'segments'],
+  'table-fill': ['kind', 'rows'],
 }
 
 export function toInstance(rendered) {
