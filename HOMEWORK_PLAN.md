@@ -695,9 +695,12 @@ implicitly complete when another unit merges.
 - Remaining units: symbolic solving (`P2.18`, `P2.20`), graph plotting (`P2.19`),
   cross-widget seed/target hardening (`P2.22`), and catalogue/gallery completion
   (`P2.5`, including the still-unbuilt `multi-choice`). `P2.17` is already in flight and
-  is not regrouped. Gallery acceptance stays open until the Phase 6 `audio-spell`
-  (`P2.12`) and `free-response` (`P2.21`) dependencies exist; an interim gallery audit
-  does not tick `P2.5`. See the progress unit tables for exact ownership and gates.
+  is not regrouped. The Phase 6c unit E6c-1B owns both the human-reviewed G1/G2 spelling
+  bank and `audio-spell` (`P2.12`); after human review, its acceptance includes playable
+  iPad-portrait behavior, so neither deliverable waits for a separate PR. Gallery
+  acceptance stays open until E6c-1B and E-RUBRIC (`P2.21`) are complete; an interim
+  gallery audit does not tick `P2.5`. See the progress unit tables for exact ownership
+  and gates.
 - 🔊 read-aloud, on-screen number pad, maths keypad, feedback animations, reduced motion,
   sounds toggle, dyslexia font.
 - Pick and install maths rendering (D5) for Band C/D.
@@ -756,9 +759,12 @@ separate cutover unit after the 5a skills meet §9; do not retire live paths ear
 When 6a is done, switch the **English** tab to the new engine and retire the live
 passage-generation path for kids (generation moves to authoring only).
 The 6a–6e batches likewise use reviewed, multi-skill grade/strand units in the progress
-table. The authoring/review pipeline, rubric and free-response flow, and English cutover
-are separate units. `P1.5` remains pending a parent's actual review; `P2.12` waits on
-the 6c reviewed spelling bank, and `P2.21` waits on the rubric route.
+table. In 6c, E6c-1B ships the human-reviewed G1/G2 spelling bank and `P2.12`
+`audio-spell` together: human review gates the bank and the same unit's iPad-portrait
+play acceptance covers the playable widget, avoiding a dependency on a later PR. Other
+spelling groups need `P2.12` before their iPad-play acceptance. The authoring/review
+pipeline, rubric and free-response flow, and English cutover are separate units. `P1.5`
+remains pending a parent's actual review; `P2.21` waits on the rubric route.
 
 ### Phase 7 — Parents and polish
 - Review page: filter by kid, by skill; per-skill trend; export CSV.
