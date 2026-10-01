@@ -71,6 +71,8 @@ const countsForCoins = (total, denominations) => {
 }
 
 const rightResponse = (answer, widget) => {
+  if (widget === 'expression') return { text: answer.expression }
+  if (widget === 'steps') return { steps: answer.steps.map(({ expression }) => expression) }
   if (widget === 'text') return { text: answer.accept[0] }
   if (widget === 'fraction') return { text: `${answer.num}/${answer.den}` }
   if (widget === 'fraction-bar') return { text: `${answer.num * 2}/${answer.den * 2}` }
@@ -88,6 +90,8 @@ const rightResponse = (answer, widget) => {
 }
 
 const wrongResponse = (widget, answer) => {
+  if (widget === 'expression') return { text: 'x^2' }
+  if (widget === 'steps') return { steps: ['0', answer.steps[1].expression] }
   if (widget === 'text') return { text: 'quadrilateral' }
   if (widget === 'fraction') return { text: '999/1000' }
   if (widget === 'cloze') return { blanks: ['zzzzzzz'] }

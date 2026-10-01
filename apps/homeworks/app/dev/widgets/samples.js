@@ -35,6 +35,8 @@ export function gallerySamples() {
 
 export function correctValueFor(sample) {
   if (sample.widget === 'number' || sample.widget === 'column') return String(sample.answer.value)
+  if (sample.widget === 'expression') return sample.answer.expression
+  if (sample.widget === 'steps') return sample.answer.steps.map(({ expression }) => expression)
   if (sample.widget === 'fraction') return `${sample.answer.num}/${sample.answer.den}`
   if (sample.widget === 'text') return sample.answer.accept[0]
   if (sample.widget === 'fraction-bar') {
@@ -81,6 +83,12 @@ export function wrongValueFor(sample) {
   if (sample.widget === 'number' || sample.widget === 'column') {
     const offset = Math.max(1, (sample.answer.tolerance ?? 0) + 1)
     return String(sample.answer.value + offset)
+  }
+  if (sample.widget === 'expression') return 'x^2'
+  if (sample.widget === 'steps') {
+    const value = correctValueFor(sample)
+    value[0] = '0'
+    return value
   }
   if (sample.widget === 'fraction') return `${sample.answer.num + 1}/1`
   if (sample.widget === 'text') return 'quadrilateral'

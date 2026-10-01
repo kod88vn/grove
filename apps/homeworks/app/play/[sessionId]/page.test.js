@@ -84,9 +84,14 @@ const mount = (fetchFn, props = {}) => {
 
 /** Answer the problem currently on screen, then move on if there is a Next. */
 async function solveCurrent(index) {
-  fireEvent.change(await screen.findByLabelText('Your answer'), {
-    target: { value: String(fullAt(index).answer.value) },
-  })
+  const problem = fullAt(index)
+  if (problem.widget === 'steps') {
+    const fields = await screen.findAllByRole('textbox', { name: /step/i })
+    fields.forEach((field, stepIndex) => fireEvent.change(field, { target: { value: problem.answer.steps[stepIndex].expression } }))
+  } else {
+    const field = await screen.findByLabelText('Your answer')
+    fireEvent.change(field, { target: { value: String(problem.answer.value) } })
+  }
   fireEvent.click(screen.getByRole('button', { name: /Check/ }))
   await screen.findByText('How Nora solved it')
 }
@@ -192,7 +197,7 @@ describe('P1.8 — /homeworks/play/[sessionId]', () => {
 
     const drawn = fetchFn.calls.filter((call) => call.url === ITEMS_URL).map((call) => call.body.problemId)
     expect(drawn).toEqual([0, 1, 2, 3, 4].map((index) => problemAt(index).id))
-    expect(drawn[3]).toBe(drawn[0])
+    expect(drawn[4]).toBe(drawn[0])
   })
 
   it('ends with the stars the server handed out, added up', async () => {

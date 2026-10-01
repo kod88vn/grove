@@ -1,4 +1,5 @@
 import { equals, isSimplest, parseFraction } from './fraction.js'
+import { checkExpression, checkSteps } from './check.symbolic.js'
 
 const invalid = () => ({ correct: false, reason: 'invalid' })
 const wrong = () => ({ correct: false, reason: 'wrong' })
@@ -297,5 +298,7 @@ export function check(widget, answer, response) {
   if (widget === 'coins') return coins(answer, response)
   if (widget === 'tap-select') return tapSelect(answer, response)
   if (widget === 'table-fill') return tableFill(answer, response)
+  if (widget === 'expression') return checkExpression(answer, response)
+  if (widget === 'steps') return checkSteps(answer, response)
   throw new Error(`unknown widget: ${String(widget)}`)
 }

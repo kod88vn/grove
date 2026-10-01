@@ -127,6 +127,16 @@ function enter(card, sample, value) {
     }
     return
   }
+  if (sample.widget === 'expression') {
+    fireEvent.change(within(card).getByRole('textbox', { name: /expression/i }), { target: { value } })
+    return
+  }
+  if (sample.widget === 'steps') {
+    within(card).getAllByRole('textbox', { name: /step/i }).forEach((field, index) => {
+      fireEvent.change(field, { target: { value: value[index] } })
+    })
+    return
+  }
   fireEvent.change(within(card).getByLabelText('Your answer'), { target: { value } })
 }
 
@@ -202,6 +212,11 @@ describe('the gallery shows every widget', () => {
         expect(card.querySelectorAll('tbody tr')).toHaveLength(4)
         expect(within(card).getAllByRole('textbox')).toHaveLength(4)
         expect(within(card).queryByLabelText('Your answer')).toBeNull()
+      } else if (sample.widget === 'expression') {
+        const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
+        expect(within(card).getByRole('textbox', { name: /expression/i })).toHaveAttribute('id', expectedId)
+      } else if (sample.widget === 'steps') {
+        expect(within(card).getAllByRole('textbox', { name: /step/i })).toHaveLength(sample.instance.visual.items.length)
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)

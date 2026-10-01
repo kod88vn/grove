@@ -2,28 +2,17 @@
  * P2.2 — the maths keypad.
  *
  * HOMEWORK_PROGRESS.md item P2.2 is titled "Maths keypad (fraction, exponent, √, π)".
- * Three of those four symbols have no consumer in the repository today, and this spec
- * says so in a way that can go red the day that stops being true.
+ * The expression checker now consumes integer powers; radicals and pi remain unavailable
+ * in free-form answers because the exact grammar does not include them.
  *
- * WHAT IS REACHABLE. `listProblems()` ships four widgets — `number`, `column`,
- * `fraction`, `cloze` — and every correct answer any of them generates is built from the
- * digits `0`–`9` plus, for `fraction`, the bar `/`. `/` is the "fraction" of the box
- * title, and it composes exactly the `{ text: '7/9' }` that `check('fraction', …)` already
- * grades. So the pad offers digits, the bar, a backspace and a clear, and nothing else.
+ * Number, column and fraction use their existing digit keys. The expression widget also
+ * receives only symbols accepted by the exact polynomial parser, including `^`.
  *
- * WHAT IS NOT. `^`, `√` and `π` are rejected by the shipped checker — `number()` parses
- * through `decimal()`, whose grammar is `-?\d+(\.\d+)?` with optional thousands commas,
- * and `fraction()` parses through `parseFraction`. A key emitting any of them can only
- * ever produce `reason: 'invalid'`, which is a broken key, not a feature. HOMEWORK_PLAN.md
- * §5.2 puts the maths keypad in Band C (grades 6–8); only Grade 5 Band B content exists,
- * and Band B's input rule is "Number pad, column grid, short typing". The widgets that
- * would consume those symbols — `expression`, `table-fill`, `graph` — are unticked Phase 2
- * rows whose content is Phase 5d, and KaTeX (D5) is P2.4, also unticked. `.` and `−` are
- * left out by the same rule: no shipped template has a decimal or a negative answer.
+ * `√` and `π` remain unsupported and are excluded from every text keypad. The numeric
+ * widgets still reject all non-digit symbols, and the expression pad does not offer decimal
+ * punctuation or syntax that its checker cannot parse.
  *
- * The third test below asserts that exclusion against the REAL checker rather than as an
- * opinion, so when a Band C checker learns `π`, this spec fails and forces the key to be
- * added deliberately.
+ * The checker-backed tests keep the expression keys aligned with its accepted grammar.
  *
  * WHERE IT LIVES. `components/widgets/AnswerWidget.test.js` requires that the residue of a
  * widget's rendered text — everything the server sent, subtracted — contains no digit at
@@ -31,8 +20,8 @@
  * therefore sits in `SolveItem`, which already owns the draft value and already hosts the
  * P2.1 🔊 button beside 💡 and Check ✅.
  *
- * NO NEW RESPONSE SHAPE. The pad edits the same string the text input edits. `emptyValue`
- * and `toResponse` are untouched, and every grading assertion here runs the posted body
+ * NO EXTRA KEYPAD RESPONSE SHAPE. The pad edits the same string the expression input edits,
+ * and every grading assertion here runs the posted body
  * through the real `check()` from `@grove/curriculum` against the real rendered answer —
  * no response literal is written down, so a pad that composes the wrong shape is caught by
  * `invalid` rather than by a fixture agreeing with itself.
@@ -50,7 +39,7 @@ import { keysFor } from './MathKeypad'
 const SESSION = 'session-keypad'
 const SEEDS = [12345, 7, 999_999]
 const ATTEMPTS = '/homeworks/api/attempts'
-const DEFERRED = ['^', '\u221a', '\u03c0']
+const NOT_NUMERIC_KEYS = ['^', '\u221a', '\u03c0']
 
 const problems = listProblems()
 // Derived, not listed: a widget belongs in the pad suite when the pad offers it keys. A
@@ -67,12 +56,14 @@ const widgetOf = (id) => getProblem(id).widget
 /** The string a kid must end up with, derived from the real answer, never a fixture. */
 const correctText = (id, seed) => {
   const answer = full(id, seed).answer
+  if (widgetOf(id) === 'expression') return answer.expression
   return widgetOf(id) === 'fraction' ? `${answer.num}/${answer.den}` : String(answer.value)
 }
 
 /** Something a kid could plausibly enter that is simply not right — same characters. */
 const wrongText = (id, seed) => {
   const answer = full(id, seed).answer
+  if (widgetOf(id) === 'expression') return 'x^2'
   return widgetOf(id) === 'fraction' ? `${answer.num + 1}/${answer.den}` : String(answer.value + 1)
 }
 
@@ -120,7 +111,7 @@ const tap = (characters) => {
 }
 const backspace = () => fireEvent.click(within(pad()).getByRole('button', { name: /delete last/i }))
 const clearAll = () => fireEvent.click(within(pad()).getByRole('button', { name: /clear/i }))
-const draft = () => screen.getByLabelText('Your answer').value
+const draft = () => screen.getByRole('textbox').value
 const checkIt = () => fireEvent.click(screen.getByRole('button', { name: /Check/ }))
 
 afterEach(() => {
@@ -131,7 +122,7 @@ afterEach(() => {
 describe('P2.2 — which keys may exist at all', () => {
   it('lists every registered widget, including table-fill without adding it to the keypad', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps']),
     )
   })
 
@@ -150,7 +141,11 @@ describe('P2.2 — which keys may exist at all', () => {
     // reachable by dragging or by stepping — a pad would be a third route the checker
     // never sees, and the only one that could produce a time the face cannot display.
     expect(keysFor('clock')).toBeNull()
-    expect(keysFor('expression')).toBeNull()
+    expect(keysFor('expression')).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'x', '+', '-', '*', '/', '^', '(', ')'])
+    expect(keysFor('steps')).toBeNull()
+    expect(keysFor('expression')).toContain('^')
+    expect(keysFor('expression')).not.toContain('√')
+    expect(keysFor('expression')).not.toContain('π')
 
     // Every offered character is one the shipped answers actually use — the rule that
     // keeps `π` out is the same rule that keeps `.` and `−` out.
@@ -163,14 +158,18 @@ describe('P2.2 — which keys may exist at all', () => {
     }
   })
 
-  it('leaves out exponent, √ and π because the shipped checker cannot grade them', () => {
-    for (const symbol of DEFERRED) {
+  it('offers integer powers only on expressions, not unsupported radical or pi notation', () => {
+    for (const symbol of NOT_NUMERIC_KEYS) {
       expect(check('number', { value: 12 }, { value: `12${symbol}` })).toEqual({ correct: false, reason: 'invalid' })
       expect(check('fraction', { num: 7, den: 9, simplest: true }, { text: `7/9${symbol}` })).toEqual({
         correct: false,
         reason: 'invalid',
       })
       for (const widget of ['number', 'column', 'fraction']) expect(keysFor(widget)).not.toContain(symbol)
+    }
+    expect(check('expression', { grammar: 'polynomial', expression: 'x^2' }, { text: 'x^2' })).toEqual({ correct: true, reason: null })
+    for (const symbol of ['√', 'π']) {
+      expect(check('expression', { grammar: 'polynomial', expression: 'x' }, { text: `x${symbol}` })).toEqual({ correct: false, reason: 'invalid' })
     }
   })
 
@@ -238,7 +237,7 @@ describe.each(mathProblems.map((problem) => [problem.id, problem.widget]))('P2.2
 
   it('works alongside the physical keyboard rather than replacing it', () => {
     mount(id, SEEDS[0])
-    const field = screen.getByLabelText('Your answer')
+    const field = screen.getByRole('textbox')
 
     fireEvent.change(field, { target: { value: '12' } })
     tap('3')
@@ -309,7 +308,7 @@ describe.each(mathProblems.map((problem) => [problem.id, problem.widget]))('P2.2
     }
 
     expect(pad().textContent).not.toMatch(/\bAI\b/)
-    for (const symbol of DEFERRED) expect(pad().textContent).not.toContain(symbol)
+    for (const symbol of ['√', 'π']) expect(pad().textContent).not.toContain(symbol)
   })
 })
 

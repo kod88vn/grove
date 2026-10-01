@@ -1,6 +1,8 @@
 export function emptyValue(instance) {
   const { widget } = instance
   if (widget === 'number' || widget === 'column' || widget === 'fraction' || widget === 'text') return ''
+  if (widget === 'expression') return ''
+  if (widget === 'steps') return instance.visual.items.map(() => '')
   if (widget === 'cloze') {
     const blanks = instance.visual.sentence.match(/____/g) ?? []
     return blanks.map(() => null)
@@ -22,6 +24,8 @@ export function toResponse(instance, value) {
   const { widget } = instance
   if (widget === 'number' || widget === 'column') return { value }
   if (widget === 'fraction' || widget === 'text') return { text: value }
+  if (widget === 'expression') return { text: value }
+  if (widget === 'steps') return { steps: value }
   if (widget === 'cloze') return { blanks: value.map((entry) => entry ?? '') }
   if (widget === 'choice') return { id: value }
   if (widget === 'order') return { sequence: value }

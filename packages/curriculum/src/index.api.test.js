@@ -249,6 +249,8 @@ const VISUAL_KEYS = {
   'tap-select': ['blankIndex', 'kind', 'segments', 'tokens'],
   // Table-fill publishes row prompts but keeps the independently graded cell map private.
   'table-fill': ['kind', 'rows'],
+  // Ordered steps expose only position labels, never the expressions graded there.
+  steps: ['items', 'kind'],
 }
 
 const walk = (value, visit, path = '$') => {

@@ -16,3 +16,18 @@ describe('table-fill response values', () => {
     expect(toResponse(instance, value)).toEqual({ cells: value })
   })
 })
+
+describe('symbolic response values', () => {
+  it('starts expressions empty and posts them as text', () => {
+    const instance = { widget: 'expression', visual: { kind: 'expression' } }
+    expect(emptyValue(instance)).toBe('')
+    expect(toResponse(instance, '(x-2)*(x+2)')).toEqual({ text: '(x-2)*(x+2)' })
+  })
+
+  it('starts one empty value per ordered step and posts positions unchanged', () => {
+    const instance = { widget: 'steps', visual: { items: [{ id: 'one' }, { id: 'two' }] } }
+    const value = emptyValue(instance)
+    expect(value).toEqual(['', ''])
+    expect(toResponse(instance, ['5', '5*3'])).toEqual({ steps: ['5', '5*3'] })
+  })
+})
