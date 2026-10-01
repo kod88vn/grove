@@ -22,7 +22,7 @@ function makeProblem(rng) {
       'Use all three properties together.',
       'Choose the most specific name that fits every property.',
     ],
-    explanation: `${selected.name} has the three stated properties.`,
+    explanation: `This figure is a ${selected.name} because it has the three stated properties.`,
   }
 }
 

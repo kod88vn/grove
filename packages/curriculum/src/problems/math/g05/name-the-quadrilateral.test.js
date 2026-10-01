@@ -63,3 +63,11 @@ test('500 seeds cover exactly four canonical figures and uniquely identify the m
   assert.deepEqual([...seen].sort(), [...NAMES].sort())
   assert.equal(clues.size, 4, 'the prompt must distinguish all four property combinations')
 })
+
+test('every explanation classifies this figure rather than claiming all members of a category share its properties', () => {
+  for (let seed = 1; seed <= 500; seed++) {
+    const item = render(getProblem(ID), seed)
+    const name = item.answer.accept[0]
+    assert.match(item.explanation, new RegExp(`^This figure is a ${name} because `), `seed ${seed}: explanation must describe this figure`)
+  }
+})
