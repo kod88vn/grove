@@ -148,7 +148,10 @@ function evaluate(node) {
   const left = evaluate(node.left ?? node.base)
   if (node.type === 'power') {
     requireDefinedValue(left)
-    if (node.exponent === 0) return polynomialFraction(polynomial.constant({ num: 1, den: 1 }))
+    if (node.exponent === 0) {
+      if (polynomial.isZero(left.numerator)) throw new RangeError('zero polynomial cannot be raised to zero')
+      return polynomialFraction(polynomial.constant({ num: 1, den: 1 }))
+    }
     const exponent = Math.abs(node.exponent)
     const numerator = polynomial.power(left.numerator, exponent)
     const denominator = polynomial.power(left.denominator, exponent)
@@ -212,7 +215,7 @@ function flattenProducts(node, factors) {
 function isGenuineGroupedFactor(factor) {
   if (factor.type !== 'group') return false
   const expanded = evaluate(factor.expression)
-  return expanded.denominator.size === 1 && !polynomial.isConstant(expanded.numerator)
+  return polynomial.isConstant(expanded.denominator) && !polynomial.isConstant(expanded.numerator)
 }
 
 function isNonzeroScalarFactor(factor) {

@@ -2,6 +2,7 @@ import { add as addFraction, div as divideFraction, equals, mul as multiplyFract
 
 const ZERO = { num: 0, den: 1 }
 const ONE = { num: 1, den: 1 }
+const MAX_MULTIPLICATION_WORK = 4096
 
 export function constant(value) {
   return value.num === 0 ? new Map() : new Map([['', value]])
@@ -56,6 +57,9 @@ function productMonomial(left, right) {
 }
 
 export function multiply(left, right) {
+  if (right.size > 0 && left.size > MAX_MULTIPLICATION_WORK / right.size) {
+    throw new RangeError('polynomial multiplication exceeds the work budget')
+  }
   const result = new Map()
   for (const [leftMonomial, leftCoefficient] of left) {
     for (const [rightMonomial, rightCoefficient] of right) {
