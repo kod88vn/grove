@@ -36,7 +36,7 @@ function GalleryCard({ sample }) {
     : Array.isArray(answer) ? answer.join(', ') : answer
 
   return (
-    <article data-widget={sample.widget} className="flex flex-col gap-4 rounded-lg border p-4">
+    <article data-widget={sample.widget} className="flex min-w-0 flex-col gap-4 rounded-lg border p-4">
       <h2 className="text-lg font-semibold">{sample.widget}</h2>
       <AnswerWidget instance={sample.instance} value={value} onChange={setValue} />
       <div className="flex flex-wrap gap-3">

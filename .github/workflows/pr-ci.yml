@@ -69,6 +69,11 @@ jobs:
 
           # When FILTER is empty, turbo runs the task across all workspace packages
 
+          if echo "$CHANGED_DIRS" | grep -q '^apps/homeworks$'; then
+            echo "homeworks=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "homeworks=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
           echo "Changed packages: $CHANGED_DIRS or all ($FILTER)"
 
@@ -77,6 +82,15 @@ jobs:
 
       - name: Test affected packages
         run: yarn turbo test ${{ steps.changed.outputs.filter }}
+
+      - name: Install Chromium for Homeworks browser tests
+        if: steps.changed.outputs.homeworks == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Test Homeworks in Chromium
+        if: steps.changed.outputs.homeworks == 'true'
+        timeout-minutes: 10
+        run: yarn workspace @grove/homeworks test:browser
 
       - name: Build affected packages
         run: yarn turbo build ${{ steps.changed.outputs.filter }}

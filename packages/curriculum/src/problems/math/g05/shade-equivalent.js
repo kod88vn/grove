@@ -5,12 +5,12 @@ const gcd = (a, b) => {
   return left
 }
 
-const fractions = []
+export const equivalentFractions = []
 for (let den = 2; den <= 6; den++) {
   for (let num = 1; num < den; num++) {
     if (gcd(num, den) !== 1) continue
     for (let multiplier = 2; multiplier <= 4 && den * multiplier <= 12; multiplier++) {
-      fractions.push({ num, den, multiplier })
+      equivalentFractions.push({ num, den, multiplier })
     }
   }
 }
@@ -23,7 +23,7 @@ export const templates = [{
   widget: 'fraction-bar',
   version: 1,
   generate: (rng) => {
-    const { num, den, multiplier } = rng.pick(fractions)
+    const { num, den, multiplier } = rng.pick(equivalentFractions)
     const segments = den * multiplier
     return {
       prompt: `The answer bar has ${segments} equal parts. Shade some of them to show a fraction equivalent to ${num}/${den}.`,
