@@ -12,6 +12,7 @@ import {
   OrderWidget,
   SortWidget,
   TapSelectWidget,
+  TextWidget,
 } from './widgets'
 import { FractionBarWidget } from './FractionBarWidget'
 import { NumberLineWidget } from './NumberLineWidget'
@@ -19,6 +20,9 @@ import { NumberLineWidget } from './NumberLineWidget'
 export function AnswerWidget({ instance, value, onChange, disabled }) {
   if (instance.widget === 'number') {
     return <NumberWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
+  }
+  if (instance.widget === 'text') {
+    return <TextWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
   }
   if (instance.widget === 'column') {
     return <ColumnWidget instance={instance} value={value} onChange={onChange} disabled={disabled} />
