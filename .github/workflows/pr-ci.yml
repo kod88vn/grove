@@ -89,6 +89,7 @@ jobs:
 
       - name: Test Homeworks in Chromium
         if: steps.changed.outputs.homeworks == 'true'
+        timeout-minutes: 10
         run: yarn workspace @grove/homeworks test:browser
 
       - name: Build affected packages
