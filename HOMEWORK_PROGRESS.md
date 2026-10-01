@@ -4,6 +4,13 @@
 > A box is ticked only when its acceptance check has been **run** and passed — paste the
 > command in the Log, not a summary.
 
+**Planning index:** Only the 35 numbered `U` rows below are remaining work items; each is
+one whole loop/PR. Original `P` references are acceptance traceability, not extra loops.
+The Phase 2 historical narrative and old per-widget checklist describe how we arrived
+here, not additional tickets. `P1.5` remains pending a human review within U25 (E-G5).
+Latest merged widgets: #97 tap-select, #98 fraction-bar, #100 number-line, #101 text,
+#103 table-fill. Symbolic solving #104 is open, not complete.
+
 **Current phase:** 2 — widgets and kid UX, **started**. Phase 1 remains complete but for P1.5, whose twenty English items are agent-drafted and still unread by a parent. P2.1 gave every problem a 🔊 button that reads the prompt, and only the prompt. P2.2 has put a number pad under every maths widget — digits, a fraction bar, ⌫ and Clear — and deferred `^`, `√` and `π`, which no Grade 5 template can produce and the checker rejects as `invalid`. P2.3 is complete: a `/settings` screen with three switches, a provider that lets `prefers-reduced-motion` veto the animations switch, the CSS those switches drive, and — on every verdict — a keyed re-mount that replays the animation and a synthesised two-note chime for right or a single low note for wrong, both silent and still when the child's switches or their device say so. P2.4 has installed the D5 renderer: `katex@0.18.9`, pinned exactly, with one `<MathText>` server component and the stylesheet wired into the root layout — `^`, `√` and `π` now have something to render them with when Band C content arrives. P2.5's gallery is **built and serving** at `/homeworks/dev/widgets` in development, 404 in production, with every widget on it answerable and graded by the real checker — but the box stays open, because building it counted the catalogue: §6.3 names 18 widget types and 4 had components. **The phase's real remaining work is the unbuilt widgets**, now raised as rows P2.6–P2.21 in the plan's band order, two of them (`audio-spell`, `free-response`) deferred to Phase 6 on the plan's own wording rather than built here. **P2.6 is the first of them and is complete**: `choice` now has a component, a Grade 5 sample template and the checker it always had, and the gallery picked it up with no change to the page — it renders whatever `listProblems()` reports, so each further widget appears in it as it lands. That row also bought the loop its first genuine referee catch: a build that passed 1,083 tests while shipping a screen-reader-only text box that would have eaten a child's attempt, found by driving a real browser and fixed by re-arming the spec. **P2.7 is the second and is complete**: `order` is the first widget a child works by *moving* something, so it carries D5's "custom pointer-events drag (touch-safe), no DnD library" in full, alongside ↑/↓ buttons that reach the same answer from a keyboard and an in-catalog Grade 5 decimal-ordering template rather than an invented fixture. It repeated P2.6's lesson in a harder form: 76 green assertions and a clean accessibility tree hid ↑/↓ buttons that were dead to mouse and touch, because taking the pointer capture retargets the browser's compatibility `click` and jsdom has no pointer capture to notice. One line fixed it, and only a real browser could have asked the question. **P2.8 is the third and is complete**: `sort` groups cards into buckets, reuses P2.7's drag verbatim rather than inventing a second one, and adds per-item bucket buttons so the board is finishable with no drag at all. It caught the sharpest defect of the three, and a green suite could not have: the generator let *display position* be the answer — six slots landing in their bucket 100/0/100/0/51/0 percent of the time across 400 seeds, only 2 distinct arrangements — so the sample was solvable by pattern rather than by geometry. A 5,000-seed oracle after the fix measures 40/41/45/45/39/41 percent and 4,929 distinct boards.  **P2.9 is the fourth and is complete**: `match` is the first widget whose answer is a *relation* — a set of couples rather than a value, an order or a grouping — and it takes P2.8's drag and buttons unchanged, adding only the rule that a slot holds one card and a second one evicts the first to the tray, so a full board is never a dead end. Its sample deliberately makes the digits useless: four descriptions against four of `5.OA.A.2`'s five expression structures over the same three integers in the same order, so every card on the board shows the same numerals and only the brackets distinguish them. P2.8's lesson was applied before the fact this time — a 5,000-seed oracle measures the partner-position matrix flat at 24.0%–25.9% across all sixteen cells and id-suffix agreement at 25.3% against a 25.0% chance baseline — and the two things the referee did catch were both the spec being too loose: an explanation that printed the board back as two lists, which is the answer key in disguise, and four buttons on every card that all read "Pair", flawless to a screen reader and four coin flips to anyone looking at them. **P2.10 is the fifth and is complete**: `clock` is the first widget a child answers by *aiming* — the face is set to the time the problem starts at and the hands are moved to where it ends — and §6.3's "hh:mm equality" is what settles that, because a checker comparing an hour and a minute wants hands placed, not a time typed. Whole-hour durations are excluded on purpose, so both hands always have to move and an untouched face can never be graded correct; the minute hand snaps to the twelve five-minute marks because §6.2 never asks finer, and the hour hand takes the sector it is released in and is drawn proportionally from both, which is 144 reachable times. Its sample is the first to take the off-grade branch of the sample-problem rule, tagged rather than dressed up as a standard. The referee catch was P2.9's in a new place: the set time lived only in the group's `aria-label`, under an `aria-live` that can never fire because nothing inside the group is *text* that changes, so a child pressing "Minute on" six times was told nothing — fixed the way `OrderWidget` had already fixed it, by putting the state in each button's own name. **8 widget rows remain before P2.5 can be ticked.** P2.11 coins is complete, with the widget, checker and sample template verified in run 173.
 **Last updated:** 2026-09-30
 
@@ -45,7 +52,7 @@ All resolved 2026-09-26.
 - [x] P1.2 `engine/rng.js`, `render.js`, `check.js`, `fraction.js` + tests
 - [x] P1.3 Grade 5 maths catalog — 55 skills ported with `legacyId`
 - [x] P1.4 Templates: `m5.nbt.long-multiplication`, `m5.nf.add-fractions-unlike`, `m5.oa.order-of-operations`
-- [ ] P1.5 `e5.l.context-clues` with 20 reviewed items — **built, not reviewed.** The skill, the twenty items and the three templates exist and are property-tested; every item carries `reviewedBy: 'agent-draft:pending-parent-review'`. "Reviewed" in plan §6.8 means a person read it, so the box stays empty until a parent has read all twenty and the `reviewedBy` values say who.
+- [ ] P1.5 `e5.l.context-clues` with 20 reviewed items — **built, not reviewed; U22 (E-G5) acceptance, not a separate loop.** The skill, the twenty items and the three templates exist and are property-tested; every item carries `reviewedBy: 'agent-draft:pending-parent-review'`. "Reviewed" in plan §6.8 means a person read it, so the box stays empty until a parent has read all twenty and the `reviewedBy` values say who.
 - [x] P1.6 Tables `students` (+ idempotent `public` seed), `practice_sessions`, `session_items`, `attempts` + `lib/db.js` tests
 - [x] P1.7 APIs `/students`, `/problems`, `/problems/:skill/:template`, `/sessions`, `/sessions/:id/items`, `/hints`, `/attempts` (server-issued seeds, tries/hints server-side, 409 on unbound seed)
 - [x] P1.8 Solve page + session runner (Check ✅, stars, "How Nora solved it") — `/q/[skill]/[template]` and `/play/[sessionId]`, four widgets (`number`, `column`, `fraction`, `cloze`), every counter read back from the server. **Two scope notes.** (1) `/play/[sessionId]` takes `?skill=` and `?count=`, which §6.7 does not specify: P1.7 shipped no `GET /sessions/:id`, so there is no way to read the skill back, and inventing a query string is smaller than inventing a route. The Today screen (Phase 3) is the intended producer of this URL. (2) "How Nora solved it" unlocks on a **solve only**; §4 also wants it after 2 wrong tries, which needs a reveal endpoint §6.6 does not define and P1.7 did not ship (`markSessionItemRevealed` exists in `lib/db.js` with no route calling it). Not invented here.
@@ -54,31 +61,32 @@ All resolved 2026-09-26.
 ## Phase 2 — Widgets and kid UX
 | Widget | Band | Component | Checker | Tests |
 | --- | --- | --- | --- | --- |
-| choice / multi-choice | A | [ ] | [x] `choice` only | [x] `check.test.js:35,41,47` |
+| choice / multi-choice | A | [x] `choice` only | [x] `choice` only | [x] `choice` only; `multi-choice` pending U03 |
 | number + pad | A | [x] | [x] | [x] `check.test.js:55–109` |
-| order | A | [ ] | [ ] | [ ] |
-| sort | A | [ ] | [ ] | [ ] |
-| match | A | [ ] | [ ] | [ ] |
-| clock | A | [ ] | [ ] | [ ] |
-| coins | A | [ ] | [ ] | [ ] |
+| order | A | [x] | [x] | [x] |
+| sort | A | [x] | [x] | [x] |
+| match | A | [x] | [x] | [x] |
+| clock | A | [x] | [x] | [x] |
+| coins | A | [x] | [x] | [x] |
 | audio-spell | A | [ ] | [ ] | [ ] |
-| tap-select | A–D | [ ] | [ ] | [ ] |
+| tap-select | A–D | [x] | [x] | [x] |
 | cloze | B | [x] | [x] | [x] `check.cloze.test.js:32,63,70` |
 | column (port) | B | [x] | [x] | [x] `check.column.test.js:30,49` |
-| fraction / fraction-bar / number-line | B | [x] `fraction` only | [x] `fraction` only | [x] `check.test.js:111–152` |
-| text | B | [ ] | [ ] | [ ] |
+| fraction / fraction-bar / number-line | B | [x] | [x] | [x] |
+| text | B | [x] | [x] | [x] |
 | table-fill | C | [x] | [x] | [x] |
 | expression (exact polynomial/rational + form checks) | C–D | [ ] | [ ] | [ ] |
 | graph | C–D | [ ] | [ ] | [ ] |
 | steps | D | [ ] | [ ] | [ ] |
 | free-response (Nora rubric) | B–D | [ ] | [ ] | [ ] |
 
-The ticks above are what the P2.5 gallery could actually put on screen, counted by building it
-— four components and five checkers, every checker with an explicit right **and** wrong test.
-The `choice` row has a checker and tests but no component and no template, so nothing renders
-it; `fraction-bar`, `number-line` and `multi-choice` share a row with something that is built
-and are not themselves built. The unticked rows are the reason P2.5 is still open, and they are
-now rows P2.6–P2.21 below, in the plan's band order (§6.3's table is already ordered A → B → C → D).
+The gallery was first built with four components and five checkers; that **historical**
+count is not the current library. The merged `choice`, `order`, `sort`, `match`, `clock`,
+`coins`, `tap-select`, `fraction-bar`, `number-line`, `text` and `table-fill` work is marked
+above. The incomplete shared `choice` row still needs **multi-choice**; `audio-spell`,
+`expression`, `graph`, `steps` and `free-response` are the other missing kinds.
+P2.5 remains open until U03 signs off on every kind; the P2.6–P2.21 notes below are
+historical requirement traceability, not new loops.
 
 **Where each row's sample problem comes from.** `app/dev/widgets/samples.js` maps over
 `listProblems()`, so a widget with no template in `@grove/curriculum` does not appear in the
@@ -101,7 +109,7 @@ the note is forced to travel with the skill; (3) never an invented fixture —
 - [x] P2.9 `match` widget — component + checker + sample template (Band A) (#94). §6.3: "synonyms, word↔picture, fraction↔decimal", checker "pair set equality" — read literally: `check.js` compares the response's couples to the answer's as a *set*, so the order a child builds the board in cannot change the verdict, while a board that is not a bijection never reaches a verdict at all. A left card with no partner, a left or right id used twice, an id the problem never issued, and a couple count that differs from the answer's are all `invalid`, not `wrong`; only a complete, well-formed, mis-paired board is `wrong`. The sample is in-grade under the tracker's own rule 1, so nothing needed tagging: `m5.oa.numeric-expressions` (5.OA.A.2) already asks a child to read a numeric expression, and `match-expressions` turns that into four descriptions against four expressions drawn from five structures — `a × (b + c)`, `a × b + c`, `a × (b − c)`, `a × b − c`, `a + b × c` — over three distinct integers used in the same order in every one of them, so **every expression card on the board prints the same numerals in the same sequence** and only the brackets and the operators tell them apart. The two columns are shuffled independently, which the referee measured rather than assumed: over 5,000 seeds the 4×4 matrix of which left slot a right card is the partner of runs 24.0%–25.9% in every cell, all 24 permutations appear with the commonest at 4.9%, and matching the two id suffixes gets a couple right 25.3% of the time against a 25.0% chance baseline — the display position gives nothing away. The widget reuses P2.7/P2.8's drag verbatim, adds a pair button per slot on every card, and refuses nothing: dropping a second card on an occupied slot evicts the sitting one to the tray rather than rejecting the move, so a full board is never a dead end. Two referee catches, both faults in the spec rather than the build: the first explanation printed the finished board back as two lists, which reads as the answer key (re-armed to a positional form, 54.9% → 100% of explanations now naming each description beside its own expression); and the four pair buttons on a card all read the word "Pair", correct to a screen reader and four coin flips to anyone with eyes (re-armed to print the description each button sends the card to, as `sort` already did with its bucket labels). A real browser then confirmed what jsdom cannot see: mouse click, touch tap, `Tab`+`Enter` and a label-grabbed drag each seat a card, a press begun on a button never drags, and the board carries no typeable control at all.
 - [x] P2.10 `clock` widget — component + checker + sample template (Band A) (this PR). §6.3: "telling time", checker "hh:mm equality" — and reading that line literally is the whole design. "hh:mm equality" means the response *carries* an hour and a minute and the checker compares both, so the child's job is to **put the hands somewhere**, not to read a time off a face and type it: a read-and-type exercise would have to print the time it is asking about before the child answers, which is the answer, and it would be the `number` widget anyway. The sample took the sample-problem rule's second branch — `m5.md.time-money` is in the Grade 5 catalog but carries `ccss: []`, so `clock-elapsed-time` is tagged off-grade with its own note rather than pretending to a standard. It sets the face to the time the problem *starts* at and asks for the time it ends, over durations of 65–175 minutes in five-minute steps with whole hours excluded, so **both hands always have to move and an untouched face can never be graded correct**. The minute hand snaps to the twelve five-minute marks, because §6.2's finest granularity is five minutes and a child dragging with a finger must not be marked wrong for motor control; the hour hand is not independently positionable but takes the sector it is released in and is then drawn from hour and minute together, so it sits proportionally between the numerals the way a real clock does. That is 144 reachable times, all of them readable. The engine knows none of this — `check.js` calls 4:21 against 4:20 `wrong`, not `invalid`, because the grid belongs to this control and a tablet's own time picker may reach times it cannot. The referee's one catch was accessibility, and it was the same shape as P2.9's: the set time lived in exactly one accessible place, the group's `aria-label`, under an `aria-live="polite"` that can never fire, because nothing inside the group is text that changes — the prompt is static, the dial is static, and the hands are `aria-hidden` shapes whose `transform` is not content. A group's name is read when focus *enters* it, not again on the fourth press of the same button, so a child using a screen reader could press "Minute on" six times and be told nothing about the time they had just set, on the one widget whose entire purpose is setting a time. `OrderWidget` had already solved it in the same file — "Move 5.6 up, from position 1 of 4" — and the four steppers now read "Move the minute hand forward, from 3:25", re-announcing on every press while the visible text stays digit-free
 - [x] P2.11 `coins` widget — component + checker + sample template (Band A). §6.3: "money", checker "total value"
-- [ ] P2.12 `audio-spell` widget — component + checker + sample template (Band A), owned with the reviewed G1/G2 spelling bank by E6c-1B. The word stays hidden until answered; the bank must pass human review and the complete unit must pass iPad-portrait play, including silent-device behavior (§6.8, §9).
+- [ ] P2.12 `audio-spell` widget — component + checker + sample template (Band A), owned with the reviewed G1/G2 spelling bank by U21 E-G1, not a separate PR. The word stays hidden until answered; the bank must pass human review and the complete unit must pass iPad-portrait play, including silent-device behavior (§6.8, §9).
 - [x] P2.13 `tap-select` widget — component + checker + three difficulty-specific templates (Band A–D). §6.3: "find the verb, find the evidence sentence", checker "token/sentence id set". Native accessible token buttons, exact unordered ID-set grading, ordered sentence segments that preserve authored punctuation and whitespace, and registered Grade 5 `e5.l.context-clues/find-the-clue-easy`, `e5.l.context-clues/find-the-clue` and `e5.l.context-clues/find-the-clue-tricky` examples use the real server checker; 500 seeds per difficulty cover all twenty existing bank items. No parent review is claimed.
 - [x] P2.14 `fraction-bar` widget — component + checker + sample template (Band B). Shares §6.3's row and checker with `fraction` ("value equality + optional simplest form"): the registered `m5.nf.equiv-fractions/shade-equivalent` template emits reduced proper references and independently equivalent bars, `toInstance()` exposes only `kind`, `reference` and `segments`, and the native toggle-bar component posts `{ text: shaded/segments }` through the real checker. The visual-reference regression is corrected so exactly the leading reference numerator segments are blue and the remainder are white, with the answer bar remaining independently interactive; the acceptance suites and production build were verified. The `m5.nf.equiv-fractions` skill remains untagged with an adjacent catalog note because this prerequisite progression skill has no Grade 5 CCSS mapping
 - [x] P2.15 `number-line` widget — component + checker + sample template (Band B). Shares P2.14's equivalent-fraction pool and checker, with native tick buttons that expose only the two endpoints and send an equivalent fraction through the real checker
@@ -114,20 +122,18 @@ the note is forced to travel with the skill; (3) never an invented fixture —
 - [ ] P2.22 Seed sweeps ≥500 and ≥56 px Band A targets across the widgets and templates that already exist — **raised from PR #95's review, deliberately not fixed there.** Two of the plan's own gates are being missed by code that is already merged, and both were found by measuring rather than reading. (a) **Seeds.** `HOMEWORK_PLAN.md:645` makes "Property test passes over **500 seeds**" part of the definition of done for a skill; five template tests sweep fewer: `math/g05/match-expressions.test.js` **400**, `math/g05/order-decimals.test.js` **400**, `math/g05/prime-composite.test.js` **400**, `math/g05/sort-quadrilaterals.test.js` **400**, `english/g05/context-clues.prompt.test.js` **200**. The remaining six are already at 500, and `math/g05/clock-elapsed-time.test.js` was raised 400 → 500 in #95, where the cost was measured at **+0.7 ms** (51.8 ms → 52.6 ms for the whole file), so the fix is a one-line edit per file with no runtime argument against it. (b) **Targets.** `HOMEWORK_PLAN.md:104` requires **≥56 px** targets for Band A, and `HOMEWORK_PLAN.md:203` puts `clock` in Band A; Chromium at a 320 px viewport, `hasTouch`, on the dev gallery and the real solve page, measures these below it: `choice` and `cloze` answer radios **16×16**, `order` reorder buttons **12.2×24**, `sort` place/return buttons **h=24**, `match` pair buttons **h=24** (largest 48), the shared **Check** button **104×40** and **Hint** **87.5×40** on the solve page, and read-aloud **52×40**. `clock`'s own four steppers and two hands were fixed in #95 (steppers 24 → **56** tall, hands given 58.9 px invisible grab circles); nothing else was touched, because a review comment on one PR is not a licence to rewrite nine widgets. Bands are per widget — `choice` and `cloze` serve Band A content too, so this is a real gap, not a Band C exemption; the Check/Hint chrome is shared by every band and so is the widest-reaching of them
 - [ ] P2.5 Acceptance: `/homeworks/dev/widgets` gallery renders every widget — **15 rendered / 6 remaining**. The gallery renders each available widget from a real curriculum problem at the fixed seed 2505 and grades both right and wrong values through the real `check()`. **Still missing:** `audio-spell`, `multi-choice`, `expression`, `graph`, `steps` and `free-response`.
 
-**Remaining Phase 2 units (one unchecked unit = one whole PR):**
+**Remaining Phase 2 units (one numbered row = one whole PR):**
 
-| Unit | P-items | One concern and acceptance boundary |
+| Unit | P-items | Whole capability and acceptance boundary |
 | --- | --- | --- |
-| [ ] W-SOLVE | P2.18, P2.20; P2.2 deferred keys | Symbolic solving: exact polynomial/rational parser and form guards, ordered-step checker, registered Band C–D templates, keyboard/touch controls, right/wrong/invalid and leak tests, live solve/gallery checks. Enable only keypad symbols the shipped checker can grade. |
-| [ ] W-GRAPH | P2.19 | Graph plotting: coordinate-plane UI, point/line/parabola templates and tolerance checker, touch/keyboard plotting, viewport/edge and wrong-answer tests, live solve/gallery checks. |
-| [ ] W-GUARDS | P2.22 | Existing-widget quality gate: raise the five undersized seed sweeps to ≥500, fix measured Band A and shared-control targets to ≥56 px, verify actual touch hit areas in a narrow browser, and guard the checks against regressions. |
-| [ ] W-GALLERY | P2.5; remaining `multi-choice` from P2.6's shared row | Complete the missing multi-choice component/checker/template and audit **all** gallery widgets with actual right/wrong responses and production 404. Final `P2.5` tick requires P2.17–P2.21, completed E6c-1B (including P2.12), and E-RUBRIC; schedule this unit after those dependencies, not as an interim sign-off. |
+| [ ] U01 W-SOLVE | P2.18, P2.20; P2.2 deferred keys | Symbolic solving: exact polynomial/rational parser and form guards, ordered-step checker, registered Band C–D templates, keyboard/touch controls, right/wrong/invalid and leak tests, live solve/gallery checks. Enable only keypad symbols the shipped checker can grade. **Already open as #104; continue that PR, never fork a follow-up unit.** |
+| [ ] U02 W-GRAPH | P2.19 | Graph plotting: coordinate-plane UI, point/line/parabola templates and tolerance checker, touch/keyboard plotting, viewport/edge and wrong-answer tests, live solve/gallery checks. |
+| [ ] U03 W-ALL-WIDGETS | P2.22, P2.5; remaining `multi-choice` from P2.6's shared row | Complete the multi-choice component/checker/registered sample template; raise the five undersized seed sweeps to ≥500; repair measured Band A and shared-control targets to ≥56 px, including actual narrow-browser touch hit areas and regression guards. Complete existing column per-digit checking (§6.3) and reveal after two wrong tries (§4/P1.8) with a server-bound route before calling the full solve flow done. Audit **every** gallery widget with real right/wrong responses and production 404, update documentation and progress. Final P2.5 tick requires all widgets including U01, U02, P2.12 (U21), P2.21 (U20), with no fixture in place of the reviewed spelling bank or Nora rubric. |
 
-P2.17 is already in flight as its own unit and is unchanged here. E6c-1B owns both the
-reviewed Phase 6 spelling bank and playable P2.12, so neither blocks the other; P2.21
-waits for Nora rubric grading. Other spelling groups also require the shipped P2.12
-widget before iPad play. Do not tick P2.12 without the reviewed bank or P2.21 by
-substituting a fixture or grading writing inside the pure curriculum package.
+P2.17 is already merged in #103, not an in-flight fourth Phase 2 unit. U21 owns both
+the reviewed spelling bank and playable P2.12, so neither waits for a separate PR;
+P2.21 waits for Nora rubric grading inside U20. Other spelling grades wait for the
+shipped P2.12 widget before iPad play. No grader belongs in the pure curriculum package.
 
 ## Phase 3 — Game layer
 - [ ] P3.1 "Who's practicing?" + Today screen
@@ -141,8 +147,7 @@ substituting a fixture or grading writing inside the pure curriculum package.
 
 | Unit | P-items | One concern and acceptance boundary |
 | --- | --- | --- |
-| [ ] G-DAILY | P3.1, P3.2, P3.3, P3.8 | Kid entry and repeat visits: avatar/Today flow, same-grade/local-date Daily Seed, rain days and weekly goal; two siblings same day vs different dates and zones, independent counters, server-bound seeds and live entry flow. |
-| [ ] G-REWARD | P3.4, P3.5, P3.6, P3.7 | Earning and seeing progress: stars/Sunshine/badges, growing grove, filtered/random Quest Board and end card; persist earned state, guard reduced motion and no unearned rewards, exercise a whole session in a browser. |
+| [ ] U04 G-KID-EXPERIENCE | P3.1–P3.8 | Ship the complete playable kid day: avatar/Today, same-grade/local-date Daily Seed, rain days and weekly goal, stars/Sunshine/badges, growing grove, filtered/random Quest Board and end card in one PR. Persist earned state; test two siblings across dates/zones, independent counters, server-bound seeds, no unearned rewards, reduced motion and a whole browser session. |
 
 ## Phase 4 — Mastery
 - [ ] P4.1 `skill_state` + `rebuildSkillState`
@@ -154,8 +159,7 @@ substituting a fixture or grading writing inside the pure curriculum package.
 
 | Unit | P-items | One concern and acceptance boundary |
 | --- | --- | --- |
-| [ ] M-STATE | P4.1, P4.2, P4.3, P4.6 | Derive/rebuild mastery from attempts, ladder, stage and due-date/Leitner rules together; deterministic scripted attempts traverse seed → fruiting and a missed review, including replay, local-day boundaries and idempotence. |
-| [ ] M-NEXT | P4.4, P4.5 | Serve/use mastery: `/next` priority, `/garden` state, prerequisite paths and boss problems; test due-review priority, unavailable prerequisites, full path flow and kid navigation. Depends on M-STATE. |
+| [ ] U05 M-MASTERY | P4.1–P4.6 | A kid masters and revisits a skill: derive/rebuild mastery from attempts, ladder, stages and due-date/Leitner rules; serve `/next` and `/garden`, prerequisite paths and boss problems. Script seed → fruiting and a missed review, replay, local-day boundaries, idempotence, due-review priority, locked prerequisites, a whole path and browser navigation in **the same PR**. |
 
 ## Phase 5 — Maths content
 
@@ -182,47 +186,30 @@ Grade 5 legacy categories (55):
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0/3 | 0/3 | 0/4 | 0/5 | 0/11 | 0/9 | 0/2 | 0/5 | 0/3 | 0/4 | 0/3 | 0/3 |
 
-**Phase 5 units.** Each unchecked unit is one PR for all its named skills: catalog and
+**Phase 5 units.** Each numbered grade is one PR for all its named skills: catalog and
 prerequisites, difficulty 1/2/3 templates, ≥500-seed property checks *per template*,
-reproducible right/wrong/invalid verdicts, no answer leak and iPad-portrait play (§9).
+reproducible right/wrong/invalid verdicts, no answer leak and iPad-portrait play (§9),
+with its widget/component and side-by-side tests wherever required. All strands in a
+grade ship together; do not make lettered slice, difficulty or review-round PRs.
 The 5a grade-5 cells include the three Phase 1 template skills, which are not yet marked
 §9-complete; count completion in the existing built/planned cells, not from a merged
-template alone. Strand and category membership are defined in plan §7.
+template alone. Strand and category membership are defined in plan §7. The original
+33 unit rows collapse into 12 whole grade releases plus one dependent cutover.
 
-| Unit | P-items / scope | Coherent grade/strand slice |
+| Unit | P-items / scope | Whole grade and original slice ownership |
 | --- | --- | --- |
-| [ ] C5a-AB | Phase 5a; G5 legacy A–B | Place value, addition/subtraction (6 skills) |
-| [ ] C5a-CD | Phase 5a; G5 legacy C–D | Multiplication and division (9) |
-| [ ] C5a-E1 | Phase 5a; G5 legacy E first six in §7 order | Fraction equivalence through subtract unlike (6) |
-| [ ] C5a-E2 | Phase 5a; G5 legacy E remaining five | Mixed numbers and fraction operations (5) |
-| [ ] C5a-F | Phase 5a; G5 legacy F | Decimals (9) |
-| [ ] C5a-GH | Phase 5a; G5 legacy G–H | Expressions and number theory (7) |
-| [ ] C5a-IJ | Phase 5a; G5 legacy I–J | Measurement and geometry (7) |
-| [ ] C5a-KL | Phase 5a; G5 legacy K–L | Data, patterns and coordinates (6) |
-| [ ] C5b-3A | Phase 5b; G3 OA | Operations and multiplication (6) |
-| [ ] C5b-3B | Phase 5b; G3 NBT + NF | Place value and fractions (7) |
-| [ ] C5b-3C | Phase 5b; G3 MD + G | Measurement, data and shapes (6) |
-| [ ] C5b-4A | Phase 5b; G4 OA + NBT | Operations and whole numbers (9) |
-| [ ] C5b-4B | Phase 5b; G4 NF | Fractions and decimals (7) |
-| [ ] C5b-4C | Phase 5b; G4 MD + G | Measurement and geometry (6) |
-| [ ] C5c-A | Phase 5c; G1–2 OA | Early operations (10) |
-| [ ] C5c-B | Phase 5c; G1–2 NBT | Counting and place value (11) |
-| [ ] C5c-C | Phase 5c; G1–2 MD + G | Time, measurement and shapes (11) |
-| [ ] C5d-6A | Phase 5d; G6 RP + G | Ratios and geometry (7) |
-| [ ] C5d-6B | Phase 5d; G6 NS | Number system (7) |
-| [ ] C5d-6C | Phase 5d; G6 EE + SP | Expressions and data (10) |
-| [ ] C5d-7A | Phase 5d; G7 RP + SP | Ratios and statistics (8) |
-| [ ] C5d-7B | Phase 5d; G7 NS + EE + G | Integers, equations and geometry (12) |
-| [ ] C5d-8A | Phase 5d; G8 NS + EE + SP | Numbers, equations and data (11) |
-| [ ] C5d-8B | Phase 5d; G8 F + G | Functions and geometry (10) |
-| [ ] C5e-9A | Phase 5e; G9 first seven §7 skills | Algebra I polynomials through function notation (7) |
-| [ ] C5e-9B | Phase 5e; G9 remaining seven | Algebra I functions through data (7) |
-| [ ] C5e-10A | Phase 5e; G10 first seven §7 skills | Geometry transformations through arcs (7) |
-| [ ] C5e-10B | Phase 5e; G10 remaining six | Coordinate geometry through counting (6) |
-| [ ] C5e-11A | Phase 5e; G11 first seven §7 skills | Algebra II complex numbers through inverse functions (7) |
-| [ ] C5e-11B | Phase 5e; G11 remaining six | Algebra II logs through nonlinear systems (6) |
-| [ ] C5e-12A | Phase 5e; G12 first seven §7 skills | Precalculus trig through conics (7) |
-| [ ] C5e-12B | Phase 5e; G12 remaining seven | Series through finance (7) |
+| [ ] U06 C-G1 | Phase 5c; G1 OA (6), NBT (5), MD (3), G (2) | 16 Grade 1 maths skills: early operations, counting/place value, time/measurement/shapes; absorbs G1 portions of C5c-A/B/C. |
+| [ ] U07 C-G2 | Phase 5c; G2 OA (4), NBT (6), MD (4), G (2) | 16 Grade 2 maths skills: operations, place value, money, time, data and shapes; absorbs G2 portions of C5c-A/B/C. |
+| [ ] U08 C-G3 | Phase 5b; G3 OA (6), NBT (3), NF (4), MD (5), G (1) | 19 Grade 3 maths skills: operations/multiplication, place value/fractions, measurement/data/shapes; absorbs C5b-3A/B/C. |
+| [ ] U09 C-G4 | Phase 5b; G4 OA (4), NBT (5), NF (7), MD (4), G (2) | 22 Grade 4 maths skills: operations, whole numbers, fractions/decimals, measurement/geometry; absorbs C5b-4A/B/C. |
+| [ ] U10 C-G5 | Phase 5a; legacy categories A–L in §7 | All 55 Grade 5 maths skills: place value/add/sub (6), multiplication/division (9), fraction equivalence through mixed numbers and operations (11), decimals (9), expressions/number theory (7), measurement/geometry (7), data/patterns/coordinates (6); absorbs C5a-AB/CD/E1/E2/F/GH/IJ/KL. |
+| [ ] U11 C-G6 | Phase 5d; G6 RP (4), NS (7), EE (6), G (3), SP (4) | 24 Grade 6 maths skills: ratios/geometry, number system, expressions/data; absorbs C5d-6A/B/C. |
+| [ ] U12 C-G7 | Phase 5d; G7 RP (4), NS (4), EE (4), G (4), SP (4) | 20 Grade 7 maths skills: ratios/statistics, integers/equations/geometry; absorbs C5d-7A/B. |
+| [ ] U13 C-G8 | Phase 5d; G8 NS (2), EE (6), F (4), G (6), SP (3) | 21 Grade 8 maths skills: numbers, equations, data, functions/geometry; absorbs C5d-8A/B. |
+| [ ] U14 C-G9 | Phase 5e; G9 §7 Algebra I (14) | Polynomials through function notation **and** functions through data; absorbs C5e-9A/B. |
+| [ ] U15 C-G10 | Phase 5e; G10 §7 Geometry (13) | Transformations through arcs **and** coordinate geometry through counting; absorbs C5e-10A/B. |
+| [ ] U16 C-G11 | Phase 5e; G11 §7 Algebra II (13) | Complex numbers through inverse functions **and** logarithms through nonlinear systems; absorbs C5e-11A/B. |
+| [ ] U17 C-G12 | Phase 5e; G12 §7 Precalculus/Stats (14) | Trigonometry through conics **and** series through finance; absorbs C5e-12A/B. |
 
 Batch accounting: 5a = 55 Grade 5 skills (three already have Phase 1 templates; 52
 remaining skill completions); 5b = 41; 5c = 32; 5d = 65; 5e = 54. Only tick a unit when
@@ -233,7 +220,7 @@ remaining skill completions); 5b = 41; 5c = 32; 5d = 65; 5e = 54. Only tick a un
 
 | Unit | P-items | Acceptance boundary |
 | --- | --- | --- |
-| [ ] C5-CUTOVER | P5.x, P5.y | Once all C5a units pass §9, migrate legacy rows by `legacyId`, switch the Math tab, retire the LLM-graded quiz and old catalog together; compare old/new records and test rollback/no-loss cases. |
+| [ ] U18 C-CUTOVER | P5.x, P5.y | **After U10 merges** and all its skills pass §9, migrate legacy rows by `legacyId`, switch the Math tab, retire the LLM-graded quiz and old catalog together; compare old/new records and test rollback/no-loss cases. |
 
 ## Phase 6 — English content
 
@@ -258,46 +245,36 @@ remaining skill completions); 5b = 41; 5c = 32; 5d = 65; 5e = 54. Only tick a un
 - [ ] P6.4 Nora `type: 'rubric'` grading with grade-level parameter
 - [ ] P6.x Switch English tab to new engine (after 6a); retire live passage generation for kids
 
-**Phase 6 units.** Content units cover **all** skills in their listed grade/strands from
-plan §8, including three difficulties, human-reviewed items/passages with `reviewedBy`,
+**Phase 6 units.** Each grade release covers **all** its §8 skills and strands (except
+G2 spelling, delivered with the G1 audio-spell bank in U21), including
+three difficulties, human-reviewed items/passages with `reviewedBy`,
 readability and ≥500-seed property tests per template, plus iPad-portrait play (§9).
 Drafting is not approval: a unit stays open until a person reviews its actual content.
 
-| Unit | P-items / scope | One concern and acceptance boundary |
+| Unit | P-items / scope | Whole capability and acceptance boundary |
 | --- | --- | --- |
-| [ ] E-AUTHOR | P6.1, P6.2, P6.3 | Authoring pipeline: root-only Nora draft script and ignored drafts, dev-only review/approve page, `reviewedBy` and readability gate; test rejection of unreviewed/out-of-band content and production access. No automatic approval. |
-| [ ] E-RUBRIC | P6.4, P2.21 | Nora generic grade-level rubric route and real free-response widget together; grade-level prompt, reviewable score/feedback, Nora failure surfaced without a fake score, end-to-end submit, no network call from curriculum. Requires E-AUTHOR and reviewed sample content. |
-| [ ] E6a-5A | Phase 6a; G5 RL + RI | Reading literature/information (10 skills) |
-| [ ] E6a-5B | Phase 6a; G5 L + W | Language and writing (12 including P1.5); P1.5 stays unticked until a parent reads its 20 items and records the reviewer. Requires E-RUBRIC for free-response skills. |
-| [ ] E6b-3A | Phase 6b; G3 RF + RL + RI | Reading and fluency (9) |
-| [ ] E6b-3B | Phase 6b; G3 L + W + Spell | Language, writing and spelling (11) |
-| [ ] E6b-4A | Phase 6b; G4 RL + RI | Reading (8) |
-| [ ] E6b-4B | Phase 6b; G4 L + W + Spell | Language, writing and spelling (13) |
-| [ ] E6c-1A | Phase 6c; G1 RF + RL + RI | Early reading (9) |
-| [ ] E6c-1B | Phase 6c; G1 L + W + Spell; G2 Spell; P2.12 | Early language and human-reviewed spelling bank (7) plus the `audio-spell` component, normalized checker and registered template in the same unit. Keep each word hidden before answer; acceptance includes iPad-portrait play and silent-device behavior. Other spelling groups need P2.12 before their iPad play acceptance. |
-| [ ] E6c-2A | Phase 6c; G2 RF + RL + RI | Early reading (9) |
-| [ ] E6c-2B | Phase 6c; G2 L + W | Early language and writing (7) |
-| [ ] E6d-6A | Phase 6d; G6 RL + RI | Middle-grade reading (6) |
-| [ ] E6d-6B | Phase 6d; G6 L + W + Research | Middle-grade language and writing (11) |
-| [ ] E6d-7A | Phase 6d; G7 RL + RI | Middle-grade reading (7) |
-| [ ] E6d-7B | Phase 6d; G7 L + W + Research | Middle-grade language and writing (10) |
-| [ ] E6d-8A | Phase 6d; G8 RL + RI | Middle-grade reading (7) |
-| [ ] E6d-8B | Phase 6d; G8 L + W + Research | Middle-grade language and writing (9) |
-| [ ] E6e-9A | Phase 6e; G9 RL + RI | High-school reading (7) |
-| [ ] E6e-9B | Phase 6e; G9 L + W | High-school language and writing (7) |
-| [ ] E6e-10A | Phase 6e; G10 RL + RI | High-school reading (6) |
-| [ ] E6e-10B | Phase 6e; G10 L + W | High-school language and writing (5) |
-| [ ] E6e-11A | Phase 6e; G11 RL + RI | High-school reading (5) |
-| [ ] E6e-11B | Phase 6e; G11 L + W + Test | High-school language, writing and tests (7) |
-| [ ] E6e-12A | Phase 6e; G12 RL + RI | High-school reading (4) |
-| [ ] E6e-12B | Phase 6e; G12 L + W + Life | High-school language, writing and life (7) |
+| [ ] U19 E-AUTHOR | P6.1, P6.2, P6.3 | Authoring pipeline: root-only Nora draft script and ignored drafts, dev-only review/approve page, `reviewedBy` and readability gate; test rejection of unreviewed/out-of-band content and production access. No automatic approval. |
+| [ ] U20 E-RUBRIC | P6.4, P2.21 | **After U19 merges**, ship Nora generic grade-level rubric grading **with** the real free-response widget/registered reviewed sample in one PR; grade-level prompt, reviewable score/feedback, visible Nora failure without fake score, end-to-end submit and no network call from curriculum. |
+| [ ] U21 E-G1 | Phase 6c; G1 RF (6), RL (2), RI (1), L (4), W (1), Spell (1); G2 Spell (1); P2.12 | All 15 Grade 1 English skills **plus** the Grade 2 spelling skill in the same human-reviewed spelling bank: early reading, language, writing and spelling. Ship `audio-spell` component, normalized checker and registered template with the bank in the same PR; hide each word until answered, test silent device and iPad play. Absorbs E6c-1A/1B and G2 Spell from E6c-2B's dependency. |
+| [ ] U22 E-G2 | Phase 6c; G2 RF (4), RL (3), RI (2), L (6), W (1); Spell (1) already owned by U21 | The remaining 16 Grade 2 English skills: early reading, language and writing, **after U21 merges** so the G2 spelling bank can be played too. Absorbs E6c-2A/2B. |
+| [ ] U23 E-G3 | Phase 6b; G3 RF (1), RL (4), RI (4), L (9), W (1), Spell (1) | All 20 Grade 3 English skills: reading/fluency, language, writing and spelling; absorbs E6b-3A/3B. Requires U20 for free-response and U21 for audio-spell. |
+| [ ] U24 E-G4 | Phase 6b; G4 RL (4), RI (4), L (10), W (2), Spell (1) | All 21 Grade 4 English skills: reading, language, writing and spelling; absorbs E6b-4A/4B. Requires U20 and U21 for their widgets. |
+| [ ] U25 E-G5 | Phase 6a; G5 RL (6), RI (4), L (9), W (3); P1.5 | All 22 Grade 5 English skills: reading literature/information, language and writing; absorbs E6a-5A/5B. Parent reads all twenty existing context-clue items and replaces the pending `reviewedBy` marker with the real reviewer **in this PR**, then P1.5 may be ticked. Requires U20 for free-response. |
+| [ ] U26 E-G6 | Phase 6d; G6 RL (4), RI (2), L (7), W (3), Research (1) | All 17 Grade 6 English skills: reading, language, writing and research; absorbs E6d-6A/6B. Requires U20 for free-response. |
+| [ ] U27 E-G7 | Phase 6d; G7 RL (4), RI (3), L (6), W (3), Research (1) | All 17 Grade 7 English skills: reading, language, writing and research; absorbs E6d-7A/7B. Requires U20 for free-response and U03 for multi-choice. |
+| [ ] U28 E-G8 | Phase 6d; G8 RL (5), RI (2), L (5), W (3), Research (1) | All 16 Grade 8 English skills: reading, language, writing and research; absorbs E6d-8A/8B. Requires U20 for free-response. |
+| [ ] U29 E-G9 | Phase 6e; G9 RL (5), RI (2), L (5), W (2) | All 14 Grade 9 English skills: reading, language and writing; absorbs E6e-9A/9B. Requires U20 for free-response. |
+| [ ] U30 E-G10 | Phase 6e; G10 RL (3), RI (3), L (3), W (2) | All 11 Grade 10 English skills: reading, language and writing; absorbs E6e-10A/10B. Requires U20 for free-response. |
+| [ ] U31 E-G11 | Phase 6e; G11 RL (3), RI (2), L (3), W (2), Test (2) | All 12 Grade 11 English skills: reading, language, writing and test prep; absorbs E6e-11A/11B. Requires U20 for free-response and U03 for multi-choice. |
+| [ ] U32 E-G12 | Phase 6e; G12 RL (2), RI (2), L (2), W (3), Life (2) | All 11 Grade 12 English skills: reading, language, writing and life skills; absorbs E6e-12A/12B. Requires U20 for free-response. |
 
 | Unit | P-items | Acceptance boundary |
 | --- | --- | --- |
-| [ ] E-CUTOVER | P6.x | After E6a units and P1.5's human review, switch the English tab to reviewed content; retire child-facing live passage generation, not the authoring tool; test both old and new navigation. |
+| [ ] U33 E-CUTOVER | P6.x | After U25 merges and P1.5's real human review, switch the English tab to reviewed content; retire child-facing live passage generation, not the authoring tool; test both old and new navigation. |
 
-P2.5's W-GALLERY unit runs only after E6c-1B and E-RUBRIC (and the in-flight P2.17),
-so its “every widget” claim can be tested rather than inferred.
+P2.5's U03 W-ALL-WIDGETS unit runs only after U21 E-G1, U20 E-RUBRIC,
+U01 W-SOLVE and U02 W-GRAPH (P2.17 already merged), so its “every widget”
+claim is tested rather than inferred.
 
 ## Phase 7 — Parents and polish
 - [ ] P7.1 Review page: per-kid, per-skill filters and trends
@@ -308,9 +285,7 @@ so its “every widget” claim can be tested rather than inferred.
 
 | Unit | P-items | One concern and acceptance boundary |
 | --- | --- | --- |
-| [ ] PARENT-INSIGHTS | P7.1, P7.2 | Per-kid/per-skill review trends and CSV export from the same filtered records; assert day/grade bounds, data fidelity and a parent browser flow. |
-| [ ] PARENT-START | P7.3, P7.4 | Per-grade placement sampler writes mastery starting state and per-kid settings drive recommendations/presentation; test profile independence and rerun behavior. |
-| [ ] FAMILY-CHALLENGE | P7.5 | Opt-in G6+ weekend challenge and family-only board, with opt-out, grade and visibility guards. |
+| [ ] U34 P-FAMILY | P7.1–P7.5 | Complete parent/family experience: per-kid/per-skill review trends **and** CSV export from the same filtered records; per-grade placement writes mastery starting state and per-kid settings drive recommendations/presentation; opt-in G6+ weekend challenge and family-only board. Assert day/grade bounds, data fidelity, profile independence and reruns, opt-out/grade/visibility guards and the parent browser flow in one PR. |
 
 ## Phase 8 — Retire old surfaces
 - [ ] P8.1 Redirect `/homeworks/library` → `/homeworks/grove`
@@ -319,7 +294,7 @@ so its “every widget” claim can be tested rather than inferred.
 
 | Unit | P-items | One concern and acceptance boundary |
 | --- | --- | --- |
-| [ ] RETIRE-OLD | P8.1, P8.2, P8.3 | After both subject cutovers, redirect old library navigation, remove confirmed-unused components, and document the supported routes; verify legacy links and build in the same PR. |
+| [ ] U35 RETIRE-OLD | P8.1, P8.2, P8.3 | After U18 and U33 merge, redirect old library navigation, remove confirmed-unused components, and document supported routes in the Homeworks README and grove AGENTS; verify legacy links and build in the same PR. |
 
 ## Log
 
