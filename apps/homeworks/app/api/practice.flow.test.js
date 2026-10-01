@@ -83,6 +83,7 @@ const rightResponse = (answer, widget) => {
   if (widget === 'coins') return { counts: countsForCoins(answer.total, answer.denominations) }
   if (widget === 'tap-select') return { ids: [...answer.ids] }
   if (widget === 'number-line') return { text: `${answer.num * 2}/${answer.den * 2}` }
+  if (widget === 'table-fill') return { cells: Object.fromEntries(Object.entries(answer.cells).map(([id, value]) => [id, String(value)])) }
   return { value: answer.value }
 }
 
@@ -115,6 +116,10 @@ const wrongResponse = (widget, answer) => {
   if (widget === 'tap-select') return { ids: [answer.ids[0], answer.availableIds.find((id) => !answer.ids.includes(id))] }
   if (widget === 'fraction-bar') return { text: `0/${answer.den * 2}` }
   if (widget === 'number-line') return { text: '0/1' }
+  if (widget === 'table-fill') {
+    const entries = Object.entries(answer.cells)
+    return { cells: Object.fromEntries(entries.map(([id, value], index) => [id, String(value + (index === 0 ? 100 : 0))])) }
+  }
   return { value: -999999 }
 }
 
