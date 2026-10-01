@@ -35,6 +35,28 @@ function NumberWidget({ instance, value, onChange, disabled }) {
   )
 }
 
+function TextWidget({ instance, value, onChange, disabled }) {
+  const id = inputId(instance)
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="text-slate-700">{instance.prompt}</div>
+      <label htmlFor={id} className="flex flex-col gap-2 text-slate-700">
+        Your answer
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(event) => {
+            if (!disabled) onChange(event.target.value)
+          }}
+          disabled={disabled}
+          className="rounded border border-slate-300 px-3 py-2"
+        />
+      </label>
+    </div>
+  )
+}
+
 function ColumnWidget({ instance, value, onChange, disabled }) {
   const id = inputId(instance)
   const { operands, operator } = instance.visual
@@ -583,4 +605,4 @@ function ClockWidget({ instance, value, onChange, disabled }) {
   )
 }
 
-export { NumberWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget, CoinsWidget, TapSelectWidget }
+export { NumberWidget, TextWidget, ColumnWidget, FractionWidget, ClozeWidget, ChoiceWidget, OrderWidget, SortWidget, MatchWidget, ClockWidget, CoinsWidget, TapSelectWidget }

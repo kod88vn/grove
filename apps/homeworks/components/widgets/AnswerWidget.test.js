@@ -164,6 +164,10 @@ function tapCoins(instance, counts) {
 
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
+  if (instance.widget === 'text') {
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: answer.accept[0] } })
+    return
+  }
   if (instance.widget === 'choice') {
     fireEvent.click(screen.getByRole('radio', { name: labelOf(instance, answer.id) }))
     return
@@ -218,6 +222,10 @@ function enterCorrect(instance, answer) {
 
 /** Type something a kid could plausibly type that is simply not right. */
 function enterWrong(instance, answer) {
+  if (instance.widget === 'text') {
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: 'quadrilateral' } })
+    return
+  }
   if (instance.widget === 'choice') {
     const other = instance.visual.options.find((option) => option.id !== answer.id)
     fireEvent.click(screen.getByRole('radio', { name: other.label }))
@@ -311,6 +319,7 @@ function visibleText(container) {
 function residueOf(text, instance) {
   const sent = [instance.prompt]
   const visual = instance.visual
+  if (visual === null) return text.replace(instance.prompt, ' ')
   if (visual.kind === 'expression') sent.push(visual.expression)
   if (visual.kind === 'column') sent.push(visual.operator, ...visual.operands.map(String))
   if (visual.kind === 'fraction-sum') {
@@ -339,7 +348,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'text']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(13)
   })
@@ -353,23 +362,23 @@ describe('P1.8 — answer widgets', () => {
       expect(screen.getByText(instance.prompt)).toBeInTheDocument()
       const text = view.container.textContent
 
-      if (instance.visual.kind === 'expression') expect(text).toContain(instance.visual.expression)
-      if (instance.visual.kind === 'cloze') {
+      if (instance.visual?.kind === 'expression') expect(text).toContain(instance.visual.expression)
+      if (instance.visual?.kind === 'cloze') {
         for (const choice of instance.visual.choices) {
           expect(screen.getAllByRole('radio', { name: choice }).length).toBeGreaterThan(0)
         }
       }
-      if (instance.visual.kind === 'choice') {
+      if (instance.visual?.kind === 'choice') {
         for (const option of instance.visual.options) {
           expect(screen.getByRole('radio', { name: option.label })).toBeInTheDocument()
         }
       }
-      if (instance.visual.kind === 'order') {
+      if (instance.visual?.kind === 'order') {
         // Sent in one order, shown in that order — the widget does not rearrange them.
         expect(orderedIds()).toEqual(instance.visual.items.map((item) => item.id))
         for (const item of instance.visual.items) expect(text).toContain(item.label)
       }
-      if (instance.visual.kind === 'sort') {
+      if (instance.visual?.kind === 'sort') {
         // The cards are dealt in the order they arrived, and every card starts in the
         // tray — the widget must not pre-sort any of them, which would be answering for
         // the kid. The buckets are named on screen, because a kid cannot classify into
@@ -384,7 +393,7 @@ describe('P1.8 — answer widgets', () => {
           expect(document.body.querySelector(`[data-sort-bucket="${bucket.id}"]`)).not.toBeNull()
         }
       }
-      if (instance.visual.kind === 'match') {
+      if (instance.visual?.kind === 'match') {
         // Both columns are on screen by design — a kid cannot join two things they cannot
         // read. The cards are dealt in the order they arrived and every one starts in the
         // tray: pre-joining even one would be answering part of the exercise for the kid.
@@ -398,7 +407,7 @@ describe('P1.8 — answer widgets', () => {
           expect(document.body.querySelector(`[data-match-slot="${item.id}"]`)).not.toBeNull()
         }
       }
-      if (instance.visual.kind === 'clock') {
+      if (instance.visual?.kind === 'clock') {
         // The hands start on the time the problem counts on FROM. That is the question,
         // not the answer: the template never uses a whole number of hours, so both hands
         // always have to move. The time itself is never written down — it reaches a screen
@@ -411,15 +420,15 @@ describe('P1.8 — answer widgets', () => {
         expect(document.body.querySelectorAll('[data-clock-step]')).toHaveLength(4)
         expect(document.body.querySelector('[data-clock-dial]')).not.toBeNull()
       }
-      if (instance.visual.kind === 'column') {
+      if (instance.visual?.kind === 'column') {
         for (const operand of instance.visual.operands) expect(text).toContain(String(operand))
         expect(text).toContain(instance.visual.operator)
       }
-      if (instance.visual.kind === 'fraction-sum') {
+      if (instance.visual?.kind === 'fraction-sum') {
         for (const addend of instance.visual.addends) expect(text).toContain(`${addend.num}/${addend.den}`)
         expect(text).toContain(instance.visual.operator)
       }
-      if (instance.visual.kind === 'fraction-bar') {
+      if (instance.visual?.kind === 'fraction-bar') {
         expect(screen.getByText(`Shaded 0 of ${instance.visual.segments}`)).toBeInTheDocument()
         expect(view.container.querySelector('[data-fraction-bar-count]')).not.toBeNull()
       }

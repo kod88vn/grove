@@ -76,6 +76,17 @@ function cloze(answer, response) {
   return right()
 }
 
+function text(answer, response) {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.accept) || answer.accept.length === 0 || Object.keys(answer.accept).length !== answer.accept.length) {
+    throw new TypeError('text answer must have a non-empty accept list')
+  }
+  for (const entry of answer.accept) {
+    if (typeof entry !== 'string' || entry.trim().length === 0) throw new TypeError('text answer must have a non-empty accept list')
+  }
+  if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.text !== 'string' || response.text.trim().length === 0) return invalid()
+  return answer.accept.some((accepted) => normalize(accepted) === normalize(response.text)) ? right() : wrong()
+}
+
 function order(answer, response) {
   if (!answer || typeof answer !== 'object' || Array.isArray(answer) || !Array.isArray(answer.sequence) || answer.sequence.length === 0) {
     throw new TypeError('order answer must have a non-empty sequence of unique ids')
@@ -256,6 +267,7 @@ export function check(widget, answer, response) {
   if (widget === 'fraction') return fraction(answer, response)
   if (widget === 'fraction-bar') return fraction(answer, response)
   if (widget === 'number-line') return fraction(answer, response)
+  if (widget === 'text') return text(answer, response)
   if (widget === 'cloze') return cloze(answer, response)
   if (widget === 'order') return order(answer, response)
   if (widget === 'sort') return sort(answer, response)
