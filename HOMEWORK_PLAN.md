@@ -1,8 +1,19 @@
 # Homework Plan — "Grove Quests": English & Maths, Grades 1–12
 
-> Status: **plan, not started** (written 2026-09-26). Progress lives in
+> Status: **in progress** (written 2026-09-26; regrouped 2026-10-01). Progress lives in
 > [HOMEWORK_PROGRESS.md](HOMEWORK_PROGRESS.md). This file is the source of truth for *what*
 > gets built; the progress file tracks *how far along* it is.
+
+### Sizing rule
+
+Each numbered remaining unit in the progress tracker is **one loop and one PR**, shipped
+whole: curriculum content, widget/component, its side-by-side tests, browser/accessibility
+checks, and plan/progress updates together. Never split a unit into sub-loops, letter
+suffixes, `-rearm`/`-retry` copies, or per-file, per-layer, geometry, CI or review-round
+pieces. A rejected or red run re-arms the **same** unit with a sharper spec on the same
+branch; it does not spawn another item. Split only when a later user-visible capability
+needs an earlier one **merged first**, or when the work belongs in another repository.
+Phases, original P-keys and content batches describe scope and dependencies, not more PRs.
 
 ## 1. The idea in one paragraph
 
@@ -654,18 +665,15 @@ passes, `npx next build` in `apps/homeworks` succeeds, and the change is merged 
 Phases 0–4 are sequential. Content phases 5 and 6 fan out by grade band once the widgets
 that band needs exist; they can run in parallel with each other.
 
-### Loop sizing
+### Remaining-unit ownership
 
-One loop = one **unit** in the unit tables of [HOMEWORK_PROGRESS.md](HOMEWORK_PROGRESS.md),
-and one unit = one PR with a single concern. Include its checker, templates, UI, integration,
-guards, edge cases, property assertions and browser acceptance in that same worker run;
-do not turn files, assertions or a referee's finding into separate PRs. If the referee
-rejects a unit, sharpen the spec and re-arm the **same unit** on the same branch, never a
-new suffixed sub-loop. Size content by a grade/strand cell or a coherent group of cells,
-with several skills and their three difficulties per unit, not one loop per skill. A unit
-is only ticked after its own acceptance runs and its PR merges. Existing P-items remain
-the traceability keys; deferred human review and missing dependencies do not become
-implicitly complete when another unit merges.
+The numbered rows in [HOMEWORK_PROGRESS.md](HOMEWORK_PROGRESS.md) are the **only** work
+items. An entire grade's listed skills ship together, not in strand, category, difficulty,
+file or review-round slices. The Phase 2 widgets ship with their curriculum sample,
+checker, UI and browser accessibility check in their owning row. Historical P-keys below
+are requirement references, not independent loops. A row is ticked only after its entire
+acceptance passes and its PR merges; human review and prerequisites never become complete
+because a different PR merged.
 
 ### Phase 0 — Hygiene and decisions
 - Apply decisions D1–D7 (§11, resolved 2026-09-26): update the Homeworks section of grove
@@ -692,15 +700,15 @@ implicitly complete when another unit merges.
 ### Phase 2 — Widget library and kid UX
 - Build the remaining widgets in band order (A → B → C → D), each with a side-by-side test and
   a checker in `@grove/curriculum`.
-- Remaining units: symbolic solving (`P2.18`, `P2.20`), graph plotting (`P2.19`),
-  cross-widget seed/target hardening (`P2.22`), and catalogue/gallery completion
-  (`P2.5`, including the still-unbuilt `multi-choice`). `P2.17` is already in flight and
-  is not regrouped. The Phase 6c unit E6c-1B owns both the human-reviewed G1/G2 spelling
-  bank and `audio-spell` (`P2.12`); after human review, its acceptance includes playable
-  iPad-portrait behavior, so neither deliverable waits for a separate PR. Gallery
-  acceptance stays open until E6c-1B and E-RUBRIC (`P2.21`) are complete; an interim
-  gallery audit does not tick `P2.5`. See the progress unit tables for exact ownership
-  and gates.
+- Remaining units: **W-SOLVE** (`P2.18`, `P2.20`, deferred `P2.2` keys; already has an
+  open PR), **W-GRAPH** (`P2.19`), and **W-ALL-WIDGETS** (the unbuilt `multi-choice`,
+  `P2.22` seed/target hardening, the existing `column` per-digit-check gap, the
+  two-wrong-tries worked-solution reveal gap, and final `P2.5` gallery acceptance).
+  E-G1 owns the
+  human-reviewed G1/G2 spelling bank **and** playable `audio-spell` (`P2.12`), with
+  silent-device and iPad checks. E-RUBRIC owns free-response (`P2.21`) with its Nora
+  grade-level rubric, not a fake local checker. W-ALL-WIDGETS waits for those two
+  prerequisites and W-SOLVE/W-GRAPH; an interim audit does not tick `P2.5`.
 - 🔊 read-aloud, on-screen number pad, maths keypad, feedback animations, reduced motion,
   sounds toggle, dyslexia font.
 - Pick and install maths rendering (D5) for Band C/D.
@@ -710,16 +718,18 @@ implicitly complete when another unit merges.
 ### Phase 3 — Game layer
 - Today screen, Daily Seed, watering-days streak with rain days, badges, the grove view,
   end-of-session card, Sunshine, Quest Board with filters and 🎲.
-- Deliver as two concerns: daily entry and shared seed (`P3.1`–`P3.3`, `P3.8`), then
-  rewards, grove, quest discovery and session finish (`P3.4`–`P3.7`).
+- Deliver the entire kid entry → daily play → reward → grove/quest discovery → session
+  finish experience (`P3.1`–`P3.8`) in G-KID-EXPERIENCE, with shared-seed and
+  reduced-motion browser acceptance in the same PR.
 - Acceptance: two sibling profiles see the same Daily Seed for the same grade on the same
   local date and different ones on different dates.
 
 ### Phase 4 — Mastery and "what's next"
 - `skill_state`, ladder, stages, Leitner review, `/next`, `/garden`, `rebuildSkillState`.
 - Paths with boss problems.
-- Deliver as mastery state/replay (`P4.1`–`P4.3`, `P4.6`) and its navigation surfaces
-  (`P4.4`–`P4.5`); the scripted acceptance belongs to the state unit, not a third PR.
+- Deliver mastery state/replay **and** the kid's `/next`, `/garden`, paths and boss
+  navigation together (`P4.1`–`P4.6`) in M-MASTERY; include scripted state and full
+  navigation acceptance in that PR.
 - Acceptance: unit tests drive a scripted sequence of attempts through
   seed → sprout → sapling → tree → fruiting and back down on a missed review.
 
@@ -735,10 +745,12 @@ implicitly complete when another unit merges.
 When 5a is done, switch the **Math** tab to the new engine and retire the LLM-graded
 `math/mixed` quiz and Nora's `skills-catalog.js` (Nora-thin). Migrate Nora's skills-library
 rows into `attempts` via `legacyId` (D4).
-The 5a–5e batches are scheduling envelopes, **not** single loops and not one loop per
-skill. Use the bounded grade/strand groups in the progress unit table; each group ships
-multiple templates and property checks across its skills. Switch and retirement are a
-separate cutover unit after the 5a skills meet §9; do not retire live paths early.
+The 5a–5e batches are scheduling envelopes, **not** separate loops and not one loop per
+skill or strand. Each grade is one whole user-visible curriculum release (all its §7
+skills, three difficulties, widget support and §9 checks in a single PR); count the
+three already-templated Grade 5 skills toward that grade, but do not mark any of its
+55 skills §9-done until each meets every gate. Switch and retirement are one cutover
+unit after the Grade 5 curriculum PR merges; do not retire live paths early.
 
 ### Phase 6 — English content (193 skills)
 - `scripts/curriculum/draft-english.mjs` (repo root, outside the package; add
@@ -758,21 +770,23 @@ separate cutover unit after the 5a skills meet §9; do not retire live paths ear
 
 When 6a is done, switch the **English** tab to the new engine and retire the live
 passage-generation path for kids (generation moves to authoring only).
-The 6a–6e batches likewise use reviewed, multi-skill grade/strand units in the progress
-table. In 6c, E6c-1B ships the human-reviewed G1/G2 spelling bank and `P2.12`
-`audio-spell` together: human review gates the bank and the same unit's iPad-portrait
-play acceptance covers the playable widget, avoiding a dependency on a later PR. Other
-spelling groups need `P2.12` before their iPad-play acceptance. The authoring/review
-pipeline, rubric and free-response flow, and English cutover are separate units. `P1.5`
-remains pending a parent's actual review; `P2.21` waits on the rubric route.
+The 6a–6e batches are scheduling envelopes; each grade ships all its §8 strands,
+human-reviewed content, three difficulties, widgets and §9 checks in **one PR**.
+E-G1 ships the human-reviewed G1/G2 spelling bank and `P2.12` `audio-spell` with
+silent-device and iPad-portrait play in the same PR; E-G2 and other spelling grades
+need that capability merged before their own play acceptance. The authoring/review
+pipeline, rubric plus free-response flow, and English cutover are separate only because
+later units require their earlier deliverables merged. `P1.5` remains pending a parent's
+review of its twenty items inside E-G5; `P2.21` waits on the rubric route.
 
 ### Phase 7 — Parents and polish
 - Review page: filter by kid, by skill; per-skill trend; export CSV.
 - Placement sampler per grade.
 - Settings per kid (grade, sounds, font, read-aloud default, daily goal).
 - Weekend Challenge (G6+, family board).
-- Units: parent insights/export (`P7.1`–`P7.2`), placement/personalization
-  (`P7.3`–`P7.4`), and opt-in family challenge (`P7.5`).
+- Ship the full parent and family experience (`P7.1`–`P7.5`) in one PR, including
+  insights/export, placement/personalization and opt-in family challenge with their
+  browser, profile-independence, visibility and data-fidelity checks.
 
 ### Phase 8 — Retire the old surfaces
 - Redirect `/homeworks/library` → `/homeworks/grove`; delete `SkillsLibrary`, `ParentView`,
