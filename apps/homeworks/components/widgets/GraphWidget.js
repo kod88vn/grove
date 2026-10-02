@@ -1,9 +1,10 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 
 const SIZE = 240
 const PADDING = 22
+const MAX_TAP_MOVEMENT = 8
 
 function mapX(x, visual) {
   return PADDING + (x - visual.xMin) / (visual.xMax - visual.xMin) * (SIZE - 2 * PADDING)
@@ -127,19 +128,46 @@ function GraphPoints({ value, visual }) {
 
 function CoordinatePlane({ visual, value, onPlot, disabled }) {
   const clipId = `graph-plot-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const touchGesture = useRef(null)
   const path = curvePath(value, visual)
+
+  function finishTouch(event) {
+    const gesture = touchGesture.current
+    touchGesture.current = null
+    if (!gesture || gesture.pointerId !== event.pointerId || gesture.moved || disabled) return
+    onPlot(gesture.point)
+  }
 
   return (
     <svg
       role="img"
       aria-label="Coordinate plane"
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="block w-full max-w-[360px] touch-none rounded border border-slate-300 bg-white"
+      className="block w-full max-w-[360px] rounded border border-slate-300 bg-white"
       onPointerDown={(event) => {
         if (disabled) return
         const point = coordinateAtPointer(event, event.currentTarget, visual)
-        if (point) onPlot(point)
+        if (!point) return
+        if (event.pointerType !== 'touch') {
+          onPlot(point)
+          return
+        }
+        touchGesture.current = {
+          pointerId: event.pointerId,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          moved: false,
+          point,
+        }
       }}
+      onPointerMove={(event) => {
+        const gesture = touchGesture.current
+        if (!gesture || gesture.pointerId !== event.pointerId) return
+        const distance = Math.hypot(event.clientX - gesture.clientX, event.clientY - gesture.clientY)
+        if (distance > MAX_TAP_MOVEMENT) gesture.moved = true
+      }}
+      onPointerUp={finishTouch}
+      onPointerCancel={() => { touchGesture.current = null }}
     >
       <GraphAxes visual={visual} />
       <GraphCurve path={path} mode={visual.mode} clipId={clipId} />

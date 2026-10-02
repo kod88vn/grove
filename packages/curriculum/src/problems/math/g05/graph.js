@@ -44,7 +44,7 @@ function makeParabola(rng) {
     visual: { kind: 'graph', mode: 'parabola', ...BOUNDS.parabola },
     answer: { mode: 'parabola', points, bound: BOUNDS.parabola, tolerance: 0.15 },
     hints: ['A parabola is described by a quadratic rule.', 'Compare how the y-values change as x moves by equal amounts.'],
-    explanation: `The plotted points follow the quadratic rule y = ${a}x² + ${b}x + ${c}.`,
+    explanation: `The plotted points follow the quadratic rule y = ${a}x² ${bText} ${cText}.`,
   }
 }
 

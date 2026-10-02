@@ -74,7 +74,18 @@ function curveVerdict(answer, response) {
   const keys = answer.mode === 'line' ? ['slope', 'intercept'] : ['a', 'b', 'c']
   const expected = fit(answer.points)
   const actual = fit(response.points)
-  return keys.every((key) => Math.abs(expected[key] - actual[key]) <= answer.tolerance) ? right() : wrong()
+  const difference = keys.map((key) => actual[key] - expected[key])
+  const differenceAt = (x) => answer.mode === 'line'
+    ? difference[0] * x + difference[1]
+    : difference[0] * x ** 2 + difference[1] * x + difference[2]
+  const { xMin, xMax } = answer.bound
+  const candidates = [xMin, xMax]
+  if (answer.mode === 'parabola' && difference[0] !== 0) {
+    const vertex = -difference[1] / (2 * difference[0])
+    if (vertex >= xMin && vertex <= xMax) candidates.push(vertex)
+  }
+  const maximumError = Math.max(...candidates.map((x) => Math.abs(differenceAt(x))))
+  return maximumError <= answer.tolerance ? right() : wrong()
 }
 
 export function checkGraph(answer, response) {

@@ -99,7 +99,7 @@ test('the development gallery uses a real point problem and both verdicts go thr
   expect(check('graph', sample.answer, toResponse(sample.instance, wrongValueFor(sample)))).toEqual(WRONG)
 })
 
-test('the coordinate plane plots by keyboard and touch without showing a private solution', () => {
+test('the coordinate plane plots by keyboard, touch tap, and mouse without showing a private solution', () => {
   const { instance, full } = seeded(CASES[0][0])
   const record = {}
   const { container } = renderDom(<Harness instance={instance} record={record} />)
@@ -117,7 +117,39 @@ test('the coordinate plane plots by keyboard and touch without showing a private
   expect(record.value).toEqual([])
   svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 240 })
   fireEvent.pointerDown(svg, { pointerId: 1, pointerType: 'touch', clientX: 120, clientY: 120 })
+  expect(record.value).toEqual([])
+  fireEvent.pointerUp(svg, { pointerId: 1, pointerType: 'touch', clientX: 120, clientY: 120 })
   expect(record.value).toEqual([{ x: (instance.visual.xMin + instance.visual.xMax) / 2, y: (instance.visual.yMin + instance.visual.yMax) / 2 }])
+  fireEvent.click(screen.getByRole('button', { name: /clear plot/i }))
+  fireEvent.pointerDown(svg, { pointerId: 4, pointerType: 'mouse', clientX: 120, clientY: 120 })
+  expect(record.value).toEqual([{ x: (instance.visual.xMin + instance.visual.xMax) / 2, y: (instance.visual.yMin + instance.visual.yMax) / 2 }])
+})
+
+test('a moved or cancelled touch gesture preserves the plot until a completed tap', () => {
+  const { instance } = seeded(CASES[0][0])
+  const record = {}
+  const { container } = renderDom(<Harness instance={instance} record={record} />)
+  const svg = screen.getByRole('img', { name: /coordinate plane/i })
+  svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 240 })
+  const center = { x: (instance.visual.xMin + instance.visual.xMax) / 2, y: (instance.visual.yMin + instance.visual.yMax) / 2 }
+
+  expect(record.value).toEqual([])
+  expect(container.querySelectorAll('[data-graph-point]')).toHaveLength(0)
+  fireEvent.pointerDown(svg, { pointerId: 5, pointerType: 'touch', clientX: 120, clientY: 120 })
+  fireEvent.pointerMove(svg, { pointerId: 5, pointerType: 'touch', clientX: 120, clientY: 165 })
+  fireEvent.pointerUp(svg, { pointerId: 5, pointerType: 'touch', clientX: 120, clientY: 165 })
+  expect(record.value).toEqual([])
+  expect(container.querySelectorAll('[data-graph-point]')).toHaveLength(0)
+
+  fireEvent.pointerDown(svg, { pointerId: 6, pointerType: 'touch', clientX: 120, clientY: 120 })
+  fireEvent.pointerCancel(svg, { pointerId: 6, pointerType: 'touch', clientX: 120, clientY: 120 })
+  expect(record.value).toEqual([])
+  expect(container.querySelectorAll('[data-graph-point]')).toHaveLength(0)
+
+  fireEvent.pointerDown(svg, { pointerId: 7, pointerType: 'touch', clientX: 120, clientY: 120 })
+  fireEvent.pointerUp(svg, { pointerId: 7, pointerType: 'touch', clientX: 120, clientY: 120 })
+  expect(record.value).toEqual([center])
+  expect(container.querySelectorAll('[data-graph-point]')).toHaveLength(1)
 })
 
 test('a locked graph refuses keyboard and touch edits', () => {

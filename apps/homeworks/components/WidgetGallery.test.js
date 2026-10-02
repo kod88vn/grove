@@ -328,6 +328,8 @@ describe('the answer is dev-only, and hidden until asked for', () => {
       const right = correctValueFor(sample)
       const shown = sample.widget === 'cloze'
         ? right[0]
+        : sample.widget === 'graph'
+          ? right.map(({ x, y }) => `(${x}, ${y})`).join(', ')
         : sample.widget === 'table-fill'
           ? sample.instance.visual.rows.map(({ id, meters }) => `${meters} meters = ${right[id]} centimeters`).join(', ')
         : sample.widget === 'coins'
@@ -337,6 +339,10 @@ describe('the answer is dev-only, and hidden until asked for', () => {
             .join(', ')
           : Array.isArray(right) ? right.join(', ') : String(right)
       expect(revealed.textContent).toContain(shown)
+      if (sample.widget === 'graph') {
+        for (const { x, y } of right) expect(revealed.textContent).toContain(`(${x}, ${y})`)
+        expect(revealed.textContent).not.toContain('[object Object]')
+      }
     }
   })
 

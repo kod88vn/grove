@@ -26,6 +26,12 @@ test('parabola geometry derives its quadratic from all three submitted points', 
   assert.deepEqual(check('graph', answer, { points: [{ x: -2, y: 3 }, { x: 0, y: -1 }, { x: 2, y: 8 }] }), wrong)
 })
 
+test('curve tolerance bounds the fitted error across the viewport', () => {
+  const answer = { mode: 'parabola', points: [{ x: -1, y: 1 }, { x: 0, y: 0 }, { x: 1, y: 1 }], bound, tolerance: 0.15 }
+  const response = { points: [{ x: -1, y: 0.86 }, { x: 0, y: 0.14 }, { x: 1, y: 1.14 }] }
+  assert.deepEqual(check('graph', answer, response), wrong)
+})
+
 test('graph responses reject malformed, duplicate-x, non-finite, and out-of-bounds points', () => {
   const answer = { mode: 'line', points: [{ x: -2, y: -1 }, { x: 2, y: 7 }], bound, tolerance: 0.15 }
   for (const response of [
