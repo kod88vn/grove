@@ -46,6 +46,14 @@ const cardFor = (sample) => {
 
 /** Put a value into a card the way a child would: click a choice, drag a card, or type. */
 function enter(card, sample, value) {
+  if (sample.widget === 'graph') {
+    for (const point of value) {
+      fireEvent.change(within(card).getByLabelText(/^x coordinate$/i), { target: { value: String(point.x) } })
+      fireEvent.change(within(card).getByLabelText(/^y coordinate$/i), { target: { value: String(point.y) } })
+      fireEvent.click(within(card).getByRole('button', { name: /plot point/i }))
+    }
+    return
+  }
   if (sample.widget === 'cloze') {
     fireEvent.click(within(card).getByRole('radio', { name: value[0] }))
     return
@@ -161,7 +169,7 @@ describe('the gallery shows every widget', () => {
   test('each card shows that sample’s real prompt, once', () => {
     render(<WidgetGallery samples={samples} />)
     for (const sample of samples) {
-      expect(within(cardFor(sample)).getByText(sample.instance.prompt)).toBeInTheDocument()
+      expect(cardFor(sample).textContent.split(sample.instance.prompt)).toHaveLength(2)
     }
   })
 
@@ -217,6 +225,11 @@ describe('the gallery shows every widget', () => {
         expect(within(card).getByRole('textbox', { name: /expression/i })).toHaveAttribute('id', expectedId)
       } else if (sample.widget === 'steps') {
         expect(within(card).getAllByRole('textbox', { name: /step/i })).toHaveLength(sample.instance.visual.items.length)
+      } else if (sample.widget === 'graph') {
+        expect(within(card).getByRole('img', { name: /coordinate plane/i })).toBeInTheDocument()
+        expect(within(card).getByLabelText(/^x coordinate$/i)).toBeInTheDocument()
+        expect(within(card).getByLabelText(/^y coordinate$/i)).toBeInTheDocument()
+        expect(within(card).queryByLabelText('Your answer')).toBeNull()
       } else {
         const expectedId = `answer-${sample.instance.seed}-${sample.instance.problemId}`
         expect(within(card).getByLabelText('Your answer')).toHaveAttribute('id', expectedId)
@@ -315,6 +328,8 @@ describe('the answer is dev-only, and hidden until asked for', () => {
       const right = correctValueFor(sample)
       const shown = sample.widget === 'cloze'
         ? right[0]
+        : sample.widget === 'graph'
+          ? right.map(({ x, y }) => `(${x}, ${y})`).join(', ')
         : sample.widget === 'table-fill'
           ? sample.instance.visual.rows.map(({ id, meters }) => `${meters} meters = ${right[id]} centimeters`).join(', ')
         : sample.widget === 'coins'
@@ -324,6 +339,10 @@ describe('the answer is dev-only, and hidden until asked for', () => {
             .join(', ')
           : Array.isArray(right) ? right.join(', ') : String(right)
       expect(revealed.textContent).toContain(shown)
+      if (sample.widget === 'graph') {
+        for (const { x, y } of right) expect(revealed.textContent).toContain(`(${x}, ${y})`)
+        expect(revealed.textContent).not.toContain('[object Object]')
+      }
     }
   })
 

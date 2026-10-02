@@ -33,6 +33,8 @@ function GalleryCard({ sample }) {
       .filter(([, count]) => count > 0)
       .map(([coin, count]) => `${count} ${coinLabels[coin][count === 1 ? 0 : 1]}`)
       .join(', ')
+    : sample.widget === 'graph'
+      ? answer.map(({ x, y }) => `(${x}, ${y})`).join(', ')
     : sample.widget === 'table-fill'
       ? sample.instance.visual.rows.map(({ id, meters }) => `${meters} meters = ${answer[id]} centimeters`).join(', ')
     : Array.isArray(answer) ? answer.join(', ') : answer

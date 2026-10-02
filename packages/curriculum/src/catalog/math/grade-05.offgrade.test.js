@@ -19,7 +19,7 @@ import { skills } from './grade-05.js'
 // P2.10 adds `time-money`. Telling the time is a Grade 1–3 skill and 5.MD.A.1 covers
 // converting measurement units, never time, so the catalog has carried it with `ccss: []`
 // since P1.3 — but with no note saying why. §7 asks for one, and this is where it is forced.
-const OFF_GRADE = ['roman-numerals', 'data-analysis', 'time-money', 'equiv-fractions']
+const OFF_GRADE = ['roman-numerals', 'data-analysis', 'time-money', 'equiv-fractions', 'variables']
 const source = readFileSync(new URL('./grade-05.js', import.meta.url), 'utf8')
 
 /** The object literals in the exported array, split on the line that opens each one. */

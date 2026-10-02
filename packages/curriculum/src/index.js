@@ -18,6 +18,7 @@ import { templates as nameTheQuadrilateralTemplates } from './problems/math/g05/
 import { templates as tableFillTemplates } from './problems/math/g05/table-fill.js'
 import { templates as symbolicExpressionTemplates } from './problems/math/g05/symbolic-expression.js'
 import { templates as symbolicStepsTemplates } from './problems/math/g05/symbolic-steps.js'
+import { templates as graphTemplates } from './problems/math/g05/graph.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
@@ -41,6 +42,7 @@ const problemTemplates = [
   ...tableFillTemplates,
   ...symbolicExpressionTemplates,
   ...symbolicStepsTemplates,
+  ...graphTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 
@@ -114,6 +116,7 @@ const visualFields = {
   'number-line': ['kind', 'segments'],
   'table-fill': ['kind', 'rows'],
   steps: ['kind', 'items'],
+  graph: ['kind', 'mode', 'xMin', 'xMax', 'yMin', 'yMax'],
 }
 
 export function toInstance(rendered) {

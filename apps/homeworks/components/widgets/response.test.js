@@ -31,3 +31,13 @@ describe('symbolic response values', () => {
     expect(toResponse(instance, ['5', '5*3'])).toEqual({ steps: ['5', '5*3'] })
   })
 })
+
+describe('graph response values', () => {
+  const instance = { widget: 'graph', visual: { kind: 'graph' } }
+
+  it('starts with no plotted points and posts points as the graph response', () => {
+    const value = [{ x: 2, y: 3 }]
+    expect(emptyValue(instance)).toEqual([])
+    expect(toResponse(instance, value)).toEqual({ points: value })
+  })
+})

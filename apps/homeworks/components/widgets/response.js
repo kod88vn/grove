@@ -17,6 +17,7 @@ export function emptyValue(instance) {
   if (widget === 'fraction-bar') return []
   if (widget === 'number-line') return ''
   if (widget === 'table-fill') return Object.fromEntries(instance.visual.rows.map(({ id }) => [id, '']))
+  if (widget === 'graph') return []
   throw new Error(`unknown widget: ${widget}`)
 }
 
@@ -50,5 +51,6 @@ export function toResponse(instance, value) {
   if (widget === 'fraction-bar') return { text: `${value.length}/${instance.visual.segments}` }
   if (widget === 'number-line') return { text: value === '' ? '' : `${value}/${instance.visual.segments}` }
   if (widget === 'table-fill') return { cells: value }
+  if (widget === 'graph') return { points: value }
   throw new Error(`unknown widget: ${widget}`)
 }

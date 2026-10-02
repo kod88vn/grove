@@ -145,6 +145,14 @@ function setClockTo({ hour, minute }) {
   step('minute-forward', ((minute - minuteNow + 60) % 60) / 5)
 }
 
+function plotGraphPoints(points) {
+  for (const point of points) {
+    fireEvent.change(screen.getByLabelText(/^x coordinate$/i), { target: { value: String(point.x) } })
+    fireEvent.change(screen.getByLabelText(/^y coordinate$/i), { target: { value: String(point.y) } })
+    fireEvent.click(screen.getByRole('button', { name: /plot point/i }))
+  }
+}
+
 function coinCountsFor(total, denominations) {
   let remaining = total
   const counts = {}
@@ -164,6 +172,10 @@ function tapCoins(instance, counts) {
 
 /** Type the right answer the way a kid would, per widget. */
 function enterCorrect(instance, answer) {
+  if (instance.widget === 'graph') {
+    plotGraphPoints(answer.points)
+    return
+  }
   if (instance.widget === 'text') {
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: answer.accept[0] } })
     return
@@ -238,6 +250,13 @@ function enterCorrect(instance, answer) {
 
 /** Type something a kid could plausibly type that is simply not right. */
 function enterWrong(instance, answer) {
+  if (instance.widget === 'graph') {
+    const points = answer.points.map((point, index) => index === answer.points.length - 1
+      ? { ...point, y: point.y + (point.y + 1 <= instance.visual.yMax ? 1 : -1) }
+      : point)
+    plotGraphPoints(points)
+    return
+  }
   if (instance.widget === 'text') {
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: 'quadrilateral' } })
     return
@@ -347,6 +366,7 @@ function visibleText(container) {
   for (const numerals of clone.querySelectorAll('[data-clock-dial]')) numerals.remove()
   for (const count of clone.querySelectorAll('[data-fraction-bar-count]')) count.remove()
   for (const endpoint of clone.querySelectorAll('[data-number-line-endpoint]')) endpoint.remove()
+  for (const label of clone.querySelectorAll('[data-graph-axis-label]')) label.remove()
   return clone.textContent
 }
 
@@ -385,7 +405,7 @@ function residueOf(text, instance) {
 describe('P1.8 — answer widgets', () => {
   it('covers every widget the shipped templates use, and nothing else', () => {
     expect(new Set(problems.map((problem) => problem.widget))).toEqual(
-      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps']),
+      new Set(['number', 'column', 'fraction', 'cloze', 'choice', 'order', 'sort', 'match', 'clock', 'coins', 'tap-select', 'fraction-bar', 'number-line', 'table-fill', 'text', 'expression', 'steps', 'graph']),
     )
     expect(problems.length).toBeGreaterThanOrEqual(14)
   })
@@ -396,7 +416,7 @@ describe('P1.8 — answer widgets', () => {
       const instance = toInstance(full)
       const { view } = mount(instance)
 
-      expect(screen.getByText(instance.prompt)).toBeInTheDocument()
+      expect(view.container.textContent).toContain(instance.prompt)
       const text = view.container.textContent
 
       if (instance.visual?.kind === 'expression') expect(text).toContain(instance.visual.expression)
@@ -473,6 +493,7 @@ describe('P1.8 — answer widgets', () => {
         expect(view.container.querySelectorAll('tbody tr')).toHaveLength(4)
         expect(screen.getAllByRole('textbox')).toHaveLength(4)
       }
+      if (instance.visual?.kind === 'graph') expect(screen.getByRole('img', { name: /coordinate plane/i })).toBeInTheDocument()
     })
 
     it.each(SEEDS)('builds a response the shipped checker accepts at seed %i', (seed) => {
@@ -588,6 +609,10 @@ describe('P1.8 — answer widgets', () => {
       } else if (widget === 'fraction-bar' || widget === 'number-line') {
         for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled()
         fireEvent.click(screen.getAllByRole('button')[0])
+      } else if (widget === 'graph') {
+        expect(screen.getByLabelText(/^x coordinate$/i)).toBeDisabled()
+        expect(screen.getByLabelText(/^y coordinate$/i)).toBeDisabled()
+        expect(screen.getByRole('button', { name: /plot point/i })).toBeDisabled()
       } else if (widget === 'table-fill' || widget === 'expression' || widget === 'steps') {
         for (const field of screen.getAllByRole('textbox')) expect(field).toBeDisabled()
         fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '5' } })
@@ -601,12 +626,12 @@ describe('P1.8 — answer widgets', () => {
   })
 
   it('refuses a widget it does not know, the way check() does', () => {
-    const instance = { ...toInstance(rendered(problems[0].id, 1)), widget: 'graph' }
+    const instance = { ...toInstance(rendered(problems[0].id, 1)), widget: 'unknown' }
     const quiet = jest.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => render(<AnswerWidget instance={instance} value={null} onChange={() => {}} />)).toThrow(
-      /unknown widget: graph/,
+      /unknown widget: unknown/,
     )
-    expect(() => toResponse(instance, null)).toThrow(/unknown widget: graph/)
+    expect(() => toResponse(instance, null)).toThrow(/unknown widget: unknown/)
     quiet.mockRestore()
   })
 
@@ -656,6 +681,8 @@ describe('P1.8 — answer widgets', () => {
         expect(value).toEqual(Object.fromEntries(instance.visual.rows.map(({ id }) => [id, ''])))
       } else if (problem.widget === 'steps') {
         expect(value).toEqual(instance.visual.items.map(() => ''))
+      } else if (problem.widget === 'graph') {
+        expect(value).toEqual([])
       } else {
         expect(value).toBe('')
       }
