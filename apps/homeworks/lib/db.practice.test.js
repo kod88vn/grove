@@ -114,7 +114,7 @@ describe('P1.6 schema — the four tables of plan §6.4 (students, practice_sess
 
   it('creates students, practice_sessions, session_items and attempts', () => {
     expect(tableNames(conn).sort()).toEqual(
-      ['attempts', 'practice_sessions', 'readings', 'session_items', 'students', 'submissions'],
+      ['attempts', 'practice_sessions', 'readings', 'session_items', 'student_decorations', 'students', 'submissions'],
     )
   })
 
@@ -148,6 +148,7 @@ describe('P1.6 schema — the four tables of plan §6.4 (students, practice_sess
       'tz:TEXT:1',
       'started_at:INTEGER:1',
       'finished_at:INTEGER:0',
+      'finish_result_json:TEXT:0',
     ])
   })
 
@@ -429,7 +430,7 @@ describe('P1.6 migrating a database that already exists', () => {
 
     const migrated = createDatabase(file)
     expect(tableNames(migrated).sort()).toEqual(
-      ['attempts', 'practice_sessions', 'readings', 'session_items', 'students', 'submissions'],
+      ['attempts', 'practice_sessions', 'readings', 'session_items', 'student_decorations', 'students', 'submissions'],
     )
     expect(migrated.prepare(`SELECT score FROM submissions WHERE id = 'old-sub'`).get().score).toBe(7)
     expect(migrated.prepare(`SELECT passage FROM readings WHERE id = 'old-read'`).get().passage)
@@ -449,6 +450,35 @@ describe('P1.6 migrating a database that already exists', () => {
     expect(conn.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(conn.pragma('foreign_keys', { simple: true })).toBe(1)
     conn.close()
+  })
+
+  it('adds the saved finish result to an existing sessions table without changing finished rows', () => {
+    const file = tmpDb('finished-session.db')
+    const legacy = new Database(file)
+    legacy.exec(`
+      CREATE TABLE students (
+        id TEXT PRIMARY KEY, display_name TEXT NOT NULL, avatar TEXT NOT NULL,
+        grade INTEGER NOT NULL, settings_json TEXT NOT NULL DEFAULT '{}',
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      );
+      INSERT INTO students (id, display_name, avatar, grade) VALUES ('public', 'Explorer', '🌱', 5);
+      CREATE TABLE practice_sessions (
+        id TEXT PRIMARY KEY, student_id TEXT NOT NULL REFERENCES students(id),
+        kind TEXT NOT NULL, skill_id TEXT, local_date TEXT NOT NULL, tz TEXT NOT NULL,
+        started_at INTEGER NOT NULL DEFAULT (unixepoch()), finished_at INTEGER
+      );
+      INSERT INTO practice_sessions (id, student_id, kind, local_date, tz, finished_at)
+      VALUES ('old-finished', 'public', 'daily', '2026-09-30', 'UTC', 123);
+    `)
+    legacy.close()
+
+    const migrated = createDatabase(file)
+    const columnsAfterMigration = columns(migrated, 'practice_sessions')
+    const oldSession = migrated.prepare(`SELECT * FROM practice_sessions WHERE id = 'old-finished'`).get()
+    expect(columnsAfterMigration).toContain('finish_result_json:TEXT:0')
+    expect(oldSession.finished_at).toBe(123)
+    expect(oldSession.finish_result_json).toBeNull()
+    migrated.close()
   })
 })
 
@@ -470,8 +500,10 @@ describe('P1.6 repository functions', () => {
       'getAllReadings',
       'getAllSubmissions',
       'getAttemptsBySession',
+      'getAttemptsByStudent',
       'getAttemptsByStudentDay',
       'getDatabase',
+      'getOwnedDecorations',
       'getReadingById',
       'getReadingsByDateRange',
       'getSessionById',
@@ -479,6 +511,7 @@ describe('P1.6 repository functions', () => {
       'getStudentById',
       'getSubmissionById',
       'getSubmissionsByDateRange',
+      'getSunshineBalance',
       'incrementSessionItemHints',
       'incrementSessionItemTries',
       'initDb',
@@ -491,6 +524,7 @@ describe('P1.6 repository functions', () => {
       'listStudents',
       'markSessionItemDone',
       'markSessionItemRevealed',
+      'purchaseDecoration',
       'resetDatabase',
     ])
   })
@@ -558,8 +592,19 @@ describe('P1.6 repository functions', () => {
   })
 
   it('stamps finished_at when the session ends', () => {
-    finishSession('sess-free')
+    finishSession('sess-free', { finished: true, stars: 0, grew: [], next: null })
     expect(typeof getSessionById('sess-free').finished_at).toBe('number')
+    expect(JSON.parse(getSessionById('sess-free').finish_result_json)).toEqual({
+      finished: true, stars: 0, grew: [], next: null,
+    })
+  })
+
+  it('returns and preserves the first saved result on repeated finishes', () => {
+    const first = { finished: true, stars: 3, grew: [], next: { id: 'first-next' } }
+    const changed = { finished: true, stars: 99, grew: [{ skillId: 'later' }], next: null }
+
+    expect(finishSession('sess-1', first)).toEqual(first)
+    expect(finishSession('sess-1', changed)).toEqual(first)
   })
 
   it('stores an attempt with its snapshot, tries and hints, and reads them back parsed', () => {

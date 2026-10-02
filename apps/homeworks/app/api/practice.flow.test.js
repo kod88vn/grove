@@ -144,7 +144,7 @@ async function walkTheCorridor(meta) {
 
   const { sessionId } = await bodyOf(
     await createSession(
-      req({ studentId: student.id, kind: 'daily', localDate: DATE, tz: 'America/New_York' })
+      req({ studentId: student.id, kind: 'skill', skillId: meta.skill, localDate: DATE, tz: 'America/New_York' })
     )
   )
 

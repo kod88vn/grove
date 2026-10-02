@@ -31,6 +31,7 @@ const PROBLEMS_URL = `/homeworks/api/problems?skill=${SKILL}`
 const ITEMS_URL = `/homeworks/api/sessions/${SESSION}/items`
 const ATTEMPTS_URL = '/homeworks/api/attempts'
 const SESSIONS_URL = '/homeworks/api/sessions'
+const FINISH_URL = `/homeworks/api/sessions/${SESSION}/finish`
 
 /** The nth problem a runner of this skill should serve, and the instance it draws. */
 const problemAt = (index) => PROBLEMS[index % PROBLEMS.length]
@@ -74,6 +75,7 @@ function walkingServer() {
         },
       }
     },
+    [FINISH_URL]: { body: { finished: true, stars: 6, grew: [], next: null } },
   }
 }
 
@@ -211,7 +213,7 @@ describe('P1.8 — /homeworks/play/[sessionId]', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
 
-    // 3 + 2 + 1, straight from the three /attempts replies.
+    // The finish endpoint, not the browser's optimistic total, owns this value.
     expect(await screen.findByLabelText('6 stars earned')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Check/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()

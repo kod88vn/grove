@@ -284,14 +284,14 @@ describe.each([['maths', MATHS], ['English', ENGLISH]])('P2.3 — the sound a %s
       expect(tonesOf(contexts).length).toBeGreaterThanOrEqual(1)
     })
 
-    it('still plays when the child has asked for less motion — they are separate switches', async () => {
+    it('stays silent when the device requests reduced motion, even with parent sounds enabled', async () => {
       installMatchMedia(true)
       const contexts = installAudio()
       mount(id, fakeFetch(correctReply(id)))
       check()
 
       await screen.findByText(GREAT)
-      await waitFor(() => expect(contexts).toHaveLength(1))
+      await waitFor(() => expect(contexts).toHaveLength(0))
       expect(screen.getByTestId('verdict')).not.toHaveAttribute('data-animate')
     })
 

@@ -56,7 +56,8 @@ const SCHEMA = `
     local_date TEXT NOT NULL,
     tz TEXT NOT NULL,
     started_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    finished_at INTEGER
+    finished_at INTEGER,
+    finish_result_json TEXT
   );
 
   CREATE TABLE IF NOT EXISTS session_items (
@@ -96,6 +97,14 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS idx_attempts_student_date ON attempts(student_id, local_date DESC);
   CREATE INDEX IF NOT EXISTS idx_attempts_student_skill ON attempts(student_id, skill_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS student_decorations (
+    student_id TEXT NOT NULL REFERENCES students(id),
+    decoration_id TEXT NOT NULL,
+    purchase_cost INTEGER NOT NULL CHECK (purchase_cost > 0),
+    purchased_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (student_id, decoration_id)
+  );
 `
 
 export function createDatabase(dbPath) {
@@ -107,6 +116,10 @@ export function createDatabase(dbPath) {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+  const sessionColumns = db.pragma('table_info(practice_sessions)')
+  if (!sessionColumns.some((column) => column.name === 'finish_result_json')) {
+    db.exec(`ALTER TABLE practice_sessions ADD COLUMN finish_result_json TEXT`)
+  }
   db.prepare(`
     INSERT OR IGNORE INTO students (id, display_name, avatar, grade)
     VALUES ('public', 'Explorer', '🌱', 5)
@@ -215,7 +228,9 @@ function initStatements(db) {
   `)
 
   stmts.finishSession = db.prepare(`
-    UPDATE practice_sessions SET finished_at = unixepoch() WHERE id = ?
+    UPDATE practice_sessions
+    SET finished_at = unixepoch(), finish_result_json = ?
+    WHERE id = ? AND finished_at IS NULL AND finish_result_json IS NULL
   `)
 
   stmts.insertSessionItem = db.prepare(`
@@ -391,9 +406,14 @@ export function getSessionById(id) {
   return stmts.getSessionById.get(id) || null
 }
 
-export function finishSession(id) {
+export function finishSession(id, result) {
   ensureStatements()
-  return stmts.finishSession.run(id)
+  const db = getDatabase()
+  return db.transaction((sessionId, sessionResult) => {
+    stmts.finishSession.run(JSON.stringify(sessionResult), sessionId)
+    const session = stmts.getSessionById.get(sessionId)
+    return session?.finish_result_json ? JSON.parse(session.finish_result_json) : null
+  })(id, result)
 }
 
 export function insertSessionItem({ session_id, problem_id, seed }) {
@@ -449,6 +469,43 @@ export function getAttemptsBySession(sessionId) {
 export function getAttemptsByStudentDay(studentId, localDate) {
   ensureStatements()
   return stmts.getAttemptsByStudentDay.all(studentId, localDate).map(parseAttempt)
+}
+
+export function getAttemptsByStudent(studentId) {
+  return getDatabase().prepare(`
+    SELECT * FROM attempts WHERE student_id = ? ORDER BY local_date DESC, created_at DESC
+  `).all(studentId).map(parseAttempt)
+}
+
+export function getOwnedDecorations(studentId) {
+  return getDatabase().prepare(`
+    SELECT decoration_id AS id, purchase_cost AS price
+    FROM student_decorations WHERE student_id = ? ORDER BY purchased_at, decoration_id
+  `).all(studentId)
+}
+
+export function getSunshineBalance(studentId) {
+  const result = getDatabase().prepare(`
+    SELECT
+      COALESCE((SELECT SUM(stars) FROM attempts WHERE student_id = ? AND correct = 1 AND revealed = 0), 0)
+      - COALESCE((SELECT SUM(purchase_cost) FROM student_decorations WHERE student_id = ?), 0) AS balance
+  `).get(studentId, studentId)
+  return result.balance
+}
+
+export function purchaseDecoration({ studentId, decorationId, price }) {
+  if (!Number.isSafeInteger(price) || price <= 0) throw new TypeError('price must be a positive integer')
+  const db = getDatabase()
+  return db.transaction(() => {
+    if (!db.prepare('SELECT 1 FROM students WHERE id = ?').get(studentId)) return 'student-not-found'
+    if (db.prepare('SELECT 1 FROM student_decorations WHERE student_id = ? AND decoration_id = ?').get(studentId, decorationId)) return 'already-owned'
+    const balance = getSunshineBalance(studentId)
+    if (balance < price) return 'insufficient-sunshine'
+    db.prepare(`
+      INSERT INTO student_decorations (student_id, decoration_id, purchase_cost) VALUES (?, ?, ?)
+    `).run(studentId, decorationId, price)
+    return 'purchased'
+  })()
 }
 
 export function getAllSubmissions(startDateMs, endDateMs) {

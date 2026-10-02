@@ -39,9 +39,12 @@ import { getProblem, render, toInstance } from '@grove/curriculum'
 
 import {
   getSessionItem,
+  getDatabase,
+  finishSession,
   initDb,
   insertSession,
   insertStudent,
+  markSessionItemDone,
 } from '../../../../../lib/db.js'
 
 class MockResponse {
@@ -83,12 +86,12 @@ const post = (sessionId, body) =>
   )
 
 /** Build a world from scratch: fresh db, one student, one session. */
-const world = ({ studentId = 'kid-a', grade = 5, localDate = DATE, sessionId = 's-1' } = {}) => {
+const world = ({ studentId = 'kid-a', grade = 5, localDate = DATE, sessionId = 's-1', kind = 'skill' } = {}) => {
   insertStudent({ id: studentId, display_name: 'Kid', avatar: '🦊', grade, settings: {} })
   insertSession({
     id: sessionId,
     student_id: studentId,
-    kind: 'daily',
+    kind,
     skill_id: null,
     local_date: localDate,
     tz: 'America/New_York',
@@ -196,11 +199,22 @@ describe('POST /homeworks/api/sessions/:id/items', () => {
   it('gives a genuinely new problem when the same one is asked for twice', async () => {
     const sessionId = world()
     const first = await (await post(sessionId, { problemId: PROBLEM })).json()
+    markSessionItemDone(sessionId, PROBLEM, first.seed)
     const second = await (await post(sessionId, { problemId: PROBLEM })).json()
     expect(second.seed).not.toBe(first.seed)
     expect(getSessionItem(sessionId, PROBLEM, first.seed)).not.toBeNull()
     expect(getSessionItem(sessionId, PROBLEM, second.seed)).not.toBeNull()
     expect(second.instance.seed).toBe(second.seed)
+  })
+
+  it.each(['skill', 'daily'])('refuses to issue another item after a %s session is finished', async (kind) => {
+    const sessionId = world({ sessionId: `finished-${kind}`, kind })
+    finishSession(sessionId, { finished: true, stars: 0, grew: [], next: null })
+
+    const response = await post(sessionId, { problemId: PROBLEM })
+    expect(response.status).toBe(409)
+    expect(typeof (await response.json()).error).toBe('string')
+    expect(getDatabase().prepare('SELECT COUNT(*) AS count FROM session_items WHERE session_id = ?').get(sessionId).count).toBe(0)
   })
 
   it('bumps deterministically — the same run produces the same sequence', async () => {
@@ -209,7 +223,9 @@ describe('POST /homeworks/api/sessions/:id/items', () => {
       const sessionId = world()
       const seeds = []
       for (let i = 0; i < 4; i++) {
-        seeds.push((await (await post(sessionId, { problemId: PROBLEM })).json()).seed)
+        const { seed } = await (await post(sessionId, { problemId: PROBLEM })).json()
+        seeds.push(seed)
+        markSessionItemDone(sessionId, PROBLEM, seed)
       }
       return seeds
     }

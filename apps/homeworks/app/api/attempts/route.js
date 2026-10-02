@@ -41,6 +41,11 @@ export async function POST(request) {
     return Response.json({ error: 'durationMs must be a non-negative integer' }, { status: 400 })
   }
 
+  const session = getSessionById(body.sessionId)
+  if (session && session.finished_at !== null) {
+    return Response.json({ error: 'Session is already finished' }, { status: 409 })
+  }
+
   const row = getSessionItem(body.sessionId, body.problemId, body.seed)
   if (!row) {
     return Response.json({ error: 'Session item is not bound' }, { status: 409 })
@@ -67,7 +72,6 @@ export async function POST(request) {
         : 1
 
   if (result.correct) {
-    const session = getSessionById(body.sessionId)
     const metadata = listProblems().find((problem) => problem.id === body.problemId)
     markSessionItemDone(body.sessionId, body.problemId, body.seed)
     insertAttempt({
