@@ -25,7 +25,8 @@ async function readJson(url, options) {
   return payload
 }
 
-export function KidExperienceHub({ mode }) {
+export function KidExperienceHub({ mode, embedded = false }) {
+  const Landmark = embedded ? 'section' : 'main'
   const { motionAllowed } = useKidSettings()
   const [students, setStudents] = useState([])
   const [studentId, setStudentId] = useState('')
@@ -228,11 +229,11 @@ export function KidExperienceHub({ mode }) {
     onCreateStudent={createStudent}
   />
 
-  if (error && students.length === 0) return <main className="mx-auto max-w-4xl px-4 py-8"><p role="alert">Couldn't load profiles: {error}</p></main>
-  if (!students.length) return <main className="mx-auto max-w-4xl px-4 py-8"><h1 className="text-3xl font-bold">Grove Quests</h1>{profilePicker}</main>
+  if (error && students.length === 0) return <Landmark className="mx-auto max-w-4xl px-4 py-8"><p role="alert">Couldn't load profiles: {error}</p></Landmark>
+  if (!students.length) return <Landmark className="mx-auto max-w-4xl px-4 py-8"><h1 className="text-3xl font-bold">Grove Quests</h1>{profilePicker}</Landmark>
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <Landmark className="mx-auto max-w-4xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div><p className="font-semibold text-emerald-800">🌿 Nora's Grove</p><h1 className="text-4xl font-extrabold text-slate-950">{mode === 'today' ? 'Today' : mode === 'quests' ? 'Quest Board' : 'Your Grove'}</h1></div>
         <nav aria-label="Grove navigation" className="flex flex-wrap gap-2">
@@ -243,7 +244,7 @@ export function KidExperienceHub({ mode }) {
       </header>
       {profilePicker}
       {error && <p className="mb-4 rounded-lg bg-rose-50 p-4 text-rose-800" role="alert">{error}</p>}
-      {!activeSummary ? <p aria-live="polite">Loading your grove…</p> : (
+      {!activeSummary ? <div aria-live="polite"><p>Loading your grove…</p>{embedded && mode === 'today' && <button type="button" disabled className="mt-3 min-h-14 rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950 disabled:opacity-60">🌞 Daily Seed loading…</button>}</div> : (
         <>
           {mode === 'today' && <section className="grid gap-4">
             <div className="rounded-3xl bg-emerald-800 p-6 text-white">
@@ -251,7 +252,7 @@ export function KidExperienceHub({ mode }) {
               <p className="mt-2 text-3xl font-extrabold">☀️ {activeSummary.rewards.sunshine} Sunshine · ⭐ {activeSummary.rewards.stars} stars</p>
               <p className="mt-2">💧 {activeSummary.watering.streak}-day watering streak · {activeSummary.watering.wateredDays}/5 days this week</p>
               {activeSummary.problems.length === 0
-                ? <p className="mt-5 rounded-xl bg-white/10 p-4 text-lg font-semibold">No Daily Seed for Grade {activeSummary.student.grade} yet. Check back when more quests are ready.</p>
+                ? <div className="mt-5 rounded-xl bg-white/10 p-4"><p className="text-lg font-semibold">No Daily Seed for Grade {activeSummary.student.grade} yet. Check back when more quests are ready.</p>{embedded && <button type="button" disabled className="mt-3 min-h-14 rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950 disabled:opacity-60">🌞 Daily Seed unavailable</button>}</div>
                 : activeSummary.continueSession
                 ? <Link href={continueHref(activeSummary.continueSession, activeSummary.student.id)} className="mt-5 inline-flex min-h-14 items-center rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950">▶ Continue your quest</Link>
                 : <button disabled={busy} onClick={startDaily} className="mt-5 min-h-14 rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950 disabled:opacity-60">{busy ? 'Getting ready…' : '🌞 Play the Daily Seed'}</button>}
@@ -273,7 +274,7 @@ export function KidExperienceHub({ mode }) {
             </div>
             <ul className="mt-5 grid gap-3 sm:grid-cols-2">{filtered.map((problem) => <li key={problem.id} className="rounded-xl border p-4">
               <p className="font-bold">{problem.title}</p><p className="mt-1 text-sm text-slate-600">{problem.skill} · {['', '🌱 Sprout', '🌿 Sapling', '🌳 Tree'][problem.difficulty]}</p>
-              <button disabled={busy} onClick={() => startSession({ kind: 'skill', skillId: problem.skill, problemId: problem.id, count: 1 })} className="mt-3 min-h-14 rounded-lg bg-emerald-700 px-5 font-bold text-white">Start quest</button>
+              <button aria-label={`Start ${problem.title} quest`} disabled={busy} onClick={() => startSession({ kind: 'skill', skillId: problem.skill, problemId: problem.id, count: 1 })} className="mt-3 min-h-14 rounded-lg bg-emerald-700 px-5 font-bold text-white">Start quest</button>
             </li>)}</ul>
             {!filtered.length && <p className="mt-5">No quests match those filters.</p>}
           </section>}
@@ -293,6 +294,6 @@ export function KidExperienceHub({ mode }) {
           </section>}
         </>
       )}
-    </main>
+    </Landmark>
   )
 }

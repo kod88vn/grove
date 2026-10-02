@@ -269,10 +269,10 @@ describe('P2.3 — the device has the last word on motion', () => {
     expect(probe()).toMatchObject({ animations: true, prefersReducedMotion: true, motionAllowed: false })
   })
 
-  it('silences sound when the device requests reduced motion', () => {
+  it('keeps enabled sound available when the device requests reduced motion', () => {
     fakeMatchMedia(true).install()
     render(<KidSettingsProvider><Probe /></KidSettingsProvider>)
-    expect(probe()).toMatchObject({ prefersReducedMotion: true, motionAllowed: false, soundsAllowed: false })
+    expect(probe()).toMatchObject({ prefersReducedMotion: true, motionAllowed: false, soundsAllowed: true })
   })
 
   it('takes motion away when the toggle says no and the device has no opinion', () => {

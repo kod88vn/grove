@@ -22,12 +22,12 @@ function hashSeed(value) {
 function addDailyItem({ id, session, student, problem }) {
   const challenge = dailyChallenge({ grade: student.grade, localDate: session.local_date })
   if (!challenge || session.skill_id !== challenge.problem.skill || problem.id !== challenge.problem.id) {
-    return Response.json({ error: 'Problem does not match the canonical Daily Seed' }, { status: 400 })
+    return { status: 400, error: 'Problem does not match the canonical Daily Seed' }
   }
   if (!getSessionItem(id, problem.id, challenge.seed)) {
     insertSessionItem({ session_id: id, problem_id: problem.id, seed: challenge.seed })
   }
-  return Response.json({ seed: challenge.seed, instance: toInstance(render(problem, challenge.seed)) }, { status: 201 })
+  return { status: 201, payload: { seed: challenge.seed, instance: toInstance(render(problem, challenge.seed)) } }
 }
 
 function existingOpenItem(id, problem) {
@@ -37,6 +37,38 @@ function existingOpenItem(id, problem) {
     ORDER BY rowid DESC LIMIT 1
   `).get(id, problem.id)
   return item ? { seed: item.seed, instance: toInstance(render(problem, item.seed)) } : null
+}
+
+function addSkillItem({ id, session, student, problem }) {
+  const open = existingOpenItem(id, problem)
+  if (open) return { status: 201, payload: open }
+
+  const base = `${student.grade}:${session.local_date}:${problem.id}`
+  let attempt = 0
+  let seed = hashSeed(base)
+  while (getSessionItem(id, problem.id, seed)) {
+    attempt += 1
+    seed = hashSeed(`${base}:${attempt}`)
+  }
+
+  insertSessionItem({ session_id: id, problem_id: problem.id, seed })
+  return { status: 201, payload: { seed, instance: toInstance(render(problem, seed)) } }
+}
+
+function issueItemAtomically(id, problem) {
+  const db = getDatabase()
+  return db.transaction(() => {
+    const session = getSessionById(id)
+    if (!session) return { status: 404, error: 'Session not found' }
+    if (session.finished_at !== null) return { status: 409, error: 'Session is already finished' }
+
+    const student = getStudentById(session.student_id)
+    if (!student) return { status: 400, error: 'Session student not found' }
+
+    return session.kind === 'daily'
+      ? addDailyItem({ id, session, student, problem })
+      : addSkillItem({ id, session, student, problem })
+  })()
 }
 
 export async function POST(request, { params }) {
@@ -72,23 +104,7 @@ export async function POST(request, { params }) {
   const problem = getProblem(body.problemId)
   if (!problem) return Response.json({ error: 'Problem not found' }, { status: 400 })
 
-  const student = getStudentById(session.student_id)
-  if (!student) return Response.json({ error: 'Session student not found' }, { status: 400 })
-
-  if (session.kind === 'daily') return addDailyItem({ id, session, student, problem })
-
-  const open = existingOpenItem(id, problem)
-  if (open) return Response.json(open, { status: 201 })
-
-  const base = `${student.grade}:${session.local_date}:${body.problemId}`
-  let attempt = 0
-  let seed = hashSeed(base)
-  while (getSessionItem(id, body.problemId, seed)) {
-    attempt += 1
-    seed = hashSeed(`${base}:${attempt}`)
-  }
-
-  insertSessionItem({ session_id: id, problem_id: body.problemId, seed })
-  const instance = toInstance(render(problem, seed))
-  return Response.json({ seed, instance }, { status: 201 })
+  const result = issueItemAtomically(id, problem)
+  if (result.error) return Response.json({ error: result.error }, { status: result.status })
+  return Response.json(result.payload, { status: result.status })
 }

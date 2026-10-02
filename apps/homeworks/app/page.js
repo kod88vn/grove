@@ -14,7 +14,7 @@ function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
 
   return (
     <>
-      <KidExperienceHub mode="today" />
+      <KidExperienceHub mode="today" embedded />
       <main className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-center gap-3">
         <div>
@@ -27,7 +27,7 @@ function HomeworksView({ initialSection, skillCategory, isPracticeMode }) {
         <Link href="/settings" className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800">
           ⚙️ Settings
         </Link>
-        <button type="button" onClick={() => window.location.assign('/today')} className="min-h-14 rounded-xl bg-amber-300 px-5 py-4 font-bold text-slate-950">🌞 Daily Seed</button>
+        <Link href="/today" className="min-h-14 rounded-xl bg-amber-300 px-5 py-4 font-bold text-slate-950">🌞 Daily Seed</Link>
       </div>
 
       <nav aria-label="Grove Quests" className="mb-6 flex flex-wrap gap-3">

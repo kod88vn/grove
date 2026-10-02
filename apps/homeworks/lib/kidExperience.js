@@ -58,6 +58,7 @@ export function wateringSummary({ attempts, studentId, today }) {
   }).length)
 
   let streak = 0
+  let hasWateredAnchor = false
   let cursor = todayNumber
   while (cursor >= todayNumber - 365) {
     const weekStart = mondayOf(cursor)
@@ -68,15 +69,20 @@ export function wateringSummary({ attempts, studentId, today }) {
     }
     if (missed > 2) {
       while (cursor >= weekStart && watered.has(dateText(cursor))) {
+        hasWateredAnchor = true
         streak += 1
         cursor -= 1
       }
       break
     }
+    if ([...watered].some((day) => {
+      const number = dateNumber(day)
+      return number >= weekStart && number <= weekEnd
+    })) hasWateredAnchor = true
     streak += cursor - weekStart + 1
     cursor = weekStart - 1
   }
-  return { wateredDays, rainDaysUsed, streak, weeklyGoalMet: wateredDays >= 5 }
+  return { wateredDays, rainDaysUsed, streak: hasWateredAnchor ? streak : 0, weeklyGoalMet: wateredDays >= 5 }
 }
 
 export function rewardSummary({ attempts, studentId }) {

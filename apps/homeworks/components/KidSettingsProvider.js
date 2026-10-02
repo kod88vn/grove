@@ -18,7 +18,7 @@ export function KidSettingsProvider({ children }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const motionAllowed = settings.animations && !prefersReducedMotion
-  const soundsAllowed = settings.sounds && !prefersReducedMotion
+  const soundsAllowed = settings.sounds
 
   useEffect(() => {
     try {
