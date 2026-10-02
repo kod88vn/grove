@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
 import { listPendingDrafts, recordDraftDecision } from './contentReview'
@@ -17,7 +18,7 @@ const draft = {
 let directory
 
 beforeEach(async () => {
-  directory = await mkdtemp(resolve(process.cwd(), '../../tmp/u19-content-review-'))
+  directory = await mkdtemp(resolve(tmpdir(), 'u19-content-review-'))
   await writeFile(resolve(directory, 'draft.json'), JSON.stringify(draft))
 })
 
