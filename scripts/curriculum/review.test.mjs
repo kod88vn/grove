@@ -51,3 +51,13 @@ test('a rejected draft never enters versioned content', async () => {
   await rejectDraft({ draft, save: async (...args) => { saved.push(args) } })
   assert.deepEqual(saved, [])
 })
+
+test('approval rejects a present but non-string passage without writing reviewed content', async () => {
+  const { approveDraft } = await import('./review.mjs')
+  const saved = []
+  await assert.rejects(approveDraft({
+    draft: { ...draft, passage: { text: 'not a passage' } }, reviewer: 'Parent', approved: true,
+    save: async (...args) => { saved.push(args) },
+  }), /passage|draft/i)
+  assert.deepEqual(saved, [])
+})

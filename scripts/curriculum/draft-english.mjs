@@ -28,9 +28,9 @@ function validateCandidate(candidate) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.id)) {
     throw new TypeError('Nora candidate id must be a lowercase slug')
   }
-  if (candidate.source !== undefined && candidate.source !== 'original' &&
+  if (candidate.source !== 'original' &&
       !(typeof candidate.source === 'string' && /^public-domain:.+/.test(candidate.source))) {
-    throw new TypeError('Nora candidate source must be original or a named public-domain work')
+    throw new TypeError('Nora candidate requires explicit original or named public-domain source provenance')
   }
   return candidate
 }
@@ -64,7 +64,7 @@ export async function draftEnglish({ skillId, grade, request = requestFromNora, 
     id: candidate.id,
     skillId,
     grade,
-    source: candidate.source || 'original',
+    source: candidate.source,
     reviewedBy: PENDING_REVIEW,
   }
   if (typeof draft.passage === 'string' && !fitsGradeBand(draft.passage, grade)) {

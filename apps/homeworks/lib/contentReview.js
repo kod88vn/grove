@@ -13,6 +13,13 @@ function decisionPath(filename, directory) {
   return resolve(directory, `${filename}.decision.json`)
 }
 
+function validateFilename(filename) {
+  if (typeof filename !== 'string' || !filename || basename(filename) !== filename ||
+      !filename.endsWith('.json') || filename.endsWith('.decision.json')) {
+    throw new TypeError('Invalid draft filename')
+  }
+}
+
 function versionedWriter(path, content) {
   const target = resolve(process.cwd(), '../..', path)
   return mkdir(resolve(target, '..'), { recursive: true })
@@ -20,14 +27,13 @@ function versionedWriter(path, content) {
 }
 
 async function readDraft(filename, directory) {
-  if (!filename || basename(filename) !== filename || !filename.endsWith('.json') || filename.endsWith('.decision.json')) {
-    throw new TypeError('Invalid draft filename')
-  }
+  validateFilename(filename)
   const text = await readFile(resolve(directory, filename), 'utf8')
   return JSON.parse(text)
 }
 
 async function hasDecision(filename, directory) {
+  validateFilename(filename)
   try {
     await readFile(decisionPath(filename, directory), 'utf8')
     return true
@@ -53,6 +59,7 @@ export async function listPendingDrafts(directory = defaultDraftsDirectory()) {
 }
 
 export async function recordDraftDecision({ filename, reviewer, approved, directory = defaultDraftsDirectory(), save = versionedWriter }) {
+  validateFilename(filename)
   if (approved !== true && approved !== false) throw new TypeError('Choose approve or reject explicitly')
   if (typeof reviewer !== 'string' || !reviewer.trim() || reviewer.trim() === 'agent-draft:pending-parent-review') {
     throw new TypeError('A named human reviewer is required')
@@ -81,6 +88,7 @@ function validateDraft(draft) {
       typeof draft.grade !== 'number' || Number(/^e(\d+)/.exec(draft.skillId)?.[1]) !== draft.grade ||
       typeof draft.sentence !== 'string' || !draft.sentence.trim() ||
       typeof draft.answer !== 'string' || !draft.answer.trim() ||
+      (draft.passage !== undefined && typeof draft.passage !== 'string') ||
       (draft.source !== 'original' && !(typeof draft.source === 'string' && /^public-domain:.+/.test(draft.source))) ||
       draft.reviewedBy !== PENDING_REVIEW) {
     throw new TypeError('Only a well-formed, unreviewed English draft can be reviewed')

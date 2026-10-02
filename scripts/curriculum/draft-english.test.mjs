@@ -72,3 +72,13 @@ test('a malformed response is not stored as if it were reviewable content', asyn
   }))
   assert.deepEqual(saved, [])
 })
+
+test('a candidate missing source cannot be saved with invented provenance', async () => {
+  const saved = []
+  await assert.rejects(draftEnglish({
+    skillId: 'e5.l.context-clues', grade: 5,
+    request: async () => ({ ...candidate, source: undefined }),
+    save: async (...args) => { saved.push(args) },
+  }), /source/i)
+  assert.deepEqual(saved, [])
+})

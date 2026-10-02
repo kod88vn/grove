@@ -10,7 +10,7 @@ export default async function ContentReviewPage({ drafts: providedDrafts } = {})
     <main className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-2 text-3xl font-bold">English content review</h1>
       <p className="mb-6 text-slate-600">Development only. Drafts are not child-facing and remain unapproved until a named reviewer decides.</p>
-      <ContentReviewForm drafts={entries.map((entry) => entry.draft || entry)} />
+      <ContentReviewForm drafts={entries} />
     </main>
   )
 }

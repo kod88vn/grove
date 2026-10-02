@@ -36,6 +36,10 @@ describe('Nora offline English authoring route', () => {
     expect(response.status).toBe(200)
     expect(body.candidate.reviewedBy).toBeUndefined()
     expect(callAI.mock.calls[0][0].messages[0].content).toMatch(/e5\.l\.context-clues, grade 5/)
+    const { buildLmstudioPayload } = require('@/app/api/chat/lib/lmstudioClient')
+    const forwarded = buildLmstudioPayload(callAI.mock.calls[0][0])
+    expect(forwarded.enable_thinking).toBe(false)
+    expect(forwarded.response_format?.json_schema?.schema?.required).toContain('source')
   })
 
   test('offline model fallback is an explicit service failure', async () => {

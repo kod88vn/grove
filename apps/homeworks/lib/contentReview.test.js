@@ -72,4 +72,20 @@ describe('pending English draft storage', () => {
     })).rejects.toThrow(/cannot write source/)
     expect(await listPendingDrafts(directory)).toHaveLength(1)
   })
+
+  test('an invalid traversal filename is rejected before any decision file can be probed', async () => {
+    await writeFile(resolve(directory, '../escape.json.decision.json'), '{}')
+    try {
+      await expect(recordDraftDecision({ filename: '../escape.json', reviewer: 'Parent', approved: true, directory })).rejects.toThrow(/invalid draft filename/i)
+    } finally {
+      await rm(resolve(directory, '../escape.json.decision.json'), { force: true })
+    }
+  })
+
+  test('a non-string passage cannot be approved as reviewed curriculum', async () => {
+    await writeFile(resolve(directory, 'draft.json'), JSON.stringify({ ...draft, passage: 42 }))
+    const saved = []
+    await expect(recordDraftDecision({ filename: 'draft.json', reviewer: 'Parent', approved: true, directory, save: async (...args) => saved.push(args) })).rejects.toThrow(/draft|passage/i)
+    expect(saved).toEqual([])
+  })
 })

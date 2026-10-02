@@ -10,6 +10,7 @@ function requirePendingDraft(draft) {
       !draft.id || !draft.skillId || !Number.isInteger(draft.grade) ||
       typeof draft.sentence !== 'string' || !draft.sentence.trim() ||
       typeof draft.answer !== 'string' || !draft.answer.trim() ||
+      (draft.passage !== undefined && typeof draft.passage !== 'string') ||
       (draft.source !== 'original' && !(typeof draft.source === 'string' && /^public-domain:.+/.test(draft.source))) ||
       draft.reviewedBy !== PENDING_REVIEW) {
     throw new TypeError('Only a well-formed, unreviewed English draft can be reviewed')

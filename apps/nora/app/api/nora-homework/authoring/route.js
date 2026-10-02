@@ -2,15 +2,22 @@ import { callAI } from '@/app/api/chat/lib/callAI'
 import { DEFAULT_MODEL } from '@/app/api/chat/lib/constants'
 
 const CANDIDATE_FORMAT = {
-  type: 'object',
-  properties: {
-    id: { type: 'string' },
-    sentence: { type: 'string' },
-    answer: { type: 'string' },
-    source: { type: 'string', enum: ['original'] },
+  type: 'json_schema',
+  json_schema: {
+    name: 'english_candidate',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        sentence: { type: 'string' },
+        answer: { type: 'string' },
+        source: { type: 'string', enum: ['original'] },
+      },
+      required: ['id', 'sentence', 'answer', 'source'],
+      additionalProperties: true,
+    },
   },
-  required: ['id', 'sentence', 'answer', 'source'],
-  additionalProperties: true,
 }
 
 function validSelection(skillId, grade) {
@@ -48,9 +55,7 @@ export async function POST(request) {
         content: `Create one original English curriculum item for ${skillId}, grade ${grade}. Return a JSON object with a lowercase hyphenated id, one sentence with a single blank represented by ____ when appropriate, a concise answer, source set to original, and any skill-specific fields. This is an unreviewed draft only. Never claim that a person reviewed or approved it.`,
       }],
       stream: false,
-      think: false,
-      format: CANDIDATE_FORMAT,
-      options: { num_predict: 700, temperature: 0.3 },
+      options: { num_predict: 700, temperature: 0.3, think: false, response_format: CANDIDATE_FORMAT },
     })
     if (response.headers.get('X-AI-Offline') === 'true') {
       return Response.json({ error: 'Nora is offline; no draft was created' }, { status: 503 })
