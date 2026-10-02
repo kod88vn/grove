@@ -6,7 +6,7 @@ const stageOrder = { seed: 0, sprout: 1, sapling: 2 }
 
 function growthForSession({ skills, attempts, sessionId, studentId }) {
   const prior = attempts.filter((attempt) => attempt.session_id !== sessionId)
-  const after = attempts.filter((attempt) => attempt.student_id === studentId)
+  const after = attempts
   const beforeStages = gardenSummary({ skills, attempts: prior, studentId })
   const afterStages = gardenSummary({ skills, attempts: after, studentId })
   return afterStages.flatMap((grown) => {
@@ -40,6 +40,7 @@ export async function POST(_request, { params }) {
   }
 
   const student = getStudentById(session.student_id)
+  if (!student) return Response.json({ error: 'Session student not found' }, { status: 400 })
   const attempts = getAttemptsByStudent(session.student_id)
   const sessionAttempts = getAttemptsBySession(id)
   const grew = growthForSession({
