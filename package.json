@@ -20,6 +20,8 @@
     "lint": "turbo run lint",
     "test:orchestrator": "yarn workspace @grove/orchestrator test",
     "test:games": "yarn workspace @grove/games test",
+    "curriculum:english:draft": "node scripts/curriculum/draft-english.mjs",
+    "curriculum:english:review": "node scripts/curriculum/review.mjs",
     "test": "turbo run test"
   },
   "devDependencies": {

@@ -15,7 +15,7 @@ Nora must be running and reachable for exercise generation and grading to work.
 ## Features
 
 ### 📚 English Section
-- **Daily Reading Exercises**: AI-generated short to medium passages appropriate for Grade 5
+- **Daily Reading Exercises**: Existing Grade 5 reading flow; unreviewed authoring candidates are never served to students
 - **Comprehension Quizzes**: Mix of multiple-choice and short-answer questions
 - **Varied Question Types**: Tests understanding in creative ways beyond simple recall
 - **AI Grading**: Receives feedback on comprehension and writing quality
@@ -71,6 +71,19 @@ Nora must be running and reachable for exercise generation and grading to work.
 Set environment variables:
 - `PLT_NORA_URL` (default: `http://localhost:3001`)
 - `HOMEWORKS_NORA_TIMEOUT_MS` (default: `60000`)
+
+## Offline English Authoring
+
+From the repository root, run `yarn curriculum:english:draft --skill=e5.l.context-clues --grade=5`.
+Nora drafts through its authoring API and the script stores an unreviewed JSON candidate only
+under ignored `scripts/curriculum/drafts/`. In development, open `/homeworks/dev/content-review`,
+enter the reviewer's name, and explicitly approve or reject a candidate. Approval creates a new
+versioned module in `packages/curriculum/src/content/english/items/`; rejection creates no
+curriculum content. The matching CLI is `yarn curriculum:english:review approve <draft.json>
+--reviewer="Name"` or `reject`. The development page and its POST endpoint are unavailable in
+production. Drafting does not constitute human review, and existing Grade 5
+`agent-draft:pending-parent-review` markers must not be changed until a person reviews those
+items.
 
 ## Testing
 
