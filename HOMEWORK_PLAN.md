@@ -147,6 +147,18 @@ at the repo root in `scripts/curriculum/draft-english.mjs` (§10 Phase 6) and wr
 P6.1 adds `scripts/curriculum/drafts/` to it in the same PR as the script. Nothing under
 `packages/curriculum` makes a network call.
 
+Operator workflow: run `yarn curriculum:english:draft --skill=e5.l.context-clues --grade=5`
+from the repository root. The script calls Nora's `/chat/api/nora-homework/authoring`
+route and writes only an unreviewed JSON candidate under the ignored drafts directory;
+model errors, offline stubs, malformed candidates and out-of-band passages fail without
+writing. Start Homeworks in development and open `/homeworks/dev/content-review`, enter a
+human reviewer name, and choose Approve or Reject for each pending candidate. The endpoint
+refuses production, records the decision beside the ignored draft, and on explicit approval
+creates a new module under `packages/curriculum/src/content/english/items/` with that
+reviewer's identity. It never edits or replaces existing Grade 5 items. The CLI alternative
+is `yarn curriculum:english:review approve <draft.json> --reviewer="Name"` or `reject`;
+neither path implies consent, and an already-decided candidate cannot be reviewed twice.
+
 ```
 packages/curriculum/
   package.json                     @grove/curriculum
@@ -651,8 +663,9 @@ from the reviewed bank; one passage feeds several skills' questions.
 3. Every template yields ≥2 hints and an explanation.
 4. Property test passes over 500 seeds: renders; its own answer passes `check`; a
    perturbed answer fails; no `undefined` / `NaN` / `[object Object]` in any string; numbers
-   within the skill's declared range; (English) every item has `reviewedBy` and readability
-   within band.
+  within the skill's declared range; (English) every shipped item has a human `reviewedBy`
+  and every passage's Flesch–Kincaid estimate is within ±1.5 grade levels. Agent drafts and
+  candidates still marked `agent-draft:pending-parent-review` do not meet this gate.
 5. Played once end-to-end on an iPad-portrait viewport by a human, noted in the progress file.
 
 **A phase is done** when its acceptance list below is met and, per grove AGENTS.md:
@@ -753,6 +766,14 @@ three already-templated Grade 5 skills toward that grade, but do not mark any of
 unit after the Grade 5 curriculum PR merges; do not retire live paths early.
 
 ### Phase 6 — English content (193 skills)
+
+U19 authoring is an offline operator workflow, never a kid-facing generator: Nora produces
+ignored candidates, a named person explicitly approves or rejects each one, and only an
+approval writes a new versioned source module. Readability is checked on passages at draft
+and approval boundaries; rejection and malformed candidates do not enter versioned content.
+The existing pending-parent-review marker is historical truth and must remain unchanged
+until those specific items receive actual human review.
+
 - `scripts/curriculum/draft-english.mjs` (repo root, outside the package; add
   `scripts/curriculum/drafts/` to the root `.gitignore` in the same PR) drafts items and
   passages per skill through Nora; a parent

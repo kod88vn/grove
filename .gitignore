@@ -39,4 +39,5 @@ test-results/
 # homeworks SQLite database and test data
 apps/homeworks/data/
 apps/homeworks/.data/
+scripts/curriculum/drafts/
 .aider*
