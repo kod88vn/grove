@@ -1,6 +1,6 @@
 # grove
 
-Monorepo for the Grove family's AI tools and skill library, managed with Turborepo.
+Grove is a family-focused workspace for household assistance, learning, and coordination. It brings together Nora, a family assistant powered by local Ollama, with apps for homework, educational games, reminders, shopping lists, and developer skills. This Yarn monorepo is managed with Turborepo and uses Next.js apps with the Platformatic service mesh; get started with `yarn install` and `yarn dev` (Nora requires Ollama at `http://grove:11434`).
 
 ## Structure
 
@@ -37,6 +37,10 @@ yarn dev
 # start the skill library server
 node apps/ai-skill-library/bin/skill-lib.js serve
 ```
+
+## Project plan
+
+The active homework roadmap is in [HOMEWORK_PLAN.md](HOMEWORK_PLAN.md), and implementation status is tracked in [HOMEWORK_PROGRESS.md](HOMEWORK_PROGRESS.md).
 
 ## Utilities
 
