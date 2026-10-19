@@ -82,9 +82,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 
-      # No rebuild needed on Windows — the Dockerfile (Alpine) recompiles
-      # better-sqlite3 from scratch in its deps stage.  The Windows runner
-      # only builds Docker images, never runs the app directly.
+      - name: Rebuild native modules for tests
+        run: npm rebuild better-sqlite3
+
+      # The Dockerfile recompiles better-sqlite3 for Alpine; this Windows
+      # build is needed only for tests before the Docker image is built.
 
       # Detect changed packages (turbo filter) for affected builds
       - name: Detect changed packages
