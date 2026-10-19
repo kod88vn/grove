@@ -12,7 +12,66 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3
+
+      - name: Detect changed packages
+        id: changed
+        shell: bash
+        run: |
+          BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          CHANGED_DIRS="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            | awk -F/ '$1 == "apps" && $2 != "" { print $1 "/" $2 }' \
+            | sort -u)"
+
+          FILTER=""
+          for dir in $CHANGED_DIRS; do
+            app="$(basename "$dir")"
+            case "$app" in
+              games)        FILTER="$FILTER --filter=@grove/games" ;;
+              gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
+              grove)        FILTER="$FILTER --filter=@grove/grove" ;;
+              homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
+              nora)         FILTER="$FILTER --filter=nora" ;;
+              orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
+              reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
+              shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
+            esac
+          done
+
+          echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
+          echo "Changed packages: $CHANGED_DIRS"
+
+      - name: Test affected packages
+        run: yarn turbo test ${{ steps.changed.outputs.filter }}
+
   deploy:
+    needs: test
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
@@ -82,11 +141,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 
-      - name: Rebuild native modules for tests
+      - name: Rebuild native modules for builds
         run: npm rebuild better-sqlite3
 
       # The Dockerfile recompiles better-sqlite3 for Alpine; this Windows
-      # build is needed only for tests before the Docker image is built.
+      # build is needed for app builds before the Docker image is built.
 
       # Detect changed packages (turbo filter) for affected builds
       - name: Detect changed packages
@@ -131,8 +190,6 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "filter=$filter"
           Add-Content -Path $env:GITHUB_ENV -Value "TURBO_FILTER=$filter"
 
-      - name: Test affected packages
-        run: yarn turbo test $TURBO_FILTER
 
       - name: Build affected packages
         run: yarn turbo build $TURBO_FILTER
