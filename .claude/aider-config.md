@@ -1,7 +1,7 @@
 # Aider + LM Studio Config
 
 ## Endpoint
-- Base URL: `http://192.168.68.121:1234/v1`
+- Base URL: `$AIDER_LMSTUDIO_API_BASE` (export it in `~/.zshrc`, e.g. `http://<lm-studio-host>:1234/v1`)
 - API key: `lm-studio` (placeholder, LM Studio ignores it)
 
 ## Models (in preference order for coding tasks)
@@ -13,7 +13,7 @@
 
 ```bash
 aider \
-  --openai-api-base http://192.168.68.121:1234/v1 \
+  --openai-api-base "$AIDER_LMSTUDIO_API_BASE" \
   --openai-api-key lm-studio \
   --model openai/qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx \
   --yes \

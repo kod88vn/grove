@@ -10,7 +10,7 @@ Never use Edit or Write tools on source code files — not for one-liners, not f
 
 ```bash
 aider \
-  --openai-api-base http://192.168.68.121:1234/v1 \
+  --openai-api-base "$AIDER_LMSTUDIO_API_BASE" \
   --openai-api-key lm-studio \
   --model openai/qwen3.6-35b-a3b-mtp-holo3-qwopus-qx86-hi-mlx \
   --yes \

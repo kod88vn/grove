@@ -146,9 +146,9 @@ jobs:
       - name: Start OpenObserve logging stack
         env:
           OPENOBSERVE_ROOT_USER_EMAIL: ${{ vars.OPENOBSERVE_ROOT_USER_EMAIL }}
-          OPENOBSERVE_ROOT_USER_PASSWORD: ${{ vars.OPENOBSERVE_ROOT_USER_PASSWORD }}
+          OPENOBSERVE_ROOT_USER_PASSWORD: ${{ secrets.OPENOBSERVE_ROOT_USER_PASSWORD }}
           CADDY_BASIC_AUTH_USERNAME: ${{ vars.CADDY_BASIC_AUTH_USERNAME }}
-          CADDY_BASIC_AUTH_PASSWORD: ${{ vars.CADDY_BASIC_AUTH_PASSWORD }}
+          CADDY_BASIC_AUTH_PASSWORD: ${{ secrets.CADDY_BASIC_AUTH_PASSWORD }}
         shell: powershell
         run: |
           # Ensure persistent data volume exists for OpenObserve logs

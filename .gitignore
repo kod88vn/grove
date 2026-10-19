@@ -30,6 +30,7 @@ Thumbs.db
 apps/ai-skill-library/
 tmp
 watt.log
+test_output.txt
 
 # orchestrator runtime caches
 apps/orchestrator/data/

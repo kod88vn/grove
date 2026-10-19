@@ -24,19 +24,20 @@ docker compose ps
 
 **Dashboard:** `http://grove:5081` — user/password: values of `$CADDY_BASIC_AUTH_USERNAME` / `$CADDY_BASIC_AUTH_PASSWORD`
 
-## GitHub Actions Variables Setup
+## GitHub Actions Secrets and Variables Setup
 
-Add these 4 variables to your GitHub repository:
-**Settings → Secrets and Variables → Actions → Variables**
+Add these to your GitHub repository under
+**Settings → Secrets and Variables → Actions**. Passwords MUST be **Secrets**:
+variables are printed unmasked in workflow logs, which are public on a public repo.
 
-| Variable Name | Value |
-|---|---|
-| `OPENOBSERVE_ROOT_USER_EMAIL` | `admin@grove.local` |
-| `OPENOBSERVE_ROOT_USER_PASSWORD` | your-secure-password |
-| `CADDY_BASIC_AUTH_USERNAME` | your-chosen-username |
-| `CADDY_BASIC_AUTH_PASSWORD` | your-secure-password |
+| Name | Kind | Value |
+|---|---|---|
+| `OPENOBSERVE_ROOT_USER_EMAIL` | Variable | `admin@grove.local` |
+| `OPENOBSERVE_ROOT_USER_PASSWORD` | Secret | your-secure-password |
+| `CADDY_BASIC_AUTH_USERNAME` | Variable | your-chosen-username |
+| `CADDY_BASIC_AUTH_PASSWORD` | Secret | your-secure-password |
 
-The deploy workflow reads these from `${{ vars.VAR_NAME }}` and passes them to `docker compose`.
+The deploy workflow reads them from `${{ vars.NAME }}` / `${{ secrets.NAME }}` and passes them to `docker compose`.
 
 ## Daily Operations
 
