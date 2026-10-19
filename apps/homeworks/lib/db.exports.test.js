@@ -21,8 +21,10 @@ describe('db module surface (F3)', () => {
       'getAllReadings',
       'getAllSubmissions',
       'getAttemptsBySession',
+      'getAttemptsByStudent',
       'getAttemptsByStudentDay',
       'getDatabase',
+      'getOwnedDecorations',
       'getReadingById',
       'getReadingsByDateRange',
       'getSessionById',
@@ -30,6 +32,7 @@ describe('db module surface (F3)', () => {
       'getStudentById',
       'getSubmissionById',
       'getSubmissionsByDateRange',
+      'getSunshineBalance',
       'incrementSessionItemHints',
       'incrementSessionItemTries',
       'initDb',
@@ -42,6 +45,7 @@ describe('db module surface (F3)', () => {
       'listStudents',
       'markSessionItemDone',
       'markSessionItemRevealed',
+      'purchaseDecoration',
       'resetDatabase',
     ])
   })

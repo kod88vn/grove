@@ -46,12 +46,15 @@ import { afterAll, beforeEach, describe, expect, it } from '@jest/globals'
 import { getProblem, listProblems, render, toInstance } from '@grove/curriculum'
 
 import {
+  finishSession,
+  getAttemptsByStudent,
   getAttemptsBySession,
   getSessionItem,
   incrementSessionItemHints,
   initDb,
   insertSession,
   insertSessionItem,
+  insertAttempt,
   insertStudent,
 } from '../../../lib/db.js'
 
@@ -293,6 +296,39 @@ describe('POST /homeworks/api/attempts — the row it writes', () => {
 })
 
 describe('POST /homeworks/api/attempts — refusals', () => {
+  it.each(['daily', 'skill'])('rejects scored answers after a %s session is finished without changing stars or tries', async (kind) => {
+    const finishedSessionId = kind === 'daily' ? SESSION : 'finished-skill'
+    if (kind === 'skill') {
+      insertSession({
+        id: finishedSessionId,
+        student_id: 'kid',
+        kind,
+        skill_id: 'm5.oa.order-of-operations',
+        local_date: DATE,
+        tz: 'America/New_York',
+      })
+      insertSessionItem({ session_id: finishedSessionId, problem_id: PROBLEM, seed: SEED })
+    }
+    insertSession({
+      id: 'prior-earned-session', student_id: 'kid', kind: 'daily', local_date: DATE, tz: 'UTC',
+    })
+    insertAttempt({
+      id: 'prior-earned-attempt', session_id: 'prior-earned-session', student_id: 'kid', subject: 'math',
+      grade: 5, skill_id: 'm5.nbt.long-multiplication', problem_id: 'prior-problem', content_version: 1,
+      seed: 1, difficulty: 1, shown: {}, response: {}, answer: {}, correct: true, tries: 1,
+      hints_used: 0, revealed: 0, stars: 2, rubric: null, duration_ms: 1, local_date: DATE,
+    })
+    const starsBefore = getAttemptsByStudent('kid').reduce((total, row) => total + row.stars, 0)
+    finishSession(finishedSessionId, { finished: true, stars: 0, grew: [], next: null })
+
+    const response = await attempt(rendered().answer, { sessionId: finishedSessionId })
+
+    expect(response.status).toBe(409)
+    expect(getSessionItem(finishedSessionId, PROBLEM, SEED)).toEqual(expect.objectContaining({ tries: 0 }))
+    expect(getAttemptsByStudent('kid').reduce((total, row) => total + row.stars, 0)).toBe(starsBefore)
+    expect(getAttemptsByStudent('kid')).toHaveLength(1)
+  })
+
   it('refuses a seed that was never bound, and charges nothing', async () => {
     const res = await right({ seed: 777 })
     expect(res.status).toBe(409)

@@ -43,6 +43,12 @@ Nora must be running and reachable for exercise generation and grading to work.
 - **Review Page** (`/review`): Every submission and reading session, grouped by the viewer's local day
 - **Per-Submission Detail**: Score, percentage, graded answers and feedback for each attempt
 
+### 🌿 Grove Quests (Phase 3 in progress)
+- **Today** (`/today`): choose an existing student profile or add a child, view stored stars/Sunshine and watering progress, start the grade-and-local-date Daily Seed, or choose a suggested skill.
+- **Quest Board** (`/quests`): filter registered problems by topic, difficulty and per-profile attempt status, or choose a random matching quest.
+- **Garden** (`/garden`): see seed/sprout stages derived from attempts, earned record-based badges, and a practice path ending in a registered boss quest. These screens do not invent mastery or public rankings.
+- **Profile scope**: avatar selection is the per-child context; no password or authentication claim is made. Attempts remain in Homeworks SQLite.
+
 ## Architecture
 
 ### API Routes
