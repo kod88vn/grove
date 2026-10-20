@@ -68,7 +68,7 @@ if [ -f "$CHECKOUT_DIR/ops/openobserve/docker-compose.yml" ]; then
     cd "$CHECKOUT_DIR/ops/openobserve"
     # Caddy needs a bcrypt hash; hash a plain value if that is what the env holds.
     if [ -n "${CADDY_BASIC_AUTH_PASSWORD:-}" ] && ! printf '%s' "$CADDY_BASIC_AUTH_PASSWORD" | grep -q '^\$2[aby]\$'; then
-      CADDY_BASIC_AUTH_PASSWORD=$(docker run --rm httpd:2.4-alpine htpasswd -nbBC "${CADDY_BASIC_AUTH_USERNAME:-grove-admin}" "$CADDY_BASIC_AUTH_PASSWORD" | sed 's/.*:\(.*\)/\1/')
+      CADDY_BASIC_AUTH_PASSWORD=$(docker run --rm httpd:2.4-alpine htpasswd -nbB -C 10 "${CADDY_BASIC_AUTH_USERNAME:-grove-admin}" "$CADDY_BASIC_AUTH_PASSWORD" | sed 's/.*:\(.*\)/\1/')
       export CADDY_BASIC_AUTH_PASSWORD
     fi
     docker compose --profile default up -d --quiet-pull 2>/dev/null || docker compose up -d
