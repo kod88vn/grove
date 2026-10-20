@@ -54,7 +54,7 @@ yarn killp 3000 4010
 
 ### Nora
 
-AI-powered family chatbot built with Next.js 16, Tailwind CSS, and streaming responses from a local Ollama LLM. See [apps/nora/README.md](apps/nora/README.md).
+AI-powered family chatbot built with Next.js 16, Tailwind CSS, and streaming responses from the local LM Studio LLM server. See [apps/nora/README.md](apps/nora/README.md).
 
 ### Shopping List
 
@@ -84,8 +84,10 @@ Add these to your `~/.zshrc` file:
 # GitHub Personal Access Token (for API access)
 export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
 
-# Anthropic API Key (for Claude models)
-export ANTHROPIC_API_KEY="your-key-here"
+# Optional, local development only: enables the opt-in pre-commit AI gate
+# (.husky/pre-commit). CI never uses a paid review API — code review is
+# performed by the agent itself (see AGENTS.md, "Code Review (Agent-Performed, Free)").
+export ANTHROPIC_API_KEY="your-key-here"   # optional; pre-commit hook skips without it
 ```
 
 After updating `.zshrc`, reload your shell or run:
@@ -145,33 +147,21 @@ Grove runs [OpenObserve](https://openobserve.ai) on the production machine for c
 | AI troubleshooting skill | [skills/observability/openobserve/SKILL.md](skills/observability/openobserve/SKILL.md) |
 | Docker compose | [ops/openobserve/docker-compose.yml](ops/openobserve/docker-compose.yml) |
 
-**Quick start:**
-```powershell
-cd ops/openobserve && docker compose --env-file .env up -d
+**Quick start** (on the host machine — credentials from `~/.grove/host.env` or your shell):
+```bash
+cd ops/openobserve && docker compose up -d
 # Dashboard at http://grove:5081, user: grove-admin
 ```
 
-## Runner cleanup (Windows self-hosted)
+## Hosting & Deployment
 
-If your self-hosted Windows runner fails to delete the previous workspace (EPERM locked file errors for native modules like `sharp`), use the PowerShell script below to stop Node, take ownership, and remove the workspace. You can run this manually on the runner host or wire the same steps into a `cleanup-runner` job in your CI workflow.
+Grove is hosted on the **`grove` machine** (the Mac on the family tailnet). There is no GitHub self-hosted runner: the repo is public and the free plan cannot use self-hosted runners on public repos. Instead, CI validates on GitHub-hosted runners and a small daemon on the machine does the deploying:
 
-PowerShell (run elevated):
+- CI (free): `PR CI` runs tests + builds; the `Deploy grove` workflow tests, then asks the host daemon to deploy the exact commit.
+- Host daemon (`ops/deploy/host-daemon.mjs`, kept alive by launchd): receives the webhook (via Tailscale Funnel) or polls GitHub, checks out the commit, builds the Docker image, swaps the live container (`http://grove` on the tailnet), runs health checks, pre-warms the local model, and reports back to GitHub as a commit status.
+- Code review + merge: performed by the coding agent (free) — see AGENTS.md, "Code Review (Agent-Performed, Free)". No paid API key is used anywhere in the pipeline.
 
-```powershell
-# Stop Node processes that commonly hold native modules
-Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue || $null
-
-# Path to the workspace — adjust if your runner uses a different path
-$workspace = 'C:\Users\kod\dev\actions-runner\_work\grove\grove'
-
-if (Test-Path $workspace) {
-    takeown /f "$workspace" /r /d y
-    icacls "$workspace" /grant Everyone:F /t
-    Remove-Item -LiteralPath "$workspace" -Recurse -Force
-}
-```
-
-Also included in this repo is an example GitHub Actions workflow: `.github/workflows/cleanup-runner-example.yml`. It demonstrates a `cleanup-runner` job that you can integrate into your main workflow by adding `needs: cleanup-runner` to your build jobs.
+Setup on the host machine: `bash ops/deploy/install-host.sh` — full details in [ops/deploy/README.md](ops/deploy/README.md).
 
 ## AI Skill Reference
 

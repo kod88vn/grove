@@ -1,4 +1,24 @@
-name: Deploy grove
+# Deploy Grove on every green master push / merged PR.
+#
+# Hosting lives on the "grove" machine (a Mac). Public repo + free plan means
+# GitHub Actions cannot use self-hosted runners, so CI never builds on the host:
+#
+#   1. `test` runs the real validation on GitHub-hosted runners (free minutes).
+#   2. `deploy` notifies the host daemon running on the grove machine. The daemon
+#      (ops/deploy/host-daemon.mjs) checks out the exact commit, builds the Docker
+#      image, swaps the live container, runs health checks, and reports back to
+#      GitHub as a commit status. It also polls GitHub on its own, so a missed
+#      webhook still gets deployed.
+#
+#      The webhook is best-effort: if the host is unreachable the `deploy` job
+#      logs a warning and stays green. It must never fail on an unreachable
+#      host — the daemon's polling fallback is the source of truth, and a red
+#      check here would make the daemon refuse to deploy the very commit it is
+#      supposed to deploy.
+#
+# Required repository settings (one-time, see ops/deploy/README.md):
+#   - Secret:  GROVE_DEPLOY_TOKEN  — shared secret for the daemon webhook
+#   - Variable: GROVE_DEPLOY_URL   — public URL of the daemon (Tailscale Funnel)
 
 on:
   push:
@@ -9,11 +29,11 @@ on:
   pull_request_target:
     branches: [master]
     types: [closed]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   test:
-    if: >-
+    if: |
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
@@ -21,11 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 2   # needed for turbo --filter=[HEAD^1]
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,265 +59,91 @@ jobs:
 
       - name: Detect changed packages
         id: changed
-        shell: bash
         run: |
-          BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
-          HEAD_SHA="$(git rev-parse HEAD)"
-          CHANGED_DIRS="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
-            | awk -F/ '$1 == "apps" && $2 != "" { print $1 "/" $2 }' \
-            | sort -u)"
+          # For push events, compare against the previous commit
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE_REF="${{ github.event.before }}"
+            if [ "$BASE_REF" = "0000000000000000000000000000000000000000" ]; then
+              echo "First push, running all tests."
+              echo "filter=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+          fi
 
-          FILTER=""
-          for dir in $CHANGED_DIRS; do
-            app="$(basename "$dir")"
-            case "$app" in
-              games)        FILTER="$FILTER --filter=@grove/games" ;;
-              gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
-              grove)        FILTER="$FILTER --filter=@grove/grove" ;;
-              homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
-              nora)         FILTER="$FILTER --filter=nora" ;;
-              orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
-              reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
-              shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
-            esac
-          done
+          # Get changed package directories
+          CHANGED_DIRS=$(git diff --name-only "$BASE_REF" HEAD \
+            | grep '^apps/[^/]' \
+            | cut -d'/' -f1-2 \
+            | sort -u)
 
-          echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
-          echo "Changed packages: $CHANGED_DIRS"
+          if [ -z "$CHANGED_DIRS" ]; then
+            echo "No app packages changed, running all tests."
+            echo "filter=" >> "$GITHUB_OUTPUT"
+          else
+            FILTER=""
+            for dir in $CHANGED_DIRS; do
+              app=$(basename "$dir")
+              case "$app" in
+                games)        FILTER="$FILTER --filter=@grove/games" ;;
+                gateway)      FILTER="$FILTER --filter=@grove/gateway" ;;
+                grove)        FILTER="$FILTER --filter=@grove/grove" ;;
+                homeworks)    FILTER="$FILTER --filter=@grove/homeworks" ;;
+                nora)         FILTER="$FILTER --filter=nora" ;;
+                orchestrator) FILTER="$FILTER --filter=@grove/orchestrator" ;;
+                reminders)    FILTER="$FILTER --filter=@grove/reminders" ;;
+                shopping-list) FILTER="$FILTER --filter=@grove/shopping-list" ;;
+              esac
+            done
+            echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
+            echo "Changed packages: $CHANGED_DIRS"
+          fi
+
+      - name: Test CI scripts
+        run: node --test '.github/scripts/*.test.mjs'
 
       - name: Test affected packages
         run: yarn turbo test ${{ steps.changed.outputs.filter }}
 
   deploy:
     needs: test
-    if: >-
+    if: |
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
       (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true)
-    runs-on: grove
-
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Determine commit SHA for checkout
-        id: shainfo
-        shell: powershell
-        run: |
-          $sha = ""
-          # pull_request and pull_request_target both use github.event.pull_request
-          $prSha = "${{ github.event.pull_request.merge_commit_sha }}"
-          if ($prSha -ne "" -and $null -ne $prSha) {
-            $sha = $prSha
-          } else {
-            $sha = "${{ github.sha }}"
-          }
-          Write-Host "sha=$sha"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "sha=$sha"
-
-      - name: Kill stale processes locking sharp binary (Windows runner)
-        shell: powershell
-        run: |
-          $procs = Get-Process | Where-Object { $_.Path -and $_.Path -match "sharp" }
-          if ($procs) {
-            Write-Host "Killing sharp-related processes: $($procs.Name -join ', ')"
-            $procs | Stop-Process -Force
-          } else {
-            Write-Host "No sharp-related processes found."
-          }
-
-          $nodeProcs = Get-Process -Name 'node' -ErrorAction SilentlyContinue
-          if ($nodeProcs) {
-            Write-Host "Killing stale node processes: $($nodeProcs.Id -join ', ')"
-            $nodeProcs | Stop-Process -Force
-          } else {
-            Write-Host 'No stale node processes found.'
-          }
-          Start-Sleep -Seconds 2
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history needed for turbo diff detection
-          ref: ${{ steps.shainfo.outputs.sha }}
-
-      - name: Remove stale node_modules (sharp binary lock workaround)
-        if: always()
-        shell: powershell
-        run: |
-          # After checkout, remove node_modules if it exists from a previous build.
-          # This handles the case where actions/checkout's built-in clean failed due
-          # to locked sharp-win32-x64.node files (EPERM on Windows self-hosted runners).
-          if (Test-Path node_modules) {
-            Write-Host "Removing stale node_modules to ensure clean build..."
-            Remove-Item -Recurse -Force node_modules
-          } else {
-            Write-Host "node_modules not present; nothing to clean."
-          }
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-
-      - name: Rebuild native modules for builds
-        run: npm rebuild better-sqlite3
-
-      # The Dockerfile recompiles better-sqlite3 for Alpine; this Windows
-      # build is needed for app builds before the Docker image is built.
-
-      # Detect changed packages (turbo filter) for affected builds
-      - name: Detect changed packages
-        id: changed
-        shell: powershell
-        run: |
-          $base = git rev-parse HEAD~1 2>$null
-          if ($LASTEXITCODE -ne 0) { $base = "HEAD" }
-          $head = git rev-parse HEAD
-
-          # Get list of changed package directories
-          $changed = git diff --name-only "$base" "$head" `
-            | Where-Object { $_ -match '^apps/[^/]+' } `
-            | ForEach-Object { $_.Split('/')[0..1] -join '/' } `
-            | Sort-Object -Unique
-
-          if (-not $changed) {
-            Write-Host "No app packages changed, running all tests."
-            $filter = "..."
-          } else {
-            # Build turbo filter from changed packages (use npm package names)
-            $filter = ""
-            foreach ($pkg in $changed) {
-              $app = Split-Path $pkg -Leaf
-              switch ($app) {
-                "games"        { $filter = "$filter --filter=@grove/games" }
-                "gateway"      { $filter = "$filter --filter=@grove/gateway" }
-                "grove"        { $filter = "$filter --filter=@grove/grove" }
-                "homeworks"    { $filter = "$filter --filter=@grove/homeworks" }
-                "nora"         { $filter = "$filter --filter=nora" }
-                "orchestrator" { $filter = "$filter --filter=@grove/orchestrator" }
-                "reminders"    { $filter = "$filter --filter=@grove/reminders" }
-                "shopping-list"{ $filter = "$filter --filter=@grove/shopping-list" }
-              }
-            }
-          }
-
-          # Default to all packages if nothing changed and no filter set
-          if (-not $filter) { $filter = "..." }
-
-          Write-Host "filter=$filter"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "filter=$filter"
-          Add-Content -Path $env:GITHUB_ENV -Value "TURBO_FILTER=$filter"
-
-
-      - name: Build affected packages
-        run: yarn turbo build $TURBO_FILTER
-
-      - name: Build and tag Docker image
-        shell: powershell
-        run: |
-          $sha = "${{ steps.shainfo.outputs.sha }}".Substring(0, 7)
-          Write-Host "Building image grove:$sha"
-          docker build `
-            --build-arg COMMIT_HASH=$sha `
-            -t grove:$sha `
-            -t grove:latest `
-            .
-          echo "IMAGE_TAG=$sha" >> $env:GITHUB_ENV
-
-      - name: Start OpenObserve logging stack
+      - name: Notify grove host daemon
         env:
-          OPENOBSERVE_ROOT_USER_EMAIL: ${{ vars.OPENOBSERVE_ROOT_USER_EMAIL }}
-          OPENOBSERVE_ROOT_USER_PASSWORD: ${{ secrets.OPENOBSERVE_ROOT_USER_PASSWORD }}
-          CADDY_BASIC_AUTH_USERNAME: ${{ vars.CADDY_BASIC_AUTH_USERNAME }}
-          CADDY_BASIC_AUTH_PASSWORD: ${{ secrets.CADDY_BASIC_AUTH_PASSWORD }}
-        shell: powershell
+          GROVE_DEPLOY_URL: ${{ vars.GROVE_DEPLOY_URL }}
+          GROVE_DEPLOY_TOKEN: ${{ secrets.GROVE_DEPLOY_TOKEN }}
         run: |
-          # Ensure persistent data volume exists for OpenObserve logs
-          docker volume create openobserve_openobserve-data 2>$null | Out-Null
-
-          Set-Location ops/openobserve
-
-          # Caddy basicauth requires a bcrypt hash, not plaintext.
-          # Hash on the fly if the stored value doesn't look like a bcrypt hash already.
-          if ($env:CADDY_BASIC_AUTH_PASSWORD -and -not $env:CADDY_BASIC_AUTH_PASSWORD.StartsWith('$2')) {
-            Write-Host "Hashing Caddy password (plaintext detected)..."
-            $env:CADDY_BASIC_AUTH_PASSWORD = docker run --rm caddy:2.8.4-alpine caddy hash-password --plaintext $env:CADDY_BASIC_AUTH_PASSWORD
-          }
-
-          # Stop any existing containers, then start.
-          # --pull missing: only pull images not already cached locally (avoids slow ECR re-pulls on every deploy)
-          # Wrap in try/catch to suppress NativeCommandError when containers are stopping (non-zero exit code)
-          try { docker compose down 2>$null | Out-Null } catch {}
-          docker compose up -d --pull missing
-
-      - name: Swap Grove container
-        shell: powershell
-        run: |
-          $tag = $env:IMAGE_TAG
-
-          # Ensure persistent data volume exists for SQLite chat history
-          docker volume create nora-data 2>$null | Out-Null
-
-          $running = docker ps -q --filter "name=grove-live"
-          if ($running) {
-            Write-Host "Stopping old container grove-live"
-            docker stop grove-live | Out-Null
-            docker rm grove-live | Out-Null
-          }
-
-          Write-Host "Starting grove:$tag"
-          docker run -d `
-            --name grove-live `
-            --restart always `
-            -p 80:80 `
-            -e NORA_DB_PATH=/data/nora.db `
-            -e "AI_PROVIDER=${{ vars.AI_PROVIDER }}" `
-            -e "MODEL=${{ vars.MODEL }}" `
-            -e "LMSTUDIO_BASE_URL=${{ vars.LMSTUDIO_BASE_URL }}" `
-            -e "GROVE_LOCATION=${{ vars.GROVE_LOCATION }}" `
-            -v nora-data:/data `
-            grove:$tag
-
-      - name: Verify services are reachable
-        shell: powershell
-        run: |
-          $healthy = $false
-          for ($i = 0; $i -lt 10; $i++) {
-            try {
-              $resp = Invoke-WebRequest -Uri "http://127.0.0.1/" -UseBasicParsing -TimeoutSec 10
-              if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) { $healthy = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 3
-          }
-
-          if (-not $healthy) {
-            docker logs grove-live --tail 100
-            throw "Nora did not become healthy after deploy"
-          }
-
-          Write-Host "Nora health check OK"
-
-      - name: Verify OpenObserve is reachable
-        shell: powershell
-        run: |
-          $healthy = $false
-          for ($i = 0; $i -lt 10; $i++) {
-            try {
-              # OpenObserve health endpoint (redirects to login, so accept 301/302 too)
-              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5081/" -UseBasicParsing -TimeoutSec 10
-              $statusCode = [int]$resp.StatusCode
-              if ($statusCode -ge 300 -and $statusCode -lt 500) { $healthy = $true; break }
-              if ($statusCode -ge 200 -and $statusCode -lt 300) { $healthy = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 3
-          }
-
-          if (-not $healthy) {
-            Write-Host "Warning: OpenObserve did not become healthy (check GitHub env vars are set)"
-          } else {
-            Write-Host "OpenObserve health check OK"
-          }
-
-      - name: Prune old images
-        shell: powershell
-        run: docker image prune -f
+          if [ -z "${GROVE_DEPLOY_URL:-}" ] || [ -z "${GROVE_DEPLOY_TOKEN:-}" ]; then
+            echo "GROVE_DEPLOY_URL / GROVE_DEPLOY_TOKEN not configured — skipping deploy notification."
+            echo "Set them in repo Settings (see ops/deploy/README.md). The host daemon's"
+            echo "polling fallback will still pick this commit up."
+            exit 0
+          fi
+          SHA="${{ github.event.pull_request.merge_commit_sha || github.sha }}"
+          if [ -z "$SHA" ]; then
+            echo "No deploy SHA — skipping."
+            exit 0
+          fi
+          echo "Requesting deploy of ${SHA:0:7} at $GROVE_DEPLOY_URL"
+          CODE=$(curl -sS -o /tmp/grove-deploy-response.json -w '%{http_code}' \
+            -X POST "$GROVE_DEPLOY_URL/deploy/$GROVE_DEPLOY_TOKEN" \
+            -H 'content-type: application/json' \
+            -d "{\"sha\":\"$SHA\"}" \
+            --max-time 30) || CODE=000
+          cat /tmp/grove-deploy-response.json 2>/dev/null || true
+          echo
+          if [ "$CODE" != "202" ] && [ "$CODE" != "200" ]; then
+            echo "WARNING: deploy host unreachable (HTTP $CODE) — webhook is best-effort."
+            echo "The host daemon polls GitHub every 60s and will deploy this commit anyway."
+            echo "This check never fails on an unreachable host (see header comment)."
+            exit 0
+          fi
+          echo "Deploy request accepted — the grove host is deploying ${SHA:0:7}."

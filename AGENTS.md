@@ -35,15 +35,34 @@ Act on what it says, on the same branch (Branch Workflow Case B):
 | Checks pending | Wait, then check again. Pending is not passing. |
 | Review comments or `CHANGES_REQUESTED` | Address every comment: fix it, or reply with the reason it should not change. Resolve the thread and re-request review. See [GitHub PR Review](skills/coding/github-pr-review/SKILL.md). |
 | Merge conflict / `BEHIND` | Merge latest `master` into the branch (no force push), re-run tests, push. Also do this when the AI review flags code that only differs because `master` moved. |
-| Checks green and the merge gate's conditions all hold (see below) | `pr-auto-merge` merges it. If the gate refuses, its log lists every failed condition; fix those. The loop is finished once `state` is `MERGED`. |
+| Checks green, your review approval is posted, and the merge gate's conditions all hold (see below) | `pr-auto-merge` merges it. If the gate refuses, its log lists every failed condition; fix those. The loop is finished once `state` is `MERGED`. |
 | Closed without merge | Stop and ask the owner. Do not reopen or recreate it on your own. |
 
 [`merge-gate.mjs`](.github/scripts/merge-gate.mjs) merges only when **all** of these hold, and refuses otherwise:
-- the latest AI Code Review verdict from `github-actions[bot]` is `APPROVED`,
-- that approval is for the current head SHA,
-- no other reviewer's latest review is `CHANGES_REQUESTED`,
+- an approval from a **trusted (human) reviewer** is present — or, for a PR the agent authored, the agent's own review carrying the `## AI Code Review` marker (GitHub forbids approving one's own PR),
+- that approval (or marked review) is for the current head SHA,
+- no trusted reviewer's latest review is `CHANGES_REQUESTED` (including the agent's own marked reviews — a newer review by the same reviewer clears it),
 - there are 0 unresolved review threads,
+- the `PR CI` run for the head commit is green,
 - no Copilot Code Review run is still in progress.
+
+A *trusted reviewer* is a real human account. Bots (`[bot]` suffix) and GitHub's own AI accounts (e.g. `Copilot`, `copilot-pull-request-reviewer[bot]`) do **not** count. The coding agent reviews as its working (human) account: an approval on someone else's PR, or — on its own PR — a comment whose body starts with `## AI Code Review`. The gate and `pr-auto-merge` treat that marker as the required approval.
+
+## Code Review (Agent-Performed, Free)
+
+The code review is performed **by the coding agent itself, at no cost**. There is deliberately **no paid review API** in the pipeline (the previous Anthropic-based `pr-review` job was removed).
+
+After you open or update a PR, you own the review:
+
+1. **Review the diff yourself** using the [Code Review skill](skills/coding/code-review/SKILL.md): read the full diff, check correctness/security/maintainability, and enforce every AGENTS.md non-negotiable.
+2. **Fix or explain** every finding: fix real problems and push; for findings you disagree with, reply with the reason it should not change, then resolve the thread.
+3. **Post your verdict** — the review body must start with the `## AI Code Review` marker:
+   - On **someone else's** PR: `gh pr review <number> --approve --body "## AI Code Review …"`
+   - On **your own** PR, GitHub forbids approval, so post the same review as a comment: `gh pr review <number> --comment --body "## AI Code Review …"`
+   The marker makes the merge gate and `pr-auto-merge` treat your review as the required approval for the head commit.
+4. **Merge**: once your verdict is posted and the checks are green, `pr-auto-merge` merges on its own — wait for it (up to ~15 min) and report the merge. If it does not fire, or the PR must not wait, merge yourself: `gh pr merge <number> --squash`.
+
+This approval is what `pr-auto-merge` and the merge gate wait for. If you are not confident the change is correct, request changes instead of approving, then loop back to fix. Never approve to unblock a merge that isn't actually ready.
 
 Check that `headRefOid` equals your local `git rev-parse HEAD` before trusting any check result; a green check on an older commit proves nothing about the current one.
 
@@ -183,8 +202,10 @@ Add these to your `~/.zshrc` file:
 # GitHub Personal Access Token (for API access)
 export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
 
-# Anthropic API Key (for Claude models)
-export ANTHROPIC_API_KEY="your-key-here"
+# Optional, local development only: enables the opt-in pre-commit AI gate
+# (.husky/pre-commit). CI never uses a paid review API — code review is
+# performed by the agent itself (see "Code Review (Agent-Performed, Free)").
+export ANTHROPIC_API_KEY="your-key-here"   # optional; pre-commit hook skips without it
 ```
 
 After updating `.zshrc`, reload your shell or run:

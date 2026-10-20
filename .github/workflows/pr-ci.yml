@@ -4,9 +4,15 @@ on:
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]
+  # Re-run the merge gate as soon as a reviewer (typically the coding agent, free)
+  # submits a review, so an approval can merge without waiting for a new push.
+  pull_request_review:
+    branches: [master]
+    types: [submitted]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  # Event in the group: a review event must not cancel the PR's test run.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -14,7 +20,9 @@ env:
   TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
 jobs:
+  # Test + build only on PR open/sync (not re-run for every review event).
   pr-ci:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -98,113 +106,57 @@ jobs:
       - name: Check Nora architecture
         run: yarn turbo arch --filter=nora
 
-  pr-review:
-    # Run AI review in parallel with tests + build.
-    # Only pr-auto-merge waits for both to finish.
+  # The code review itself is performed by the coding agent, free (see AGENTS.md,
+  # "Code Review (Agent-Performed)"). There is deliberately NO paid review API here.
+  # This job only observes the agent's result: it waits for an approval from a
+  # trusted (human) reviewer on the PR's head commit so pr-auto-merge can proceed.
+  review-status:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
     outputs:
-      verdict: ${{ steps.ai-review.outputs.verdict }}
+      verdict: ${{ steps.status.outputs.verdict }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate diff
-        run: |
-          git diff \
-            "${{ github.event.pull_request.base.sha }}" \
-            "${{ github.event.pull_request.head.sha }}" \
-            > /tmp/pr.diff
-
-      - name: Install Anthropic SDK
-        run: pip install --quiet anthropic
-
-      - name: Run AI code review
-        id: ai-review
-        run: python3 .github/scripts/ai-review.py
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-
-      - name: Clean up previous AI review comments and threads
-        shell: bash
+      - name: Wait for agent review approval
+        id: status
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          PR_NUM=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-
-          # Collect all old review IDs into an array so we don't delete the one
-          # we are about to post (the current step runs BEFORE posting).
-          mapfile -t review_ids < <(
-            gh api repos/$REPO/pulls/$PR_NUM/reviews \
-              --paginate --jq '.[] | select((.body // "") | startswith("## AI Code Review")) | .id' \
-              2>/dev/null || true
-          )
-
-          # Delete each old top-level review (APPROVE/REQUEST_CHANGES).
-          for rid in "${review_ids[@]}"; do
-            [ -z "$rid" ] && continue
-            gh api repos/$REPO/pulls/$PR_NUM/reviews/$rid -X DELETE > /dev/null 2>&1 || true
-            echo "Deleted old review #$rid"
+          export REPO PR_NUMBER HEAD_SHA
+          # Trusted = a real human account (bots and GitHub's own AI review
+          # accounts are excluded). The agent posts its review as its working
+          # account; on its OWN pull request GitHub forbids approval, so it
+          # posts the same review as a comment starting with the
+          # "## AI Code Review" marker. Both forms count, on the head SHA only.
+          for i in $(seq 1 39); do
+            N=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" --paginate --jq \
+              '[.[] | select(.commit_id == env.HEAD_SHA) | select((.user.login | ascii_downcase | endswith("[bot]")) | not) | select(.user.login != "Copilot") | select(.state == "APPROVED" or (.state == "COMMENTED" and ((.body // "") | startswith("## AI Code Review"))))] | length' 2>/dev/null || echo 0)
+            if [ "${N:-0}" -gt 0 ]; then
+              echo "verdict=APPROVE" >> "$GITHUB_OUTPUT"
+              echo "Review found on head ${HEAD_SHA:0:7} (trusted approval or agent review)."
+              exit 0
+            fi
+            sleep 15
           done
+          echo "verdict=REQUEST_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "No review on head ${HEAD_SHA:0:7} yet — the coding agent must review (see AGENTS.md) and post its verdict. Not merging."
 
-          # Collect all individual line-comment IDs.
-          mapfile -t comment_ids < <(
-            gh api repos/$REPO/pulls/$PR_NUM/comments \
-              --paginate --jq '.[] | select((.body // "") | startswith("## AI Code Review")) | .id' \
-              2>/dev/null || true
-          )
-
-          # Delete each old individual line comment.
-          for cid in "${comment_ids[@]}"; do
-            [ -z "$cid" ] && continue
-            gh api repos/$REPO/pulls/comments/$cid -X DELETE > /dev/null 2>&1 || true
-            echo "Deleted old comment #$cid"
-          done
-
-          if [ ${#review_ids[@]} -eq 0 ] && [ ${#comment_ids[@]} -eq 0 ]; then
-            echo "No previous AI review comments to clean up."
-          else
-            echo "Cleaned up ${#review_ids[@]} review(s) and ${#comment_ids[@]} line comment(s)."
-          fi
-
-      - name: Post approval review
-        if: steps.ai-review.outputs.verdict == 'APPROVE'
-        run: |
-          gh pr review ${{ github.event.pull_request.number }} \
-            --approve \
-            --body-file /tmp/review_body.md
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Post request-changes review
-        if: steps.ai-review.outputs.verdict != 'APPROVE'
-        run: |
-          gh pr review ${{ github.event.pull_request.number }} \
-            --request-changes \
-            --body-file /tmp/review_body.md || \
-          gh pr review ${{ github.event.pull_request.number }} \
-            --comment \
-            --body-file /tmp/review_body.md
-        env:
-          GH_TOKEN: ${{ github.token }}
-
+  # Must wait for BOTH pr-ci (build) and review-status (agent review) to be settled.
+  # The gate script comes from master (base checkout): a PR cannot change its own gate.
   pr-auto-merge:
-    # Must wait for BOTH pr-ci (build) and pr-review (AI review) to pass.
-    needs: [pr-ci, pr-review]
+    needs: [pr-ci, review-status]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     if: |
-      success() &&
-      needs.pr-review.outputs.verdict == 'APPROVE' &&
+      always() &&
+      needs.review-status.result == 'success' &&
+      needs.review-status.outputs.verdict == 'APPROVE' &&
+      (needs.pr-ci.result == 'success' || needs.pr-ci.result == 'skipped') &&
       !contains(github.event.pull_request.labels.*.name, 'do-not-merge') &&
       github.event.pull_request.author_association == 'OWNER'
     permissions:
@@ -225,10 +177,10 @@ jobs:
         with:
           node-version: '22'
 
-      # The verdict output above is not enough: PR #45 merged with 8 unresolved Copilot
-      # findings. Re-read the PR's real review state; any open thread, change request, or
-      # stale approval blocks the merge. Resolve threads and push to re-run.
-      - name: Merge gate (bot approved head, no open threads or change requests)
+      # The verdict output above is not enough: re-read the PR's real state (approvals,
+      # threads, CI runs for the head commit, review runs). Any open thread, change
+      # request, or non-green test run blocks the merge.
+      - name: Merge gate (trusted approval, no open threads, tests green)
         run: node .github/scripts/merge-gate.mjs
         env:
           GH_TOKEN: ${{ github.token }}

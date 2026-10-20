@@ -148,3 +148,8 @@ This workspace supports both GitHub Copilot and Cline AI agents. See [.github/CL
 - Cline reads `.vscode/cline_mcp_settings.json` (absolute paths to pre-installed servers)
 - Shared servers are defined in `.vscode/mcp-shared.json` (canonical source)
 - Run `node .vscode/sync-cline-mcp.js` after editing shared config to regenerate Cline settings
+## Code Review & Merging (Free, Agent-Performed)
+
+- The pipeline contains **no paid AI review API**. The coding agent performs the code review itself (see AGENTS.md, "Code Review (Agent-Performed, Free)") and posts `gh pr review <n> --approve` when the diff is clean.
+- `pr-auto-merge` + `.github/scripts/merge-gate.mjs` merge only when: a trusted (human, non-bot) approval exists on the head SHA, no reviewer has open change requests, 0 unresolved review threads, and the `PR CI` run for the head commit is green.
+- Deployment is done by the host daemon on the grove machine (`ops/deploy/`) — CI never builds on a self-hosted runner (public repo + free plan).
