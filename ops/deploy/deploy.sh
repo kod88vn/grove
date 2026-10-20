@@ -88,7 +88,6 @@ docker run -d --name grove-live --restart always \
   -e MODEL="${MODEL:-qwen/qwen3.8-27b}" \
   -e LMSTUDIO_BASE_URL="${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}" \
   -e GROVE_LOCATION="${GROVE_LOCATION:-}" \
-  --add-host=grove:host.docker.internal \
   -v nora-data:/data \
   "grove:$DEPLOY_SHORT" > /dev/null
 log "started grove-live on :80"

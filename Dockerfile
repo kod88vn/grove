@@ -113,8 +113,9 @@ COPY --from=builder /app/apps/homeworks/next.config.js   ./apps/homeworks/
 COPY --from=builder /app/apps/homeworks/.next            ./apps/homeworks/.next
 
 # Orchestrator
-COPY --from=builder /app/apps/orchestrator/package.json ./apps/orchestrator/
-COPY --from=builder /app/apps/orchestrator/src          ./apps/orchestrator/src
+COPY --from=builder /app/apps/orchestrator/package.json     ./apps/orchestrator/
+COPY --from=builder /app/apps/orchestrator/platformatic.json ./apps/orchestrator/
+COPY --from=builder /app/apps/orchestrator/src              ./apps/orchestrator/src
 
 # App port + Prometheus metrics port
 EXPOSE 80

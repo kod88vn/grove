@@ -2823,6 +2823,18 @@
     msgpackr "^1.11.2"
     semver "^7.6.3"
 
+"@platformatic/node@3.53.0":
+  version "3.53.0"
+  resolved "https://registry.yarnpkg.com/@platformatic/node/-/node-3.53.0.tgz#556e386c61a18f8987449aa8230684f37765f3f3"
+  integrity sha512-jm6iY/RFcDrxRxGcITSKnwj9DTs2VBx8SH86z3P183DjmXqoWtSIDuhTzEUQVqRLou1O0sBtMF7KPZv0aRrBFA==
+  dependencies:
+    "@platformatic/basic" "3.53.0"
+    "@platformatic/foundation" "3.53.0"
+    "@platformatic/generators" "3.53.0"
+    "@watchable/unpromise" "^1.0.2"
+    json5 "^2.2.3"
+    light-my-request "^6.0.0"
+
 "@platformatic/openapi-schema-validator@^3.0.0":
   version "3.0.0"
   resolved "https://registry.npmjs.org/@platformatic/openapi-schema-validator/-/openapi-schema-validator-3.0.0.tgz"
