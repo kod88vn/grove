@@ -26,3 +26,7 @@ Full reference: [`.claude/aider-config.md`](.claude/aider-config.md)
 git diff          # verify the diff matches intent
 git diff --stat   # confirm only listed files were touched
 ```
+
+## Code Review & Merging (Free, Agent-Performed)
+
+Review each PR yourself (code-review skill), fix findings, then `gh pr review <n> --approve` and merge when green. CI uses no paid review API; the merge gate (`.github/scripts/merge-gate.mjs`) requires your (human-account) approval on the head SHA plus a green `PR CI` run. Hosting deploys via the host daemon on the grove machine — see `ops/deploy/README.md`.

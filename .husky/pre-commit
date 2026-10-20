@@ -25,7 +25,8 @@ fi
 
 yarn test
 
-# AI pre-commit review (skippable with SKIP_AI_REVIEW=1)
+# Optional AI pre-commit review (paid API, LOCAL ONLY — skippable with SKIP_AI_REVIEW=1).
+# CI does not use a paid review API: the coding agent reviews each PR itself (free).
 if [ "${SKIP_AI_REVIEW:-0}" != "1" ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
 	# Verify the anthropic package is already installed — do NOT install it silently.
 	if ! python3 -c "import anthropic" 2>/dev/null; then

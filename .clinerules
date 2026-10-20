@@ -12,3 +12,7 @@
 3. DYNAMIC SCOPE CONTROL
 - Avoid "tunnel vision" on the initial problem. 
 - Acknowledge when the user changes direction, and immediately adjust your code execution path to match the new instruction.
+
+4. CODE REVIEW IS PERFORMED BY THE AGENT (FREE)
+- The Grove pipeline has no paid AI review API. After opening/updating a PR, review the diff yourself, fix real findings, then approve via `gh pr review <n> --approve` and merge when checks are green (see AGENTS.md, "Code Review (Agent-Performed, Free)").
+- Never assume a paid/external reviewer will unblock the merge — your approval is the review the pipeline waits for.
