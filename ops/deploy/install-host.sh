@@ -17,11 +17,18 @@ GROVE_HOME="${GROVE_HOME:-$HOME/.grove}"
 CHECKOUT_DIR="${CHECKOUT_DIR:-$GROVE_HOME/checkout}"
 DAEMON_PORT="${DAEMON_PORT:-8080}"
 NODE_BIN="$(command -v node || true)"
+DOCKER_BIN="$(command -v docker || true)"
+DOCKER_DIR=""
+[ -n "$DOCKER_BIN" ] && DOCKER_DIR="$(dirname "$DOCKER_BIN")"
 PLIST="$HOME/Library/LaunchAgents/com.grove.host-daemon.plist"
 LABEL="com.grove.host-daemon"
 
 [ -n "$NODE_BIN" ] || { echo "node not found in PATH — install Node 18+ first"; exit 1; }
-command -v docker >/dev/null || echo "WARNING: docker not found in PATH (launchd PATH may still find it)"
+if [ -z "$DOCKER_BIN" ]; then
+  echo "WARNING: docker not found in PATH — deploys cannot build images (install Docker/OrbStack/Colima first)"
+else
+  echo "docker      : $DOCKER_BIN (dir added to launchd PATH)"
+fi
 command -v tailscale >/dev/null || echo "WARNING: tailscale not found — webhook will be unavailable, polling still works"
 command -v gh >/dev/null || echo "WARNING: gh not found — daemon cannot poll GitHub or report status"
 
@@ -88,7 +95,7 @@ cat > "$PLIST" <<PLIST
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>$NODE_DIR:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <string>$NODE_DIR:$DOCKER_DIR:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>GROVE_HOME</key>
     <string>$GROVE_HOME</string>
     <key>CHECKOUT_DIR</key>

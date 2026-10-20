@@ -55,6 +55,13 @@ const DEPLOY_TOKEN = process.env.GROVE_DEPLOY_TOKEN || ''
 const POLL_INTERVAL_S = Number(process.env.POLL_INTERVAL_SECONDS || 60)
 const CHECKS_TIMEOUT_S = Number(process.env.CHECKS_TIMEOUT_SECONDS || 30 * 60)
 const DEPLOY_COOLDOWN_MS = Number(process.env.DEPLOY_COOLDOWN_MS || 5 * 60 * 1000)
+// When the webhook is exposed as a path prefix on a shared Tailscale Funnel
+// host (e.g. https://studio.tail03716c.ts.net/grove), the proxy forwards the
+// full path, so the daemon must accept the same prefix. Empty by default.
+const WEBHOOK_PREFIX = (process.env.WEBHOOK_PATH_PREFIX || '').replace(/\/+$/, '')
+// Public base URL of this daemon's webhook (same value as the repo variable
+// GROVE_DEPLOY_URL). Used to verify reachability instead of re-running the CLI.
+const DEPLOY_URL = process.env.GROVE_DEPLOY_URL || ''
 
 mkdirSync(logsDir, { recursive: true })
 
@@ -243,11 +250,12 @@ const server = http.createServer((req, res) => {
     res.writeHead(code, { 'content-type': 'application/json' })
     res.end(JSON.stringify(obj))
   }
-  if (req.method === 'GET' && req.url === '/healthz') {
+  const u = req.url || ''
+  if (req.method === 'GET' && u === `${WEBHOOK_PREFIX}/healthz`) {
     return send(200, { ok: true, deploying: state.deploying, lastDeploySha: state.lastDeploySha, lastStatus: state.lastStatus, repo: REPO })
   }
-  if (req.method === 'POST' && req.url?.startsWith('/deploy/')) {
-    if (!tokenValid(req.url.slice('/deploy/'.length))) {
+  if (req.method === 'POST' && u.startsWith(`${WEBHOOK_PREFIX}/deploy/`)) {
+    if (!tokenValid(u.slice(`${WEBHOOK_PREFIX}/deploy/`.length))) {
       return send(401, { error: 'bad token' })
     }
     let body = ''
@@ -279,8 +287,16 @@ server.listen(DAEMON_PORT, '127.0.0.1', () => {
 // `tailscale funnel <port>` is idempotent: it succeeds immediately when the port
 // is already funneled. Called without a TTY it does not prompt.
 let funnelBusy = false
-function ensureFunnel() {
+async function ensureFunnel() {
   if (funnelBusy) return
+  // If the configured public URL already reaches us, the route exists (possibly
+  // as a path on a shared Funnel host) — do not touch the serve config.
+  if (DEPLOY_URL) {
+    try {
+      const res = await fetch(`${DEPLOY_URL.replace(/\/+$/, '')}${WEBHOOK_PREFIX}/healthz`, { signal: AbortSignal.timeout(10_000) })
+      if (res.ok) return
+    } catch {}
+  }
   funnelBusy = true
   try {
     const r = spawn('tailscale', ['funnel', String(DAEMON_PORT)], { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -288,7 +304,7 @@ function ensureFunnel() {
     r.stderr.on('data', (d) => process.stderr.write(d))
     r.on('close', (code) => {
       funnelBusy = false
-      if (code !== 0) log(`tailscale funnel ${DAEMON_PORT} exited ${code} (will retry hourly)`)
+      if (code !== 0) log(`tailscale funnel ${DAEMON_PORT} exited ${code} (polling fallback still works; will retry hourly)`)
     })
     r.on('error', (e) => { funnelBusy = false; log(`tailscale funnel failed: ${e.message} (polling fallback still works)`) })
   } catch (e) {
