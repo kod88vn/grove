@@ -26,7 +26,9 @@ GitHub Actions (free, GitHub-hosted runners)
 ```
 
 - **Instant path**: CI posts `POST /deploy/<token>` via the machine's Tailscale
-  Funnel URL. The token is a repo secret (`GROVE_DEPLOY_TOKEN`).
+  Funnel URL. The token is a repo secret (`GROVE_DEPLOY_TOKEN`). This path is
+  best-effort: if it cannot be reached the CI job stays green and the fallback
+  path below does the job.
 - **Fallback path**: the daemon polls GitHub every 60s for a new master commit
   whose checks are green, so a missed webhook (machine asleep, funnel off, CI
   down) still deploys within minutes of coming back.
@@ -47,9 +49,12 @@ Then:
    `GITHUB_TOKEN` (from `gh auth token`) and generated `GROVE_DEPLOY_TOKEN`.
 2. Set the GitHub repo secret to the generated token:
    `gh secret set GROVE_DEPLOY_TOKEN --repo kod88vn/grove <<< "$(grep GROVE_DEPLOY_TOKEN ~/.grove/host.env | cut -d= -f2)"`
-3. Set the GitHub repo variable to the machine's Funnel URL (the daemon prints
-   the exact URL once `tailscale funnel` is active):
-   `gh variable set GROVE_DEPLOY_URL --repo kod88vn/grove --value https://grove.<tailnet>`
+3. Set the GitHub repo variable to the machine's Funnel URL of the daemon
+   (the daemon prints the exact URL once `tailscale funnel` is active). On a
+   shared Funnel host — one public 443 listener path-routing several apps —
+   the daemon's route is a path (e.g. `/grove`):
+   `gh variable set GROVE_DEPLOY_URL --repo kod88vn/grove --value https://grove.<tailnet>/grove`
+   and set `WEBHOOK_PATH_PREFIX=/grove` in `~/.grove/host.env` to match.
 
 ## Operate
 
@@ -80,3 +85,8 @@ launchctl kickstart -k "gui/$(id -u)/com.grove.host-daemon"
 - The chat AI runs against the **local** LM Studio server (`host.docker.internal:1234`);
   no external AI API key is needed anywhere in this pipeline.
 - Nora's database lives in the `nora-data` Docker volume (survives container swaps).
+- If `tailscale funnel` fails with `listener already exists for port 443`, the
+  CLI build does not match the running Tailscale app build (they speak
+  different serve-config protocols). Re-install a matching CLI (or app) so the
+  path route can be managed. Until then, deploys still happen — just via the
+  polling fallback.

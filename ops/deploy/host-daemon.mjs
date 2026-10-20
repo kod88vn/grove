@@ -285,7 +285,11 @@ server.listen(DAEMON_PORT, '127.0.0.1', () => {
 
 // ── tailscale funnel (webhook reachability) ───────────────────────────────────
 // `tailscale funnel <port>` is idempotent: it succeeds immediately when the port
-// is already funneled. Called without a TTY it does not prompt.
+// is already funneled. Called without a TTY it does not prompt. On a shared
+// Funnel host (one 443 listener serving several path-routed apps) the route is
+// a path — `tailscale funnel http://127.0.0.1:<port><prefix>` adds it. If the
+// CLI and the running tailscaled build disagree on the serve-config protocol
+// this fails harmlessly: the polling fallback deploys regardless.
 let funnelBusy = false
 async function ensureFunnel() {
   if (funnelBusy) return
@@ -299,12 +303,13 @@ async function ensureFunnel() {
   }
   funnelBusy = true
   try {
-    const r = spawn('tailscale', ['funnel', String(DAEMON_PORT)], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const target = WEBHOOK_PREFIX ? `http://127.0.0.1:${DAEMON_PORT}${WEBHOOK_PREFIX}` : String(DAEMON_PORT)
+    const r = spawn('tailscale', ['funnel', target], { stdio: ['ignore', 'pipe', 'pipe'] })
     r.stdout.on('data', (d) => process.stdout.write(d))
     r.stderr.on('data', (d) => process.stderr.write(d))
     r.on('close', (code) => {
       funnelBusy = false
-      if (code !== 0) log(`tailscale funnel ${DAEMON_PORT} exited ${code} (polling fallback still works; will retry hourly)`)
+      if (code !== 0) log(`tailscale funnel ${target} exited ${code} (non-fatal — polling fallback still deploys; will retry hourly)`)
     })
     r.on('error', (e) => { funnelBusy = false; log(`tailscale funnel failed: ${e.message} (polling fallback still works)`) })
   } catch (e) {

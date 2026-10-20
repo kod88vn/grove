@@ -10,6 +10,12 @@
 #      GitHub as a commit status. It also polls GitHub on its own, so a missed
 #      webhook still gets deployed.
 #
+#      The webhook is best-effort: if the host is unreachable the `deploy` job
+#      logs a warning and stays green. It must never fail on an unreachable
+#      host — the daemon's polling fallback is the source of truth, and a red
+#      check here would make the daemon refuse to deploy the very commit it is
+#      supposed to deploy.
+#
 # Required repository settings (one-time, see ops/deploy/README.md):
 #   - Secret:  GROVE_DEPLOY_TOKEN  — shared secret for the daemon webhook
 #   - Variable: GROVE_DEPLOY_URL   — public URL of the daemon (Tailscale Funnel)
@@ -135,9 +141,9 @@ jobs:
           cat /tmp/grove-deploy-response.json 2>/dev/null || true
           echo
           if [ "$CODE" != "202" ] && [ "$CODE" != "200" ]; then
-            echo "Deploy host unreachable (HTTP $CODE). The host daemon polls GitHub every"
-            echo "${POLL_INTERVAL:-60}s, so this commit will still be deployed once the"
-            echo "daemon is reachable."
-            exit 1
+            echo "WARNING: deploy host unreachable (HTTP $CODE) — webhook is best-effort."
+            echo "The host daemon polls GitHub every 60s and will deploy this commit anyway."
+            echo "This check never fails on an unreachable host (see header comment)."
+            exit 0
           fi
           echo "Deploy request accepted — the grove host is deploying ${SHA:0:7}."

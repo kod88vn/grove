@@ -119,9 +119,10 @@ if [ -n "${LMSTUDIO_BASE_URL:-}" ]; then
 fi
 
 # ── 8. Prune dangling images, record state ────────────────────────────────────
+# (state.json belongs to the daemon — record this deploy in a separate file.)
 docker image prune -f > /dev/null 2>&1 || true
 mkdir -p "${GROVE_HOME:-$HOME/.grove}"
-cat > "${GROVE_STATE_FILE:-${GROVE_HOME:-$HOME/.grove}/state.json}" <<JSON
+cat > "${GROVE_HOME:-$HOME/.grove}/last-deploy.json" <<JSON
 { "sha": "$DEPLOY_SHA", "short": "$DEPLOY_SHORT", "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "status": "success" }
 JSON
 
