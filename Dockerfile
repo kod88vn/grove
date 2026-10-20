@@ -8,6 +8,7 @@ RUN apk add --no-cache git python3 make g++
 COPY package.json yarn.lock ./
 COPY packages/grove-shell/package.json ./packages/grove-shell/
 COPY packages/crossword/package.json   ./packages/crossword/
+COPY packages/curriculum/package.json  ./packages/curriculum/
 COPY apps/gateway/package.json       ./apps/gateway/
 COPY apps/grove/package.json         ./apps/grove/
 COPY apps/nora/package.json          ./apps/nora/
