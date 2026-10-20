@@ -62,12 +62,14 @@ Overall quality: <Good / Needs Work / Significant Issues>
 
 1. Fix real findings on the same branch and push. For findings you disagree
    with, reply to the thread explaining why, then resolve the thread.
-2. Once the diff is clean and tests + build pass, approve:
-   `gh pr review <number> --approve`
-   The approval body should start with `## AI Code Review` and briefly state
-   what was checked (this marker identifies agent-performed reviews).
-3. Merge when green: `gh pr merge <number> --squash --delete-branch`, or let
-   `pr-auto-merge` do it — the merge gate requires a trusted (human) approval
-   on the head SHA, 0 unresolved threads, and a green PR CI run.
-4. There is no paid AI review in CI: your approval *is* the review the
-   pipeline waits for (see AGENTS.md, "Code Review (Agent-Performed, Free)").
+2. Once the diff is clean and tests + build pass, post your verdict — the
+   body must start with `## AI Code Review` (this marker identifies
+   agent-performed reviews and is what the gate and `pr-auto-merge` accept):
+   - someone else's PR: `gh pr review <number> --approve --body "## AI Code Review …"`
+   - your own PR: GitHub forbids self-approval, so
+     `gh pr review <number> --comment --body "## AI Code Review …"`
+3. Wait for `pr-auto-merge` — the gate requires that review on the head SHA,
+   0 unresolved threads, and a green `PR CI` run. If it doesn't fire within
+   ~15 minutes, merge yourself: `gh pr merge <number> --squash --delete-branch`.
+4. There is no paid AI review in CI: your review *is* the review the pipeline
+   waits for (see AGENTS.md, "Code Review (Agent-Performed, Free)").

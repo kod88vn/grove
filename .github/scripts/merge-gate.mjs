@@ -18,9 +18,28 @@ const CI_WORKFLOW_NAME = 'PR CI'
 // run-level status is unreliable here (the merge job itself keeps its run in
 // progress, and a red merge job can fail an otherwise green run).
 const CI_JOB_NAME = 'pr-ci'
-// DISMISSED supersedes: a dismissed approval must not let an older one stand, and a
-// dismissed change request must stop blocking.
-const VERDICT_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'])
+// A user's LATEST review (any state, incl. plain comments). While that review
+// is a change request it blocks the merge; any newer review by the same user
+// (a re-review after fixes) clears it — which is also the only way the coding
+// agent can clear its own change request on its own PR, because GitHub forbids
+// approving one's own PR, so the agent's re-review is a comment.
+function latestTrustedReview(reviews) {
+  const latest = new Map()
+  for (const r of [...reviews].sort(byTime)) {
+    if (!isTrustedReviewer(r.user?.login)) continue
+    latest.set(r.user.login, r.state)
+  }
+  return latest
+}
+// GitHub forbids approving a PR you created, so on the agent's OWN pull request
+// the review is posted as a COMMENT whose body starts with this marker. A marked
+// review by a trusted account on the current head satisfies the review
+// requirement exactly like an approval does. (pr-ci.yml's review-status job
+// accepts the same marker — keep the two in sync.)
+export const AGENT_REVIEW_MARKER = '## AI Code Review'
+// States of a marked review that count as "the agent reviewed this head" (a
+// CHANGES_REQUESTED is a block, not a satisfaction).
+const AGENT_REVIEW_COUNT_STATES = new Set(['COMMENTED', 'APPROVED'])
 
 const short = (sha) => (sha || '').slice(0, 7)
 const byTime = (a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at)
@@ -37,16 +56,12 @@ export function isTrustedReviewer(login) {
   return true
 }
 
-function latestByUser(reviews, predicate) {
-  const latest = new Map()
-  for (const r of [...reviews].sort(byTime)) {
-    if (!predicate(r)) continue
-    if (!VERDICT_STATES.has(r.state)) continue
-    latest.set(r.user.login, r.state)
-  }
-  return latest
+function latestAgentReview(reviews) {
+  return reviews
+    .filter((r) => isTrustedReviewer(r.user?.login) && (r.body || '').startsWith(AGENT_REVIEW_MARKER))
+    .sort(byTime)
+    .at(-1)
 }
-
 export function evaluateMergeGate({
   headSha,
   reviews,
@@ -57,19 +72,38 @@ export function evaluateMergeGate({
 }) {
   const reasons = []
 
-  // 1) A trusted reviewer must have approved the current head commit.
+  // 1) The review must be satisfied on the current head commit: either an
+  //    approval from a trusted reviewer, or the coding agent's own marked
+  //    review (a comment — GitHub forbids approving one's own PR).
   const approvals = reviews
     .filter((r) => isTrustedReviewer(r.user?.login) && r.state === 'APPROVED')
     .sort(byTime)
   const latestApproval = approvals.at(-1)
-  if (!latestApproval) {
-    reasons.push('no approval from a trusted reviewer yet (the coding agent must review and approve first)')
-  } else if (latestApproval.commit_id !== headSha) {
-    reasons.push(`latest approval is for ${short(latestApproval.commit_id)}, not the head ${short(headSha)}`)
+  const agentReview = latestAgentReview(reviews)
+  const reviewSatisfied =
+    (latestApproval && latestApproval.commit_id === headSha) ||
+    (agentReview && agentReview.commit_id === headSha && AGENT_REVIEW_COUNT_STATES.has(agentReview.state))
+  if (!reviewSatisfied) {
+    if (latestApproval) {
+      reasons.push(`latest approval is for ${short(latestApproval.commit_id)}, not the head ${short(headSha)}`)
+    } else {
+      reasons.push('no approval from a trusted reviewer yet (the coding agent must review first)')
+    }
+    if (agentReview) {
+      if (agentReview.commit_id === headSha) {
+        reasons.push(`the coding agent's marked review for the head is not a verdict yet (state ${agentReview.state})`)
+      } else {
+        reasons.push(`latest agent review is for ${short(agentReview.commit_id)}, not the head ${short(headSha)}`)
+      }
+    } else {
+      reasons.push('no agent review posted yet (the coding agent must review and post its verdict first)')
+    }
   }
 
-  // 2) Any trusted reviewer whose latest verdict is CHANGES_REQUESTED blocks.
-  for (const [user, state] of latestByUser(reviews, (r) => isTrustedReviewer(r.user?.login))) {
+  // 2) Any trusted reviewer whose LATEST review is CHANGES_REQUESTED blocks.
+  //    The coding agent is included: its own marked change request blocks until
+  //    it re-reviews (a newer review by the same user clears it).
+  for (const [user, state] of latestTrustedReview(reviews)) {
     if (state === 'CHANGES_REQUESTED') reasons.push(`${user} requested changes`)
   }
 

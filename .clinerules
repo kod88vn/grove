@@ -14,5 +14,5 @@
 - Acknowledge when the user changes direction, and immediately adjust your code execution path to match the new instruction.
 
 4. CODE REVIEW IS PERFORMED BY THE AGENT (FREE)
-- The Grove pipeline has no paid AI review API. After opening/updating a PR, review the diff yourself, fix real findings, then approve via `gh pr review <n> --approve` and merge when checks are green (see AGENTS.md, "Code Review (Agent-Performed, Free)").
-- Never assume a paid/external reviewer will unblock the merge — your approval is the review the pipeline waits for.
+- The Grove pipeline has no paid AI review API. After opening/updating a PR, review the diff yourself, fix real findings, then post your verdict with the `## AI Code Review` marker: `gh pr review <n> --approve --body "## AI Code Review …"` on someone else's PR, or `--comment` with the same marker on your own (GitHub forbids self-approval). `pr-auto-merge` merges once the gate passes — wait for it, or `gh pr merge <n> --squash` if it doesn't fire (see AGENTS.md, "Code Review (Agent-Performed, Free)").
+- Never assume a paid/external reviewer will unblock the merge — your marked review is the review the pipeline waits for.

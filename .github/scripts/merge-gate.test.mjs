@@ -230,3 +230,102 @@ test('ignores a PR CI run for a different commit and uses the newest matching on
   })
   assert.deepEqual(result, { mergeable: true, reasons: [], ciRunning: false })
 })
+
+// ── Agent review marker (the agent cannot approve its own PR; it comments instead) ──
+
+const agentCommentedHead = (at = '2026-09-27T02:26:42Z') =>
+  review(AGENT, 'COMMENTED', HEAD, at, '## AI Code Review\n\nReviewed per code-review skill — clean.')
+
+test('allows merge when the agent posted its own PR review as a marked comment', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [agentCommentedHead()],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.deepEqual(result, { mergeable: true, reasons: [], ciRunning: false })
+})
+
+test('refuses when the agent marked review is for an older commit', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [review(AGENT, 'COMMENTED', OLD, '2026-09-27T02:26:42Z', '## AI Code Review\n')],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.equal(result.mergeable, false)
+  assert.match(result.reasons.join('\n'), /latest agent review is for a6f3fcc, not the head 29afcc0/)
+})
+
+test('a bot cannot satisfy the gate with a marker review', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [review(BOT, 'COMMENTED', HEAD, '2026-09-27T02:26:42Z', '## AI Code Review\n')],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.equal(result.mergeable, false)
+  assert.match(result.reasons.join('\n'), /no approval from a trusted reviewer/)
+  assert.match(result.reasons.join('\n'), /no agent review posted yet/)
+})
+
+test('a later marked comment supersedes an earlier marked change request', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [
+      review(AGENT, 'CHANGES_REQUESTED', HEAD, '2026-09-27T02:26:00Z', '## AI Code Review\n\nBug in x.'),
+      agentCommentedHead('2026-09-27T02:30:00Z'),
+    ],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.deepEqual(result, { mergeable: true, reasons: [], ciRunning: false })
+})
+
+test('a marked change request on the head blocks the merge', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [
+      agentCommentedHead('2026-09-27T02:26:00Z'),
+      review(AGENT, 'CHANGES_REQUESTED', HEAD, '2026-09-27T02:30:00Z', '## AI Code Review\n\nFound a real bug.'),
+    ],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.equal(result.mergeable, false)
+  assert.match(result.reasons.join('\n'), /kod88vn requested changes/)
+})
+
+test('a human change request still blocks even after the agent review', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [
+      agentCommentedHead('2026-09-27T02:26:00Z'),
+      review('owner-human', 'CHANGES_REQUESTED', HEAD, '2026-09-27T02:30:00Z'),
+    ],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.equal(result.mergeable, false)
+  assert.match(result.reasons.join('\n'), /owner-human requested changes/)
+})
+
+test('a human approval plus a stale agent comment is mergeable (approval on head wins)', () => {
+  const result = evaluateMergeGate({
+    headSha: HEAD,
+    reviews: [
+      review(AGENT, 'COMMENTED', OLD, '2026-09-27T02:20:00Z', '## AI Code Review\n'),
+      review('owner-human', 'APPROVED', HEAD, '2026-09-27T02:26:00Z'),
+    ],
+    unresolvedThreads: 0,
+    reviewRunsInProgress: 0,
+    ciRuns: [GREEN_CI()],
+  })
+  assert.deepEqual(result, { mergeable: true, reasons: [], ciRunning: false })
+})

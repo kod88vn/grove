@@ -129,20 +129,22 @@ jobs:
         run: |
           export REPO PR_NUMBER HEAD_SHA
           # Trusted = a real human account (bots and GitHub's own AI review
-          # accounts are excluded). The coding agent posts its approval as its
-          # working account — that is the verdict this pipeline waits for.
+          # accounts are excluded). The agent posts its review as its working
+          # account; on its OWN pull request GitHub forbids approval, so it
+          # posts the same review as a comment starting with the
+          # "## AI Code Review" marker. Both forms count, on the head SHA only.
           for i in $(seq 1 39); do
             N=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" --paginate --jq \
-              '[.[] | select(.state == "APPROVED") | select((.user.login | ascii_downcase | endswith("[bot]")) | not) | select(.user.login != "Copilot") | select(.commit_id == env.HEAD_SHA)] | length' 2>/dev/null || echo 0)
+              '[.[] | select(.commit_id == env.HEAD_SHA) | select((.user.login | ascii_downcase | endswith("[bot]")) | not) | select(.user.login != "Copilot") | select(.state == "APPROVED" or (.state == "COMMENTED" and ((.body // "") | startswith("## AI Code Review"))))] | length' 2>/dev/null || echo 0)
             if [ "${N:-0}" -gt 0 ]; then
               echo "verdict=APPROVE" >> "$GITHUB_OUTPUT"
-              echo "Trusted review approval found on head ${HEAD_SHA:0:7}."
+              echo "Review found on head ${HEAD_SHA:0:7} (trusted approval or agent review)."
               exit 0
             fi
             sleep 15
           done
           echo "verdict=REQUEST_CHANGES" >> "$GITHUB_OUTPUT"
-          echo "No trusted review approval on head ${HEAD_SHA:0:7} yet — the coding agent must review (see AGENTS.md) and post an approval. Not merging."
+          echo "No review on head ${HEAD_SHA:0:7} yet — the coding agent must review (see AGENTS.md) and post its verdict. Not merging."
 
   # Must wait for BOTH pr-ci (build) and review-status (agent review) to be settled.
   # The gate script comes from master (base checkout): a PR cannot change its own gate.

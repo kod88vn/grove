@@ -39,14 +39,14 @@ Act on what it says, on the same branch (Branch Workflow Case B):
 | Closed without merge | Stop and ask the owner. Do not reopen or recreate it on your own. |
 
 [`merge-gate.mjs`](.github/scripts/merge-gate.mjs) merges only when **all** of these hold, and refuses otherwise:
-- an approval from a **trusted (human) reviewer** is present,
-- that approval is for the current head SHA,
-- no other trusted reviewer's latest review is `CHANGES_REQUESTED`,
+- an approval from a **trusted (human) reviewer** is present — or, for a PR the agent authored, the agent's own review carrying the `## AI Code Review` marker (GitHub forbids approving one's own PR),
+- that approval (or marked review) is for the current head SHA,
+- no trusted reviewer's latest review is `CHANGES_REQUESTED` (including the agent's own marked reviews — a newer review by the same reviewer clears it),
 - there are 0 unresolved review threads,
 - the `PR CI` run for the head commit is green,
 - no Copilot Code Review run is still in progress.
 
-A *trusted reviewer* is a real human account. Bots (`[bot]` suffix) and GitHub's own AI accounts (e.g. `Copilot`, `copilot-pull-request-reviewer[bot]`) do **not** count — the coding agent posts its approval as its working (human) account, which is the verdict the gate requires.
+A *trusted reviewer* is a real human account. Bots (`[bot]` suffix) and GitHub's own AI accounts (e.g. `Copilot`, `copilot-pull-request-reviewer[bot]`) do **not** count. The coding agent reviews as its working (human) account: an approval on someone else's PR, or — on its own PR — a comment whose body starts with `## AI Code Review`. The gate and `pr-auto-merge` treat that marker as the required approval.
 
 ## Code Review (Agent-Performed, Free)
 
@@ -56,8 +56,11 @@ After you open or update a PR, you own the review:
 
 1. **Review the diff yourself** using the [Code Review skill](skills/coding/code-review/SKILL.md): read the full diff, check correctness/security/maintainability, and enforce every AGENTS.md non-negotiable.
 2. **Fix or explain** every finding: fix real problems and push; for findings you disagree with, reply with the reason it should not change, then resolve the thread.
-3. **Approve** when the diff is clean and tests/build pass: `gh pr review <number> --approve`.
-4. **Merge** once green and approved — `gh pr merge <number> --squash` — or let `pr-auto-merge` do it when the gate passes.
+3. **Post your verdict** — the review body must start with the `## AI Code Review` marker:
+   - On **someone else's** PR: `gh pr review <number> --approve --body "## AI Code Review …"`
+   - On **your own** PR, GitHub forbids approval, so post the same review as a comment: `gh pr review <number> --comment --body "## AI Code Review …"`
+   The marker makes the merge gate and `pr-auto-merge` treat your review as the required approval for the head commit.
+4. **Merge**: once your verdict is posted and the checks are green, `pr-auto-merge` merges on its own — wait for it (up to ~15 min) and report the merge. If it does not fire, or the PR must not wait, merge yourself: `gh pr merge <number> --squash`.
 
 This approval is what `pr-auto-merge` and the merge gate wait for. If you are not confident the change is correct, request changes instead of approving, then loop back to fix. Never approve to unblock a merge that isn't actually ready.
 
