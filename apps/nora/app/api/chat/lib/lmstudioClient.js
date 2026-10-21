@@ -53,9 +53,15 @@ function buildLmstudioPayload(payload) {
     lmstudioPayload.temperature = 0.7
   }
 
-  // Forward thinking control to LM Studio (Qwen3 and other thinking models support enable_thinking)
+  // Forward thinking control to the backend.
+  // Top-level enable_thinking: Ollama-style servers (LM Studio, Ollama).
+  // chat_template_kwargs.enable_thinking: OpenAI-compatible servers that read
+  // the switch from template kwargs (TensorFold ignores a top-level
+  // enable_thinking — without it a thinking model spends max_tokens on
+  // reasoning and returns empty content, breaking JSON-mode callers).
   if (options.think === false) {
     lmstudioPayload.enable_thinking = false
+    lmstudioPayload.chat_template_kwargs = { enable_thinking: false }
   }
 
   // Forward response_format for deterministic JSON output (e.g., classification)

@@ -173,6 +173,28 @@ describe('buildLmstudioPayload — enable_thinking option', () => {
     expect(payload.enable_thinking).toBe(false)
   })
 
+  it('sets chat_template_kwargs.enable_thinking=false alongside the top-level flag', async () => {
+    const { buildLmstudioPayload } = await import('./lmstudioClient')
+    const payload = buildLmstudioPayload({
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      options: { think: false },
+    })
+    // OpenAI-compatible servers (e.g. TensorFold) only read the switch from
+    // chat_template_kwargs — the top-level flag alone is ignored by them.
+    expect(payload.chat_template_kwargs).toEqual({ enable_thinking: false })
+  })
+
+  it('does not set chat_template_kwargs when options.think is not false', async () => {
+    const { buildLmstudioPayload } = await import('./lmstudioClient')
+    const payload = buildLmstudioPayload({
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      options: {},
+    })
+    expect(payload.chat_template_kwargs).toBeUndefined()
+  })
+
   it('does not set enable_thinking when options.think is not false', async () => {
     const { buildLmstudioPayload } = await import('./lmstudioClient')
     const payload = buildLmstudioPayload({
