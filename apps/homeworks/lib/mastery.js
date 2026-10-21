@@ -23,7 +23,13 @@
 //   next     — due reviews first, then the active path's next skill (or its
 //              👑 boss once every path skill is a tree), then the
 //              lowest-stage skill whose prerequisites are all ≥ sapling.
-import { listPaths, listProblems, listSkills } from '@grove/curriculum'
+//              Bosses are path goals, never regular practice: they are
+//              excluded from path-step and ready-skill problem picks.
+//   path     — describePath annotates a study path for the client: each chain
+//              skill's stage, whether its prerequisites are ≥ sapling (locked
+//              skills are visible but not playable), the next playable chain
+//              skill, and whether the boss is ready.
+import { getSkill, listPaths, listProblems, listSkills } from '@grove/curriculum'
 import { getDatabase } from './db.js'
 
 export const LEITNER_INTERVALS = [null, 1, 3, 7, 14, 30]
@@ -260,13 +266,19 @@ export function nextForStudent({ studentId, date, grade }) {
     }
   }
 
+  // Bosses are path goals, not practice: a pre-tree kid is never served one,
+  // whether the pick comes from a path step or a ready skill. (The all-tree
+  // branch below serves the boss on purpose — that is the path's reward.)
+  const bossIds = new Set(listPaths(grade).map((path) => path.bossProblemId).filter(Boolean))
+
   for (const path of listPaths(grade)) {
     const stages = path.skills.map((skillId) => stageOf(skillId))
     const inProgress = stages.some((stage) => STAGE_RANK[stage] >= STAGE_RANK.sprout)
     if (!inProgress) continue
     const nextSkillId = path.skills.find((_, index) => STAGE_RANK[stages[index]] < STAGE_RANK.tree)
     if (nextSkillId) {
-      const problem = pickProblem(templatesBySkill.get(nextSkillId) ?? [], stateBySkill.get(nextSkillId)?.level ?? 1)
+      const practice = (templatesBySkill.get(nextSkillId) ?? []).filter((problem) => !bossIds.has(problem.id))
+      const problem = pickProblem(practice, stateBySkill.get(nextSkillId)?.level ?? 1)
       if (!problem) continue
       return {
         kind: 'path', pathId: path.id, skillId: nextSkillId, problemId: problem.id, title: problem.title,
@@ -282,8 +294,6 @@ export function nextForStudent({ studentId, date, grade }) {
     }
   }
 
-  // Bosses are path goals, not practice: a pre-tree kid is never served one.
-  const bossIds = new Set(listPaths(grade).map((path) => path.bossProblemId).filter(Boolean))
   const candidates = skills
     .filter((skill) => {
       if (STAGE_RANK[stageOf(skill.id)] >= STAGE_RANK.tree) return false
@@ -302,4 +312,36 @@ export function nextForStudent({ studentId, date, grade }) {
   }
 
   return null
+}
+
+// --- study paths for the client (plan §6.7) ---------------------------------
+
+// A path's chain as the kid sees it. `stageOf` maps a skill id to its stage
+// (untried skills default to 'seed' — callers pass the fold's stage or 'seed').
+//
+// Locked is a *prerequisite* rule, not a stage rule: a chain skill whose
+// prerequisites have not all reached at least sapling is visible but not
+// playable, and `lockedBy` names the missing prerequisites so the UI can say
+// "grow X first". The boss is ready exactly when every chain skill is a tree
+// (or beyond) — the same rule nextForStudent applies when it serves one.
+export function describePath({ path, stageOf }) {
+  const stages = path.skills.map((skillId) => ({ skillId, stage: stageOf(skillId) ?? 'seed' }))
+  const skills = stages.map(({ skillId, stage }) => {
+    const skill = getSkill(skillId)
+    const lockedBy = (skill?.prerequisites ?? [])
+      .filter((prerequisite) => STAGE_RANK[stageOf(prerequisite) ?? 'seed'] < STAGE_RANK.sapling)
+    return { skillId, stage, locked: lockedBy.length > 0, lockedBy }
+  })
+  const nextSkillId = skills.find((entry) => STAGE_RANK[entry.stage] < STAGE_RANK.tree)?.skillId ?? null
+  return {
+    id: path.id,
+    name: path.name,
+    icon: path.icon,
+    subject: path.subject,
+    terminal: path.terminal,
+    bossProblemId: path.bossProblemId,
+    bossReady: nextSkillId === null,
+    nextSkillId,
+    skills,
+  }
 }

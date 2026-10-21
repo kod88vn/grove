@@ -70,19 +70,41 @@ last. Nothing in a path generates content.
 
 1. a due review (earliest due date; the problem is chosen at the skill's
    current ladder level),
-2. the active path — a path with any skill past seed — first the chain's
-   first non-tree skill, else the 👑 boss once every chain skill is a tree,
-3. the lowest-stage skill whose prerequisites are all at least sapling
-   (bosses are path goals, never ordinary practice candidates).
+2. the active path — a path with any skill past seed — the chain's first
+   non-tree skill, else the 👑 boss once every chain skill is a tree,
+3. the lowest-stage skill whose prerequisites are all at least sapling.
 
+The boss is a goal, not practice: it is excluded from path-step and
+ready-skill problem picks and is served only by the all-tree branch.
 `null` when there is genuinely nothing to do.
+
+## The path view (describePath)
+
+The client renders the annotated path, not the raw registry. `describePath`
+adds, for the child's fold:
+
+- each chain skill's current stage, with its stage icon,
+- `locked` — a chain skill whose prerequisites have not all reached at
+  least sapling is visible but not playable; `lockedBy` names the missing
+  prerequisites so the UI can say "grow X first" (a *prerequisite* rule,
+  never a stage rule),
+- `nextSkillId` — the first chain skill below tree, or `null`,
+- `bossReady` — `nextSkillId === null`: the boss unlocks exactly when
+  `nextForStudent` would serve it.
+
+The hub shows the chain on the Quest Board and on a dedicated `/paths`
+page: a stage icon per skill, a dimmed 🔒 on locked skills (clicking one
+says "Grow X first" instead of starting a session), a "Play next" button
+for `nextSkillId`, and the 👑 boss button, disabled until `bossReady`.
 
 ## API surface
 
 - `GET /homeworks/api/next?studentId=&date=[&grade=]` → `{ next, reviews,
   paths, skillStates }`. `date` is the viewer's local calendar day (due dates
   are local days); `grade` optionally overrides the student's grade.
-  `next` is always the first entry of `reviews` when a review is due.
+  `next` is always the first entry of `reviews` when a review is due;
+  `paths` are annotated by `describePath` (above), so the hub renders them
+  without a second round trip.
 - `POST /homeworks/api/attempts` → the response's `skillState` carries the
   refreshed fold, so the play page celebrates the new stage in the same
   gesture.
@@ -90,7 +112,8 @@ last. Nothing in a path generates content.
   the fold for tried skills; untried skills keep the presentation heuristic
   (which agrees with the fold through sapling).
 - The hub renders all of it: a "What's next" card with due reviews on Today,
-  per-path growth icons and the 👑 boss on the Quest Board, and a
+  the annotated path chain (stage icons, locked skills, "Play next") and the
+  👑 boss on the Quest Board and the dedicated `/paths` page, and a
   next-review line on each grown tree in the garden.
 
 ## Scope boundaries
@@ -107,12 +130,14 @@ last. Nothing in a path generates content.
 
 - `apps/homeworks/lib/mastery.test.js` — fold determinism (row order, clock
   skew), ladder streaks, stage windows, box promotion/demotion/graduation,
-  next-priority ordering.
+  `pickProblem` level matching, next-priority ordering including the
+  boss-exclusion rule, and `describePath` lock/readiness.
 - `packages/curriculum/src/paths.test.js` — registry shape, chain derivation,
   boss membership.
-- `app/api/attempts/route.test.js`, `app/api/kid-experience/route.test.js`,
-  `components/KidExperienceHub.test.js`, `app/api/practice.flow.test.js` —
-  the API contracts and the kid-visible surfaces above.
+- `app/api/next/route.test.js`, `app/api/attempts/route.test.js`,
+  `app/api/kid-experience/route.test.js`, `components/KidExperienceHub.test.js`,
+  `app/api/practice.flow.test.js` — the API contracts and the kid-visible
+  surfaces above.
 
 ## Implementation
 
@@ -122,9 +147,10 @@ last. Nothing in a path generates content.
   — the three boss templates.
 - `apps/homeworks/lib/mastery.js` — `computeSkillState` (pure fold),
   `refreshSkillState`, `rebuildSkillState`, `getSkillStates`, `dueReviews`,
-  `pickProblem`, `nextForStudent`, plus the Leitner interval and stage-rank
-  tables.
+  `pickProblem`, `nextForStudent`, `describePath`, plus the Leitner interval
+  and stage-rank tables.
 - `apps/homeworks/lib/db.js` — the `skill_state` table.
 - `apps/homeworks/app/api/next/route.js` — the mastery view.
-- `apps/homeworks/components/KidExperienceHub.js` — Today / Quest Board /
-  Garden surfaces.
+- `apps/homeworks/app/paths/page.js` — the dedicated Study Paths screen.
+- `apps/homeworks/components/KidExperienceHub.js` — Today / Paths /
+  Quest Board / Garden surfaces.

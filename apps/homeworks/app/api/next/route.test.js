@@ -89,5 +89,17 @@ describe('GET /homeworks/api/next', () => {
     expect(payload.next).toMatchObject({ kind: 'skill', reason: 'ready-skill' })
     expect(payload.reviews).toEqual([])
     expect(payload.skillStates).toEqual([])
+    // Paths are annotated for the client (mastery describePath, plan §6.7):
+    // stage per chain skill, locked = prerequisite below sapling, boss ready
+    // only when every chain skill is a tree.
+    expect(payload.paths[0]).toMatchObject({
+      id: 'fraction-forest',
+      nextSkillId: 'm5.nf.equiv-fractions',
+      bossReady: false,
+    })
+    expect(payload.paths[0].skills).toEqual([
+      { skillId: 'm5.nf.equiv-fractions', stage: 'seed', locked: false, lockedBy: [] },
+      { skillId: 'm5.nf.add-fractions-unlike', stage: 'seed', locked: true, lockedBy: ['m5.nf.equiv-fractions'] },
+    ])
   })
 })
