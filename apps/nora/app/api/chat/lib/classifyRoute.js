@@ -79,9 +79,12 @@ export async function classifyRoute(message) {
       return { route: shouldSearch ? 'factual_tool' : 'fast_chat', intent: shouldSearch ? 'factual' : 'chat', confidence: 'low', reason: `llm_unavailable_status_${res.status || 'unknown'}` }
     }
 
-    // callLMStudio returns OpenAI-compatible format: choices[0].message.content
+    // callLMStudio normalizes non-streaming responses into the Ollama-style
+    // envelope { message: { content?, thinking? }, done, model } — not the
+    // raw OpenAI `choices` shape.
     const json = await res.json()
-    const content = json?.choices?.[0]?.message?.content || json?.choices?.[0]?.message?.thinking || ''
+    const message = json?.message || {}
+    const content = message.content || message.thinking || ''
 
     if (!content) {
       // Empty response: use hasFactualQuerySignals for safe default
