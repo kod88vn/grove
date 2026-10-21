@@ -7,7 +7,7 @@
 # in the commit being deployed.
 #
 # Environment comes from ~/.grove/host.env (loaded by the daemon):
-#   LMSTUDIO_BASE_URL, MODEL, AI_PROVIDER, GROVE_LOCATION, NORA_DB_PATH,
+#   AI_BASE_URL (or legacy LMSTUDIO_BASE_URL), MODEL, AI_PROVIDER, GROVE_LOCATION, NORA_DB_PATH,
 #   OPENOBSERVE_ROOT_USER_EMAIL/PASSWORD, CADDY_BASIC_AUTH_USERNAME/PASSWORD,
 #   GROVE_REPO, CHECKOUT_DIR
 set -euo pipefail
@@ -87,6 +87,7 @@ docker run -d --name grove-live --restart always \
   -e AI_PROVIDER="${AI_PROVIDER:-lmstudio}" \
   -e MODEL="${MODEL:-qwen/qwen3.8-27b}" \
   -e LMSTUDIO_BASE_URL="${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}" \
+  -e AI_BASE_URL="${AI_BASE_URL:-}" \
   -e GROVE_LOCATION="${GROVE_LOCATION:-}" \
   -v nora-data:/data \
   "grove:$DEPLOY_SHORT" > /dev/null
@@ -106,8 +107,9 @@ OO_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:
 log "openobserve :5081 → HTTP $OO_CODE (informational)"
 
 # ── 7. Pre-warm the local model (non-fatal) ────────────────────────────────────
-if [ -n "${LMSTUDIO_BASE_URL:-}" ]; then
-  if curl -s --max-time 300 "${LMSTUDIO_BASE_URL%/}/chat/completions" \
+AI_PREWARM_URL="${AI_BASE_URL:-${LMSTUDIO_BASE_URL:-}}"
+if [ -n "$AI_PREWARM_URL" ]; then
+  if curl -s --max-time 300 "${AI_PREWARM_URL%/}/chat/completions" \
       -H 'content-type: application/json' \
       -d "{\"model\":\"${MODEL:-qwen/qwen3.8-27b}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}" \
       > /dev/null 2>&1; then

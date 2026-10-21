@@ -20,7 +20,7 @@ function aiError(...args) {
 /**
  * Get the active AI provider from environment.
  * Returns 'lmstudio' or 'tensorfold' — both speak the same OpenAI-compatible
- * protocol (LMSTUDIO_BASE_URL is the shared OpenAI-compatible base URL, e.g.
+ * protocol (backend URL comes from AI_BASE_URL, or legacy LMSTUDIO_BASE_URL;
  * TensorFold at http://host.docker.internal:8080/v1 in production).
  * Unknown values fall back to 'lmstudio'.
  */
