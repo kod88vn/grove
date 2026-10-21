@@ -350,4 +350,63 @@ describe('P1.8 — SolveItem', () => {
       expect(view.container.textContent.split(needle).length - 1).toBe(1)
     })
   })
+
+  describe('P4.1 — the mastery fold rides along with the verdict', () => {
+    it('celebrates a skill that has grown into a tree', async () => {
+      const fetchFn = fakeFetch({
+        [ATTEMPTS]: {
+          body: {
+            correct: true,
+            stars: 2,
+            feedback: 'Great work!',
+            explanation: full(CHOICE).explanation,
+            skillState: { skillId: 'e5.l.context-clues', stage: 'tree', level: 3, box: 1, dueDate: '2026-10-22', attempts: 12, correct: 11 },
+          },
+        },
+      })
+      mount(CHOICE, fetchFn)
+      enterCorrect(CHOICE)
+      check()
+      await screen.findByText('Great work!')
+      expect(await screen.findByText(/grown into a tree/)).toBeInTheDocument()
+    })
+
+    it('celebrates a fruiting skill with the coming check-in', async () => {
+      const fetchFn = fakeFetch({
+        [ATTEMPTS]: {
+          body: {
+            correct: true,
+            stars: 3,
+            feedback: 'Great work!',
+            explanation: full(CHOICE).explanation,
+            skillState: { skillId: 'e5.l.context-clues', stage: 'fruiting', level: 3, box: 4, dueDate: '2026-11-04', attempts: 30, correct: 29 },
+          },
+        },
+      })
+      mount(CHOICE, fetchFn)
+      enterCorrect(CHOICE)
+      check()
+      await screen.findByText('Great work!')
+      expect(await screen.findByText(/will check in with you again/)).toBeInTheDocument()
+    })
+
+    it('stays silent when the fold says nothing new', async () => {
+      const fetchFn = fakeFetch({
+        [ATTEMPTS]: {
+          body: {
+            correct: true,
+            stars: 2,
+            feedback: 'Great work!',
+            explanation: full(CHOICE).explanation,
+            skillState: { skillId: 'e5.l.context-clues', stage: 'sapling', level: 2, box: 0, dueDate: null, attempts: 6, correct: 5 },
+          },
+        },
+      })
+      mount(CHOICE, fetchFn)
+      enterCorrect(CHOICE)
+      check()
+      await screen.findByText('Great work!')
+      expect(screen.queryByText(/tree|fruiting|check in/)).not.toBeInTheDocument()
+    })
+  })
 })

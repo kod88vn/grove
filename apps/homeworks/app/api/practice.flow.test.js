@@ -92,7 +92,10 @@ const rightResponse = (answer, widget) => {
 
 const wrongResponse = (widget, answer) => {
   if (widget === 'expression') return { text: 'x^2' }
-  if (widget === 'steps') return { steps: ['0', answer.steps[1].expression] }
+  if (widget === 'steps') {
+    // Every step submitted, first one off: finished, and mis-stepped — `wrong`, not `invalid`.
+    return { steps: answer.steps.map((step, index) => (index === 0 ? '0' : step.expression)) }
+  }
   if (widget === 'text') return { text: 'quadrilateral' }
   if (widget === 'fraction') return { text: '999/1000' }
   if (widget === 'cloze') return { blanks: ['zzzzzzz'] }

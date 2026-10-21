@@ -105,6 +105,21 @@ const SCHEMA = `
     purchased_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY (student_id, decoration_id)
   );
+
+  CREATE TABLE IF NOT EXISTS skill_state (
+    student_id TEXT NOT NULL REFERENCES students(id),
+    skill_id TEXT NOT NULL,
+    stage TEXT NOT NULL CHECK (stage IN ('seed','sprout','sapling','tree','fruiting')),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 3),  -- difficulty ladder position
+    box INTEGER NOT NULL DEFAULT 0 CHECK (box BETWEEN 0 AND 5),      -- Leitner box
+    due_date TEXT,                                                    -- next spaced review (local date)
+    attempts INTEGER NOT NULL DEFAULT 0,
+    correct INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (student_id, skill_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_skill_state_student ON skill_state(student_id, stage);
 `
 
 export function createDatabase(dbPath) {

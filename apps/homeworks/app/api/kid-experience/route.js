@@ -2,6 +2,7 @@ import { getProblem, listProblems, listSkills } from '@grove/curriculum'
 import { getAttemptsByStudent, getDatabase, getOwnedDecorations, getStudentById, getSunshineBalance } from '../../../lib/db.js'
 import { DECORATIONS } from '../../../lib/decorations.js'
 import { gardenSummary, questList, rewardSummary, wateringSummary } from '../../../lib/kidExperience.js'
+import { getSkillStates } from '../../../lib/mastery.js'
 
 function isCalendarDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) return false
@@ -62,6 +63,15 @@ export async function GET(request) {
     .sort((left, right) => Number(solvedSkills.has(left.id)) - Number(solvedSkills.has(right.id)))
     .slice(0, 2)
 
+  // P4.5: for tried skills the mastery fold (U05) owns the stage — ladder and
+  // Leitner-derived, so a tree/fruiting is real. Untried skills keep the
+  // presentation heuristic, which agrees with the fold up to sapling.
+  const states = new Map(getSkillStates(studentId).map((state) => [state.skillId, state]))
+  const garden = gardenSummary({ skills, attempts, studentId }).map((entry) => {
+    const state = states.get(entry.skillId)
+    return state ? { ...entry, stage: state.stage, level: state.level, box: state.box, dueDate: state.dueDate, attempts: state.attempts, correct: state.correct } : entry
+  })
+
   return Response.json({
     student: { id: student.id, displayName: student.display_name, avatar: student.avatar, grade: student.grade },
     rewards,
@@ -71,7 +81,7 @@ export async function GET(request) {
     },
     watering,
     badges,
-    garden: gardenSummary({ skills, attempts, studentId }),
+    garden,
     suggestions,
     problems,
     statuses,
