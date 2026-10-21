@@ -15,7 +15,7 @@
     },
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"],
+      "args": ["-y", "@playwright/mcp@latest"],
       "env": {
         "PLAYWRIGHT_HEADLESS": "1"
       }

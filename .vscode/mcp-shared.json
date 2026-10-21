@@ -1,46 +1,36 @@
 {
-  "_comment": "Shared MCP configuration - canonical source for both Copilot and Cline. Copilot reads .vscode/mcp.json, Cline can reference this via a symlink or copy. Last synced: 2026-05-14",
+  "_comment": "Portable shared MCP configuration for Cline. Copilot reads .vscode/mcp.json.",
   "servers": {
     "context7": {
-      "command": "node",
-      "args": ["/Users/kod/Documents/Cline/MCP/context7-mcp/node_modules/@upstash/context7-mcp/dist/index.js"],
-      "env": {
-        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
-      }
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {}
     },
     "github": {
-      "command": "/Users/kod/Documents/Cline/MCP/github-mcp-server/github-mcp-server",
-      "args": ["stdio"],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@executeautomation/playwright-mcp-server"],
+      "args": ["-y", "@playwright/mcp@latest"],
       "env": {
         "PLAYWRIGHT_HEADLESS": "1"
       }
     },
     "git": {
-      "command": "/Users/kod/.local/bin/uv",
-      "args": [
-        "--directory",
-        "/Users/kod/Documents/Cline/MCP/mcp-server-git/src/src/git",
-        "run",
-        "mcp-server-git"
-      ],
-      "env": {}
-    },
-    "browser-tools-mcp": {
-      "command": "node",
-      "args": ["/Users/kod/Documents/Cline/MCP/browser-tools-mcp/browser-tools-mcp/dist/mcp-server.js"],
+      "command": "uvx",
+      "args": ["mcp-server-git"],
       "env": {}
     },
     "sequentialthinking": {
-      "command": "node",
-      "args": ["/Users/kod/Documents/Cline/MCP/mcp-server-git/src/src/sequentialthinking/dist/index.js"],
-      "env": {}
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "mcp/sequentialthinking"],
+      "env": {
+        "DISABLE_THOUGHT_LOGGING": "true"
+      }
     }
   }
 }

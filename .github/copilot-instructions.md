@@ -9,11 +9,10 @@ The following MCP servers are configured in `.vscode/mcp.json`:
 - **Context7 MCP** (`context7`): Retrieves focused library and framework documentation for coding tasks.
 - **Playwright MCP** (`playwright`): Browser automation, page inspection, screenshots, and UI verification.
 - **GitHub MCP** (`github`): PRs, issues, code search, and repository operations on `kod88vn/grove`.
-- **Git MCP** (`git`): Git operations (status, diff, log, commit).
-- **Browser Tools MCP** (`browser-tools-mcp`): Browser console logs, network inspection, and debugging.
-- **Sequential Thinking** (`sequentialthinking`): Chain-of-thought reasoning for complex problems.
 
 Prefer these servers for their respective tasks before falling back to general knowledge.
+
+For Cline's shared Git and Sequential Thinking servers, see [`.github/CLINE-BRIDGE.md`](CLINE-BRIDGE.md).
 
 ## Skills
 
@@ -145,7 +144,7 @@ Test files MUST live side by side with the production code they test, never in a
 This workspace supports both GitHub Copilot and Cline AI agents. See [.github/CLINE-BRIDGE.md](../.github/CLINE-BRIDGE.md) for details on how MCP configuration is shared between both agents.
 
 - Copilot reads `.vscode/mcp.json` (CDN-based `npx` installs)
-- Cline reads `.vscode/cline_mcp_settings.json` (absolute paths to pre-installed servers)
+- Cline reads `.vscode/cline_mcp_settings.json` (generated from portable command-based server definitions)
 - Shared servers are defined in `.vscode/mcp-shared.json` (canonical source)
 - Run `node .vscode/sync-cline-mcp.js` after editing shared config to regenerate Cline settings
 ## Code Review & Merging (Free, Agent-Performed)

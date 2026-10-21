@@ -8,6 +8,15 @@ jobs:
     name: Build & Test in Ephemeral Container
     runs-on: ubuntu-latest
     steps:
+      - name: Mask self-hosted runner paths in logs
+        shell: bash
+        run: |
+          for path in "$HOME" "$GITHUB_WORKSPACE"; do
+            if [ -n "$path" ]; then
+              printf '::add-mask::%s\n' "$path"
+            fi
+          done
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
