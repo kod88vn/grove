@@ -7,6 +7,7 @@ import {
   markSessionItemDone,
 } from '../../../lib/db.js'
 import { check, getProblem, listProblems, render, toInstance } from '@grove/curriculum'
+import { refreshSkillState } from '../../../lib/mastery.js'
 
 export async function POST(request) {
   let body
@@ -103,14 +104,18 @@ export async function POST(request) {
       stars,
       feedback: 'Great work!',
       explanation: rendered.explanation,
-      skillState: null,
+      // P4.1: the fold re-derives the skill after the row is stored, so the
+      // kid's new stage/box/next-due comes back with the answer they just gave.
+      skillState: refreshSkillState(session.student_id, metadata.skill),
     })
   }
 
+  // Wrong answers store no row, so the fold returns the state as-is (null when
+  // the skill has nothing stored yet) — the kid sees their standing, not a 400.
   return Response.json({
     correct: false,
     stars,
     feedback: 'Keep going—you can try again!',
-    skillState: null,
+    skillState: refreshSkillState(session.student_id, rendered.skill),
   })
 }

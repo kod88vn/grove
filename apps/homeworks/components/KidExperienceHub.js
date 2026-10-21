@@ -42,7 +42,9 @@ export function KidExperienceHub({ mode, embedded = false }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [decorationError, setDecorationError] = useState('')
+  const [mastery, setMastery] = useState(null)
   const summaryRequest = useRef(0)
+  const masteryRequest = useRef(0)
   const problemsRequest = useRef(0)
   const selectedStudentRef = useRef('')
 
@@ -79,6 +81,22 @@ export function KidExperienceHub({ mode, embedded = false }) {
         if (summaryRequest.current === requestId) setError(cause.message)
       })
   }, [studentId])
+
+  useEffect(() => {
+    if (!summary || summary.student.id !== studentId) {
+      setMastery(null)
+      return
+    }
+    const requestId = ++masteryRequest.current
+    const date = localCalendarDate()
+    readJson(`/homeworks/api/next?studentId=${encodeURIComponent(studentId)}&date=${date}`)
+      .then((payload) => {
+        if (masteryRequest.current === requestId) setMastery(payload)
+      })
+      .catch((cause) => {
+        if (masteryRequest.current === requestId) setError(cause.message)
+      })
+  }, [summary, studentId])
 
   useEffect(() => {
     if (summary?.student.id === studentId) setQuestGrade(String(summary.student.grade))
@@ -133,6 +151,21 @@ export function KidExperienceHub({ mode, embedded = false }) {
       if (summaryRequest.current === requestId) setBusy(false)
     }
   }
+
+  function sessionCount() {
+    const grade = activeSummary?.student.grade ?? 5
+    return grade <= 2 ? 5 : grade <= 5 ? 8 : 10
+  }
+
+  async function playNext() {
+    const next = mastery?.next
+    if (!next || !activeSummary) return
+    const kind = next.kind === 'path' ? 'path' : next.kind === 'review' ? 'review' : 'skill'
+    await startSession({ kind, skillId: next.skillId, problemId: next.problemId, count: kind === 'review' ? 1 : sessionCount() })
+  }
+
+  const stageOf = (skillId) => mastery?.skillStates.find((state) => state.skillId === skillId)?.stage ?? 'seed'
+  const bossTitle = (problemId) => activeSummary?.problems.find((problem) => problem.id === problemId)?.title ?? 'Boss'
 
   async function startDaily() {
     if (!activeSummary || activeSummary.problems.length === 0) return
@@ -257,11 +290,55 @@ export function KidExperienceHub({ mode, embedded = false }) {
                 ? <Link href={continueHref(activeSummary.continueSession, activeSummary.student.id)} className="mt-5 inline-flex min-h-14 items-center rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950">▶ Continue your quest</Link>
                 : <button disabled={busy} onClick={startDaily} className="mt-5 min-h-14 rounded-xl bg-amber-300 px-6 text-lg font-extrabold text-slate-950 disabled:opacity-60">{busy ? 'Getting ready…' : '🌞 Play the Daily Seed'}</button>}
             </div>
-            <section className="rounded-2xl border bg-white p-5"><h2 className="text-2xl font-bold">Try next</h2><div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {activeSummary.suggestions.map((skill) => <button key={skill.id} disabled={busy} onClick={() => startSession({ kind: 'skill', skillId: skill.id, count: activeSummary.student.grade <= 2 ? 5 : activeSummary.student.grade <= 5 ? 8 : 10 })} className="min-h-14 rounded-xl border border-emerald-300 p-4 text-left font-semibold">🌱 {skill.label || skill.name}</button>)}
-            </div></section>
+            <section className="rounded-2xl border bg-white p-5">
+              <h2 className="text-2xl font-bold">{mastery?.next ? "What's next" : 'Try next'}</h2>
+              {mastery?.next ? (<>
+                <p className="mt-1 text-slate-700">{mastery.next.kind === 'path' ? 'You earned the big quest!' : mastery.next.kind === 'review' ? 'A spaced review is ready to keep this in.' : "Let's grow the next skill."}</p>
+                <button disabled={busy} onClick={playNext} className="mt-3 min-h-14 rounded-xl bg-emerald-700 px-6 font-extrabold text-white">
+                  {mastery.next.kind === 'path' ? '👑 ' : mastery.next.kind === 'review' ? '🔁 ' : '▶ '}Play “{mastery.next.title}”
+                </button>
+                {mastery.reviews.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-bold">🍎 Other reviews due</h3>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {mastery.reviews.filter((review) => !(mastery.next && mastery.next.skillId === review.skillId && mastery.next.kind === 'review')).map((review) => (
+                        <button key={`${review.skillId}:${review.dueDate}`} disabled={busy} onClick={() => startSession({ kind: 'review', skillId: review.skillId, problemId: review.problemId, count: 1 })} className="min-h-14 rounded-xl border border-amber-300 bg-amber-50 p-4 text-left font-semibold">
+                          🔁 {review.title} <span className="text-slate-700">({review.skillId})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>) : (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {activeSummary.suggestions.map((skill) => <button key={skill.id} disabled={busy} onClick={() => startSession({ kind: 'skill', skillId: skill.id, count: sessionCount() })} className="min-h-14 rounded-xl border border-emerald-300 p-4 text-left font-semibold">🌱 {skill.label || skill.name}</button>)}
+                </div>
+              )}
+            </section>
           </section>}
-          {mode === 'quests' && <section className="rounded-2xl border bg-white p-5">
+          {mode === 'quests' && (<>
+            {mastery?.paths?.length > 0 && <section className="mb-4 rounded-2xl border border-violet-200 bg-violet-50 p-5">
+              <h2 className="text-2xl font-bold">🗺 Study paths</h2>
+              <p className="mt-1 text-slate-700">Skills that team up into one path—each icon shows how far that skill has grown.</p>
+              <div className="mt-3 grid gap-3">
+                {mastery.paths.map((path) => (
+                  <div key={path.id} className="rounded-xl bg-white p-4">
+                    <p className="font-bold">{path.icon} {path.name}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {path.skills.map((skillId) => (
+                        <button key={skillId} disabled={busy} title={skillId} aria-label={`Practice ${skillId}`} onClick={() => startSession({ kind: 'path', skillId, count: sessionCount() })} className="min-h-14 rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xl">
+                          {gardenStagePresentation(stageOf(skillId)).icon}
+                        </button>
+                      ))}
+                      <button disabled={busy} aria-label={`Play the ${path.name} boss`} onClick={() => startSession({ kind: 'path', skillId: path.terminal, problemId: path.bossProblemId, count: 1 })} className="min-h-14 rounded-lg bg-amber-300 px-4 font-extrabold text-slate-950">
+                        👑 {bossTitle(path.bossProblemId)}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>}
+            <section className="rounded-2xl border bg-white p-5">
             <div className="grid gap-3 sm:grid-cols-4">
               <label className="font-semibold">Filter by grade<select className="mt-1 min-h-14 w-full rounded-lg border px-3" value={questGrade} onChange={(event) => setQuestGrade(event.target.value)}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>Grade {index + 1}</option>)}</select></label>
               <label className="font-semibold">Topic<select className="mt-1 min-h-14 w-full rounded-lg border px-3" value={topic} onChange={(event) => setTopic(event.target.value)}><option value="">All topics</option>{topics.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
@@ -277,7 +354,8 @@ export function KidExperienceHub({ mode, embedded = false }) {
               <button aria-label={`Start ${problem.title} quest`} disabled={busy} onClick={() => startSession({ kind: 'skill', skillId: problem.skill, problemId: problem.id, count: 1 })} className="mt-3 min-h-14 rounded-lg bg-emerald-700 px-5 font-bold text-white">Start quest</button>
             </li>)}</ul>
             {!filtered.length && <p className="mt-5">No quests match those filters.</p>}
-          </section>}
+            </section>
+          </>)}
           {mode === 'garden' && <section className="rounded-2xl border bg-white p-5">
             <h2 className="text-2xl font-bold">🦉 Nora's garden guide</h2>
             <p className="mt-1 text-slate-700">Stars grow your grove; only tried skills sprout. Mastery comes from real practice records.</p>
@@ -286,6 +364,8 @@ export function KidExperienceHub({ mode, embedded = false }) {
               return <article key={tree.skillId} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-label={`${tree.name}: ${stage.label}`}>
                 <span className={`text-3xl ${motionAllowed && tree.stage === 'fruiting' ? 'motion-safe:animate-pulse' : ''}`} aria-hidden="true">{stage.icon}</span>
                 <h3 className="font-bold">{tree.name}</h3><p>{tree.stage}</p><p className="text-sm text-slate-700">{stage.label}</p>
+                {tree.box > 0 && tree.dueDate && <p className="mt-1 text-sm font-semibold text-emerald-800">{tree.dueDate <= localCalendarDate() ? '🍎 A spaced review is due!' : `Next review ${tree.dueDate}`}</p>}
+                {tree.box === 5 && <p className="mt-1 text-sm font-semibold text-emerald-800">🎓 Graduated—no more reviews needed.</p>}
               </article>
             })}</div>
             <GardenDecorations summary={activeSummary} error={decorationError} busy={busy} onBuy={buyDecoration} />

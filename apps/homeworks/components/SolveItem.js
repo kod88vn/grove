@@ -141,6 +141,13 @@ export function SolveItem({ sessionId, instance, onSolved }) {
           {...(motionAllowed ? { 'data-animate': attempt.correct ? 'correct' : 'wrong' } : {})}
         >
           {attempt.feedback}{coinMade !== null && ` You made ${coinMade}¢.`}
+          {attempt.skillState && ['tree', 'fruiting'].includes(attempt.skillState.stage) && (
+            <div className="mt-2 font-semibold text-emerald-700">
+              {attempt.skillState.stage === 'fruiting'
+                ? '🍎 This skill is fruiting—your grove will check in with you again soon.'
+                : '🌳 This skill has grown into a tree!'}
+            </div>
+          )}
         </div>
       )}
       {attempt?.correct === true && (

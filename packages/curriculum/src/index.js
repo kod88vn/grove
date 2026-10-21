@@ -19,9 +19,13 @@ import { templates as tableFillTemplates } from './problems/math/g05/table-fill.
 import { templates as symbolicExpressionTemplates } from './problems/math/g05/symbolic-expression.js'
 import { templates as symbolicStepsTemplates } from './problems/math/g05/symbolic-steps.js'
 import { templates as graphTemplates } from './problems/math/g05/graph.js'
+import { templates as fractionBossTemplates } from './problems/math/g05/fraction-boss.js'
+import { templates as expressionBossTemplates } from './problems/math/g05/expression-boss.js'
+import { templates as coordinateBossTemplates } from './problems/math/g05/coordinate-boss.js'
 
 export { render } from './engine/render.js'
 export { check } from './engine/check.js'
+export { listPaths, getPath } from './paths.js'
 
 const catalogSkills = [...mathSkills, ...englishSkills]
 const problemTemplates = [
@@ -43,6 +47,9 @@ const problemTemplates = [
   ...symbolicExpressionTemplates,
   ...symbolicStepsTemplates,
   ...graphTemplates,
+  ...fractionBossTemplates,
+  ...expressionBossTemplates,
+  ...coordinateBossTemplates,
 ]
 const skillById = new Map(catalogSkills.map((skill) => [skill.id, skill]))
 

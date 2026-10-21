@@ -162,7 +162,19 @@ describe('POST /homeworks/api/attempts — answering', () => {
     expect(payload.explanation).toBe(rendered().explanation)
     expect(typeof payload.feedback).toBe('string')
     expect(payload.feedback.length).toBeGreaterThan(0)
-    expect(payload.skillState).toBeNull()
+    // P4.1: a correct answer refreshes the mastery fold, so the client learns
+    // the kid's new standing (sprout, box 0 after a first correct answer).
+    expect(payload.skillState).toEqual({
+      studentId: 'kid',
+      skillId: 'm5.oa.order-of-operations',
+      stage: 'sprout',
+      level: 1,
+      box: 0,
+      dueDate: null,
+      attempts: 1,
+      correct: 1,
+      updatedAt: expect.any(Number),
+    })
   })
 
   it('accepts a wrong answer without showing the working', async () => {

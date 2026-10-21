@@ -112,15 +112,15 @@ describe('P1.6 schema — the four tables of plan §6.4 (students, practice_sess
     try { conn.close() } catch {}
   })
 
-  it('creates students, practice_sessions, session_items and attempts', () => {
+  it('creates the P1.6 tables plus the Phase 4 skill_state', () => {
     expect(tableNames(conn).sort()).toEqual(
-      ['attempts', 'practice_sessions', 'readings', 'session_items', 'student_decorations', 'students', 'submissions'],
+      ['attempts', 'practice_sessions', 'readings', 'session_items', 'skill_state', 'student_decorations', 'students', 'submissions'],
     )
   })
 
-  it('does not create the Phase 3/4 tables yet', () => {
+  it('creates the Phase 4 skill_state table but not the later-phase tables yet', () => {
     const names = tableNames(conn)
-    expect(names).not.toContain('skill_state')
+    expect(names).toContain('skill_state')
     expect(names).not.toContain('badges')
   })
 
@@ -430,7 +430,7 @@ describe('P1.6 migrating a database that already exists', () => {
 
     const migrated = createDatabase(file)
     expect(tableNames(migrated).sort()).toEqual(
-      ['attempts', 'practice_sessions', 'readings', 'session_items', 'student_decorations', 'students', 'submissions'],
+      ['attempts', 'practice_sessions', 'readings', 'session_items', 'skill_state', 'student_decorations', 'students', 'submissions'],
     )
     expect(migrated.prepare(`SELECT score FROM submissions WHERE id = 'old-sub'`).get().score).toBe(7)
     expect(migrated.prepare(`SELECT passage FROM readings WHERE id = 'old-read'`).get().passage)

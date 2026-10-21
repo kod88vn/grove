@@ -29,6 +29,9 @@ function installApi() {
       const selected = new URL(url, 'http://localhost').searchParams.get('studentId')
       return { ok: true, json: async () => ({ ...baseSummary, student: { ...baseSummary.student, id: selected, displayName: selected === 'kid-a' ? 'Mina' : 'Theo' } }) }
     }
+    if (url.startsWith('/homeworks/api/next')) {
+      return { ok: true, json: async () => ({ next: null, reviews: [], paths: [], skillStates: [] }) }
+    }
     if (url.startsWith('/homeworks/api/problems?grade=')) {
       const grade = new URL(url, 'http://localhost').searchParams.get('grade')
       return { ok: true, json: async () => ({ problems: grade === '5' ? baseSummary.problems : [] }) }
@@ -140,5 +143,53 @@ describe('kid experience screens', () => {
     expect(screen.getByText('seed')).toBeInTheDocument()
     expect(screen.queryByText('Path to the boss 👑')).not.toBeInTheDocument()
     expect(screen.queryByText(/Boss quest:/)).not.toBeInTheDocument()
+  })
+
+  it('offers the mastery next, due reviews, and hides plain suggestions', async () => {
+    installApi()
+    const fetchApi = global.fetch
+    global.fetch = jest.fn(async (url, options) => {
+      const response = await fetchApi(url, options)
+      if (url.startsWith('/homeworks/api/next')) {
+        return { ok: true, json: async () => ({
+          next: { kind: 'review', skillId: skill.id, problemId: baseSummary.problems[0].id, title: 'Order Operations', reason: 'review-due' },
+          reviews: [
+            { skillId: skill.id, problemId: baseSummary.problems[0].id, title: 'Order Operations', dueDate: '2026-07-18' },
+            { skillId: 'm5.nf.add-fractions-unlike', problemId: 'm5.nf.add-fractions-unlike/like', title: 'Add Fractions', dueDate: '2026-07-19' },
+          ],
+          paths: [],
+          skillStates: [{ skillId: skill.id, stage: 'sapling', level: 2, box: 1, dueDate: '2026-07-18', attempts: 4, correct: 3 }],
+        }) }
+      }
+      return response
+    })
+    render(<KidExperienceHub mode="today" />)
+    expect(await screen.findByText("What's next")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Play “Order Operations”/ })).toBeInTheDocument()
+    expect(screen.getByText('🔁 Add Fractions')).toBeInTheDocument()
+    expect(screen.queryByText('Try next')).not.toBeInTheDocument()
+  })
+
+  it('shows study paths with per-skill stages and a boss on the quest board', async () => {
+    installApi()
+    const fetchApi = global.fetch
+    global.fetch = jest.fn(async (url) => {
+      const response = await fetchApi(url)
+      if (url.startsWith('/homeworks/api/next')) {
+        return { ok: true, json: async () => ({
+          next: null,
+          reviews: [],
+          paths: [{ id: 'm5.fractions', name: 'Fractions', icon: '🍕', skills: [skill.id, 'm5.nf.add-fractions-unlike'], terminal: 'm5.nf.add-fractions-unlike', bossProblemId: 'm5.nf.add-fractions-unlike/boss' }],
+          skillStates: [{ skillId: skill.id, stage: 'tree', level: 3, box: 2, dueDate: '2026-07-20', attempts: 6, correct: 6 }],
+        }) }
+      }
+      return response
+    })
+    render(<KidExperienceHub mode="quests" />)
+    expect(await screen.findByText(/Fractions/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Practice ${skill.id}` })).toHaveTextContent('🌳')
+    expect(screen.getByRole('button', { name: 'Practice m5.nf.add-fractions-unlike' })).toHaveTextContent('🌰')
+    expect(screen.getByRole('button', { name: 'Play the Fractions boss' })).toHaveTextContent('Boss')
+    expect(global.fetch.mock.calls.some(([url]) => url === '/homeworks/api/sessions')).toBe(false)
   })
 })
