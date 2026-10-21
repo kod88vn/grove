@@ -65,7 +65,8 @@ export async function POST(request) {
     `Each answer must be a single English word in ALL CAPS, ${config.minWordLen}–${config.maxWordLen} letters, A–Z only (no spaces, hyphens, or punctuation).\n` +
     'Each clue must be short (under 60 characters) and unambiguous.\n' +
     'Use a wide variety of topics and starting letters. Avoid duplicates and avoid trivial defaults like CAT, DOG, APPLE.\n' +
-    'Respond with ONLY raw JSON, no markdown, no explanation:\n' +
+    'Respond with ONLY raw JSON, no markdown, no explanation.\n' +
+    'The example below shows the required JSON shape only — do NOT return these exact pairs:\n' +
     '{"pairs":[{"answer":"PLANET","clue":"Orbits a star"},{"answer":"RIVER","clue":"Flows to the sea"}]}\n' +
     `Variation token (use to vary output, do not echo): ${seed}\n` +
     'Generate the list now:'
@@ -77,8 +78,17 @@ export async function POST(request) {
       res = await callAI({
         model: DEFAULT_MODEL,
         stream: false,
-        think: false,
-        options: { num_predict: 1500, temperature: 0.8, top_p: 0.95, seed: seed + attempt },
+        // `think` / `response_format` MUST live in `options` — that is the
+        // shape buildLmstudioPayload maps to enable_thinking / response_format
+        // for the OpenAI-compatible backend.
+        options: {
+          temperature: 0.8,
+          // The JSON list is short; 1500 keeps latency sane even if the model
+          // thinks anyway.
+          num_predict: 1500,
+          think: false,
+          response_format: { type: 'json_object' },
+        },
         messages: [
           { role: 'system', content: 'You are a crossword word-bank assistant. Respond only with the requested JSON.' },
           { role: 'user', content: prompt },
