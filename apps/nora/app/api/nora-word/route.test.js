@@ -32,7 +32,14 @@ jest.mock('@/app/api/chat/lib/callAI', () => ({
 }))
 
 const { callAI } = jest.requireMock('@/app/api/chat/lib/callAI')
+const { buildLmstudioPayload } = require('@/app/api/chat/lib/lmstudioClient')
 const { POST } = require('./route')
+
+function wordCall(level = 'elementary') {
+  return {
+    json: jest.fn().mockResolvedValue({ level }),
+  }
+}
 
 describe('POST /api/nora-word', () => {
   afterEach(() => {
@@ -75,9 +82,7 @@ describe('POST /api/nora-word', () => {
   it('returns 503 when ai is unavailable after retries', async () => {
     callAI.mockRejectedValue(new Error('unavailable'))
 
-    const request = {
-      json: jest.fn().mockResolvedValue({ level: 'highschool' }),
-    }
+    const request = wordCall('highschool')
 
     const response = await POST(request)
     const body = await response.json()
@@ -85,5 +90,43 @@ describe('POST /api/nora-word', () => {
     expect(response.status).toBe(503)
     expect(body.error).toBe('ai_unavailable')
     expect(callAI).toHaveBeenCalledTimes(2)
+  })
+
+  // Regression: the route placed `think`/`format` at the top level of the callAI payload,
+  // but buildLmstudioPayload only honors `options.think`/`options.response_format`. The
+  // Qwen3.6 thinking model was therefore left in thinking mode, burned its token budget on
+  // reasoning, and the route kept returning the same word on every call.
+  it('sends enable_thinking=false and json_object response_format to the backend', async () => {
+    callAI.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: { content: '{"word":"ORCHID","hint":"A fragrant flower","mascot":"🌸"}' },
+      }),
+    })
+
+    const response = await POST(wordCall())
+    expect((await response.json()).word).toBe('ORCHID')
+
+    const wirePayload = buildLmstudioPayload(callAI.mock.calls[0][0])
+
+    expect(wirePayload.enable_thinking).toBe(false)
+    expect(wirePayload.response_format).toEqual({ type: 'json_object' })
+    expect(wirePayload.temperature).toBeGreaterThan(0)
+  })
+
+  it('prompt steers the model toward a different word and never tells it to ignore the variation token', async () => {
+    callAI.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: { content: '{"word":"ORCHID","hint":"A fragrant flower","mascot":"🌸"}' },
+      }),
+    })
+
+    await POST(wordCall())
+
+    const userMessage = callAI.mock.calls[0][0].messages[1].content
+    expect(userMessage).not.toContain('ignore content')
+    expect(userMessage).toContain('starts with the letter')
+    expect(userMessage).toContain('JSON')
   })
 })

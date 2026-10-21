@@ -57,10 +57,10 @@ export async function POST(request) {
     `Give me one hangman word using ${description}.\n` +
     `Pick a fresh, surprising word that starts with the letter "${startLetter}" if possible (otherwise any letter).\n` +
     `Avoid common defaults like CAT, DOG, APPLE, ELEPHANT.\n` +
-    `Respond with ONLY valid JSON, no extra text, no markdown:\n` +
-    `{"word":"ELEPHANT","hint":"Largest land animal","mascot":"🐘"}\n` +
+    `The example below shows the required JSON shape only — do NOT use the example word or hint:\n` +
+    `{"word":"ORCHID","hint":"A fragrant flower","mascot":"🌸"}\n` +
     `The word must be a single English word in ALL CAPS, 3–12 letters, no spaces or punctuation.\n` +
-    `Variation token (ignore content, just use to vary output): ${seed}`
+    `Variation token: ${seed}. Use it to steer your choice away from the word you would pick by default.`
 
   let lastError = 'ai_unavailable'
 
@@ -70,13 +70,14 @@ export async function POST(request) {
       res = await callAI({
         model: DEFAULT_MODEL,
         stream: false,
-        format: 'json',
-        think: false,
         options: {
           temperature: 0.9,
-          top_p: 0.95,
-          seed,
-          num_predict: 200,
+          // 512 keeps headroom if the model thinks anyway; the JSON itself is short.
+          num_predict: 512,
+          // Must live in `options` — buildLmstudioPayload maps these to
+          // enable_thinking / response_format for the OpenAI-compatible backend.
+          think: false,
+          response_format: { type: 'json_object' },
         },
         messages: [
           { role: 'system', content: 'You are a helpful word game assistant. Respond only with valid JSON.' },
@@ -85,7 +86,7 @@ export async function POST(request) {
             content:
               attempt === 0
                 ? prompt
-                : `${prompt}\nIMPORTANT: Output a single JSON object only. No prose, no markdown, no code fence.`,
+                : `${prompt}\nYour previous output was not a valid word. Output a DIFFERENT valid word now, as a single JSON object with no prose, markdown, or code fence.`,
           },
         ],
       })
