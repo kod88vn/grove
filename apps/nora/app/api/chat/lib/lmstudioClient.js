@@ -1,6 +1,7 @@
-// LMStudio-compatible client.
-// LMStudio exposes an OpenAI-compatible API at http://<host>:1234/v1.
-// Normalizes responses to match Ollama's format so existing callers work unchanged.
+// OpenAI-compatible AI backend client (LM Studio, TensorFold, or any /v1 server).
+// The backend exposes an OpenAI-compatible API (LM Studio at http://<host>:1234/v1,
+// TensorFold at http://<host>:8080/v1). Responses are normalized to match
+// Ollama's format so existing callers work unchanged.
 
 import { log } from './logger'
 
@@ -12,6 +13,16 @@ function lmstudioLog(...args) {
 
 function lmstudioError(...args) {
   console.error(LMSTUDIO_LOG_PREFIX, ...args)
+}
+
+/**
+ * Resolve the OpenAI-compatible AI backend base URL (no trailing slash).
+ * AI_BASE_URL wins (e.g. TensorFold); LMSTUDIO_BASE_URL is the legacy fallback
+ * so existing host configs keep working unchanged. Empty string when unset.
+ */
+export function getAIBaseUrl() {
+  const raw = String(process.env.AI_BASE_URL || process.env.LMSTUDIO_BASE_URL || '').trim()
+  return raw.replace(/\/+$/, '')
 }
 
 /**
@@ -148,7 +159,7 @@ async function* parseLMStudioStream(responseBody, model) {
  * Returns a Response object with normalized SSE format.
  */
 export async function callLMStudio(payload) {
-  const baseUrl = String(process.env.LMSTUDIO_BASE_URL || '').trim().replace(/\/+$/, '')
+  const baseUrl = getAIBaseUrl()
   const model = payload?.model || '(unnamed)'
   const messageCount = Array.isArray(payload?.messages) ? payload.messages.length : 0
 

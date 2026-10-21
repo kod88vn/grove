@@ -33,12 +33,18 @@ async function readStreamAsText(stream) {
 
 describe('callAI', () => {
   const originalBaseUrl = process.env.LMSTUDIO_BASE_URL
+  const originalAiBaseUrl = process.env.AI_BASE_URL
 
   afterEach(() => {
     if (originalBaseUrl === undefined) {
       delete process.env.LMSTUDIO_BASE_URL
     } else {
       process.env.LMSTUDIO_BASE_URL = originalBaseUrl
+    }
+    if (originalAiBaseUrl === undefined) {
+      delete process.env.AI_BASE_URL
+    } else {
+      process.env.AI_BASE_URL = originalAiBaseUrl
     }
     jest.resetModules()
     jest.restoreAllMocks()
@@ -122,5 +128,36 @@ describe('callAI', () => {
     expect(body.message.content).not.toBe(AI_OFFLINE_MESSAGE)
     expect(body.message.content).toBe('real answer')
     expect(body.offline).toBeUndefined()
+  })
+})
+
+describe('getProvider', () => {
+  const originalProvider = process.env.AI_PROVIDER
+
+  afterEach(() => {
+    if (originalProvider === undefined) {
+      delete process.env.AI_PROVIDER
+    } else {
+      process.env.AI_PROVIDER = originalProvider
+    }
+    jest.resetModules()
+  })
+
+  it('returns tensorfold when AI_PROVIDER=tensorfold', () => {
+    process.env.AI_PROVIDER = 'tensorfold'
+    const { getProvider } = require('./callAI')
+    expect(getProvider()).toBe('tensorfold')
+  })
+
+  it('defaults to lmstudio when AI_PROVIDER is unset', () => {
+    delete process.env.AI_PROVIDER
+    const { getProvider } = require('./callAI')
+    expect(getProvider()).toBe('lmstudio')
+  })
+
+  it('falls back to lmstudio for unknown providers', () => {
+    process.env.AI_PROVIDER = 'not-a-real-provider'
+    const { getProvider } = require('./callAI')
+    expect(getProvider()).toBe('lmstudio')
   })
 })

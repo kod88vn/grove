@@ -1,7 +1,7 @@
-// Unified AI client router. Routes to LMStudio-compatible backend only.
+// Unified AI client router. Routes to OpenAI-compatible backends (LM Studio, TensorFold).
 // All callers should import from this file instead of calling lmstudioClient.js directly.
 
-import { callLMStudio } from './lmstudioClient'
+import { callLMStudio, getAIBaseUrl } from './lmstudioClient'
 
 const AI_LOG_PREFIX = '[AI_ROUTER]'
 
@@ -19,11 +19,14 @@ function aiError(...args) {
 
 /**
  * Get the active AI provider from environment.
- * Returns 'lmstudio' only.
+ * Returns 'lmstudio' or 'tensorfold' — both speak the same OpenAI-compatible
+ * protocol (backend URL comes from AI_BASE_URL, or legacy LMSTUDIO_BASE_URL;
+ * TensorFold at http://host.docker.internal:8080/v1 in production).
+ * Unknown values fall back to 'lmstudio'.
  */
 function getProvider() {
   const provider = (process.env.AI_PROVIDER || 'lmstudio').trim().toLowerCase()
-  return ['lmstudio'].includes(provider) ? provider : 'lmstudio'
+  return ['lmstudio', 'tensorfold'].includes(provider) ? provider : 'lmstudio'
 }
 
 // Message shown when no local AI backend is configured or reachable.
@@ -105,8 +108,8 @@ export async function callAI(payload) {
 
   aiLog('provider:', provider, '| model:', payload?.model || '(unnamed)')
 
-  if (!process.env.LMSTUDIO_BASE_URL) {
-    aiError('LMSTUDIO_BASE_URL is not configured — returning offline stub (not a real AI response)')
+  if (!getAIBaseUrl()) {
+    aiError('AI base URL is not configured (AI_BASE_URL / LMSTUDIO_BASE_URL) — returning offline stub (not a real AI response)')
     return buildOfflineResponse(payload)
   }
 

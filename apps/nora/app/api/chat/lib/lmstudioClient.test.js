@@ -210,3 +210,37 @@ describe('buildLmstudioPayload — enable_thinking option', () => {
     expect(captured[0].enable_thinking).toBe(false)
   })
 })
+
+describe('getAIBaseUrl', () => {
+  const originalAi = process.env.AI_BASE_URL
+  const originalLm = process.env.LMSTUDIO_BASE_URL
+
+  afterEach(() => {
+    if (originalAi === undefined) delete process.env.AI_BASE_URL
+    else process.env.AI_BASE_URL = originalAi
+    if (originalLm === undefined) delete process.env.LMSTUDIO_BASE_URL
+    else process.env.LMSTUDIO_BASE_URL = originalLm
+    jest.resetModules()
+  })
+
+  it('prefers AI_BASE_URL over legacy LMSTUDIO_BASE_URL and trims trailing slashes', async () => {
+    process.env.AI_BASE_URL = 'http://host.docker.internal:8080/v1/'
+    process.env.LMSTUDIO_BASE_URL = 'http://host.docker.internal:1234/v1'
+    const { getAIBaseUrl } = await import('./lmstudioClient')
+    expect(getAIBaseUrl()).toBe('http://host.docker.internal:8080/v1')
+  })
+
+  it('falls back to legacy LMSTUDIO_BASE_URL when AI_BASE_URL is unset', async () => {
+    delete process.env.AI_BASE_URL
+    process.env.LMSTUDIO_BASE_URL = 'http://host.docker.internal:1234/v1/'
+    const { getAIBaseUrl } = await import('./lmstudioClient')
+    expect(getAIBaseUrl()).toBe('http://host.docker.internal:1234/v1')
+  })
+
+  it('returns an empty string when neither is set', async () => {
+    delete process.env.AI_BASE_URL
+    delete process.env.LMSTUDIO_BASE_URL
+    const { getAIBaseUrl } = await import('./lmstudioClient')
+    expect(getAIBaseUrl()).toBe('')
+  })
+})
