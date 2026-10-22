@@ -15,7 +15,10 @@ const baseSummary = {
     { skillId: 'm5.nf.add-fractions-unlike', name: 'Add Fractions', stage: 'seed' },
   ],
   suggestions: [skill, { id: 'm5.nf.add-fractions', label: 'Add Fractions', name: 'Add Fractions' }],
-  problems: [{ id: 'm5.oa.order-of-operations/precedence', title: 'Order Operations', skill: skill.id }],
+  problems: [
+    { id: 'm5.oa.order-of-operations/precedence', title: 'Order Operations', skill: skill.id },
+    { id: 'm5.nf.add-fractions-unlike/fraction-boss', title: 'Fraction Boss', skill: 'm5.nf.add-fractions-unlike', difficulty: 3, boss: true },
+  ],
   statuses: { 'm5.oa.order-of-operations/precedence': 'untried' },
 }
 
@@ -133,6 +136,13 @@ describe('kid experience screens', () => {
     fireEvent.change(screen.getByLabelText('Filter by grade'), { target: { value: '4' } })
     await waitFor(() => expect(screen.queryByText('Order Operations')).not.toBeInTheDocument())
     expect(screen.getByText('No quests match those filters.')).toBeInTheDocument()
+  })
+
+  it('keeps bosses off the quest board: they appear only through the path boss button', async () => {
+    installApi()
+    render(<KidExperienceHub mode="quests" />)
+    expect(await screen.findByText('Order Operations')).toBeInTheDocument()
+    expect(screen.queryByText('Fraction Boss')).not.toBeInTheDocument()
   })
 
   it('shows seed and sprout stages without inventing a mastered tree', async () => {

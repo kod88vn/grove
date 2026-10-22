@@ -24,7 +24,9 @@
 //              👑 boss once every path skill is a tree), then the
 //              lowest-stage skill whose prerequisites are all ≥ sapling.
 //              Bosses are path goals, never regular practice: they are
-//              excluded from path-step and ready-skill problem picks.
+//              excluded from every automatic pick here (review, path step,
+//              ready skill) and are served only by the all-tree branch — or
+//              when the kid explicitly chooses the boss button.
 //   path     — describePath annotates a study path for the client: each chain
 //              skill's stage, whether its prerequisites are ≥ sapling (locked
 //              skills are visible but not playable), the next playable chain
@@ -257,19 +259,21 @@ export function nextForStudent({ studentId, date, grade }) {
   }
   const stageOf = (skillId) => stateBySkill.get(skillId)?.stage ?? 'seed'
 
+  // Bosses are path goals, not practice: they are excluded from every
+  // automatic pick below (review, path step, ready skill). The curriculum's
+  // `boss` flag is the single source of truth; the all-tree branch below
+  // serves the boss on purpose — that is the path's reward.
+  const bossIds = new Set(problems.filter((problem) => problem.boss).map((problem) => problem.id))
+
   for (const state of dueReviews(studentId, date)) {
-    const problem = pickProblem(templatesBySkill.get(state.skillId) ?? [], state.level)
+    const practice = (templatesBySkill.get(state.skillId) ?? []).filter((problem) => !bossIds.has(problem.id))
+    const problem = pickProblem(practice, state.level)
     if (!problem) continue
     return {
       kind: 'review', skillId: state.skillId, problemId: problem.id, title: problem.title,
       difficulty: problem.difficulty, reason: 'review-due', dueDate: state.dueDate, box: state.box,
     }
   }
-
-  // Bosses are path goals, not practice: a pre-tree kid is never served one,
-  // whether the pick comes from a path step or a ready skill. (The all-tree
-  // branch below serves the boss on purpose — that is the path's reward.)
-  const bossIds = new Set(listPaths(grade).map((path) => path.bossProblemId).filter(Boolean))
 
   for (const path of listPaths(grade)) {
     const stages = path.skills.map((skillId) => stageOf(skillId))

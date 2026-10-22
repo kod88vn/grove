@@ -121,6 +121,9 @@ export function KidExperienceHub({ mode, embedded = false }) {
 
   const topics = useMemo(() => [...new Set(problems.map((problem) => problem.skill))], [problems])
   const filtered = useMemo(() => problems.filter((problem) => {
+    // Bosses are path goals: they only appear via the path's boss button,
+    // never as a quest card or in the Surprise pool.
+    if (problem.boss) return false
     if (topic && problem.skill !== topic) return false
     if (difficulty && problem.difficulty !== Number(difficulty)) return false
     const problemStatus = activeSummary?.statuses[problem.id] ?? 'untried'
@@ -161,7 +164,10 @@ export function KidExperienceHub({ mode, embedded = false }) {
     const next = mastery?.next
     if (!next || !activeSummary) return
     const kind = next.kind === 'path' ? 'path' : next.kind === 'review' ? 'review' : 'skill'
-    await startSession({ kind, skillId: next.skillId, problemId: next.problemId, count: kind === 'review' ? 1 : sessionCount() })
+    // The boss is one three-step problem: a due review or a path boss is a
+    // single-problem session, not a padded multi-problem one.
+    const count = kind === 'review' || next.reason === 'path-boss' ? 1 : sessionCount()
+    await startSession({ kind, skillId: next.skillId, problemId: next.problemId, count })
   }
 
   const bossTitle = (problemId) => activeSummary?.problems.find((problem) => problem.id === problemId)?.title ?? 'Boss'

@@ -16,8 +16,11 @@ import HomeworksPage from '../app/page.js'
 
 // Run 268's erroneous boss/5-attempt stage demands were archived by SHA256 and openly
 // superseded after that run CLOSED. This new locked spec protects both surviving specs.
+// U05 M-MASTERY superseded the kidExperience spec bytes again (audited): it ADDED the
+// boss regression tests (Daily Seed stays boss-free, quest board excludes bosses) and
+// left every U04 assertion above untouched.
 const siblingDigests = {
-  'lib/kidExperience.test.js': 'eadb2608218134151cc310106315489e994346e51e26b5163d8b7c3a7efd0bf9',
+  'lib/kidExperience.test.js': 'e57858b97622a54321a4de426fa1cfd9d29c0231973b39589e4b68ad9cebd54d',
   'components/KidExperienceHub.referee.test.js': '5635b10577f3efe27ea50f5a14e3975813d91e732a7ce5403ca81f0f6dfca3f7',
 }
 const oldResponse = global.Response

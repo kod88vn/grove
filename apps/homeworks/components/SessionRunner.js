@@ -37,9 +37,16 @@ export function SessionRunner({ sessionId, skill, count, problemId: dailyProblem
   const itemsUrl = `/homeworks/api/sessions/${sessionId}/items`
 
   async function draw(problemList, nextPosition, preferredId) {
-    const problem = preferredId
-      ? problemList.find((candidate) => candidate.id === preferredId)
-      : problemList[nextPosition % problemList.length]
+    // Boss problems are path goals: the automatic cycling never revisits one,
+    // but an explicit boss problemId (the path's boss button) still resolves.
+    let problem
+    if (preferredId) {
+      problem = problemList.find((candidate) => candidate.id === preferredId)
+    } else {
+      const cycling = problemList.filter((candidate) => !candidate.boss)
+      const pool = cycling.length > 0 ? cycling : problemList
+      problem = pool[nextPosition % pool.length]
+    }
     if (!problem) throw new Error('The requested quest is not part of this skill')
     const result = await postItem(itemsUrl, problem.id)
     setInstance(result.instance)

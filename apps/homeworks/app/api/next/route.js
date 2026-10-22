@@ -42,18 +42,22 @@ export async function GET(request) {
     grade = parsed
   }
 
+  const problems = listProblems({ grade })
   const templatesBySkill = new Map()
-  for (const problem of listProblems({ grade })) {
+  for (const problem of problems) {
     const list = templatesBySkill.get(problem.skill) ?? []
     list.push(problem)
     templatesBySkill.set(problem.skill, list)
   }
 
-  // The queue mirrors nextForStudent's own choice: the same pickProblem mapping,
-  // so `next` is always the first entry of `reviews` when a review is due.
+  // The queue mirrors nextForStudent's own choice: the same pickProblem mapping
+  // (bosses excluded — they are path goals, not routine reviews), so `next`
+  // is always the first entry of `reviews` when a review is due.
+  const bossIds = new Set(problems.filter((problem) => problem.boss).map((problem) => problem.id))
   const reviews = dueReviews(studentId, date)
     .map((state) => {
-      const problem = pickProblem(templatesBySkill.get(state.skillId) ?? [], state.level)
+      const practice = (templatesBySkill.get(state.skillId) ?? []).filter((problem) => !bossIds.has(problem.id))
+      const problem = pickProblem(practice, state.level)
       if (!problem) return null
       return {
         skillId: state.skillId,

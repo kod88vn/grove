@@ -332,6 +332,13 @@ describe('nextForStudent (plan §6.5: review → path → ready skill)', () => {
     })
   })
 
+  it('never serves a boss as a due review: the review picks regular practice instead', () => {
+    setState('kid', 'm5.nf.add-fractions-unlike', { level: 3, box: 2, dueDate: D1 })
+    const result = next()
+    expect(result).toMatchObject({ kind: 'review', skillId: 'm5.nf.add-fractions-unlike', reason: 'review-due', box: 2 })
+    expect(result.problemId).toBe('m5.nf.add-fractions-unlike/shared-factor-denominators') // level 3 — not fraction-boss
+  })
+
   it('returns null when the grade has no catalog', () => {
     expect(next({ grade: 12 })).toBeNull()
   })

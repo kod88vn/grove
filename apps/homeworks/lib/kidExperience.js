@@ -12,7 +12,8 @@ export function dailySeed({ grade, localDate }) {
 }
 
 export function dailyChallenge({ grade, localDate }) {
-  const problems = listProblems({ grade }).sort((left, right) => left.id.localeCompare(right.id))
+  // Bosses are path goals, not daily practice: they never appear in the seed.
+  const problems = listProblems({ grade }).filter((problem) => !problem.boss).sort((left, right) => left.id.localeCompare(right.id))
   if (problems.length === 0) return null
   const seed = dailySeed({ grade, localDate })
   const problem = getProblem(problems[seed % problems.length].id)
@@ -101,6 +102,7 @@ export function questList({ problems, grade, topic, difficulty, status, studentI
   const solved = new Set(childAttempts.filter((row) => row.correct === 1).map((row) => row.problem_id))
   for (const item of sessionItems) if (item.done === 1) solved.add(item.problem_id)
   return problems.filter((problem) => {
+    if (problem.boss) return false
     const skillId = problem.skillId ?? problem.skill
     if (problem.grade !== grade || (topic && skillId !== topic)) return false
     if (difficulty !== undefined && problem.difficulty !== difficulty) return false
