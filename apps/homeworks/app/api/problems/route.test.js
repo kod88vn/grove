@@ -61,7 +61,7 @@ const get = (query = '') =>
 
 const body = async (query = '') => (await get(query)).json()
 
-const METADATA_KEYS = ['difficulty', 'grade', 'id', 'skill', 'subject', 'title', 'version', 'widget']
+const METADATA_KEYS = ['boss', 'difficulty', 'grade', 'id', 'skill', 'subject', 'title', 'version', 'widget']
 
 function walk(node, visit, path = '$') {
   visit(node, path)

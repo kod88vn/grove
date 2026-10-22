@@ -39,5 +39,6 @@ export const templates = [{
   difficulty: 3,
   widget: 'steps',
   version: 1,
+  boss: true,
   generate: generateExpressionBoss,
 }]

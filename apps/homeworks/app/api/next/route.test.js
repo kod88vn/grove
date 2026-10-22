@@ -84,10 +84,46 @@ describe('GET /homeworks/api/next', () => {
     expect(payload.skillStates[0].box).toBe(2)
   })
 
+  it('keeps a due boss out of the review queue and the next pick', async () => {
+    // The same 5+5 ladder as the review test above, on the boss skill: a due
+    // review of m5.nf.add-fractions-unlike must serve its regular practice.
+    for (let index = 0; index < 5; index += 1) {
+      practice('kid-a', 'm5.nf.add-fractions-unlike', 'm5.nf.add-fractions-unlike/multiple-denominators', '2026-10-19')
+    }
+    for (let index = 0; index < 5; index += 1) {
+      practice('kid-a', 'm5.nf.add-fractions-unlike', 'm5.nf.add-fractions-unlike/coprime-denominators', '2026-10-20')
+    }
+    insertSession({ id: 'review-1', student_id: 'kid-a', kind: 'review', skill_id: 'm5.nf.add-fractions-unlike', local_date: '2026-10-21', tz: 'America/New_York' })
+    insertAttempt({
+      id: 'review-attempt', session_id: 'review-1', student_id: 'kid-a', subject: 'math', grade: 5,
+      skill_id: 'm5.nf.add-fractions-unlike', problem_id: 'm5.nf.add-fractions-unlike/shared-factor-denominators',
+      content_version: 1, seed: 1, difficulty: 1, shown: { prompt: 'sample' }, response: { value: 1 },
+      answer: { value: 1 }, correct: true, tries: 1, hints_used: 0, revealed: 0, stars: 3,
+      rubric: null, duration_ms: 1, local_date: '2026-10-21',
+    })
+    refreshSkillState('kid-a', 'm5.nf.add-fractions-unlike')
+    const payload = await (await get('kid-a')).json()
+    expect(payload.next).toMatchObject({ kind: 'review', skillId: 'm5.nf.add-fractions-unlike', reason: 'review-due' })
+    expect(payload.next.problemId).not.toBe('m5.nf.add-fractions-unlike/fraction-boss')
+    for (const review of payload.reviews) expect(review.problemId).not.toBe('m5.nf.add-fractions-unlike/fraction-boss')
+  })
+
   it('offers a ready starter skill to a fresh profile with nothing stored', async () => {
     const payload = await (await get('kid-a')).json()
     expect(payload.next).toMatchObject({ kind: 'skill', reason: 'ready-skill' })
     expect(payload.reviews).toEqual([])
     expect(payload.skillStates).toEqual([])
+    // Paths are annotated for the client (mastery describePath, plan §6.7):
+    // stage per chain skill, locked = prerequisite below sapling, boss ready
+    // only when every chain skill is a tree.
+    expect(payload.paths[0]).toMatchObject({
+      id: 'fraction-forest',
+      nextSkillId: 'm5.nf.equiv-fractions',
+      bossReady: false,
+    })
+    expect(payload.paths[0].skills).toEqual([
+      { skillId: 'm5.nf.equiv-fractions', stage: 'seed', locked: false, lockedBy: [] },
+      { skillId: 'm5.nf.add-fractions-unlike', stage: 'seed', locked: true, lockedBy: ['m5.nf.equiv-fractions'] },
+    ])
   })
 })

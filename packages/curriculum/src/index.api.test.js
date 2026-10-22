@@ -127,7 +127,7 @@ test('listProblems() returns every template, once, as metadata with no generate(
   for (const row of rows) {
     assert.equal(typeof row.generate, 'undefined', `${row.id} leaks generate()`)
     assert.deepEqual(Object.keys(row).sort(), [
-      'difficulty', 'grade', 'id', 'skill', 'subject', 'title', 'version', 'widget',
+      'boss', 'difficulty', 'grade', 'id', 'skill', 'subject', 'title', 'version', 'widget',
     ])
   }
   assert.deepEqual(JSON.parse(JSON.stringify(rows)), rows)
@@ -139,6 +139,17 @@ test('listProblems() carries the subject and grade of its skill (§6.6 Quest Boa
     assert.ok(skill, `${row.id} names a skill that is not in the catalog`)
     assert.equal(row.subject, skill.subject)
     assert.equal(row.grade, skill.grade)
+  }
+})
+
+test('boss templates are flagged, resolvable by getProblem, and never the only template of their skill', () => {
+  const bosses = allTemplates.filter((template) => template.boss)
+  assert.ok(bosses.length > 0, 'no boss in the tree; the path reward would be unreachable')
+  for (const boss of bosses) {
+    assert.equal(boss.boss, true)
+    assert.equal(getProblem(boss.id).boss, true, `${boss.id} does not round-trip through getProblem`)
+    const siblings = allTemplates.filter((template) => template.skill === boss.skill && !template.boss)
+    assert.ok(siblings.length > 0, `${boss.skill} has no regular practice; excluding the boss would empty it`)
   }
 })
 

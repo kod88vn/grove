@@ -36,10 +36,13 @@ afterEach(() => { global.Response = oldResponse; delete global.fetch })
 
 describe('U04 session finish safety at the acceptance boundary', () => {
   it('preserves the byte-for-byte prior locked U04 assertions', () => {
+    // The kidExperience spec was audited and extended in U05 M-MASTERY: the boss
+    // regression tests were added and every U04 assertion preserved, so its pin
+    // follows the superseded bytes.
     const digests = {
-      'lib/kidExperience.test.js': 'eadb2608218134151cc310106315489e994346e51e26b5163d8b7c3a7efd0bf9',
+      'lib/kidExperience.test.js': 'e57858b97622a54321a4de426fa1cfd9d29c0231973b39589e4b68ad9cebd54d',
       'components/KidExperienceHub.referee.test.js': '5635b10577f3efe27ea50f5a14e3975813d91e732a7ce5403ca81f0f6dfca3f7',
-      'components/KidExperienceHub.plan.test.js': '20a5505a468e01201391d72ab0d5b7f2f28d5d7829884b7d2c2cb19366366f2f',
+      'components/KidExperienceHub.plan.test.js': 'ea0290a210860c346a083ce9e497f84a1eb8a978753dc8c4f20575b89f5dfd34',
     }
     for (const [file, expected] of Object.entries(digests)) {
       expect(createHash('sha256').update(readFileSync(resolve(process.cwd(), file))).digest('hex')).toBe(expected)

@@ -3,15 +3,17 @@
  *
  * The kid's mastery view in one call: what to play right now (`next`), the full
  * queue of spaced reviews whose day has arrived (`reviews`), the grade's study
- * paths with their boss problems (`paths`), and the derived `skill_state` rows
- * (`skillStates`) so the client can render stages without a second round trip.
+ * paths annotated for the client (`paths` — each chain skill's stage, lock
+ * state and boss readiness via the mastery engine's describePath), and the
+ * derived `skill_state` rows (`skillStates`) so the client can render stages
+ * without a second round trip.
  *
  * `date` is the viewer's calendar date (plan §6.5: due dates are local days, so
  * the caller must say which local day it is asking about).
  */
 import { listPaths, listProblems } from '@grove/curriculum'
 import { getStudentById } from '../../../lib/db.js'
-import { dueReviews, getSkillStates, nextForStudent, pickProblem } from '../../../lib/mastery.js'
+import { describePath, dueReviews, getSkillStates, nextForStudent, pickProblem } from '../../../lib/mastery.js'
 
 function isCalendarDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) return false
@@ -40,18 +42,22 @@ export async function GET(request) {
     grade = parsed
   }
 
+  const problems = listProblems({ grade })
   const templatesBySkill = new Map()
-  for (const problem of listProblems({ grade })) {
+  for (const problem of problems) {
     const list = templatesBySkill.get(problem.skill) ?? []
     list.push(problem)
     templatesBySkill.set(problem.skill, list)
   }
 
-  // The queue mirrors nextForStudent's own choice: the same pickProblem mapping,
-  // so `next` is always the first entry of `reviews` when a review is due.
+  // The queue mirrors nextForStudent's own choice: the same pickProblem mapping
+  // (bosses excluded — they are path goals, not routine reviews), so `next`
+  // is always the first entry of `reviews` when a review is due.
+  const bossIds = new Set(problems.filter((problem) => problem.boss).map((problem) => problem.id))
   const reviews = dueReviews(studentId, date)
     .map((state) => {
-      const problem = pickProblem(templatesBySkill.get(state.skillId) ?? [], state.level)
+      const practice = (templatesBySkill.get(state.skillId) ?? []).filter((problem) => !bossIds.has(problem.id))
+      const problem = pickProblem(practice, state.level)
       if (!problem) return null
       return {
         skillId: state.skillId,
@@ -64,17 +70,12 @@ export async function GET(request) {
     })
     .filter(Boolean)
 
-  const paths = listPaths(grade).map((path) => ({
-    id: path.id,
-    name: path.name,
-    icon: path.icon,
-    subject: path.subject,
-    terminal: path.terminal,
-    bossProblemId: path.bossProblemId,
-    skills: path.skills,
-  }))
+  const states = getSkillStates(studentId)
+  const stateBySkill = new Map(states.map((state) => [state.skillId, state]))
+  const stageOf = (skillId) => stateBySkill.get(skillId)?.stage ?? 'seed'
+  const paths = listPaths(grade).map((path) => describePath({ path, stageOf }))
 
-  const skillStates = getSkillStates(studentId).map((state) => ({
+  const skillStates = states.map((state) => ({
     skillId: state.skillId,
     stage: state.stage,
     level: state.level,

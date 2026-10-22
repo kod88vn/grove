@@ -89,6 +89,10 @@ export function listProblems(filter) {
         difficulty: template.difficulty,
         widget: template.widget,
         version: template.version,
+        // Path bosses are goals, not practice: consumers that *pick* problems
+        // (daily, quests, in-session cycling, mastery review) must exclude
+        // them; consumers that only *look up* a requested problem keep them.
+        boss: template.boss === true,
       }
     })
     .filter((problem) => matches(problem, filter, ['subject', 'grade', 'skill', 'difficulty']))

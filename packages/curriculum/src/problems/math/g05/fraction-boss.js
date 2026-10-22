@@ -52,8 +52,8 @@ function generateFractionBoss(rng) {
     },
     answer: {
       steps: [
-        { grammar: 'rational', expression: fraction(scaledA, common) },
-        { grammar: 'rational', expression: `${fraction(scaledA, common)} + ${fraction(scaledB, common)}` },
+        { grammar: 'rational', expression: `${scaledA}/${common}` },
+        { grammar: 'rational', expression: `${scaledA}/${common} + ${scaledB}/${common}` },
         { grammar: 'rational', expression: fraction(sumNumerator, common) },
       ],
     },
@@ -62,7 +62,7 @@ function generateFractionBoss(rng) {
       'Scale the second fraction the same way, then add the numerators.',
       'Divide the top and bottom of the final fraction by their greatest common factor.',
     ],
-    explanation: `${first} = ${fraction(scaledA, common)} and ${second} = ${fraction(scaledB, common)}, so the sum is ${fraction(sumNumerator, common)}.`,
+    explanation: `${first} becomes ${scaledA}/${common} and ${second} becomes ${scaledB}/${common}, so the sum is ${fraction(sumNumerator, common)}.`,
   }
 }
 
@@ -73,5 +73,6 @@ export const templates = [{
   difficulty: 3,
   widget: 'steps',
   version: 1,
+  boss: true,
   generate: generateFractionBoss,
 }]

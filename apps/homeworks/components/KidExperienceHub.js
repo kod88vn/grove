@@ -121,6 +121,9 @@ export function KidExperienceHub({ mode, embedded = false }) {
 
   const topics = useMemo(() => [...new Set(problems.map((problem) => problem.skill))], [problems])
   const filtered = useMemo(() => problems.filter((problem) => {
+    // Bosses are path goals: they only appear via the path's boss button,
+    // never as a quest card or in the Surprise pool.
+    if (problem.boss) return false
     if (topic && problem.skill !== topic) return false
     if (difficulty && problem.difficulty !== Number(difficulty)) return false
     const problemStatus = activeSummary?.statuses[problem.id] ?? 'untried'
@@ -161,11 +164,56 @@ export function KidExperienceHub({ mode, embedded = false }) {
     const next = mastery?.next
     if (!next || !activeSummary) return
     const kind = next.kind === 'path' ? 'path' : next.kind === 'review' ? 'review' : 'skill'
-    await startSession({ kind, skillId: next.skillId, problemId: next.problemId, count: kind === 'review' ? 1 : sessionCount() })
+    // The boss is one three-step problem: a due review or a path boss is a
+    // single-problem session, not a padded multi-problem one.
+    const count = kind === 'review' || next.reason === 'path-boss' ? 1 : sessionCount()
+    await startSession({ kind, skillId: next.skillId, problemId: next.problemId, count })
   }
 
-  const stageOf = (skillId) => mastery?.skillStates.find((state) => state.skillId === skillId)?.stage ?? 'seed'
   const bossTitle = (problemId) => activeSummary?.problems.find((problem) => problem.id === problemId)?.title ?? 'Boss'
+  const skillName = (skillId) => activeSummary?.garden.find((tree) => tree.skillId === skillId)?.name ?? skillId
+
+  // A path's chain as buttons: stage icon per skill, locked skills dimmed
+  // (they click through to a "grow X first" notice instead of a session).
+  function pathChain(path) {
+    return path.skills.map((skill) => {
+      const lockedNames = skill.lockedBy.map(skillName).join(' and ')
+      return (
+        <button
+          key={skill.skillId}
+          disabled={busy}
+          title={skill.locked ? `Locked—grow ${lockedNames} first` : skillName(skill.skillId)}
+          aria-label={skill.locked ? `Locked: grow ${lockedNames} first` : `Practice ${skillName(skill.skillId)}`}
+          onClick={() => {
+            if (skill.locked) {
+              setError(`Grow "${lockedNames}" first—${skillName(skill.skillId)} is still locked.`)
+              return
+            }
+            startSession({ kind: 'path', skillId: skill.skillId, count: sessionCount() })
+          }}
+          className={`min-h-14 rounded-lg border px-3 text-xl ${skill.locked ? 'border-slate-300 bg-slate-100 opacity-50' : 'border-emerald-300 bg-emerald-50'}`}
+        >
+          {gardenStagePresentation(skill.stage).icon}
+          {skill.locked && <span aria-hidden="true"> 🔒</span>}
+        </button>
+      )
+    })
+  }
+
+  function bossButton(path) {
+    return (
+      <button
+        disabled={busy || !path.bossReady}
+        aria-label={path.bossReady ? `Play the ${path.name} boss` : `Grow every skill in ${path.name} to unlock its boss`}
+        onClick={() => {
+          if (path.bossReady) startSession({ kind: 'path', skillId: path.terminal, problemId: path.bossProblemId, count: 1 })
+        }}
+        className="min-h-14 rounded-lg bg-amber-300 px-4 font-extrabold text-slate-950 disabled:opacity-60"
+      >
+        {path.bossReady ? `👑 ${bossTitle(path.bossProblemId)}` : '🔒 Finish the path first'}
+      </button>
+    )
+  }
 
   async function startDaily() {
     if (!activeSummary || activeSummary.problems.length === 0) return
@@ -268,9 +316,10 @@ export function KidExperienceHub({ mode, embedded = false }) {
   return (
     <Landmark className="mx-auto max-w-4xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div><p className="font-semibold text-emerald-800">🌿 Nora's Grove</p><h1 className="text-4xl font-extrabold text-slate-950">{mode === 'today' ? 'Today' : mode === 'quests' ? 'Quest Board' : 'Your Grove'}</h1></div>
+        <div><p className="font-semibold text-emerald-800">🌿 Nora's Grove</p><h1 className="text-4xl font-extrabold text-slate-950">{mode === 'today' ? 'Today' : mode === 'paths' ? 'Study Paths' : mode === 'quests' ? 'Quest Board' : 'Your Grove'}</h1></div>
         <nav aria-label="Grove navigation" className="flex flex-wrap gap-2">
           <Link className="min-h-14 rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold" href="/today">Today</Link>
+          <Link className="min-h-14 rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold" href="/paths">Paths</Link>
           <Link className="min-h-14 rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold" href="/quests">Quests</Link>
           <Link className="min-h-14 rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold" href="/garden">Garden</Link>
         </nav>
@@ -319,20 +368,19 @@ export function KidExperienceHub({ mode, embedded = false }) {
           {mode === 'quests' && (<>
             {mastery?.paths?.length > 0 && <section className="mb-4 rounded-2xl border border-violet-200 bg-violet-50 p-5">
               <h2 className="text-2xl font-bold">🗺 Study paths</h2>
-              <p className="mt-1 text-slate-700">Skills that team up into one path—each icon shows how far that skill has grown.</p>
+              <p className="mt-1 text-slate-700">Skills that team up into one path—each icon shows how far that skill has grown. Locked skills need their foundations first.</p>
               <div className="mt-3 grid gap-3">
                 {mastery.paths.map((path) => (
                   <div key={path.id} className="rounded-xl bg-white p-4">
-                    <p className="font-bold">{path.icon} {path.name}</p>
+                    <p className="font-bold">{path.icon} {path.name}{path.bossReady && <span className="text-amber-700"> · 👑 boss ready!</span>}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {path.skills.map((skillId) => (
-                        <button key={skillId} disabled={busy} title={skillId} aria-label={`Practice ${skillId}`} onClick={() => startSession({ kind: 'path', skillId, count: sessionCount() })} className="min-h-14 rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xl">
-                          {gardenStagePresentation(stageOf(skillId)).icon}
-                        </button>
-                      ))}
-                      <button disabled={busy} aria-label={`Play the ${path.name} boss`} onClick={() => startSession({ kind: 'path', skillId: path.terminal, problemId: path.bossProblemId, count: 1 })} className="min-h-14 rounded-lg bg-amber-300 px-4 font-extrabold text-slate-950">
-                        👑 {bossTitle(path.bossProblemId)}
+                      {pathChain(path)}
+                      <button disabled={busy || !path.nextSkillId} onClick={() => {
+                        if (path.nextSkillId) startSession({ kind: 'path', skillId: path.nextSkillId, count: sessionCount() })
+                      }} className="min-h-14 rounded-lg bg-emerald-700 px-4 font-extrabold text-white disabled:opacity-60">
+                        ▶ {path.nextSkillId ? `Play ${skillName(path.nextSkillId)}` : 'All grown!'}
                       </button>
+                      {bossButton(path)}
                     </div>
                   </div>
                 ))}
@@ -355,6 +403,31 @@ export function KidExperienceHub({ mode, embedded = false }) {
             </li>)}</ul>
             {!filtered.length && <p className="mt-5">No quests match those filters.</p>}
             </section>
+          </>)}
+          {mode === 'paths' && (<>
+            <div className="mb-4 rounded-3xl bg-violet-800 p-6 text-white">
+              <p className="text-xl">🗺 Study paths</p>
+              <p className="mt-1">Grow every skill in a chain into a tree and its 👑 boss unlocks. Locked skills need their foundations first.</p>
+            </div>
+            {mastery?.paths?.length > 0 ? <div className="grid gap-4">
+              {mastery.paths.map((path) => (
+                <article key={path.id} className="rounded-2xl border border-violet-200 bg-white p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-xl font-bold">{path.icon} {path.name}</h2>
+                    {path.bossReady
+                      ? <span className="rounded-full bg-amber-100 px-4 py-2 font-bold text-amber-800">👑 Boss ready!</span>
+                      : <span className="rounded-full bg-slate-100 px-4 py-2 text-slate-600">🔒 Boss locked</span>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">{pathChain(path)}</div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {path.nextSkillId && <button disabled={busy} onClick={() => startSession({ kind: 'path', skillId: path.nextSkillId, count: sessionCount() })} className="min-h-14 rounded-xl bg-emerald-700 px-6 font-extrabold text-white">
+                      ▶ Play next: {skillName(path.nextSkillId)}
+                    </button>}
+                    {bossButton(path)}
+                  </div>
+                </article>
+              ))}
+            </div> : <p className="rounded-2xl border bg-white p-5">No study paths for this grade yet.</p>}
           </>)}
           {mode === 'garden' && <section className="rounded-2xl border bg-white p-5">
             <h2 className="text-2xl font-bold">🦉 Nora's garden guide</h2>

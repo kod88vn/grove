@@ -51,4 +51,15 @@ describe('GET /homeworks/api/kid-experience', () => {
     finishSession('open-session')
     expect((await (await get('kid-a')).json()).continueSession).toBeNull()
   })
+
+  it('lists bosses for the path boss button but keeps them out of the quest count', async () => {
+    attempt('kid-a', 3, 'm5.nf.add-fractions-unlike')
+    const payload = await (await get('kid-a')).json()
+    const bosses = payload.problems.filter((problem) => problem.boss)
+    expect(bosses.length).toBe(3)
+    expect(payload.questCount).toBe(payload.problems.length - bosses.length)
+    // The boss skill still grows in the garden from its attempts — bosses are
+    // problems, not skills, so the tree itself is unaffected.
+    expect(payload.garden.find(({ skillId }) => skillId === 'm5.nf.add-fractions-unlike').stage).toBe('sprout')
+  })
 })

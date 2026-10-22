@@ -3,6 +3,7 @@
 // The module is deliberately absent on the base branch: this must be RED before implementation.
 import { afterAll, beforeEach, describe, expect, it } from '@jest/globals'
 import { initDb, insertStudent, getStudentById } from './db.js'
+import { listProblems } from '@grove/curriculum'
 import { dailySeed, wateringSummary, rewardSummary, questList, gardenSummary } from './kidExperience.js'
 import { GET as getDaily } from '../app/api/daily/route.js'
 
@@ -94,5 +95,24 @@ describe('U04 daily challenge and per-kid rewards', () => {
     expect(garden.find(({ skillId }) => skillId === 'm5.oa.order-of-operations').stage).toBe('sprout')
     expect(garden.find(({ skillId }) => skillId === 'm5.nf.add-fractions').stage).toBe('seed')
     expect(garden.every(({ stage }) => stage !== 'tree' && stage !== 'fruiting')).toBe(true)
+  })
+
+  it('never seeds a boss into the Daily Seed: a full month of picks stays boss-free', async () => {
+    const bossIds = new Set(listProblems({ grade: 5 }).filter((problem) => problem.boss).map((problem) => problem.id))
+    expect(bossIds.size).toBeGreaterThan(0)
+    for (let day = 1; day <= 31; day += 1) {
+      const { status, body } = await daily(5, `2026-10-${String(day).padStart(2, '0')}`)
+      expect(status).toBe(200)
+      expect(bossIds.has(body.problemId)).toBe(false)
+    }
+  })
+
+  it('keeps bosses out of the quest board even when the board lists the boss skill', () => {
+    const problems = [
+      { id: 'm5.nf.add-fractions-unlike/multiple-denominators', grade: 5, skillId: 'm5.nf.add-fractions-unlike', difficulty: 1 },
+      { id: 'm5.nf.add-fractions-unlike/fraction-boss', grade: 5, skillId: 'm5.nf.add-fractions-unlike', difficulty: 3, boss: true },
+    ]
+    expect(questList({ problems, grade: 5, studentId: 'sibling-1', attempts: [] }).map(({ id }) => id))
+      .toEqual(['m5.nf.add-fractions-unlike/multiple-denominators'])
   })
 })

@@ -21,11 +21,11 @@ function nextSuggestion({ grade, attempts, studentId }) {
   const problems = listProblems({ grade })
   const priorSkills = new Set(attempts.filter((attempt) => attempt.student_id === studentId && attempt.correct === 1).map((attempt) => attempt.skill_id))
   const skill = skills
-    .filter((entry) => problems.some((problem) => problem.skill === entry.id))
+    .filter((entry) => problems.some((problem) => problem.skill === entry.id && !problem.boss))
     .sort((left, right) => Number(priorSkills.has(left.id)) - Number(priorSkills.has(right.id)) || left.id.localeCompare(right.id))[0]
   if (!skill) return null
-  const problem = problems.find((entry) => entry.skill === skill.id)
-  return { id: skill.id, label: skill.label || skill.name, problemId: problem.id }
+  const problem = problems.find((entry) => entry.skill === skill.id && !entry.boss)
+  return problem ? { id: skill.id, label: skill.label || skill.name, problemId: problem.id } : null
 }
 
 export async function POST(_request, { params }) {

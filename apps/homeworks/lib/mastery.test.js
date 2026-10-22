@@ -12,12 +12,13 @@
  */
 import { beforeEach, describe, expect, it } from '@jest/globals'
 
-import { getSkill, listProblems } from '@grove/curriculum'
+import { listPaths } from '@grove/curriculum'
 
 import { getDatabase, initDb, insertAttempt, insertSession, insertStudent } from './db.js'
 import {
   addDays,
   computeSkillState,
+  describePath,
   dueReviews,
   getSkillStates,
   nextForStudent,
@@ -270,5 +271,117 @@ describe('the scripted story (plan Phase 4 acceptance: seed → fruiting, back d
       }
     }
     expect(dueReviews('kid', addDays(reviewDate, 400))).toHaveLength(0)
+  })
+})
+
+describe('pickProblem (plan §6.5: level-matched template selection)', () => {
+  const t = (id, difficulty) => ({ id, difficulty })
+
+  it('prefers a template at the current ladder level', () => {
+    expect(pickProblem([t('s/slow', 1), t('s/fast', 2), t('s/slower', 3)], 2)?.id).toBe('s/fast')
+  })
+
+  it('breaks same-difficulty ties by id for determinism', () => {
+    expect(pickProblem([t('s/zeta', 2), t('s/alpha', 2)], 2)?.id).toBe('s/alpha')
+  })
+
+  it('falls back to the closest difficulty, ties by id', () => {
+    expect(pickProblem([t('s/far', 1), t('s/close', 3)], 2)?.id).toBe('s/close')
+    expect(pickProblem([t('s/alpha', 1), t('s/zeta', 3)], 2)?.id).toBe('s/alpha')
+  })
+
+  it('returns null when the skill has no templates', () => {
+    expect(pickProblem([], 1)).toBeNull()
+  })
+})
+
+describe('nextForStudent (plan §6.5: review → path → ready skill)', () => {
+  const next = (over = {}) => nextForStudent({ studentId: 'kid', date: D1, grade: 5, ...over })
+
+  it('offers a ready starter skill (no prerequisites) to a fresh profile', () => {
+    expect(next()).toMatchObject({ kind: 'skill', skillId: 'e5.l.context-clues', reason: 'ready-skill' })
+  })
+
+  it('serves a due review before path work or ready skills', () => {
+    setState('kid', SKILL, { stage: 'tree', level: 3, box: 1, dueDate: D1 })
+    setState('kid', 'm5.nf.equiv-fractions', { stage: 'sapling' }) // fraction-forest in progress, but the review wins
+    expect(next()).toMatchObject({ kind: 'review', skillId: SKILL, reason: 'review-due' })
+  })
+
+  it('serves the first non-tree chain skill of an in-progress path', () => {
+    setState('kid', 'm5.nf.equiv-fractions', { stage: 'sapling', level: 1, box: 0 })
+    const result = next()
+    expect(result).toMatchObject({ kind: 'path', pathId: 'fraction-forest', skillId: 'm5.nf.equiv-fractions', reason: 'path' })
+    expect(result.problemId).toBe('m5.nf.equiv-fractions/place-on-number-line')
+  })
+
+  it('never serves a path boss to a pre-tree kid: the step picks regular practice instead', () => {
+    setState('kid', 'm5.nf.equiv-fractions') // tree (default)
+    setState('kid', 'm5.nf.add-fractions-unlike', { stage: 'sprout', level: 3, box: 0 })
+    const result = next()
+    expect(result).toMatchObject({ kind: 'path', pathId: 'fraction-forest', skillId: 'm5.nf.add-fractions-unlike', reason: 'path' })
+    expect(result.problemId).toBe('m5.nf.add-fractions-unlike/shared-factor-denominators') // not fraction-boss
+  })
+
+  it('serves the boss once every chain skill is a tree', () => {
+    setState('kid', 'm5.nf.equiv-fractions')
+    setState('kid', 'm5.nf.add-fractions-unlike')
+    expect(next()).toMatchObject({
+      kind: 'path', pathId: 'fraction-forest', skillId: 'm5.nf.add-fractions-unlike',
+      problemId: 'm5.nf.add-fractions-unlike/fraction-boss', reason: 'path-boss',
+    })
+  })
+
+  it('never serves a boss as a due review: the review picks regular practice instead', () => {
+    setState('kid', 'm5.nf.add-fractions-unlike', { level: 3, box: 2, dueDate: D1 })
+    const result = next()
+    expect(result).toMatchObject({ kind: 'review', skillId: 'm5.nf.add-fractions-unlike', reason: 'review-due', box: 2 })
+    expect(result.problemId).toBe('m5.nf.add-fractions-unlike/shared-factor-denominators') // level 3 — not fraction-boss
+  })
+
+  it('returns null when the grade has no catalog', () => {
+    expect(next({ grade: 12 })).toBeNull()
+  })
+})
+
+describe('describePath (plan §6.7: the path as the client sees it)', () => {
+  const forest = listPaths(5).find((path) => path.id === 'fraction-forest')
+
+  it('locks a chain skill whose prerequisite has not reached sapling', () => {
+    const described = describePath({ path: forest, stageOf: () => 'seed' })
+    expect(described.skills).toEqual([
+      { skillId: 'm5.nf.equiv-fractions', stage: 'seed', locked: false, lockedBy: [] },
+      { skillId: 'm5.nf.add-fractions-unlike', stage: 'seed', locked: true, lockedBy: ['m5.nf.equiv-fractions'] },
+    ])
+    expect(described.nextSkillId).toBe('m5.nf.equiv-fractions')
+    expect(described.bossReady).toBe(false)
+  })
+
+  it('unlocks every chain skill at sapling and keeps the boss locked below tree', () => {
+    const described = describePath({ path: forest, stageOf: () => 'sapling' })
+    expect(described.skills.every((skill) => skill.locked === false)).toBe(true)
+    expect(described.nextSkillId).toBe('m5.nf.equiv-fractions') // sapling < tree
+    expect(described.bossReady).toBe(false)
+  })
+
+  it('readies the boss exactly when every chain skill is a tree', () => {
+    const described = describePath({ path: forest, stageOf: () => 'tree' })
+    expect(described.nextSkillId).toBeNull()
+    expect(described.bossReady).toBe(true)
+  })
+
+  it('points at the first non-tree chain skill for a mixed path', () => {
+    const stageOf = (skillId) => (skillId === 'm5.nf.equiv-fractions' ? 'tree' : 'sprout')
+    const described = describePath({ path: forest, stageOf })
+    expect(described.nextSkillId).toBe('m5.nf.add-fractions-unlike')
+    expect(described.skills.every((skill) => skill.locked === false)).toBe(true)
+  })
+
+  it('carries the path identity for the client', () => {
+    const described = describePath({ path: forest, stageOf: () => 'seed' })
+    expect(described).toMatchObject({
+      id: 'fraction-forest', name: 'Fraction Forest', icon: '🌲', subject: 'math',
+      terminal: 'm5.nf.add-fractions-unlike', bossProblemId: 'm5.nf.add-fractions-unlike/fraction-boss',
+    })
   })
 })

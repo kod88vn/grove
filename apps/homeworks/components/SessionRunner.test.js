@@ -116,3 +116,49 @@ describe('session-end card', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Your session is saved, but grove details couldn\'t load: Grove details unavailable')
   })
 })
+
+describe('boss cycling (plan §6.5: bosses are path goals, not routine practice)', () => {
+  const bossSkill = 'm5.nf.add-fractions-unlike'
+  const fractionProblems = listProblems({ skill: bossSkill })
+  const regular = fractionProblems.filter((problem) => !problem.boss)
+  const boss = fractionProblems.find((problem) => problem.boss)
+
+  function installCyclingApi() {
+    const posts = []
+    global.fetch = async (url, options) => {
+      if (url === `/homeworks/api/problems?skill=${bossSkill}`) return { ok: true, json: async () => ({ problems: fractionProblems }) }
+      if (url === `/homeworks/api/sessions/${sessionId}/items`) {
+        posts.push(JSON.parse(options.body).problemId)
+        // A fresh seed per draw so SolveItem remounts between problems.
+        const seed = instance.seed + posts.length
+        return { ok: true, json: async () => ({ seed, instance: { ...instance, seed } }) }
+      }
+      if (url === '/homeworks/api/attempts') return { ok: true, json: async () => ({ correct: true, stars: 3, feedback: 'Great work!', explanation: rendered.explanation }) }
+      throw new Error(`Unexpected request: ${url}`)
+    }
+    return posts
+  }
+
+  it('cycles through the regular practice and never lands on the path boss', async () => {
+    expect(boss).toBeDefined()
+    const posts = installCyclingApi()
+    render(<SessionRunner sessionId={sessionId} skill={bossSkill} count={regular.length} />)
+    await screen.findByText(instance.prompt)
+    await answerCurrentProblem()
+    for (let index = 1; index < regular.length; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+      await screen.findByLabelText('Your answer')
+      await answerCurrentProblem()
+    }
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument()
+    expect(posts).toEqual(regular.map((problem) => problem.id))
+    expect(posts).not.toContain(boss.id)
+  })
+
+  it('resolves an explicit boss problemId from the path boss button even though cycling avoids it', async () => {
+    const posts = installCyclingApi()
+    render(<SessionRunner sessionId={sessionId} skill={bossSkill} problemId={boss.id} count={1} />)
+    await screen.findByText(instance.prompt)
+    expect(posts).toEqual([boss.id])
+  })
+})
